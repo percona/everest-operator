@@ -6,4 +6,14 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: dbaas-operator
 repo: github.com/gen1us2k/dbaas-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: percona.com
+  group: dbaas
+  kind: Database
+  path: github.com/gen1us2k/dbaas-operator/api/v1
+  version: v1
 version: "3"
