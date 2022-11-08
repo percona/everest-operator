@@ -1988,6 +1988,8 @@ spec:
                     type: string
                   diskSize:
                     type: string
+                  memory:
+                    type: string
                 type: object
               loadBalancer:
                 description: LoadBalancer contains a load balancer settings. For PXC
@@ -1998,6 +2000,10 @@ spec:
                       type: string
                     type: object
                   configuration:
+                    type: string
+                  exposeType:
+                    description: Service Type string describes ingress methods for
+                      a service
                     type: string
                   loadBalancerSourceRanges:
                     items:
@@ -2034,8 +2040,10 @@ spec:
                     description: Service External Traffic Policy Type string
                     type: string
                   type:
-                    description: Service Type string describes ingress methods for
-                      a service
+                    description: "LoadBalancerType contains supported loadbalancers.
+                      It can be proxysql or haproxy for PXC clusters and mongos for
+                      PSMDB clusters. \n Once PG support will be added, it can be
+                      pg-bouncer or something else."
                     type: string
                 type: object
               monitoring:
@@ -2218,6 +2226,8 @@ spec:
                   pmm:
                     properties:
                       login:
+                        type: string
+                      password:
                         type: string
                       publicAddress:
                         type: string
