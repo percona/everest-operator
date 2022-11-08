@@ -80,7 +80,7 @@ type (
 	// or proxysql. For PSMDB it's mongos.
 	LoadBalancerSpec struct {
 		Type                     LoadBalancerType                        `json:"type,omitempty"`
-		ExposeType               corev1.ServiceType                      `json:"type,omitempty"`
+		ExposeType               corev1.ServiceType                      `json:"exposeType,omitempty"`
 		Configuration            string                                  `json:"configuration,omitempty"`
 		LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
 		Annotations              map[string]string                       `json:"annotations,omitempty"`
@@ -99,11 +99,11 @@ type (
 		ServerUser    string `json:"serverUser,omitempty"`
 		PublicAddress string `json:"publicAddress,omitempty"`
 		Login         string `json:"login,omitempty"`
-		Password      string `json:"login,omitempty"`
+		Password      string `json:"password,omitempty"`
 	}
 	DBInstanceSpec struct {
 		CPU      string `json:"cpu,omitempty"`
-		Memory   string `json:"cpu,omitempty"`
+		Memory   string `json:"memory,omitempty"`
 		DiskSize string `json:"diskSize,omitempty"`
 	}
 	BackupSpec struct {
