@@ -1,0 +1,9 @@
+domain: percona.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: dbaas-operator
+repo: github.com/gen1us2k/dbaas-operator
+version: "3"
