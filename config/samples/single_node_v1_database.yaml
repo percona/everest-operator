@@ -1,7 +1,7 @@
 apiVersion: dbaas.percona.com/v1
 kind: Database
 metadata:
-  name: database-sample
+  name: single-node
   namespace: default
 spec:
   databaseType: pxc
@@ -13,11 +13,11 @@ spec:
     wsrep_trx_fragment_unit='bytes'
     wsrep_trx_fragment_size=3670016
   secretsName: pxc-sample-secrets
-  clusterSize: 5
+  clusterSize: 1
   loadBalancer:
     type: haproxy
     exposeType: ClusterIP
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
   monitoring:
     imagePullPolicy: Always

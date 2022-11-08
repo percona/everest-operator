@@ -60,7 +60,7 @@ type (
 		Database EngineType `json:"databaseType"`
 		// DatabaseVersion sets from version service and uses the recommended version
 		// by default
-		DatabaseVersion string `json:"databaseVersion"`
+		DatabaseImage string `json:"databaseImage"`
 		// DatabaseConfig contains a config settings for the specified database
 		DatabaseConfig string `json:"databaseConfig"`
 		SecretsName    string `json:"secretsName,omitempty"`
@@ -80,6 +80,8 @@ type (
 	LoadBalancerSpec struct {
 		Type                     LoadBalancerType                        `json:"type,omitempty"`
 		ExposeType               corev1.ServiceType                      `json:"exposeType,omitempty"`
+		Image                    string                                  `json:"image,omitempty"`
+		Size                     int32                                   `json:"size,omitempty"`
 		Configuration            string                                  `json:"configuration,omitempty"`
 		LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
 		Annotations              map[string]string                       `json:"annotations,omitempty"`

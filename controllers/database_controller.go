@@ -170,6 +170,14 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return err
 	}
+	memory, err := resource.ParseQuantity(database.Spec.DBInstance.Memory)
+	if err != nil {
+		return err
+	}
+	cpu, err := resource.ParseQuantity(database.Spec.DBInstance.CPU)
+	if err != nil {
+		return err
+	}
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       database.Name,
@@ -188,7 +196,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		pxc.Spec = pxcv1.PerconaXtraDBClusterSpec{
 			CRVersion:         "1.11.0",
 			AllowUnsafeConfig: true,
-			SecretsName:       "minimal-cluster-secrets-trololo",
+			SecretsName:       database.Spec.SecretsName,
 			UpgradeOptions: pxcv1.UpgradeOptions{
 				Apply:    "8.0-recommended",
 				Schedule: "0 4 * * *",
@@ -198,7 +206,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					Configuration: database.Spec.DatabaseConfig,
 					ServiceType:   corev1.ServiceTypeClusterIP,
 					Size:          database.Spec.ClusterSize,
-					Image:         pxcDefaultImage,
+					Image:         database.Spec.DatabaseImage,
 					VolumeSpec: &pxcv1.VolumeSpec{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
 							Resources: corev1.ResourceRequirements{
@@ -208,16 +216,29 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 							},
 						},
 					},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    cpu,
+							corev1.ResourceMemory: memory,
+						},
+					},
 				},
 			},
-			HAProxy: &pxcv1.HAProxySpec{
+		}
+		if database.Spec.LoadBalancer.Type == "haproxy" {
+			pxc.Spec.HAProxy = &pxcv1.HAProxySpec{
 				PodSpec: pxcv1.PodSpec{
-					Size:        database.Spec.ClusterSize,
-					ServiceType: corev1.ServiceTypeClusterIP,
-					Enabled:     true,
-					Image:       "percona/percona-xtradb-cluster-operator:1.11.0-haproxy",
+					Size:                     database.Spec.LoadBalancer.Size,
+					ServiceType:              database.Spec.LoadBalancer.ExposeType,
+					Configuration:            database.Spec.LoadBalancer.Configuration,
+					LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
+					Annotations:              database.Spec.LoadBalancer.Annotations,
+					ExternalTrafficPolicy:    database.Spec.LoadBalancer.TrafficPolicy,
+					Resources:                database.Spec.LoadBalancer.Resources,
+					Enabled:                  true,
+					Image:                    database.Spec.LoadBalancer.Image,
 				},
-			},
+			}
 		}
 		return nil
 	})
@@ -246,5 +267,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.Database{}).
+		Owns(&pxcv1.PerconaXtraDBCluster{}).
+		//Owns(&psmdbv1.PerconaServerMongoDB{}).
 		Complete(r)
 }

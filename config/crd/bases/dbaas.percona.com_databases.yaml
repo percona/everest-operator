@@ -1974,13 +1974,13 @@ spec:
                 description: DatabaseConfig contains a config settings for the specified
                   database
                 type: string
+              databaseImage:
+                description: DatabaseVersion sets from version service and uses the
+                  recommended version by default
+                type: string
               databaseType:
                 description: Database type stands for supported databases by the PMM
                   API Now it's pxc or psmdb types but we can extend it
-                type: string
-              databaseVersion:
-                description: DatabaseVersion sets from version service and uses the
-                  recommended version by default
                 type: string
               dbInstance:
                 properties:
@@ -2004,6 +2004,8 @@ spec:
                   exposeType:
                     description: Service Type string describes ingress methods for
                       a service
+                    type: string
+                  image:
                     type: string
                   loadBalancerSourceRanges:
                     items:
@@ -2036,6 +2038,9 @@ spec:
                           to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
+                  size:
+                    format: int32
+                    type: integer
                   trafficPolicy:
                     description: Service External Traffic Policy Type string
                     type: string
@@ -2273,8 +2278,8 @@ spec:
             required:
             - clusterSize
             - databaseConfig
+            - databaseImage
             - databaseType
-            - databaseVersion
             - dbInstance
             type: object
           status:
