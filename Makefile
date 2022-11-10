@@ -103,9 +103,10 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	# kubectl kuttl test --skip-cluster-delete --config ./e2e-tests/kuttl.yml
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
+test-kind: ## Run integration tests against kind cluster
+	kubectl kuttl test --config ./e2e-tests/kuttl.yml
 ##@ Build
 
 .PHONY: build
