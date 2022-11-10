@@ -5,3 +5,6 @@ kindConfig: e2e-tests/kind.yml
 crdDir: config/crd/bases
 testDirs:
 - e2e-tests/tests
+commands:
+  - command: ./bin/manager
+    background: true

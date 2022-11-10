@@ -54,6 +54,10 @@ jobs:
       - name: Check out code into the Go module directory
         uses: percona-platform/checkout@v2
 
+      - name: Build operator
+        run:
+          make build
+
       - name: Install tools
         run: |
           mkdir -p $TOOLS_PATH
