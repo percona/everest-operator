@@ -1,0 +1,64 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  golang-tests:
+    name: Go unit tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go release
+        uses: percona-platform/setup-go@v2
+
+      - name: Check out code into the Go module directory
+        uses: percona-platform/checkout@v2
+
+      - name: Install tools
+        run: |
+          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          cp kubectl "$GITHUB_PATH"
+          rm kubectl
+        env:
+          KUBECTL_VERSION: 1.23.6
+      - name: Run tests
+        run:
+          make test
+  kind-e2e-tests:
+    name: E2E tests (Kind)
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go release
+        uses: percona-platform/setup-go@v2
+
+      - name: Check out code into the Go module directory
+        uses: percona-platform/checkout@v2
+
+      - name: Install tools
+        run: |
+          # Kubectl
+          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          cp kubectl "$GITHUB_PATH"
+          rm kubectl
+          # Kind
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.17.0/kind-linux-amd64
+          chmod +x ./kind
+          mv ./kind "$GITHUB_PATH"
+          # Kuttl
+          curl -Lo ./kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.14.0/kubectl-kuttl_0.14.0_linux_x86_64
+          chmod +x ./kuttl
+          mv ./kuttl "$GITHUB_PATH"
+        env:
+          KUBECTL_VERSION: 1.23.6
+      - name: Run tests
+        run:
+          kubectl kuttl test --start-kind --config ./e2e-tests/kuttl.yml
