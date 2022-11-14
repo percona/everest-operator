@@ -251,7 +251,19 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				},
 			}
 		}
-		// TODO: Add ProxySQL support
+		if database.Spec.LoadBalancer.Type == "proxysql" {
+			pxc.Spec.ProxySQL = &pxcv1.PodSpec{
+				Size:                     database.Spec.LoadBalancer.Size,
+				ServiceType:              database.Spec.LoadBalancer.ExposeType,
+				Configuration:            database.Spec.LoadBalancer.Configuration,
+				LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
+				Annotations:              database.Spec.LoadBalancer.Annotations,
+				ExternalTrafficPolicy:    database.Spec.LoadBalancer.TrafficPolicy,
+				Resources:                database.Spec.LoadBalancer.Resources,
+				Enabled:                  true,
+				Image:                    database.Spec.LoadBalancer.Image,
+			}
+		}
 		return nil
 	})
 	if err != nil {
