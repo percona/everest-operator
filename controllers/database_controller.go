@@ -59,7 +59,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 
-	database := &dbaasv1.Database{}
+	database := &dbaasv1.DatabaseCluster{}
 
 	err := r.Get(ctx, req.NamespacedName, database)
 	if err != nil {
@@ -82,7 +82,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
-func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.Database) error {
+func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	diskSize, err := resource.ParseQuantity(database.Spec.DBInstance.DiskSize)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	}
 	return nil
 }
-func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.Database) error {
+func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	diskSize, err := resource.ParseQuantity(database.Spec.DBInstance.DiskSize)
 	if err != nil {
 		return err
@@ -266,7 +266,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.Database{}).
+		For(&dbaasv1.DatabaseCluster{}).
 		Owns(&pxcv1.PerconaXtraDBCluster{}).
 		//Owns(&psmdbv1.PerconaServerMongoDB{}).
 		Complete(r)

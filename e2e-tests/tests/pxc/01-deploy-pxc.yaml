@@ -1,5 +1,5 @@
 apiVersion: dbaas.percona.com/v1
-kind: Database
+kind: DatabaseCluster
 metadata:
   name: single-node
 spec:
