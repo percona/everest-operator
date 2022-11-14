@@ -3,6 +3,7 @@ module github.com/gen1us2k/dbaas-operator
 go 1.18
 
 require (
+	github.com/AlekSi/pointer v1.2.0
 	github.com/hashicorp/go-version v1.2.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
