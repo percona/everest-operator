@@ -24,6 +24,9 @@ func (v *Version) String() string {
 func (v *Version) ToCRVersion() string {
 	return strings.Replace(v.String(), "v", "", -1)
 }
+func (v *Version) ToSemver() string {
+	return fmt.Sprintf("v%s", v.String())
+}
 func (v *Version) ToAPIVersion(apiRoot string) string {
 	return fmt.Sprintf("%s/v%s", apiRoot, strings.Replace(v.String(), ".", "-", -1))
 }
