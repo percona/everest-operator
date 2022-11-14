@@ -105,7 +105,7 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
-test-kind: ## Run integration tests against kind cluster
+test-kind: build ## Run integration tests against kind cluster
 	kubectl kuttl test --config ./e2e-tests/kuttl.yml
 ##@ Build
 

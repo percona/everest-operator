@@ -3,6 +3,7 @@ kind: TestSuite
 startKIND: true
 kindConfig: e2e-tests/kind.yml
 crdDir: config/crd/bases
+artifactsDir: /tmp/
 testDirs:
 - e2e-tests/tests
 commands:
