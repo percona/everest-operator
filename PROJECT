@@ -13,7 +13,7 @@ resources:
   controller: true
   domain: percona.com
   group: dbaas
-  kind: Database
+  kind: DatabaseCluster
   path: github.com/gen1us2k/dbaas-operator/api/v1
   version: v1
 version: "3"

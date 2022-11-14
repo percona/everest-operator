@@ -8,7 +8,7 @@ rules:
 - apiGroups:
   - dbaas.percona.com
   resources:
-  - databases
+  - databaseclusters
   verbs:
   - create
   - delete
@@ -20,13 +20,13 @@ rules:
 - apiGroups:
   - dbaas.percona.com
   resources:
-  - databases/finalizers
+  - databaseclusters/finalizers
   verbs:
   - update
 - apiGroups:
   - dbaas.percona.com
   resources:
-  - databases/status
+  - databaseclusters/status
   verbs:
   - get
   - patch

@@ -17,16 +17,19 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	psmdbAPIs "github.com/percona/percona-server-mongodb-operator/pkg/apis"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcAPIs "github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -37,8 +40,9 @@ import (
 )
 
 const (
-	pxcDefaultImage          = "percona/percona-xtradb-cluster:8.0.27-18.1"
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
+	pxcDeploymentName        = "percona-xtradb-cluster-operator"
+	pxcAPIGroup              = "pxc.percona.com"
 )
 
 // DatabaseReconciler reconciles a Database object
@@ -47,9 +51,9 @@ type DatabaseReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databases/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databases/finalizers,verbs=update
+//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -178,6 +182,13 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return err
 	}
+	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
+		Namespace: req.NamespacedName.Namespace,
+		Name:      pxcDeploymentName,
+	})
+	if err != nil {
+		return err
+	}
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       database.Name,
@@ -190,14 +201,14 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
 		pxc.TypeMeta = metav1.TypeMeta{
-			APIVersion: "pxc.percona.com/v1-11-0",
+			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
 		}
 		pxc.Spec = pxcv1.PerconaXtraDBClusterSpec{
-			CRVersion:         "1.11.0",
+			CRVersion:         version.ToCRVersion(),
 			AllowUnsafeConfig: true,
 			SecretsName:       database.Spec.SecretsName,
-			UpgradeOptions: pxcv1.UpgradeOptions{
+			UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
 				Apply:    "8.0-recommended",
 				Schedule: "0 4 * * *",
 			},
@@ -240,21 +251,28 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				},
 			}
 		}
+		// TODO: Add ProxySQL support
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	cPXC := &pxcv1.PerconaXtraDBCluster{}
-	if err := r.Get(ctx, req.NamespacedName, cPXC); err != nil {
-		return err
-	}
-	database.Status.Host = cPXC.Status.Host
-	database.Status.State = dbaasv1.AppState(cPXC.Status.Status)
+	database.Status.Host = pxc.Status.Host
+	database.Status.State = dbaasv1.AppState(pxc.Status.Status)
+	database.Status.Ready = pxc.Status.Ready
+	database.Status.Size = pxc.Status.Size
 	if err := r.Status().Update(ctx, database); err != nil {
 		return err
 	}
 	return nil
+}
+func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
+	deployment := &appsv1.Deployment{}
+	if err := r.Get(ctx, name, deployment); err != nil {
+		return nil, err
+	}
+	version := strings.Split(deployment.Spec.Template.Spec.Containers[0].Image, ":")[1]
+	return NewVersion(version)
 }
 
 // SetupWithManager sets up the controller with the Manager.
