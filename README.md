@@ -1,94 +1,37 @@
-# dbaas-operator
-// TODO(user): Add simple overview of use/purpose
+# DBaaS Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+## Status
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+**This project is in the tech preview state right now. Don't use it on production.**
 
-```sh
-kubectl apply -f config/samples/
-```
 
-2. Build and push your image to the location specified by `IMG`:
-	
-```sh
-make docker-build docker-push IMG=<some-registry>/dbaas-operator:tag
-```
-	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+## How to get involved
 
-```sh
-make deploy IMG=<some-registry>/dbaas-operator:tag
-```
+We encourage contributions and are always looking for new members that are as dedicated to serving the community as we are.
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+If you’re looking for information about how you can contribute, we have [contribution guidelines](CONTRIBUTING.md) across all our repositories in `CONTRIBUTING.md` files. Some of them may just link to the main project’s repository’s contribution guidelines.
 
-```sh
-make uninstall
-```
+We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com) and [Discord](https://per.co.na/discord).
 
-### Undeploy controller
-UnDeploy the controller to the cluster:
+## Submitting Bug Reports
 
-```sh
-make undeploy
-```
+If you find a bug in Percona Monitoring and Management  or one of the related projects, you can submit a report to that project's [JIRA](https://jira.percona.com) issue tracker. Some of the related projects also have GitHub Issues enabled, so you can also submit there.
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+Your first step should be [to search](https://jira.percona.com/issues/?jql=project=PMM) the existing set of open tickets for a similar report. If you find that someone else has already reported your problem, then you can upvote that report to increase its visibility.
 
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+If there is no existing report, submit a report following these steps:
 
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
+1. [Sign in to Percona JIRA.](https://jira.percona.com/login.jsp) You will need to create an account if you do not have one.
+2. [Go to the Create Issue screen and select the relevant project.](https://jira.percona.com/secure/CreateIssueDetails!init.jspa?pid=11600&issuetype=1&priority=3)
+3. Fill in the fields of Summary, Description, Steps To Reproduce, and Affects Version to the best you can. If the bug corresponds to a crash, attach the stack trace from the logs.
 
-### Test It Out
-1. Install the CRDs into the cluster:
+An excellent resource is [Elika Etemad's article on filing good bug reports.](http://fantasai.inkedblade.net/style/talks/filing-good-bugs/).
 
-```sh
-make install
-```
+As a general rule of thumb, please try to create bug reports that are:
 
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+- *Reproducible.* Include steps to reproduce the problem.
+- *Specific.* Include as much detail as possible: which version, what environment, etc.
+- *Unique.* Do not duplicate existing tickets.
 
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2022.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 
