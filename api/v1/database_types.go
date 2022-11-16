@@ -103,9 +103,10 @@ type (
 		Password      string `json:"password,omitempty"`
 	}
 	DBInstanceSpec struct {
-		CPU      string `json:"cpu,omitempty"`
-		Memory   string `json:"memory,omitempty"`
-		DiskSize string `json:"diskSize,omitempty"`
+		CPU              string  `json:"cpu,omitempty"`
+		Memory           string  `json:"memory,omitempty"`
+		DiskSize         string  `json:"diskSize,omitempty"`
+		StorageClassName *string `json:"storageClassName,omitempty"`
 	}
 	BackupSpec struct {
 		Enabled                  bool                          `json:"enabled,omitempty"`
