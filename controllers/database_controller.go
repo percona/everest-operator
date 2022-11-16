@@ -182,6 +182,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 					Size:          database.Spec.ClusterSize,
 					VolumeSpec: &psmdbv1.VolumeSpec{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: database.Spec.DBInstance.StorageClassName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceStorage: diskSize,
@@ -208,6 +209,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 					Size: database.Spec.ClusterSize,
 					VolumeSpec: &psmdbv1.VolumeSpec{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: database.Spec.DBInstance.StorageClassName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceStorage: diskSize,
@@ -299,6 +301,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					Image:         database.Spec.DatabaseImage,
 					VolumeSpec: &pxcv1.VolumeSpec{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: database.Spec.DBInstance.StorageClassName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceStorage: diskSize,
