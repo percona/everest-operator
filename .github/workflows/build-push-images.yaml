@@ -1,0 +1,69 @@
+name: Build and Push images
+
+on:
+  push:
+    branches:
+      - 'release/v[0-9].[0-9]'
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+
+  build: 
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+
+      - name: Make operator and bundle
+        run: |
+          make build manifests bundle
+
+      - name: Docker operator meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            percona/dbaas-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            perconalab/dbaas-operator
+          tags: |
+            type=match,pattern=percona/v(.*),group=1
+            type=match,pattern=percona/v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=sha
+
+      - name: Docker bundle meta
+        id: bundle_meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            percona/dbaas-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            perconalab/dbaas-operator-bundle
+          tags: |
+            type=match,pattern=percona/v(.*),group=1
+            type=match,pattern=percona/v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=sha
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push operator image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Build and Push bundle image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.bundle_meta.outputs.tags }}
+          file: bundle.Dockerfile

@@ -1,0 +1,243 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "dbaas.percona.com/v1",
+          "kind": "DatabaseCluster",
+          "metadata": {
+            "name": "database-sample",
+            "namespace": "default"
+          },
+          "spec": {
+            "clusterSize": 5,
+            "databaseConfig": "[mysqld]\nwsrep_provider_options=\"debug=1;gcache.size=1G\"\nwsrep_debug=1\nwsrep_trx_fragment_unit='bytes'\nwsrep_trx_fragment_size=3670016\n",
+            "databaseImage": "percona/percona-xtradb-cluster:8.0.27-18.1",
+            "databaseType": "pxc",
+            "dbInstance": {
+              "cpu": "1",
+              "diskSize": "15G",
+              "memory": "1G"
+            },
+            "loadBalancer": {
+              "exposeType": "ClusterIP",
+              "image": "percona/percona-xtradb-cluster-operator:1.11.0-haproxy",
+              "size": 3,
+              "type": "haproxy"
+            },
+            "monitoring": {
+              "imagePullPolicy": "Always",
+              "pmm": {
+                "serverHost": "http://127.0.0.1",
+                "serverUser": "admin"
+              },
+              "resources": {
+                "requests": {
+                  "cpu": "500m",
+                  "memory": "500M"
+                }
+              }
+            },
+            "secretsName": "pxc-sample-secrets"
+          }
+        }
+      ]
+    capabilities: Basic Install
+    operators.operatorframework.io/builder: operator-sdk-v1.25.2
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: dbaas-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: DatabaseCluster is the Schema for the databases API
+      displayName: Database Cluster
+      kind: DatabaseCluster
+      name: databaseclusters.dbaas.percona.com
+      version: v1
+  description: Percona PMM DBaaS Operator abstracts different Database operators with
+  displayName: Percona PMM DBaaS Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseclusters/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseclusters/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: dbaas-operator-controller-manager
+      deployments:
+      - label:
+          control-plane: controller-manager
+        name: dbaas-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                control-plane: controller-manager
+            spec:
+              containers:
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=0
+                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 5m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              - args:
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=127.0.0.1:8080
+                - --leader-elect
+                command:
+                - /manager
+                image: perconalab/dbaas-operator:0.0.1
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: dbaas-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: dbaas-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - percona
+  - database
+  links:
+  - name: Dbaas Operator
+    url: https://dbaas-operator.domain
+  maintainers:
+  - email: info@percona.com
+    name: Percona
+  maturity: alpha
+  provider:
+    name: simplified interface.Percona
+    url: percona.com
+  version: 0.0.1

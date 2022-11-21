@@ -5,7 +5,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: dbaas-operator
-repo: github.com/gen1us2k/dbaas-operator
+repo: github.com/percona/dbaas-operator
 resources:
 - api:
     crdVersion: v1
@@ -14,6 +14,6 @@ resources:
   domain: percona.com
   group: dbaas
   kind: DatabaseCluster
-  path: github.com/gen1us2k/dbaas-operator/api/v1
+  path: github.com/percona/dbaas-operator/api/v1
   version: v1
 version: "3"

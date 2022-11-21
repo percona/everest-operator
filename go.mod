@@ -1,4 +1,4 @@
-module github.com/gen1us2k/dbaas-operator
+module github.com/percona/dbaas-operator
 
 go 1.18
 

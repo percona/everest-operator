@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dbaasv1 "github.com/gen1us2k/dbaas-operator/api/v1"
+	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -30,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dbaasv1 "github.com/gen1us2k/dbaas-operator/api/v1"
-	"github.com/gen1us2k/dbaas-operator/controllers"
+	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	"github.com/percona/dbaas-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

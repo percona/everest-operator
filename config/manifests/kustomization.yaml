@@ -1,0 +1,6 @@
+resources:
+- bases/dbaas-operator.clusterserviceversion.yaml
+- ../default
+- ../samples
+- ../scorecard
+

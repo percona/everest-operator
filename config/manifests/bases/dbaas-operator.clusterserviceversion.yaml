@@ -1,0 +1,49 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: dbaas-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: DatabaseCluster is the Schema for the databases API
+      displayName: Database Cluster
+      kind: DatabaseCluster
+      name: databaseclusters.dbaas.percona.com
+      version: v1
+  description: Percona PMM DBaaS Operator abstracts different Database operators with
+  displayName: Percona PMM DBaaS Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - percona
+  - database
+  links:
+  - name: Dbaas Operator
+    url: https://dbaas-operator.domain
+  maintainers:
+  - email: info@percona.com
+    name: Percona
+  maturity: alpha
+  provider:
+    name: simplified interface.Percona
+    url: percona.com
+  version: 0.0.0
