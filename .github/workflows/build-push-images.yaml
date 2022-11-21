@@ -12,6 +12,8 @@ jobs:
 
   build: 
     runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
     
     steps:
       - name: Check out
