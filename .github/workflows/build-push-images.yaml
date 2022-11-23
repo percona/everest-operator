@@ -53,8 +53,8 @@ jobs:
             percona/dbaas-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
             perconalab/dbaas-operator
           tags: |
-            type=match,pattern=percona/v(.*),group=1
-            type=match,pattern=percona/v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=match,pattern=v(.*),group=1
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
             type=sha
 
@@ -66,8 +66,8 @@ jobs:
             percona/dbaas-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
             perconalab/dbaas-operator-bundle
           tags: |
-            type=match,pattern=percona/v(.*),group=1
-            type=match,pattern=percona/v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=match,pattern=v(.*),group=1
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
             type=sha
 
