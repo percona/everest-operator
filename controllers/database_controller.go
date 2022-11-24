@@ -48,6 +48,7 @@ const (
 	psmdbDeploymentName      = "percona-server-mongodb-operator"
 	pxcAPIGroup              = "pxc.percona.com"
 	psmdbAPIGroup            = "psmdb.percona.com"
+	haProxyTemplate          = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 )
 
 // DatabaseReconciler reconciles a Database object
@@ -129,7 +130,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		psmdb.Spec = psmdbv1.PerconaServerMongoDBSpec{
 			CRVersion:  version.ToCRVersion(),
 			UnsafeConf: true,
-			Image:      database.Spec.SecretsName,
+			Image:      database.Spec.DatabaseImage,
 			Secrets: &psmdbv1.SecretsSpec{
 				Users: database.Spec.SecretsName,
 			},
@@ -288,6 +289,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		pxc.Spec = pxcv1.PerconaXtraDBClusterSpec{
 			CRVersion:         version.ToCRVersion(),
 			AllowUnsafeConfig: true,
+			Pause:             database.Spec.Pause,
 			SecretsName:       database.Spec.SecretsName,
 			UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
 				Apply:    "8.0-recommended",
@@ -319,6 +321,10 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			},
 		}
 		if database.Spec.LoadBalancer.Type == "haproxy" {
+			if database.Spec.LoadBalancer.Image == "" {
+				database.Spec.LoadBalancer.Image = fmt.Sprintf(haProxyTemplate, version.String())
+
+			}
 			pxc.Spec.HAProxy = &pxcv1.HAProxySpec{
 				PodSpec: pxcv1.PodSpec{
 					Size:                     database.Spec.LoadBalancer.Size,
@@ -380,6 +386,6 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseCluster{}).
 		Owns(&pxcv1.PerconaXtraDBCluster{}).
-		//Owns(&psmdbv1.PerconaServerMongoDB{}).
+		Owns(&psmdbv1.PerconaServerMongoDB{}).
 		Complete(r)
 }

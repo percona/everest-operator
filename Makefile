@@ -236,3 +236,11 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+# Create a local minikube cluster
+.PHONY: local-env-up
+local-env-up: ## Create a local minikube cluster
+	minikube start --nodes=4 --cpus=2 --memory=4g --apiserver-names host.docker.internal --kubernetes-version=v1.23.6
+	minikube addons disable storage-provisioner
+	kubectl delete storageclass standard
+	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
