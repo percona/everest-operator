@@ -352,6 +352,14 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				Image:                    database.Spec.LoadBalancer.Image,
 			}
 		}
+		if database.Spec.Restart && !pxc.Spec.Pause {
+			pxc.Spec.Pause = true
+		}
+		if database.Spec.Restart && pxc.Status.Status == pxcv1.AppStatePaused {
+			pxc.Spec.Pause = false
+			database.Spec.Restart = false
+			r.Update(ctx, database)
+		}
 		return nil
 	})
 	if err != nil {
