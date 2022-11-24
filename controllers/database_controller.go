@@ -386,6 +386,6 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseCluster{}).
 		Owns(&pxcv1.PerconaXtraDBCluster{}).
-		Owns(&psmdbv1.PerconaServerMongoDB{}).
+		//Owns(&psmdbv1.PerconaServerMongoDB{}).
 		Complete(r)
 }
