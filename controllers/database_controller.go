@@ -25,12 +25,15 @@ import (
 	psmdbAPIs "github.com/percona/percona-server-mongodb-operator/pkg/apis"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcAPIs "github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,6 +49,8 @@ const (
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 	pxcDeploymentName        = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName      = "percona-server-mongodb-operator"
+	pxcCRDName               = "perconaservermongodbs.psmdb.percona.com"
+	psmdbCRDName             = "perconaxtradbclusters.pxc.percona.com"
 	pxcAPIGroup              = "pxc.percona.com"
 	psmdbAPIGroup            = "psmdb.percona.com"
 	haProxyTemplate          = "percona/percona-xtradb-cluster-operator:%s-haproxy"
@@ -385,15 +390,29 @@ func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := pxcAPIs.AddToScheme(r.Scheme); err != nil {
-		return err
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+	controller := ctrl.NewControllerManagedBy(mgr).
+		For(&dbaasv1.DatabaseCluster{})
+	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
+	if err == nil {
+		if err := pxcAPIs.AddToScheme(r.Scheme); err != nil {
+			return err
+		}
+		controller.Owns(&pxcv1.PerconaXtraDBCluster{})
+		fmt.Println("Registered PXC")
 	}
-	if err := psmdbAPIs.AddToScheme(r.Scheme); err != nil {
-		return err
+	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
+	if err == nil {
+		if err := psmdbAPIs.AddToScheme(r.Scheme); err != nil {
+			return err
+		}
+		controller.Owns(&pxcv1.PerconaXtraDBCluster{})
+		fmt.Println("Registered psmdb")
 	}
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.DatabaseCluster{}).
-		Owns(&pxcv1.PerconaXtraDBCluster{}).
-		//Owns(&psmdbv1.PerconaServerMongoDB{}).
-		Complete(r)
+	return controller.Complete(r)
 }
