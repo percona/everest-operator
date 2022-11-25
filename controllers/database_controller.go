@@ -127,6 +127,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
+	restarted := false
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
@@ -135,6 +136,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		psmdb.Spec = psmdbv1.PerconaServerMongoDBSpec{
 			CRVersion:  version.ToCRVersion(),
 			UnsafeConf: true,
+			Pause:      database.Spec.Pause,
 			Image:      database.Spec.DatabaseImage,
 			Secrets: &psmdbv1.SecretsSpec{
 				Users: database.Spec.SecretsName,
@@ -241,11 +243,25 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 				},
 			}
 		}
+		if database.Spec.Restart && !psmdb.Spec.Pause {
+			psmdb.Spec.Pause = true
+		}
+		if database.Spec.Restart && psmdb.Status.State == psmdbv1.AppStatePaused {
+			psmdb.Spec.Pause = false
+			restarted = true
+		}
 
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	if restarted {
+		database.Spec.Restart = false
+
+		if err := r.Update(ctx, database); err != nil {
+			return err
+		}
 	}
 	database.Status.Host = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
@@ -286,6 +302,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
 		return err
 	}
+	restarted := false
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
@@ -362,13 +379,19 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		}
 		if database.Spec.Restart && pxc.Status.Status == pxcv1.AppStatePaused {
 			pxc.Spec.Pause = false
-			database.Spec.Restart = false
-			r.Update(ctx, database)
+			restarted = true
 		}
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	if restarted {
+		database.Spec.Restart = false
+
+		if err := r.Update(ctx, database); err != nil {
+			return err
+		}
 	}
 	database.Status.Host = pxc.Status.Host
 	database.Status.State = dbaasv1.AppState(pxc.Status.Status)
@@ -411,7 +434,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
 	if err == nil {
-		controller.Owns(&pxcv1.PerconaXtraDBCluster{})
+		controller.Owns(&psmdbv1.PerconaServerMongoDB{})
 		fmt.Println("Registered psmdb")
 	}
 	return controller.Complete(r)
