@@ -390,6 +390,12 @@ func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := pxcAPIs.AddToScheme(r.Scheme); err != nil {
+		return err
+	}
+	if err := psmdbAPIs.AddToScheme(r.Scheme); err != nil {
+		return err
+	}
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -400,17 +406,11 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&dbaasv1.DatabaseCluster{})
 	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
-		if err := pxcAPIs.AddToScheme(r.Scheme); err != nil {
-			return err
-		}
 		controller.Owns(&pxcv1.PerconaXtraDBCluster{})
 		fmt.Println("Registered PXC")
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
 	if err == nil {
-		if err := psmdbAPIs.AddToScheme(r.Scheme); err != nil {
-			return err
-		}
 		controller.Owns(&pxcv1.PerconaXtraDBCluster{})
 		fmt.Println("Registered psmdb")
 	}
