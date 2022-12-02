@@ -2275,8 +2275,6 @@ spec:
                 type: object
               pause:
                 type: boolean
-              restart:
-                type: boolean
               secretsName:
                 type: string
             required:

@@ -39,9 +39,6 @@ spec:
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  finalizers:
-  - delete-proxysql-pvc
-  - delete-pxc-pvc
   name: single-node
 spec:
   allowUnsafeConfigurations: true

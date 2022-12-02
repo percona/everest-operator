@@ -65,7 +65,6 @@ type (
 		DatabaseConfig string `json:"databaseConfig"`
 		SecretsName    string `json:"secretsName,omitempty"`
 		Pause          bool   `json:"pause,omitempty"`
-		Restart        bool   `json:"restart,omitempty"`
 		// ClusterSize is amount of nodes that required for the cluster.
 		// A database starts in cluster mode if clusterSize >= 3.
 		ClusterSize int32 `json:"clusterSize"`

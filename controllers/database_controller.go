@@ -49,11 +49,12 @@ const (
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 	pxcDeploymentName        = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName      = "percona-server-mongodb-operator"
-	pxcCRDName               = "perconaservermongodbs.psmdb.percona.com"
-	psmdbCRDName             = "perconaxtradbclusters.pxc.percona.com"
+	psmdbCRDName             = "perconaservermongodbs.psmdb.percona.com"
+	pxcCRDName               = "perconaxtradbclusters.pxc.percona.com"
 	pxcAPIGroup              = "pxc.percona.com"
 	psmdbAPIGroup            = "psmdb.percona.com"
 	haProxyTemplate          = "percona/percona-xtradb-cluster-operator:%s-haproxy"
+	restartAnnotationKey     = "dbaas.percona.com/restart"
 )
 
 // DatabaseReconciler reconciles a Database object
@@ -87,6 +88,18 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return reconcile.Result{}, err
 	}
 	logger.Info("Reconciled", "request", req)
+	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
+
+	if ok && !database.Spec.Pause {
+		database.Spec.Pause = true
+	}
+	if ok && database.Status.State == dbaasv1.AppStatePaused {
+		database.Spec.Pause = false
+		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
+		if err := r.Update(ctx, database); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	if database.Spec.Database == "pxc" {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
@@ -119,15 +132,15 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	}
 	psmdb := &psmdbv1.PerconaServerMongoDB{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       database.Name,
-			Namespace:  database.Namespace,
-			Finalizers: []string{"delete-psmdb-pvc"},
+			Name:        database.Name,
+			Namespace:   database.Namespace,
+			Finalizers:  database.Finalizers,
+			Annotations: database.Annotations,
 		},
 	}
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
-	restarted := false
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
@@ -243,25 +256,11 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 				},
 			}
 		}
-		if database.Spec.Restart && !psmdb.Spec.Pause {
-			psmdb.Spec.Pause = true
-		}
-		if database.Spec.Restart && psmdb.Status.State == psmdbv1.AppStatePaused {
-			psmdb.Spec.Pause = false
-			restarted = true
-		}
 
 		return nil
 	})
 	if err != nil {
 		return err
-	}
-	if restarted {
-		database.Spec.Restart = false
-
-		if err := r.Update(ctx, database); err != nil {
-			return err
-		}
 	}
 	database.Status.Host = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
@@ -294,15 +293,15 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       database.Name,
-			Namespace:  database.Namespace,
-			Finalizers: []string{"delete-proxysql-pvc", "delete-pxc-pvc"},
+			Name:        database.Name,
+			Namespace:   database.Namespace,
+			Finalizers:  database.Finalizers,
+			Annotations: database.Annotations,
 		},
 	}
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
 		return err
 	}
-	restarted := false
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
@@ -374,24 +373,10 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				Image:                    database.Spec.LoadBalancer.Image,
 			}
 		}
-		if database.Spec.Restart && !pxc.Spec.Pause {
-			pxc.Spec.Pause = true
-		}
-		if database.Spec.Restart && pxc.Status.Status == pxcv1.AppStatePaused {
-			pxc.Spec.Pause = false
-			restarted = true
-		}
 		return nil
 	})
 	if err != nil {
 		return err
-	}
-	if restarted {
-		database.Spec.Restart = false
-
-		if err := r.Update(ctx, database); err != nil {
-			return err
-		}
 	}
 	database.Status.Host = pxc.Status.Host
 	database.Status.State = dbaasv1.AppState(pxc.Status.Status)
