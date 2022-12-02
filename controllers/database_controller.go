@@ -147,10 +147,11 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			Kind:       PerconaServerMongoDBKind,
 		}
 		psmdb.Spec = psmdbv1.PerconaServerMongoDBSpec{
-			CRVersion:  version.ToCRVersion(),
-			UnsafeConf: true,
-			Pause:      database.Spec.Pause,
-			Image:      database.Spec.DatabaseImage,
+			CRVersion:      version.ToCRVersion(),
+			UnsafeConf:     database.Spec.ClusterSize == 1,
+			Pause:          database.Spec.Pause,
+			Image:          database.Spec.DatabaseImage,
+			UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
 			Secrets: &psmdbv1.SecretsSpec{
 				Users: database.Spec.SecretsName,
 			},
@@ -309,7 +310,8 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		}
 		pxc.Spec = pxcv1.PerconaXtraDBClusterSpec{
 			CRVersion:         version.ToCRVersion(),
-			AllowUnsafeConfig: true,
+			AllowUnsafeConfig: database.Spec.ClusterSize == 1,
+			UpdateStrategy:    pxcv1.SmartUpdateStatefulSetStrategyType,
 			Pause:             database.Spec.Pause,
 			SecretsName:       database.Spec.SecretsName,
 			UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
