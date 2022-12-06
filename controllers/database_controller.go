@@ -159,6 +159,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 				Apply:    "disabled",
 				Schedule: "0 4 * * *",
 			},
+			PMM: psmdbv1.PMMSpec{Enabled: false},
 			Mongod: &psmdbv1.MongodSpec{
 				Net: &psmdbv1.MongodSpecNet{
 					Port: 27017,
@@ -262,6 +263,17 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			psmdb.Spec.Replsets[0].Expose.ExposeType = database.Spec.LoadBalancer.ExposeType
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
+		if database.Spec.Monitoring.PMM != nil {
+			psmdb.Spec.PMM.Enabled = true
+			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+			psmdb.Spec.PMM.Resources = corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			}
+			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		}
 
 		return nil
 	})
@@ -347,6 +359,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					},
 				},
 			},
+			PMM: &pxcv1.PMMSpec{Enabled: false},
 		}
 		if database.Spec.LoadBalancer.Type == "haproxy" {
 			if database.Spec.LoadBalancer.Image == "" {
@@ -379,6 +392,18 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				Enabled:                  true,
 				Image:                    database.Spec.LoadBalancer.Image,
 			}
+		}
+		if database.Spec.Monitoring.PMM != nil {
+			pxc.Spec.PMM.Enabled = true
+			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
+			pxc.Spec.PMM.Resources = corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			}
+			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
 		return nil
 	})

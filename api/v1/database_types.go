@@ -89,13 +89,14 @@ type (
 		Resources                corev1.ResourceRequirements             `json:"resources,omitempty"`
 	}
 	MonitoringSpec struct {
-		PMM                      PMMSpec                     `json:"pmm,omitempty"`
+		PMM                      *PMMSpec                    `json:"pmm,omitempty"`
 		ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 		Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
 		RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 		ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	}
 	PMMSpec struct {
+		Image         string `json:"image,omitempty"`
 		ServerHost    string `json:"serverHost,omitempty"`
 		ServerUser    string `json:"serverUser,omitempty"`
 		PublicAddress string `json:"publicAddress,omitempty"`

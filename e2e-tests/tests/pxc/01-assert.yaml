@@ -48,6 +48,12 @@ spec:
     image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
     serviceType: ClusterIP
     size: 1
+  pmm:
+    enabled: true
+    resources:
+      requests:
+        cpu: 500m
+        memory: 300M
   pxc:
     configuration: |
       [mysqld]
@@ -72,6 +78,10 @@ spec:
           requests:
             storage: 15G
   secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: 8.0-recommended
+    schedule: 0 4 * * *
 status:
   ready: 0
   size: 2

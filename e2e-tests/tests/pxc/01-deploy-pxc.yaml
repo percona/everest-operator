@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pxc-sample-secrets
+type: Opaque
+data:
+  pmmserver: S1pCaW4yVTA1TXphZGt5ZWs=
+---
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
@@ -21,6 +29,7 @@ spec:
   monitoring:
     imagePullPolicy: Always
     pmm:
+      image: percona/pmm-client:2
       serverHost: http://127.0.0.1
       serverUser: admin
     resources:
