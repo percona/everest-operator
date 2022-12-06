@@ -224,38 +224,43 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 				},
 			},
 		}
-		if database.Spec.ClusterSize != 1 {
-			psmdb.Spec.Sharding = psmdbv1.Sharding{
-				Enabled: true,
-				ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-					Size: database.Spec.ClusterSize,
-					VolumeSpec: &psmdbv1.VolumeSpec{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-							StorageClassName: database.Spec.DBInstance.StorageClassName,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceStorage: diskSize,
-								},
+		psmdb.Spec.Sharding = psmdbv1.Sharding{
+			Enabled: true,
+			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
+				Size: database.Spec.ClusterSize,
+				VolumeSpec: &psmdbv1.VolumeSpec{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+						StorageClassName: database.Spec.DBInstance.StorageClassName,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: diskSize,
 							},
 						},
 					},
-					Arbiter: psmdbv1.Arbiter{
-						Enabled: false,
-					},
 				},
-				Mongos: &psmdbv1.MongosSpec{
-					Size: database.Spec.LoadBalancer.Size,
-					Expose: psmdbv1.MongosExpose{
-						LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-						ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
-					},
-					Configuration: psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration),
-					MultiAZ: psmdbv1.MultiAZ{
-						Resources: database.Spec.LoadBalancer.Resources,
-					},
-					// TODO: Add traffic policy
+				Arbiter: psmdbv1.Arbiter{
+					Enabled: false,
 				},
-			}
+			},
+			Mongos: &psmdbv1.MongosSpec{
+				Size: database.Spec.LoadBalancer.Size,
+				Expose: psmdbv1.MongosExpose{
+					ExposeType:               database.Spec.LoadBalancer.ExposeType,
+					LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
+					ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
+				},
+				Configuration: psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration),
+				MultiAZ: psmdbv1.MultiAZ{
+					Resources: database.Spec.LoadBalancer.Resources,
+				},
+				// TODO: Add traffic policy
+			},
+		}
+		if database.Spec.ClusterSize == 1 {
+			psmdb.Spec.Sharding.Enabled = false
+			psmdb.Spec.Replsets[0].Expose.Enabled = true
+			psmdb.Spec.Replsets[0].Expose.ExposeType = database.Spec.LoadBalancer.ExposeType
+			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
 
 		return nil
