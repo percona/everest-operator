@@ -153,7 +153,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: perconalab/dbaas-operator:0.0.7
+                image: docker.io/percona/dbaas-operator:0.0.7
                 livenessProbe:
                   httpGet:
                     path: /healthz

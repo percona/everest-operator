@@ -29,7 +29,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # percona.com/dbaas-operator-bundle:$VERSION and percona.com/dbaas-operator-catalog:$VERSION.
-IMAGE_TAG_OWNER ?= perconalab
+IMAGE_TAG_OWNER ?= docker.io/percona
 IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/dbaas-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
