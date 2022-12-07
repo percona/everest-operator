@@ -69,8 +69,8 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", WatchNamespaceEnvVar))
-		os.Exit(1)
+		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", WatchNamespaceEnvVar)+
+			"the manager will watch and manage resources in all namespaces")
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

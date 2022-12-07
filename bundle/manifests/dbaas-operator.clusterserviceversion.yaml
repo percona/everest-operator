@@ -47,7 +47,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.0.7
+  name: dbaas-operator.v0.0.8
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -158,7 +158,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.0.7
+                image: docker.io/percona/dbaas-operator:0.0.8
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -224,7 +224,7 @@ spec:
         serviceAccountName: dbaas-operator-controller-manager
     strategy: deployment
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
   - supported: true
     type: SingleNamespace
@@ -247,4 +247,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.7
+  version: 0.0.8
