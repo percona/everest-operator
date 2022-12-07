@@ -45,7 +45,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    operators.operatorframework.io/builder: operator-sdk-v1.25.2
+    operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: dbaas-operator.v0.0.7
   namespace: placeholder
@@ -58,8 +58,8 @@ spec:
       kind: DatabaseCluster
       name: databaseclusters.dbaas.percona.com
       version: v1
-  description: Percona PMM DBaaS Operator abstracts different Database operators with
-  displayName: Percona PMM DBaaS Operator
+  description: Deploy database clusters easily with DBaaS operator
+  displayName: DBaaS operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -153,6 +153,11 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
                 image: docker.io/percona/dbaas-operator:0.0.7
                 livenessProbe:
                   httpGet:
@@ -221,23 +226,25 @@ spec:
   installModes:
   - supported: false
     type: OwnNamespace
-  - supported: false
+  - supported: true
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
   keywords:
+  - dbaas
   - percona
-  - database
   links:
   - name: Dbaas Operator
     url: https://dbaas-operator.domain
   maintainers:
-  - email: info@percona.com
-    name: Percona
+  - email: andrew.minkin@percona.com
+    name: gen1us2k
+  - email: denys.kondratenko@percona.com
+    name: denisok
   maturity: alpha
   provider:
-    name: simplified interface.Percona
-    url: percona.com
+    name: Percona
+    url: https://percona.com
   version: 0.0.7

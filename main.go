@@ -16,7 +16,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -34,6 +36,8 @@ import (
 	"github.com/percona/dbaas-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
+
+const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -63,6 +67,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	if !found {
+		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", WatchNamespaceEnvVar))
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -71,6 +80,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "c423cb25.percona.com",
+		Namespace:              ns,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
