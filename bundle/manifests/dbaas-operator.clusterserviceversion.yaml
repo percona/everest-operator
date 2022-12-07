@@ -47,7 +47,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.25.2
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.0.1
+  name: dbaas-operator.v0.0.7
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -153,7 +153,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: perconalab/dbaas-operator:0.0.1
+                image: perconalab/dbaas-operator:0.0.7
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -240,4 +240,4 @@ spec:
   provider:
     name: simplified interface.Percona
     url: percona.com
-  version: 0.0.1
+  version: 0.0.7
