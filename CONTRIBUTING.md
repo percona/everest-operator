@@ -131,7 +131,7 @@ We use kuttl and envtests as well as unit tests for local development
 
 ## Submitting a Pull Request
 
-See [Working with Git and GitHub](docs/process/GIT_AND_GITHUB.md) and [Common tech libraries and approaches](docs/process/common_tech_lib_approaches.md)
+See [Git Workflow](docs/process/git-workflow.md).
 
 As a PR created you are responsible to:
 * make sure PR is ready (linted, tested and etc)
@@ -144,4 +144,4 @@ As a PR created you are responsible to:
 
 Once your pull request is merged, you are an official Percona Community Contributor. Welcome to the community!
 
-We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com) and [Discord](https://discord.gg/mQEyGPkNbR).
+We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com) and [Discord](https://per.co.na/discord).
