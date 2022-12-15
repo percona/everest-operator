@@ -5,7 +5,7 @@ timeout: 10
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
-  name: test-cluster
+  name: cluster
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1

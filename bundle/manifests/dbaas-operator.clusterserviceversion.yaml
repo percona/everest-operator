@@ -30,6 +30,7 @@ metadata:
             "monitoring": {
               "imagePullPolicy": "Always",
               "pmm": {
+                "image": "percona/pmm-client:2",
                 "serverHost": "http://127.0.0.1",
                 "serverUser": "admin"
               },
@@ -68,6 +69,22 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - dbaas.percona.com
           resources:
           - databaseclusters
@@ -93,6 +110,30 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - psmdb.percona.com
+          resources:
+          - perconaservermongodbs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - authentication.k8s.io
           resources:
