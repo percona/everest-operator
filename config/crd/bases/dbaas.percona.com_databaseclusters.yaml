@@ -2291,6 +2291,8 @@ spec:
             properties:
               host:
                 type: string
+              message:
+                type: string
               ready:
                 format: int32
                 type: integer

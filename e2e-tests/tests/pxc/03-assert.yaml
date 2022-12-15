@@ -8,10 +8,13 @@ metadata:
   name: test-cluster
 spec:
   databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
+  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
   databaseConfig: |
     [mysqld]
     wsrep_provider_options="debug=1;gcache.size=1G"
+    wsrep_debug=1
+    wsrep_trx_fragment_unit='bytes'
+    wsrep_trx_fragment_size=3670016
   secretsName: pxc-sample-secrets
   clusterSize: 1
   loadBalancer:
@@ -40,8 +43,11 @@ spec:
     configuration: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.23-14.1
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
     livenessProbes: {}
     readinessProbes: {}
     resources:

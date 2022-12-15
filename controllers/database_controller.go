@@ -284,6 +284,12 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
 	database.Status.State = dbaasv1.AppState(psmdb.Status.State)
+	message := psmdb.Status.Message
+	conditions := psmdb.Status.Conditions
+	if message == "" && len(conditions) != 0 {
+		message = conditions[len(conditions)-1].Message
+	}
+	database.Status.Message = message
 	if err := r.Status().Update(ctx, database); err != nil {
 		return err
 	}
@@ -414,6 +420,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	database.Status.State = dbaasv1.AppState(pxc.Status.Status)
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
+	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
 	if err := r.Status().Update(ctx, database); err != nil {
 		return err
 	}

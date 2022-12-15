@@ -196,10 +196,11 @@ type (
 
 // DatabaseClusterStatus defines the observed state of Database
 type DatabaseClusterStatus struct {
-	Ready int32    `json:"ready,omitempty"`
-	Size  int32    `json:"size,omitempty"`
-	State AppState `json:"status,omitempty"`
-	Host  string   `json:"host,omitempty"`
+	Ready   int32    `json:"ready,omitempty"`
+	Size    int32    `json:"size,omitempty"`
+	State   AppState `json:"status,omitempty"`
+	Host    string   `json:"host,omitempty"`
+	Message string   `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true

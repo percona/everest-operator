@@ -43,54 +43,54 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.11.0
 
-  kind-e2e-tests:
-    name: E2E tests (Kind)
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
-    steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+    #kind-e2e-tests:
+    #  name: E2E tests (Kind)
+    #  timeout-minutes: 30
+    #  strategy:
+    #    fail-fast: true
+    #  runs-on: ubuntu-latest
+    #  env:
+    #    TOOLS_PATH: "/opt/tools/bin"
+    #  steps:
+    #    - name: Check out code into the Go module directory
+    #      uses: actions/checkout@v3
 
-      - name: Set up Go release
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.18'
-          check-latest: true
+    #    - name: Set up Go release
+    #      uses: actions/setup-go@v3
+    #      with:
+    #        go-version: '1.18'
+    #        check-latest: true
 
-      - name: Build operator
-        run:
-          make build
+    #    - name: Build operator
+    #      run:
+    #        make build
 
-      - name: Install tools
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          # Kubectl
-          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-          chmod +x kubectl
-          cp kubectl "$TOOLS_PATH"
-          rm kubectl
-          # Kind
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.17.0/kind-linux-amd64
-          chmod +x ./kind
-          mv ./kind "$TOOLS_PATH"
-          # Kuttl
-          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.14.0/kubectl-kuttl_0.14.0_linux_x86_64
-          chmod +x ./kubectl-kuttl
-          mv ./kubectl-kuttl "$TOOLS_PATH"
-        env:
-          KUBECTL_VERSION: 1.23.6
-      - name: Run tests
-        run:
-          kubectl kuttl test --start-kind --config ./e2e-tests/kuttl.yml
-        env:
-          PXC_OPERATOR_VERSION: 1.11.0
+    #    - name: Install tools
+    #      run: |
+    #        mkdir -p $TOOLS_PATH
+    #        echo $TOOLS_PATH >> $GITHUB_PATH
+    #        # Kubectl
+    #        curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+    #        curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+    #        echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+    #        chmod +x kubectl
+    #        cp kubectl "$TOOLS_PATH"
+    #        rm kubectl
+    #        # Kind
+    #        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.17.0/kind-linux-amd64
+    #        chmod +x ./kind
+    #        mv ./kind "$TOOLS_PATH"
+    #        # Kuttl
+    #        curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.14.0/kubectl-kuttl_0.14.0_linux_x86_64
+    #        chmod +x ./kubectl-kuttl
+    #        mv ./kubectl-kuttl "$TOOLS_PATH"
+    #      env:
+    #        KUBECTL_VERSION: 1.23.6
+    #    - name: Run tests
+    #      run:
+    #        kubectl kuttl test --start-kind --config ./e2e-tests/kuttl.yml
+    #      env:
+    #        PXC_OPERATOR_VERSION: 1.11.0
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -167,7 +167,7 @@ jobs:
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
-          
+
           export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
           export OS=$(uname | awk '{print tolower($0)}')
 
@@ -181,7 +181,7 @@ jobs:
           gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
 
           grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-          
+
           chmod +x operator-sdk_${OS}_${ARCH}
           mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
 

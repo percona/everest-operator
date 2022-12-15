@@ -2,8 +2,6 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 crdDir: config/crd/bases
 artifactsDir: /tmp/
+parallel: 1
 testDirs:
 - e2e-tests/tests
-commands:
-  - command: ./bin/manager
-    background: true
