@@ -116,18 +116,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
 func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
-	diskSize, err := resource.ParseQuantity(database.Spec.DBInstance.DiskSize)
-	if err != nil {
-		return err
-	}
-	memory, err := resource.ParseQuantity(database.Spec.DBInstance.Memory)
-	if err != nil {
-		return err
-	}
-	cpu, err := resource.ParseQuantity(database.Spec.DBInstance.CPU)
-	if err != nil {
-		return err
-	}
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      psmdbDeploymentName,
@@ -213,7 +201,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 							StorageClassName: database.Spec.DBInstance.StorageClassName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceStorage: diskSize,
+									corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
 								},
 							},
 						},
@@ -222,8 +210,8 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 					MultiAZ: psmdbv1.MultiAZ{
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceCPU:    cpu,
-								corev1.ResourceMemory: memory,
+								corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
+								corev1.ResourceMemory: database.Spec.DBInstance.Memory,
 							},
 						},
 					},
@@ -239,7 +227,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 						StorageClassName: database.Spec.DBInstance.StorageClassName,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: diskSize,
+								corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
 							},
 						},
 					},
@@ -301,23 +289,10 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	return nil
 }
 func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
-	diskSize, err := resource.ParseQuantity(database.Spec.DBInstance.DiskSize)
-	if err != nil {
-		return err
-	}
-	memory, err := resource.ParseQuantity(database.Spec.DBInstance.Memory)
-	if err != nil {
-		return err
-	}
-	cpu, err := resource.ParseQuantity(database.Spec.DBInstance.CPU)
-	if err != nil {
-		return err
-	}
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      pxcDeploymentName,
 	})
-	fmt.Println(version.String())
 	if err != nil {
 		return err
 	}
@@ -358,15 +333,15 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 							StorageClassName: database.Spec.DBInstance.StorageClassName,
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceStorage: diskSize,
+									corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
 								},
 							},
 						},
 					},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    cpu,
-							corev1.ResourceMemory: memory,
+							corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
+							corev1.ResourceMemory: database.Spec.DBInstance.Memory,
 						},
 					},
 				},

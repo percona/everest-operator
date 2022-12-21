@@ -17,6 +17,7 @@ package v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -104,10 +105,10 @@ type (
 		Password      string `json:"password,omitempty"`
 	}
 	DBInstanceSpec struct {
-		CPU              string  `json:"cpu,omitempty"`
-		Memory           string  `json:"memory,omitempty"`
-		DiskSize         string  `json:"diskSize,omitempty"`
-		StorageClassName *string `json:"storageClassName,omitempty"`
+		CPU              resource.Quantity `json:"cpu,omitempty"`
+		Memory           resource.Quantity `json:"memory,omitempty"`
+		DiskSize         resource.Quantity `json:"diskSize,omitempty"`
+		StorageClassName *string           `json:"storageClassName,omitempty"`
 	}
 	BackupSpec struct {
 		Enabled                  bool                          `json:"enabled,omitempty"`
