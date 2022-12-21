@@ -48,7 +48,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.0.11
+  name: dbaas-operator.v0.0.12
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -192,10 +192,6 @@ spec:
                 - --health-probe-bind-address=:8081
                 - --metrics-bind-address=127.0.0.1:8080
                 - --leader-elect
-                name: manager
-                resources: {}
-              - args:
-                - --leader-elect
                 command:
                 - /manager
                 env:
@@ -203,14 +199,14 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.0.11
+                image: docker.io/percona/dbaas-operator:0.0.12
                 livenessProbe:
                   httpGet:
                     path: /healthz
                     port: 8081
                   initialDelaySeconds: 15
                   periodSeconds: 20
-                name: dbaas-operator
+                name: manager
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -292,4 +288,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.11
+  version: 0.0.12

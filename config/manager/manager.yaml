@@ -39,7 +39,7 @@ spec:
         args:
         - --leader-elect
         image: controller:latest
-        name: dbaas-operator
+        name: manager
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
