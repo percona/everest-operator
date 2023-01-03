@@ -4,4 +4,4 @@ timeout: 10
 delete:
 - apiVersion: dbaas.percona.com/v1
   kind: DatabaseCluster
-  name: test-cluster
+  name: test-pxc-cluster

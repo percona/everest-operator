@@ -8,16 +8,19 @@ metadata:
   name: test-pxc-cluster
 spec:
   databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
+  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
   databaseConfig: |
     [mysqld]
     wsrep_provider_options="debug=1;gcache.size=1G"
+    wsrep_debug=1
+    wsrep_trx_fragment_unit='bytes'
+    wsrep_trx_fragment_size=3670016
   secretsName: pxc-sample-secrets
-  clusterSize: 3
+  clusterSize: 1
   loadBalancer:
     type: haproxy
     exposeType: ClusterIP
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
   dbInstance:
     cpu: "1"
@@ -29,18 +32,22 @@ kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
 spec:
+  allowUnsafeConfigurations: true
   crVersion: 1.11.0
   haproxy:
     enabled: true
     image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
     serviceType: ClusterIP
-    size: 3
+    size: 1
   pxc:
     configuration: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.23-14.1
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
     livenessProbes: {}
     readinessProbes: {}
     resources:
@@ -49,7 +56,7 @@ spec:
         memory: 1G
     serviceType: ClusterIP
     sidecarResources: {}
-    size: 3
+    size: 1
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -62,15 +69,15 @@ spec:
     schedule: 0 4 * * *
 status:
   haproxy:
-    ready: 3
-    size: 3
+    ready: 1
+    size: 1
     status: ready
   pxc:
-    image: percona/percona-xtradb-cluster:8.0.23-14.1
-    ready: 3
-    size: 3
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    ready: 1
+    size: 1
     status: ready
-    version: 8.0.23-14.1
-  ready: 6
-  size: 6
+    version: 8.0.27-18.1
+  ready: 2
+  size: 2
   state: ready

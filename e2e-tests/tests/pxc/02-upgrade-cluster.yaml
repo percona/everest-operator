@@ -5,16 +5,13 @@ timeout: 10
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
-  name: cluster
+  name: test-pxc-cluster
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
   databaseConfig: |
     [mysqld]
     wsrep_provider_options="debug=1;gcache.size=1G"
-    wsrep_debug=1
-    wsrep_trx_fragment_unit='bytes'
-    wsrep_trx_fragment_size=3670016
   secretsName: pxc-sample-secrets
   clusterSize: 3
   loadBalancer:
