@@ -1,0 +1,26 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+  annotations:
+    dbaas.percona.com/restart: "true"
+spec:
+  databaseType: psmdb
+  databaseImage: percona/percona-server-mongodb:4.4.10-11
+  databaseConfig: |
+     operationProfiling:
+        mode: off
+  secretsName: psmdb-sample-secrets
+  clusterSize: 5
+  loadBalancer:
+    type: mongos
+    exposeType: ClusterIP
+    size: 3
+  dbInstance:
+    cpu: 500m
+    memory: 1G
+    diskSize: 15G

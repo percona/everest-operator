@@ -42,6 +42,7 @@ jobs:
           make test
         env:
           PXC_OPERATOR_VERSION: 1.11.0
+          PSMDB_OPERATOR_VERSION: 1.11.0
 
     #kind-e2e-tests:
     #  name: E2E tests (Kind)
@@ -91,10 +92,11 @@ jobs:
     #        kubectl kuttl test --start-kind --config ./e2e-tests/kuttl.yml
     #      env:
     #        PXC_OPERATOR_VERSION: 1.11.0
+    #        PSMDB_OPERATOR_VERSION: 1.11.0
 
   eks-e2e-tests:
     name: E2E tests (EKS)
-    timeout-minutes: 30
+    timeout-minutes: 50
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
@@ -143,6 +145,7 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks.yml
         env:
           PXC_OPERATOR_VERSION: 1.11.0
+          PSMDB_OPERATOR_VERSION: 1.11.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
 
   make-bundle:
