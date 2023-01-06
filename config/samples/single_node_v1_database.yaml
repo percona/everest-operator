@@ -1,24 +1,18 @@
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
-  name: single-node
+  name: single-node4
   namespace: default
 spec:
-  databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-    wsrep_debug=1
-    wsrep_trx_fragment_unit='bytes'
-    wsrep_trx_fragment_size=3670016
+  databaseType: psmdb
+  databaseImage: percona/percona-server-mongodb:5.0.14-12
+  databaseConfig: ""
   secretsName: pxc-sample-secrets
   clusterSize: 1
   loadBalancer:
-    type: haproxy
+    type: mongos
     exposeType: ClusterIP
     size: 1
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
   dbInstance:
     cpu: "1"
     memory: 1G
