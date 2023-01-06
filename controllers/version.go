@@ -28,5 +28,9 @@ func (v *Version) ToSemver() string {
 	return fmt.Sprintf("v%s", v.String())
 }
 func (v *Version) ToAPIVersion(apiRoot string) string {
+	ver, _ := goversion.NewVersion("v1.12.0")
+	if v.version.GreaterThan(ver) {
+		return fmt.Sprintf("%s/v1", apiRoot)
+	}
 	return fmt.Sprintf("%s/v%s", apiRoot, strings.Replace(v.String(), ".", "-", -1))
 }
