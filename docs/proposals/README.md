@@ -1,8 +1,7 @@
 # Enhancement Proposals
 <!-- toc -->
-- [Enhancement Proposals](#enhancement-proposals)
-  - [Process](#process)
-  - [FAQs](#faqs)
+- [Process](#process)
+- [FAQs](#faqs)
 <!-- /toc -->
 
 An Enhancement Proposal is a way to propose, communicate, and coordinate new efforts for the `DBaaS Operator` project.
