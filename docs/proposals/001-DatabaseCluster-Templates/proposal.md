@@ -33,9 +33,6 @@ DatabaseCluster Templates is a convention between different providers and `dbaas
 
 ## Open Questions
 
-This is where to call out areas of the design that require closure before deciding to implement the
-design. For instance:
-
 > 1. Should we have additional controller instead?
 > 2. There could be a list of templates required, one for each layer (db conf, net, storage. etc). Now it is assumed that someone merges this to one template and pass it in annotations. Should we think about list?
 
@@ -57,7 +54,7 @@ Provide the ability for different users to configure needed parameters that woul
 
 Define consumer convention (format, procedure) for `dbaas-operator` to get the template and create DatabaseCluster CR adjusted by its parameters.
 
-Provide implementation in `dbaas-controller` to find, get, merge template and provide expected DatabseCluster with correct parameters.
+Provide implementation in `dbaas-controller` to find, get, merge template and provide expected DatabaseCluster with correct parameters.
 
 ### Non-Goals
 
@@ -100,7 +97,7 @@ This proposal introduces DatabaseCluster Template that should be deployed in a n
 As a DBA I would like to template Cluster and DB parameters for several different environments.
 #### Story 2
 
-As an SRE I would like to template k8s and cloud infrastructural parameters.
+As an SRE I would like to template Kubernetes specific and cloud infrastructural parameters.
 
 ### Risks and Mitigations
 
@@ -116,7 +113,7 @@ As these types of templates are high-level, they would take priority over more l
 
 ![Template Layers](./tpl_layers.png)
 
-The proposal at the current stage is to use a full CR template (DatabaseCluster Template) defined by SRE/DBA in a cluster/namespace that `database-operator` merges with values provided in DatabaseCluster CR in priority:
+The proposal at the current stage is to use a full CR template (DatabaseCluster Template) defined by SRE/DBA in a namespace that `database-operator` merges with values provided in DatabaseCluster CR in priority:
 
 1. DatabaseCluster CR
 2. DatabaseCluster Template
@@ -155,8 +152,8 @@ Here are CRDs examples for the DB Clusters:
 
 Example of CRs for templates:
 
-- [psmdbtpl.dbaas.percona.com.cr.yaml](psmdbtpl.dbaas.percona.com.crd.yaml)
-- [pxctpl.dbaas.percona.com.cr.yaml](pxctpl.dbaas.percona.com.crd.yaml)
+- [psmdbtpl.dbaas.percona.com.cr.yaml](psmdbtpl.dbaas.percona.com.cr.yaml)
+- [pxctpl.dbaas.percona.com.cr.yaml](pxctpl.dbaas.percona.com.cr.yaml)
 
 CRs could have such annotations:
 
