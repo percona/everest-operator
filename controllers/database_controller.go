@@ -356,6 +356,16 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return err
 	}
+	clusterType, err := r.getClusterType(ctx)
+	if err != nil {
+		return err
+	}
+	affinity := &pxcv1.PodAffinity{
+		TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+	}
+	if clusterType == ClusterTypeEKS {
+		affinity.TopologyKey = pointer.ToString("kubernetes.io/hostname")
+	}
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
@@ -388,6 +398,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					ServiceType:   corev1.ServiceTypeClusterIP,
 					Size:          database.Spec.ClusterSize,
 					Image:         database.Spec.DatabaseImage,
+					Affinity:      affinity,
 					VolumeSpec: &pxcv1.VolumeSpec{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: database.Spec.DBInstance.StorageClassName,
@@ -427,6 +438,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					Resources:                     database.Spec.LoadBalancer.Resources,
 					Enabled:                       true,
 					Image:                         database.Spec.LoadBalancer.Image,
+					Affinity:                      affinity,
 				},
 			}
 		}
@@ -441,6 +453,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 				Resources:                database.Spec.LoadBalancer.Resources,
 				Enabled:                  true,
 				Image:                    database.Spec.LoadBalancer.Image,
+				Affinity:                 affinity,
 			}
 		}
 		if database.Spec.Monitoring.PMM != nil {
