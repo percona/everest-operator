@@ -1,0 +1,21 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  name: percona-xtradb-cluster-operator
+spec:
+  type: pxc
+status:
+  status: not installed
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  type: psmdb
+status:
+  status: not installed

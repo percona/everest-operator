@@ -1,0 +1,47 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaservermongodbs.psmdb.percona.com
+spec:
+  group: psmdb.percona.com
+  names:
+    kind: PerconaServerMongoDB
+    listKind: PerconaServerMongoDBList
+    plural: perconaservermongodbs
+    shortNames:
+    - psmdb
+    singular: perconaservermongodb
+  scope: Namespaced
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-server-mongodb-operator
+status:
+  availableReplicas: 1
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  name: percona-xtradb-cluster-operator
+spec:
+  type: pxc
+status:
+  status: not installed
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  type: psmdb
+status:
+  status: installed
