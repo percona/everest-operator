@@ -44,7 +44,7 @@ spec:
     livenessProbes: {}
     readinessProbes: {}
     resources:
-      requests:
+      limits:
         cpu: "1"
         memory: 1G
     serviceType: ClusterIP

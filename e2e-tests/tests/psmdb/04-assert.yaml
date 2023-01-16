@@ -48,7 +48,7 @@ spec:
         enabled: false
       name: rs0
       resources:
-        requests:
+        limits:
           cpu: 500m
           memory:  1G
       size:        3
