@@ -262,7 +262,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 						},
 						Affinity: affinity,
 						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
+							Limits: corev1.ResourceList{
 								corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
 								corev1.ResourceMemory: database.Spec.DBInstance.Memory,
 							},
@@ -320,7 +320,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			psmdb.Spec.PMM.Resources = corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
+				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("300M"),
 					corev1.ResourceCPU:    resource.MustParse("500m"),
 				},
@@ -410,7 +410,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 						},
 					},
 					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
+						Limits: corev1.ResourceList{
 							corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
 							corev1.ResourceMemory: database.Spec.DBInstance.Memory,
 						},
@@ -461,7 +461,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
 			pxc.Spec.PMM.Resources = corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
+				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("300M"),
 					corev1.ResourceCPU:    resource.MustParse("500m"),
 				},
