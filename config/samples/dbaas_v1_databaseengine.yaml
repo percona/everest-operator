@@ -1,0 +1,12 @@
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  labels:
+    app.kubernetes.io/name: databaseengine
+    app.kubernetes.io/instance: databaseengine-sample
+    app.kubernetes.io/part-of: dbaas-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: dbaas-operator
+  name: databaseengine-sample
+spec:
+  # TODO(user): Add fields here

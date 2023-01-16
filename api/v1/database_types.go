@@ -44,9 +44,6 @@ const (
 )
 
 type (
-	// EngineType stands for the supported database engines. Right now it's only pxc
-	// and psmdb. However, it can be ps, pg and any other source
-	EngineType string
 	// LoadBalancerType contains supported loadbalancers. It can be proxysql or haproxy
 	// for PXC clusters and mongos for PSMDB clusters.
 	//
