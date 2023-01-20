@@ -16,6 +16,7 @@
 package v1
 
 import (
+	"github.com/percona/percona-backup-mongodb/pbm"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,7 @@ type (
 		LoadBalancer LoadBalancerSpec `json:"loadBalancer,omitempty"`
 		Monitoring   MonitoringSpec   `json:"monitoring,omitempty"`
 		DBInstance   DBInstanceSpec   `json:"dbInstance"`
-		Backup       BackupSpec       `json:"backup,omitempty"`
+		Backup       *BackupSpec      `json:"backup,omitempty"`
 	}
 	// LoadBalancer contains a load balancer settings. For PXC it's haproxy
 	// or proxysql. For PSMDB it's mongos.
@@ -113,17 +114,41 @@ type (
 		InitImage                string                        `json:"initImage,omitempty"`
 		ImagePullSecrets         []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 		ImagePullPolicy          corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
+		Schedule                 []BackupSchedule              `json:"schedule,omitempty"`
 		ServiceAccountName       string                        `json:"serviceAccountName,omitempty"`
 		ContainerSecurityContext *corev1.SecurityContext       `json:"containerSecurityContext,omitempty"`
 		Resources                corev1.ResourceRequirements   `json:"resources,omitempty"`
 		Storages                 map[string]*BackupStorageSpec `json:"storages,omitempty"`
+		Annotations              map[string]string             `json:"annotations,omitempty"`
+		Labels                   map[string]string             `json:"labels,omitempty"`
+	}
+	BackupSchedule struct {
+		Name             string              `json:"name,omitempty"`
+		Enabled          bool                `json:"enabled,omitempty"`
+		Schedule         string              `json:"schedule,omitempty"`
+		Keep             int                 `json:"keep,omitempty"`
+		StorageName      string              `json:"storageName,omitempty"`
+		CompressionType  pbm.CompressionType `json:"compressionType,omitempty"`
+		CompressionLevel *int                `json:"compressionLevel,omitempty"`
+	}
+	BackupStorageProviderSpec struct {
+		// A container name is a valid DNS name that conforms to the Azure naming rules.
+		ContainerName string `json:"containerName,omitempty"`
+
+		Bucket            string `json:"bucket,omitempty"`
+		Prefix            string `json:"prefix,omitempty"`
+		CredentialsSecret string `json:"credentialsSecret"`
+		Region            string `json:"region,omitempty"`
+		EndpointURL       string `json:"endpointUrl,omitempty"`
+
+		// STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
+		// Hot (Frequently accessed or modified data), Cool (Infrequently accessed or modified data), Archive (Rarely accessed or modified data) for Azure
+		StorageClass string `json:"storageClass,omitempty"`
 	}
 	BackupStorageSpec struct {
 		Type                     BackupStorageType           `json:"type"`
 		Volume                   *VolumeSpec                 `json:"volumeSpec,omitempty"`
-		S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
-		GCS                      *BackupStorageGCSSpec       `json:"gcs,omitempty"`
-		Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
+		StorageProvider          *BackupStorageProviderSpec  `json:"storageProvider,omitempty"`
 		NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
 		Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
 		Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
@@ -154,41 +179,6 @@ type (
 		// EmptyDir. And represents the PVC specification.
 		// +optional
 		PersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaim,omitempty"`
-	}
-	BackupStorageS3Spec struct {
-		Bucket            string `json:"bucket"`
-		Prefix            string `json:"prefix,omitempty"`
-		CredentialsSecret string `json:"credentialsSecret"`
-		Region            string `json:"region,omitempty"`
-		EndpointURL       string `json:"endpointUrl,omitempty"`
-		StorageClass      string `json:"storageClass,omitempty"`
-	}
-
-	BackupStorageGCSSpec struct {
-		Bucket            string `json:"bucket"`
-		Prefix            string `json:"prefix,omitempty"`
-		CredentialsSecret string `json:"credentialsSecret"`
-		EndpointURL       string `json:"endpointUrl,omitempty"`
-
-		// STANDARD, NEARLINE, COLDLINE, ARCHIVE
-		StorageClass string `json:"storageClass,omitempty"`
-	}
-
-	BackupStorageAzureSpec struct {
-		// A container name is a valid DNS name that conforms to the Azure naming rules.
-		ContainerName string `json:"containerName"`
-
-		// A prefix is a sub-folder to the backups inside the container
-		Prefix string `json:"prefix,omitempty"`
-
-		// A generated key that can be used to authorize access to data in your account using the Shared Key authorization.
-		CredentialsSecret string `json:"credentialsSecret"`
-
-		// The endpoint allows clients to securely access data
-		EndpointURL string `json:"endpointUrl,omitempty"`
-
-		// Hot (Frequently accessed or modified data), Cool (Infrequently accessed or modified data), Archive (Rarely accessed or modified data)
-		StorageClass string `json:"storageClass,omitempty"`
 	}
 )
 

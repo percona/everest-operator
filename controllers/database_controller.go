@@ -327,6 +327,58 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			}
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
+		if database.Spec.Backup != nil {
+			psmdb.Spec.Backup = psmdbv1.BackupSpec{
+				Enabled:                  true,
+				Image:                    database.Spec.Backup.Image,
+				ServiceAccountName:       database.Spec.Backup.ServiceAccountName,
+				ContainerSecurityContext: database.Spec.Backup.ContainerSecurityContext,
+				Resources:                database.Spec.Backup.Resources,
+				Annotations:              database.Spec.Backup.Annotations,
+				Labels:                   database.Spec.Backup.Labels,
+			}
+			storages := make(map[string]psmdbv1.BackupStorageSpec)
+			var tasks []psmdbv1.BackupTaskSpec
+			for k, v := range database.Spec.Backup.Storages {
+				switch v.Type {
+				case dbaasv1.BackupStorageS3:
+					storages[k] = psmdbv1.BackupStorageSpec{
+						Type: psmdbv1.BackupStorageType(v.Type),
+						S3: psmdbv1.BackupStorageS3Spec{
+							Bucket:            v.StorageProvider.Bucket,
+							CredentialsSecret: v.StorageProvider.CredentialsSecret,
+							Region:            v.StorageProvider.Region,
+							EndpointURL:       v.StorageProvider.EndpointURL,
+							StorageClass:      v.StorageProvider.StorageClass,
+						},
+					}
+				case dbaasv1.BackupStorageAzure:
+					storages[k] = psmdbv1.BackupStorageSpec{
+						Type: psmdbv1.BackupStorageType(v.Type),
+						Azure: psmdbv1.BackupStorageAzureSpec{
+							Container:         v.StorageProvider.ContainerName,
+							CredentialsSecret: v.StorageProvider.CredentialsSecret,
+							Prefix:            v.StorageProvider.Prefix,
+						},
+					}
+				}
+			}
+			for _, v := range database.Spec.Backup.Schedule {
+				tasks = append(tasks, psmdbv1.BackupTaskSpec{
+					Name:             v.Name,
+					Enabled:          v.Enabled,
+					Keep:             v.Keep,
+					Schedule:         v.Schedule,
+					StorageName:      v.StorageName,
+					CompressionType:  v.CompressionType,
+					CompressionLevel: v.CompressionLevel,
+				})
+
+			}
+			psmdb.Spec.Backup.Storages = storages
+			psmdb.Spec.Backup.Tasks = tasks
+
+		}
 
 		return nil
 	})
@@ -468,6 +520,61 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			}
 			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
+		if database.Spec.Backup != nil {
+			pxc.Spec.Backup = &pxcv1.PXCScheduledBackup{
+				Image:              database.Spec.Backup.Image,
+				ImagePullSecrets:   database.Spec.Backup.ImagePullSecrets,
+				ImagePullPolicy:    database.Spec.Backup.ImagePullPolicy,
+				ServiceAccountName: database.Spec.Backup.ServiceAccountName,
+			}
+			storages := make(map[string]*pxcv1.BackupStorageSpec)
+			var schedules []pxcv1.PXCScheduledBackupSchedule
+			for k, v := range database.Spec.Backup.Storages {
+				storages[k] = &pxcv1.BackupStorageSpec{
+					Type:                     pxcv1.BackupStorageType(v.Type),
+					NodeSelector:             v.NodeSelector,
+					Resources:                v.Resources,
+					Affinity:                 v.Affinity,
+					Tolerations:              v.Tolerations,
+					Annotations:              v.Annotations,
+					Labels:                   v.Labels,
+					SchedulerName:            v.SchedulerName,
+					PriorityClassName:        v.PriorityClassName,
+					PodSecurityContext:       v.PodSecurityContext,
+					ContainerSecurityContext: v.ContainerSecurityContext,
+					RuntimeClassName:         v.RuntimeClassName,
+					VerifyTLS:                v.VerifyTLS,
+				}
+				switch v.Type {
+				case dbaasv1.BackupStorageS3:
+					storages[k].S3 = &pxcv1.BackupStorageS3Spec{
+						Bucket:            v.StorageProvider.Bucket,
+						CredentialsSecret: v.StorageProvider.CredentialsSecret,
+						Region:            v.StorageProvider.Region,
+						EndpointURL:       v.StorageProvider.EndpointURL,
+					}
+				case dbaasv1.BackupStorageAzure:
+					storages[k].Azure = &pxcv1.BackupStorageAzureSpec{
+						ContainerPath:     v.StorageProvider.ContainerName,
+						CredentialsSecret: v.StorageProvider.CredentialsSecret,
+						StorageClass:      v.StorageProvider.StorageClass,
+						Endpoint:          v.StorageProvider.EndpointURL,
+					}
+				}
+			}
+			for _, v := range database.Spec.Backup.Schedule {
+				schedules = append(schedules, pxcv1.PXCScheduledBackupSchedule{
+					Name:        v.Name,
+					Schedule:    v.Schedule,
+					Keep:        v.Keep,
+					StorageName: v.StorageName,
+				})
+
+			}
+			pxc.Spec.Backup.Storages = storages
+			pxc.Spec.Backup.Schedule = schedules
+
+		}
 		return nil
 	})
 	if err != nil {
@@ -511,6 +618,10 @@ func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 		return err
 	}
 	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: strings.Replace("v"+version.String(), ".", "-", -1)}
+	ver, _ := goversion.NewVersion("v1.11.0")
+	if version.version.GreaterThan(ver) {
+		pxcSchemeGroupVersion = schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
+	}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
 		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{},
 	)
@@ -549,7 +660,6 @@ func (r *DatabaseReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	fmt.Println(os.Getenv("WATCH_NAMESPACE"))
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",

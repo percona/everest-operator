@@ -1,0 +1,86 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 20
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  databaseType: pxc
+  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
+  databaseConfig: |
+    [mysqld]
+    wsrep_provider_options="debug=1;gcache.size=1G"
+  secretsName: pxc-sample-secrets
+  clusterSize: 1
+  loadBalancer:
+    type: haproxy
+    exposeType: ClusterIP
+    size: 1
+    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G
+  backup:
+    enabled: true
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    storages:
+      aws:
+        type: s3
+        storageProvider:
+          bucket: test
+          credentialsSecret: test-pxc-cluster-backup-s3
+          region: us-west-1
+      azure:
+        type: azure
+        storageProvider:
+          containerName: test
+          credentialsSecret: test-pxc-cluster-backup-azure
+          endpointUrl: https://example.com
+          storageClass: Hot
+    schedule:
+      - name: daily-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: aws
+      - name: azure-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: azure
+---
+apiVersion: pxc.percona.com/v1-11-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  crVersion: 1.11.0
+  haproxy:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: 8.0-recommended
+    schedule: 0 4 * * *
+  backup:
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    storages:
+      aws:
+        type: s3
+        s3:
+          bucket: test
+          credentialsSecret: test-pxc-cluster-backup-s3
+          region: us-west-1
+      azure:
+        type: azure
+    schedule:
+      - name: daily-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: aws
+      - name: azure-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: azure
