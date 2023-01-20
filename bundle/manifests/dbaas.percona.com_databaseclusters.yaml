@@ -54,6 +54,10 @@ spec:
             properties:
               backup:
                 properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
                   containerSecurityContext:
                     description: SecurityContext holds security configuration that
                       will be applied to a container. Some fields are present in both
@@ -247,6 +251,10 @@ spec:
                     type: array
                   initImage:
                     type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
                   resources:
                     description: ResourceRequirements describes the compute resource
                       requirements.
@@ -274,6 +282,25 @@ spec:
                           to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
+                  schedule:
+                    items:
+                      properties:
+                        compressionLevel:
+                          type: integer
+                        compressionType:
+                          type: string
+                        enabled:
+                          type: boolean
+                        keep:
+                          type: integer
+                        name:
+                          type: string
+                        schedule:
+                          type: string
+                        storageName:
+                          type: string
+                      type: object
+                    type: array
                   serviceAccountName:
                     type: string
                   storages:
@@ -1210,34 +1237,6 @@ spec:
                           additionalProperties:
                             type: string
                           type: object
-                        azure:
-                          properties:
-                            containerName:
-                              description: A container name is a valid DNS name that
-                                conforms to the Azure naming rules.
-                              type: string
-                            credentialsSecret:
-                              description: A generated key that can be used to authorize
-                                access to data in your account using the Shared Key
-                                authorization.
-                              type: string
-                            endpointUrl:
-                              description: The endpoint allows clients to securely
-                                access data
-                              type: string
-                            prefix:
-                              description: A prefix is a sub-folder to the backups
-                                inside the container
-                              type: string
-                            storageClass:
-                              description: Hot (Frequently accessed or modified data),
-                                Cool (Infrequently accessed or modified data), Archive
-                                (Rarely accessed or modified data)
-                              type: string
-                          required:
-                          - containerName
-                          - credentialsSecret
-                          type: object
                         containerSecurityContext:
                           description: SecurityContext holds security configuration
                             that will be applied to a container. Some fields are present
@@ -1415,23 +1414,6 @@ spec:
                                     the value specified in SecurityContext takes precedence.
                                   type: string
                               type: object
-                          type: object
-                        gcs:
-                          properties:
-                            bucket:
-                              type: string
-                            credentialsSecret:
-                              type: string
-                            endpointUrl:
-                              type: string
-                            prefix:
-                              type: string
-                            storageClass:
-                              description: STANDARD, NEARLINE, COLDLINE, ARCHIVE
-                              type: string
-                          required:
-                          - bucket
-                          - credentialsSecret
                           type: object
                         labels:
                           additionalProperties:
@@ -1656,9 +1638,15 @@ spec:
                           type: object
                         runtimeClassName:
                           type: string
-                        s3:
+                        schedulerName:
+                          type: string
+                        storageProvider:
                           properties:
                             bucket:
+                              type: string
+                            containerName:
+                              description: A container name is a valid DNS name that
+                                conforms to the Azure naming rules.
                               type: string
                             credentialsSecret:
                               type: string
@@ -1669,13 +1657,14 @@ spec:
                             region:
                               type: string
                             storageClass:
+                              description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for
+                                GCP Hot (Frequently accessed or modified data), Cool
+                                (Infrequently accessed or modified data), Archive
+                                (Rarely accessed or modified data) for Azure
                               type: string
                           required:
-                          - bucket
                           - credentialsSecret
                           type: object
-                        schedulerName:
-                          type: string
                         tolerations:
                           items:
                             description: The pod this Toleration is attached to tolerates
@@ -2055,7 +2044,10 @@ spec:
                     format: int32
                     type: integer
                   trafficPolicy:
-                    description: Service External Traffic Policy Type string
+                    description: ServiceExternalTrafficPolicyType describes how nodes
+                      distribute service traffic they receive on one of the Service's
+                      "externally-facing" addresses (NodePorts, ExternalIPs, and LoadBalancer
+                      IPs).
                     type: string
                   type:
                     description: "LoadBalancerType contains supported loadbalancers.

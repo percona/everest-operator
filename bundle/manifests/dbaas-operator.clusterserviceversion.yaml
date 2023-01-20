@@ -43,12 +43,27 @@ metadata:
             },
             "secretsName": "pxc-sample-secrets"
           }
+        },
+        {
+          "apiVersion": "dbaas.percona.com/v1",
+          "kind": "DatabaseEngine",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "dbaas-operator",
+              "app.kubernetes.io/instance": "databaseengine-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databaseengine",
+              "app.kubernetes.io/part-of": "dbaas-operator"
+            },
+            "name": "databaseengine-sample"
+          },
+          "spec": null
         }
       ]
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.0.17
+  name: dbaas-operator.v0.0.18
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -58,6 +73,11 @@ spec:
       displayName: Database Cluster
       kind: DatabaseCluster
       name: databaseclusters.dbaas.percona.com
+      version: v1
+    - description: DatabaseEngine is the Schema for the databaseengines API
+      displayName: Database Engine
+      kind: DatabaseEngine
+      name: databaseengines.dbaas.percona.com
       version: v1
   description: Deploy database clusters easily with DBaaS operator
   displayName: DBaaS operator
@@ -106,6 +126,32 @@ spec:
           - dbaas.percona.com
           resources:
           - databaseclusters/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseengines
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseengines/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - dbaas.percona.com
+          resources:
+          - databaseengines/status
           verbs:
           - get
           - patch
@@ -207,7 +253,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.0.17
+                image: docker.io/percona/dbaas-operator:0.0.18
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -296,4 +342,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.17
+  version: 0.0.18
