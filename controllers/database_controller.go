@@ -327,7 +327,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			}
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil {
+		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
 			psmdb.Spec.Backup = psmdbv1.BackupSpec{
 				Enabled:                  true,
 				Image:                    database.Spec.Backup.Image,
@@ -520,7 +520,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			}
 			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil {
+		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
 			pxc.Spec.Backup = &pxcv1.PXCScheduledBackup{
 				Image:              database.Spec.Backup.Image,
 				ImagePullSecrets:   database.Spec.Backup.ImagePullSecrets,
