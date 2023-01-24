@@ -18,8 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-set -x
-
 # keep in sync with hack/verify-toc.sh
 TOOL_VERSION=b8c54a57d69f29386d055584e595f38d65ce2a1f
 
@@ -46,7 +44,7 @@ export PATH="${TMP_DIR}:${PATH}"
 cd "${ROOT}"
 
 # Update tables of contents if necessary.
-find ./ -name '*.md' \
+find ./**/ -name '*.md' \
     | xargs mdtoc --inplace --max-depth=5  || (
       echo "Failed generating TOC. If this failed silently and you are on mac, try 'brew install grep'"
       exit 1
