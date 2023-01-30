@@ -104,6 +104,101 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 	},
 }
 
+var maxUnavailable = intstr.FromInt(1)
+var defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
+	UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
+	UpgradeOptions: psmdbv1.UpgradeOptions{ // TODO: Get rid of hardcode
+		Apply:    "disabled",
+		Schedule: "0 4 * * *",
+	},
+	PMM: psmdbv1.PMMSpec{
+		Enabled: false,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("300M"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		},
+	},
+	Mongod: &psmdbv1.MongodSpec{
+		Net: &psmdbv1.MongodSpecNet{
+			Port: 27017,
+		},
+		OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
+			Mode:              psmdbv1.OperationProfilingModeSlowOp,
+			SlowOpThresholdMs: 100,
+			RateLimit:         100,
+		},
+		Security: &psmdbv1.MongodSpecSecurity{
+			RedactClientLogData:  false,
+			EnableEncryption:     pointer.ToBool(true),
+			EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
+		},
+		SetParameter: &psmdbv1.MongodSpecSetParameter{
+			TTLMonitorSleepSecs: 60,
+		},
+		Storage: &psmdbv1.MongodSpecStorage{
+			Engine: psmdbv1.StorageEngineWiredTiger,
+			MMAPv1: &psmdbv1.MongodSpecMMAPv1{
+				NsSize:     16,
+				Smallfiles: false,
+			},
+			WiredTiger: &psmdbv1.MongodSpecWiredTiger{
+				CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
+					BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
+				},
+				EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
+					DirectoryForIndexes: false,
+					JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
+				},
+				IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
+					PrefixCompression: true,
+				},
+			},
+		},
+	},
+	Replsets: []*psmdbv1.ReplsetSpec{
+		{
+			Name: "rs0",
+			// TODO: Add pod disruption budget
+			MultiAZ: psmdbv1.MultiAZ{
+				PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable,
+				},
+				Affinity: &psmdbv1.PodAffinity{
+					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+				},
+			},
+		},
+	},
+	Sharding: psmdbv1.Sharding{
+		Enabled: true,
+		ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
+			MultiAZ: psmdbv1.MultiAZ{
+				Affinity: &psmdbv1.PodAffinity{
+					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+				},
+			},
+			Arbiter: psmdbv1.Arbiter{
+				Enabled: false,
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+				},
+			},
+		},
+		Mongos: &psmdbv1.MongosSpec{
+			MultiAZ: psmdbv1.MultiAZ{
+				Affinity: &psmdbv1.PodAffinity{
+					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+				},
+			},
+			// TODO: Add traffic policy
+		},
+	},
+}
+
 // DatabaseReconciler reconciles a Database object
 type DatabaseReconciler struct {
 	client.Client
@@ -193,7 +288,6 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 
 }
 func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
-	maxUnavailable := intstr.FromInt(1)
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      psmdbDeploymentName,
@@ -205,12 +299,18 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return err
 	}
-	affinity := &psmdbv1.PodAffinity{
-		TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-	}
+
+	psmdbSpec := defaultPSMDBSpec
 	if clusterType == ClusterTypeEKS {
-		affinity.TopologyKey = pointer.ToString("kubernetes.io/hostname")
+		affinity := &psmdbv1.PodAffinity{
+			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+		}
+		psmdbSpec.Replsets[0].MultiAZ.Affinity = affinity
+		psmdbSpec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = affinity
+		psmdbSpec.Sharding.ConfigsvrReplSet.Arbiter.MultiAZ.Affinity = affinity
+		psmdbSpec.Sharding.Mongos.MultiAZ.Affinity = affinity
 	}
+
 	psmdb := &psmdbv1.PerconaServerMongoDB{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
@@ -218,7 +318,9 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
+		Spec: psmdbSpec,
 	}
+
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -227,128 +329,53 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
 		}
-		psmdb.Spec = psmdbv1.PerconaServerMongoDBSpec{
-			CRVersion:      version.ToCRVersion(),
-			UnsafeConf:     database.Spec.ClusterSize == 1,
-			Pause:          database.Spec.Pause,
-			Image:          database.Spec.DatabaseImage,
-			UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
-			Secrets: &psmdbv1.SecretsSpec{
-				Users: database.Spec.SecretsName,
-			},
-			UpgradeOptions: psmdbv1.UpgradeOptions{ // TODO: Get rid of hardcode
-				Apply:    "disabled",
-				Schedule: "0 4 * * *",
-			},
-			PMM: psmdbv1.PMMSpec{Enabled: false},
-			Mongod: &psmdbv1.MongodSpec{
-				Net: &psmdbv1.MongodSpecNet{
-					Port: 27017,
-				},
-				OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
-					Mode:              psmdbv1.OperationProfilingModeSlowOp,
-					SlowOpThresholdMs: 100,
-					RateLimit:         100,
-				},
-				Security: &psmdbv1.MongodSpecSecurity{
-					RedactClientLogData:  false,
-					EnableEncryption:     pointer.ToBool(true),
-					EncryptionKeySecret:  fmt.Sprintf("%s-mongodb-encryption-key", database.Name),
-					EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
-				},
-				SetParameter: &psmdbv1.MongodSpecSetParameter{
-					TTLMonitorSleepSecs: 60,
-				},
-				Storage: &psmdbv1.MongodSpecStorage{
-					Engine: psmdbv1.StorageEngineWiredTiger,
-					MMAPv1: &psmdbv1.MongodSpecMMAPv1{
-						NsSize:     16,
-						Smallfiles: false,
-					},
-					WiredTiger: &psmdbv1.MongodSpecWiredTiger{
-						CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
-							BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
-						},
-						EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
-							DirectoryForIndexes: false,
-							JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
-						},
-						IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
-							PrefixCompression: true,
-						},
-					},
-				},
-			},
-			Replsets: []*psmdbv1.ReplsetSpec{
-				{
-					Name:          "rs0",
-					Configuration: psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig),
-					Size:          database.Spec.ClusterSize,
-					VolumeSpec: &psmdbv1.VolumeSpec{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-							StorageClassName: database.Spec.DBInstance.StorageClassName,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
-								},
-							},
-						},
-					},
-					// TODO: Add pod disruption budget
-					MultiAZ: psmdbv1.MultiAZ{
-						PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
-							MaxUnavailable: &maxUnavailable,
-						},
-						Affinity: affinity,
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-								corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-							},
-						},
+		psmdb.Spec.CRVersion = version.ToCRVersion()
+		psmdb.Spec.UnsafeConf = database.Spec.ClusterSize == 1
+		psmdb.Spec.Pause = database.Spec.Pause
+		psmdb.Spec.Image = database.Spec.DatabaseImage
+		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
+			Users: database.Spec.SecretsName,
+		}
+		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
+		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig)
+		psmdb.Spec.Replsets[0].Size = database.Spec.ClusterSize
+		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: database.Spec.DBInstance.StorageClassName,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
 					},
 				},
 			},
 		}
-		psmdb.Spec.Sharding = psmdbv1.Sharding{
-			Enabled: true,
-			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-				Size: database.Spec.ClusterSize,
-				VolumeSpec: &psmdbv1.VolumeSpec{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-						StorageClassName: database.Spec.DBInstance.StorageClassName,
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
-							},
-						},
-					},
-				},
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: affinity,
-				},
-				Arbiter: psmdbv1.Arbiter{
-					Enabled: false,
-					MultiAZ: psmdbv1.MultiAZ{
-						Affinity: affinity,
-					},
-				},
-			},
-			Mongos: &psmdbv1.MongosSpec{
-				Size: database.Spec.LoadBalancer.Size,
-				Expose: psmdbv1.MongosExpose{
-					ExposeType:               database.Spec.LoadBalancer.ExposeType,
-					LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-					ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
-				},
-				Configuration: psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration),
-				MultiAZ: psmdbv1.MultiAZ{
-					Resources: database.Spec.LoadBalancer.Resources,
-					Affinity:  affinity,
-				},
-				// TODO: Add traffic policy
+		// TODO: Add pod disruption budget
+		psmdb.Spec.Replsets[0].MultiAZ.Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
+				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
 			},
 		}
+		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.ClusterSize
+		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: database.Spec.DBInstance.StorageClassName,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+					},
+				},
+			},
+		}
+		psmdb.Spec.Sharding.Mongos.Size = database.Spec.LoadBalancer.Size
+		psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
+			ExposeType:               database.Spec.LoadBalancer.ExposeType,
+			LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
+			ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
+		}
+		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration)
+		psmdb.Spec.Sharding.Mongos.MultiAZ.Resources = database.Spec.LoadBalancer.Resources
+		// TODO: Add traffic policy
 		if database.Spec.ClusterSize == 1 {
 			psmdb.Spec.Sharding.Enabled = false
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
@@ -358,12 +385,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		if database.Spec.Monitoring.PMM != nil {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			psmdb.Spec.PMM.Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			}
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
 		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
@@ -418,7 +439,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			psmdb.Spec.Backup.Tasks = tasks
 
 		}
-
 		return nil
 	})
 	if err != nil {
