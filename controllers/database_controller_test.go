@@ -53,3 +53,80 @@ func TestGetOperatorVersion(t *testing.T) {
 	assert.Error(t, err)
 
 }
+
+func TestMergeMapSimple(t *testing.T) {
+	testDst := map[string]interface{}{
+		"a": "apple",
+		"b": "banana",
+	}
+	src := map[string]interface{}{
+		"a": "avocado",
+		"c": "cherry",
+	}
+	expDst := map[string]interface{}{
+		"a": "avocado",
+		"b": "banana",
+		"c": "cherry",
+	}
+	err := mergeMap(testDst, src)
+	assert.NoError(t, err)
+	assert.Equal(t, testDst, expDst)
+}
+
+func TestMergeMapNested(t *testing.T) {
+	testDst := map[string]interface{}{
+		"a": "apple",
+		"b": "banana",
+		"dry": map[string]interface{}{
+			"a": "almond",
+			"p": "peanut",
+		},
+	}
+	src := map[string]interface{}{
+		"a": "avocado",
+		"c": "cherry",
+		"dry": map[string]interface{}{
+			"c": "cashew",
+			"p": "pecan",
+		},
+		"vegetables": map[string]interface{}{
+			"a": "aspargus",
+			"b": "beet",
+		},
+	}
+	expDst := map[string]interface{}{
+		"a": "avocado",
+		"b": "banana",
+		"c": "cherry",
+		"dry": map[string]interface{}{
+			"a": "almond",
+			"c": "cashew",
+			"p": "pecan",
+		},
+		"vegetables": map[string]interface{}{
+			"a": "aspargus",
+			"b": "beet",
+		},
+	}
+	err := mergeMap(testDst, src)
+	assert.NoError(t, err)
+	assert.Equal(t, testDst, expDst)
+}
+func TestMergeMapError(t *testing.T) {
+	testDst := map[string]interface{}{
+		"dry": map[string]interface{}{
+			"vegetables": map[string]interface{}{
+				"a": 1,
+			},
+		},
+	}
+	src := map[string]interface{}{
+		"dry": map[string]interface{}{
+			"vegetables": map[string]interface{}{
+				"a": "avocado",
+			},
+		},
+	}
+	err := mergeMap(testDst, src)
+	assert.Error(t, err)
+}

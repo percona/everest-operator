@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -55,14 +57,16 @@ const (
 	pxcDeploymentName   = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 
-	psmdbCRDName                     = "perconaservermongodbs.psmdb.percona.com"
-	pxcCRDName                       = "perconaxtradbclusters.pxc.percona.com"
-	pxcAPIGroup                      = "pxc.percona.com"
-	psmdbAPIGroup                    = "psmdb.percona.com"
-	haProxyTemplate                  = "percona/percona-xtradb-cluster-operator:%s-haproxy"
-	restartAnnotationKey             = "dbaas.percona.com/restart"
-	ClusterTypeEKS       ClusterType = "eks"
-	ClusterTypeMinikube  ClusterType = "minikube"
+	psmdbCRDName                            = "perconaservermongodbs.psmdb.percona.com"
+	pxcCRDName                              = "perconaxtradbclusters.pxc.percona.com"
+	pxcAPIGroup                             = "pxc.percona.com"
+	psmdbAPIGroup                           = "psmdb.percona.com"
+	haProxyTemplate                         = "percona/percona-xtradb-cluster-operator:%s-haproxy"
+	restartAnnotationKey                    = "dbaas.percona.com/restart"
+	dbTemplateKindAnnotationKey             = "dbaas.percona.com/dbtemplate-kind"
+	dbTemplateNameAnnotationKey             = "dbaas.percona.com/dbtemplate-name"
+	ClusterTypeEKS              ClusterType = "eks"
+	ClusterTypeMinikube         ClusterType = "minikube"
 )
 
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
@@ -321,6 +325,22 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		Spec: psmdbSpec,
 	}
 
+	dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
+	dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+	if hasTemplateKind && hasTemplateName {
+		err := r.applyTemplate(ctx, psmdb, dbTemplateKind, types.NamespacedName{
+			Namespace: req.NamespacedName.Namespace,
+			Name:      dbTemplateName,
+		})
+		if err != nil {
+			return err
+		}
+	} else if hasTemplateKind {
+		return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+	} else if hasTemplateName {
+		return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+	}
+
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -491,6 +511,23 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		},
 		Spec: pxcSpec,
 	}
+
+	dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
+	dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+	if hasTemplateKind && hasTemplateName {
+		err := r.applyTemplate(ctx, pxc, dbTemplateKind, types.NamespacedName{
+			Namespace: req.NamespacedName.Namespace,
+			Name:      dbTemplateName,
+		})
+		if err != nil {
+			return err
+		}
+	} else if hasTemplateKind {
+		return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+	} else if hasTemplateName {
+		return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+	}
+
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -723,4 +760,72 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 	}
 	return controller.Complete(r)
+}
+
+func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, parent string) error {
+	for k, v := range src {
+		if dst[k] != nil && reflect.TypeOf(dst[k]) != reflect.TypeOf(v) {
+			return errors.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
+		}
+		switch v.(type) {
+		case map[string]interface{}:
+			switch dst[k].(type) {
+			case nil:
+				dst[k] = v
+			case map[string]interface{}:
+				err := mergeMapInternal(dst[k].(map[string]interface{}),
+					v.(map[string]interface{}), fmt.Sprintf("%s.%s", parent, k))
+				if err != nil {
+					return err
+				}
+			default:
+				return errors.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
+			}
+		default:
+			dst[k] = v
+		}
+	}
+	return nil
+}
+
+func mergeMap(dst map[string]interface{}, src map[string]interface{}) error {
+	return mergeMapInternal(dst, src, "")
+}
+
+func (r *DatabaseReconciler) applyTemplate(
+	ctx context.Context,
+	obj interface{},
+	kind string,
+	namespacedName types.NamespacedName,
+) error {
+	unstructuredTemplate := &unstructured.Unstructured{}
+	unstructuredDB := &unstructured.Unstructured{}
+
+	unstructuredTemplate.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "dbaas.percona.com",
+		Kind:    kind,
+		Version: "v1",
+	})
+	err := r.Get(ctx, namespacedName, unstructuredTemplate)
+	if err != nil {
+		return err
+	}
+
+	unstructuredDB.Object, err = runtime.DefaultUnstructuredConverter.
+		ToUnstructured(obj)
+	if err != nil {
+		return err
+	}
+
+	err = mergeMap(unstructuredDB.Object["spec"].(map[string]interface{}),
+		unstructuredTemplate.Object["spec"].(map[string]interface{}))
+	if err != nil {
+		return err
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredDB.Object, obj)
+	if err != nil {
+		return err
+	}
+	return nil
 }
