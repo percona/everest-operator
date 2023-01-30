@@ -65,6 +65,45 @@ const (
 	ClusterTypeMinikube  ClusterType = "minikube"
 )
 
+var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
+	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
+	UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
+		Apply:    "8.0-recommended",
+		Schedule: "0 4 * * *",
+	},
+	PXC: &pxcv1.PXCSpec{
+		PodSpec: &pxcv1.PodSpec{
+			ServiceType: corev1.ServiceTypeClusterIP,
+			Affinity: &pxcv1.PodAffinity{
+				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+			},
+		},
+	},
+	PMM: &pxcv1.PMMSpec{
+		Enabled: false,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("300M"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		},
+	},
+	HAProxy: &pxcv1.HAProxySpec{
+		PodSpec: pxcv1.PodSpec{
+			Enabled: false,
+			Affinity: &pxcv1.PodAffinity{
+				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+			},
+		},
+	},
+	ProxySQL: &pxcv1.PodSpec{
+		Enabled: false,
+		Affinity: &pxcv1.PodAffinity{
+			TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+		},
+	},
+}
+
 // DatabaseReconciler reconciles a Database object
 type DatabaseReconciler struct {
 	client.Client
@@ -412,12 +451,17 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return err
 	}
-	affinity := &pxcv1.PodAffinity{
-		TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-	}
+
+	pxcSpec := defaultPXCSpec
 	if clusterType == ClusterTypeEKS {
-		affinity.TopologyKey = pointer.ToString("kubernetes.io/hostname")
+		affinity := &pxcv1.PodAffinity{
+			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+		}
+		pxcSpec.PXC.PodSpec.Affinity = affinity
+		pxcSpec.HAProxy.PodSpec.Affinity = affinity
+		pxcSpec.ProxySQL.Affinity = affinity
 	}
+
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
@@ -425,6 +469,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
+		Spec: pxcSpec,
 	}
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
 		return err
@@ -434,90 +479,65 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
 		}
-		pxc.Spec = pxcv1.PerconaXtraDBClusterSpec{
-			CRVersion:         version.ToCRVersion(),
-			AllowUnsafeConfig: database.Spec.ClusterSize == 1,
-			UpdateStrategy:    pxcv1.SmartUpdateStatefulSetStrategyType,
-			Pause:             database.Spec.Pause,
-			SecretsName:       database.Spec.SecretsName,
-			UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
-				Apply:    "8.0-recommended",
-				Schedule: "0 4 * * *",
-			},
-			PXC: &pxcv1.PXCSpec{
-				PodSpec: &pxcv1.PodSpec{
-					Configuration: database.Spec.DatabaseConfig,
-					ServiceType:   corev1.ServiceTypeClusterIP,
-					Size:          database.Spec.ClusterSize,
-					Image:         database.Spec.DatabaseImage,
-					Affinity:      affinity,
-					VolumeSpec: &pxcv1.VolumeSpec{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-							StorageClassName: database.Spec.DBInstance.StorageClassName,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
-								},
-							},
-						},
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-							corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-						},
+		pxc.Spec.CRVersion = version.ToCRVersion()
+		pxc.Spec.AllowUnsafeConfig = database.Spec.ClusterSize == 1
+		pxc.Spec.Pause = database.Spec.Pause
+		pxc.Spec.SecretsName = database.Spec.SecretsName
+		pxc.Spec.PXC.PodSpec.Configuration = database.Spec.DatabaseConfig
+		pxc.Spec.PXC.PodSpec.Size = database.Spec.ClusterSize
+		pxc.Spec.PXC.PodSpec.Image = database.Spec.DatabaseImage
+		pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: database.Spec.DBInstance.StorageClassName,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
 					},
 				},
 			},
-			PMM: &pxcv1.PMMSpec{Enabled: false},
+		}
+		pxc.Spec.PXC.PodSpec.Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
+				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
+			},
 		}
 		if database.Spec.LoadBalancer.Type == "haproxy" {
+			pxc.Spec.ProxySQL.Enabled = false
+
 			if database.Spec.LoadBalancer.Image == "" {
 				database.Spec.LoadBalancer.Image = fmt.Sprintf(haProxyTemplate, version.String())
 
 			}
-			pxc.Spec.HAProxy = &pxcv1.HAProxySpec{
-				ReplicasServiceEnabled: pointer.ToBool(true),
-				PodSpec: pxcv1.PodSpec{
-					Size:                          database.Spec.LoadBalancer.Size,
-					ServiceType:                   database.Spec.LoadBalancer.ExposeType,
-					ReplicasServiceType:           database.Spec.LoadBalancer.ExposeType,
-					Configuration:                 database.Spec.LoadBalancer.Configuration,
-					LoadBalancerSourceRanges:      database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-					Annotations:                   database.Spec.LoadBalancer.Annotations,
-					ExternalTrafficPolicy:         database.Spec.LoadBalancer.TrafficPolicy,
-					ReplicasExternalTrafficPolicy: database.Spec.LoadBalancer.TrafficPolicy,
-					Resources:                     database.Spec.LoadBalancer.Resources,
-					Enabled:                       true,
-					Image:                         database.Spec.LoadBalancer.Image,
-					Affinity:                      affinity,
-				},
-			}
+			pxc.Spec.HAProxy.PodSpec.Size = database.Spec.LoadBalancer.Size
+			pxc.Spec.HAProxy.PodSpec.ServiceType = database.Spec.LoadBalancer.ExposeType
+			pxc.Spec.HAProxy.PodSpec.ReplicasServiceType = database.Spec.LoadBalancer.ExposeType
+			pxc.Spec.HAProxy.PodSpec.Configuration = database.Spec.LoadBalancer.Configuration
+			pxc.Spec.HAProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
+			pxc.Spec.HAProxy.PodSpec.Annotations = database.Spec.LoadBalancer.Annotations
+			pxc.Spec.HAProxy.PodSpec.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
+			pxc.Spec.HAProxy.PodSpec.ReplicasExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
+			pxc.Spec.HAProxy.PodSpec.Resources = database.Spec.LoadBalancer.Resources
+			pxc.Spec.HAProxy.PodSpec.Enabled = true
+			pxc.Spec.HAProxy.PodSpec.Image = database.Spec.LoadBalancer.Image
 		}
 		if database.Spec.LoadBalancer.Type == "proxysql" {
-			pxc.Spec.ProxySQL = &pxcv1.PodSpec{
-				Size:                     database.Spec.LoadBalancer.Size,
-				ServiceType:              database.Spec.LoadBalancer.ExposeType,
-				Configuration:            database.Spec.LoadBalancer.Configuration,
-				LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-				Annotations:              database.Spec.LoadBalancer.Annotations,
-				ExternalTrafficPolicy:    database.Spec.LoadBalancer.TrafficPolicy,
-				Resources:                database.Spec.LoadBalancer.Resources,
-				Enabled:                  true,
-				Image:                    database.Spec.LoadBalancer.Image,
-				Affinity:                 affinity,
-			}
+			pxc.Spec.HAProxy.PodSpec.Enabled = false
+
+			pxc.Spec.ProxySQL.Size = database.Spec.LoadBalancer.Size
+			pxc.Spec.ProxySQL.ServiceType = database.Spec.LoadBalancer.ExposeType
+			pxc.Spec.ProxySQL.Configuration = database.Spec.LoadBalancer.Configuration
+			pxc.Spec.ProxySQL.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
+			pxc.Spec.ProxySQL.Annotations = database.Spec.LoadBalancer.Annotations
+			pxc.Spec.ProxySQL.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
+			pxc.Spec.ProxySQL.Resources = database.Spec.LoadBalancer.Resources
+			pxc.Spec.ProxySQL.Enabled = true
+			pxc.Spec.ProxySQL.Image = database.Spec.LoadBalancer.Image
 		}
 		if database.Spec.Monitoring.PMM != nil {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
-			pxc.Spec.PMM.Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			}
 			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
 		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
