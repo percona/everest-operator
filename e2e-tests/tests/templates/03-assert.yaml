@@ -6,6 +6,9 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-kind: PXCTemplateUgradeOptions
+    dbaas.percona.com/dbtemplate-name: test-pxc-template
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
@@ -26,6 +29,15 @@ spec:
     cpu: "1"
     memory: 1G
     diskSize: 15G
+---
+apiVersion: dbaas.percona.com/v1
+kind: PXCTemplateUgradeOptions
+metadata:
+  name: test-pxc-template
+spec:
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: Disabled
 ---
 apiVersion: pxc.percona.com/v1-11-0
 kind: PerconaXtraDBCluster
@@ -64,8 +76,7 @@ spec:
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
-    apply: 8.0-recommended
-    schedule: 0 4 * * *
+    apply: Disabled
 status:
   haproxy:
     ready: 3

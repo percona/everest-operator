@@ -325,22 +325,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		Spec: psmdbSpec,
 	}
 
-	dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
-	dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
-	if hasTemplateKind && hasTemplateName {
-		err := r.applyTemplate(ctx, psmdb, dbTemplateKind, types.NamespacedName{
-			Namespace: req.NamespacedName.Namespace,
-			Name:      dbTemplateName,
-		})
-		if err != nil {
-			return err
-		}
-	} else if hasTemplateKind {
-		return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
-	} else if hasTemplateName {
-		return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
-	}
-
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -349,6 +333,23 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
 		}
+
+		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
+		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+		if hasTemplateKind && hasTemplateName {
+			err := r.applyTemplate(ctx, psmdb, dbTemplateKind, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      dbTemplateName,
+			})
+			if err != nil {
+				return err
+			}
+		} else if hasTemplateKind {
+			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+		} else if hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+		}
+
 		psmdb.Spec.CRVersion = version.ToCRVersion()
 		psmdb.Spec.UnsafeConf = database.Spec.ClusterSize == 1
 		psmdb.Spec.Pause = database.Spec.Pause
@@ -512,22 +513,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		Spec: pxcSpec,
 	}
 
-	dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
-	dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
-	if hasTemplateKind && hasTemplateName {
-		err := r.applyTemplate(ctx, pxc, dbTemplateKind, types.NamespacedName{
-			Namespace: req.NamespacedName.Namespace,
-			Name:      dbTemplateName,
-		})
-		if err != nil {
-			return err
-		}
-	} else if hasTemplateKind {
-		return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
-	} else if hasTemplateName {
-		return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
-	}
-
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -536,6 +521,23 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
 		}
+
+		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
+		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+		if hasTemplateKind && hasTemplateName {
+			err := r.applyTemplate(ctx, pxc, dbTemplateKind, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      dbTemplateName,
+			})
+			if err != nil {
+				return err
+			}
+		} else if hasTemplateKind {
+			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+		} else if hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+		}
+
 		pxc.Spec.CRVersion = version.ToCRVersion()
 		pxc.Spec.AllowUnsafeConfig = database.Spec.ClusterSize == 1
 		pxc.Spec.Pause = database.Spec.Pause

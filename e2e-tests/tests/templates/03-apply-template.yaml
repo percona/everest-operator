@@ -1,14 +1,14 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 timeout: 10
-commands:
-  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8089 -health-probe-bind-address :8090
-    background: true
 ---
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-kind: PXCTemplateUgradeOptions
+    dbaas.percona.com/dbtemplate-name: test-pxc-template
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
@@ -29,3 +29,12 @@ spec:
     cpu: "1"
     memory: 1G
     diskSize: 15G
+---
+apiVersion: dbaas.percona.com/v1
+kind: PXCTemplateUgradeOptions
+metadata:
+  name: test-pxc-template
+spec:
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: Disabled

@@ -28,6 +28,8 @@ spec:
             type: object
           spec:
             properties:
+              updateStrategy:
+                type: string
               upgradeOptions:
                 properties:
                   apply:
