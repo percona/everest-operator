@@ -825,6 +825,28 @@ func (r *DatabaseReconciler) applyTemplate(
 		return err
 	}
 
+	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"] != nil {
+		if unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] == nil {
+			unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] = map[string]interface{}{}
+		}
+		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}),
+			unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}))
+		if err != nil {
+			return err
+		}
+	}
+
+	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"] != nil {
+		if unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] == nil {
+			unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] = map[string]interface{}{}
+		}
+		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}),
+			unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}))
+		if err != nil {
+			return err
+		}
+	}
+
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredDB.Object, obj)
 	if err != nil {
 		return err
