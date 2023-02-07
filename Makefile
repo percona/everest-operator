@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.19
+VERSION ?= 0.1.1
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -241,7 +241,7 @@ catalog-push: ## Push a catalog image.
 # Create a local minikube cluster
 .PHONY: local-env-up
 local-env-up: ## Create a local minikube cluster
-	minikube start --nodes=5 --cpus=4 --memory=4g --apiserver-names host.docker.internal --kubernetes-version=v1.23.6
+	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal --kubernetes-version=v1.23.6
 	minikube addons disable storage-provisioner
 	kubectl delete storageclass standard
 	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml

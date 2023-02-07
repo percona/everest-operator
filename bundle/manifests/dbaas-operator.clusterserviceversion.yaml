@@ -46,6 +46,14 @@ metadata:
         },
         {
           "apiVersion": "dbaas.percona.com/v1",
+          "kind": "DatabaseClusterRestore",
+          "metadata": {
+            "name": "databaseclusterrestore-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "dbaas.percona.com/v1",
           "kind": "DatabaseEngine",
           "metadata": {
             "labels": {
@@ -61,14 +69,21 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    operators.operatorframework.io/builder: operator-sdk-v1.23.0
+    createdAt: "2023-02-07T06:40:33Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.27.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.0.19
+  name: dbaas-operator.v0.1.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
+        API
+      displayName: Database Cluster Restore
+      kind: DatabaseClusterRestore
+      name: databaseclusterrestores.dbaas.percona.com
+      version: v1
     - description: DatabaseCluster is the Schema for the databases API
       displayName: Database Cluster
       kind: DatabaseCluster
@@ -253,7 +268,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.0.19
+                image: docker.io/percona/dbaas-operator:0.1.1
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -342,4 +357,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.19
+  version: 0.1.1

@@ -23,11 +23,6 @@ import (
 )
 
 const (
-	BackupStorageFilesystem BackupStorageType = "filesystem"
-	BackupStorageS3         BackupStorageType = "s3"
-	BackupStorageGCS        BackupStorageType = "gcs"
-	BackupStorageAzure      BackupStorageType = "azure"
-
 	PXCEngine   EngineType = "pxc"
 	PSMDBEngine EngineType = "psmdb"
 
@@ -49,9 +44,8 @@ type (
 	// for PXC clusters and mongos for PSMDB clusters.
 	//
 	// Once PG support will be added, it can be pg-bouncer or something else.
-	LoadBalancerType  string
-	BackupStorageType string
-	AppState          string
+	LoadBalancerType string
+	AppState         string
 	// DatabaseSpec defines the desired state of Database
 	DatabaseSpec struct {
 		// Database type stands for supported databases by the PMM API
@@ -193,7 +187,7 @@ type DatabaseClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=db;
+// +kubebuilder:resource:shortName=db;dbc
 // +kubebuilder:printcolumn:name="Size",type="string",JSONPath=".status.size"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"

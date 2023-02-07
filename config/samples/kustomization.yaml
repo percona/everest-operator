@@ -2,4 +2,5 @@
 resources:
 - dbaas_v1_database.yaml
 - dbaas_v1_databaseengine.yaml
+- dbaas_v1_databaseclusterrestore.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

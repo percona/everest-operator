@@ -1,0 +1,20 @@
+# permissions for end users to view databaseclusterrestores.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: databaseclusterrestore-viewer-role
+rules:
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores/status
+  verbs:
+  - get

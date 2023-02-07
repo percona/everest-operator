@@ -1,0 +1,24 @@
+# permissions for end users to edit databaseclusterrestores.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: databaseclusterrestore-editor-role
+rules:
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores/status
+  verbs:
+  - get

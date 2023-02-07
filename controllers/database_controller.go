@@ -52,8 +52,10 @@ const (
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 
-	pxcDeploymentName   = "percona-xtradb-cluster-operator"
-	psmdbDeploymentName = "percona-server-mongodb-operator"
+	pxcDeploymentName    = "percona-xtradb-cluster-operator"
+	psmdbDeploymentName  = "percona-server-mongodb-operator"
+	pxcBackupImageTmpl   = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
+	psmdbBackupImageTmpl = "percona/percona-server-mongodb-operator:%s-backup"
 
 	psmdbCRDName                     = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                       = "perconaxtradbclusters.pxc.percona.com"
@@ -327,7 +329,10 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			}
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
+		if database.Spec.Backup != nil {
+			if database.Spec.Backup.Image == "" {
+				database.Spec.Backup.Image = fmt.Sprintf(psmdbBackupImageTmpl, psmdb.Spec.CRVersion)
+			}
 			psmdb.Spec.Backup = psmdbv1.BackupSpec{
 				Enabled:                  true,
 				Image:                    database.Spec.Backup.Image,
@@ -417,6 +422,56 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 	if clusterType == ClusterTypeEKS {
 		affinity.TopologyKey = pointer.ToString("kubernetes.io/hostname")
+	}
+	current := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, current)
+	if err != nil {
+
+		if err = client.IgnoreNotFound(err); err != nil {
+			return err
+		}
+	}
+	if current.Spec.Pause != database.Spec.Pause {
+		// During the restoration of PXC clusters
+		// They need to be shutted down
+		//
+		// It's not a good idea to shutdown them from DatabaseCluster object perspective
+		// hence we have this piece of the migration of spec.pause field
+		// from PerconaXtraDBCluster object to a DatabaseCluster object.
+
+		restores := &dbaasv1.DatabaseClusterRestoreList{}
+
+		if err := r.List(ctx, restores, client.MatchingFields{"spec.databaseCluster": database.Name}); err != nil {
+			return err
+		}
+		jobRunning := false
+		for _, restore := range restores.Items {
+			switch restore.Status.State {
+			case dbaasv1.RestoreState(pxcv1.RestoreNew):
+				jobRunning = true
+				break
+			case dbaasv1.RestoreState(pxcv1.RestoreStarting):
+				jobRunning = true
+				break
+			case dbaasv1.RestoreState(pxcv1.RestoreStopCluster):
+				jobRunning = true
+				break
+			case dbaasv1.RestoreState(pxcv1.RestoreRestore):
+				jobRunning = true
+				break
+			case dbaasv1.RestoreState(pxcv1.RestoreStartCluster):
+				jobRunning = true
+				break
+			case dbaasv1.RestoreState(pxcv1.RestorePITR):
+				jobRunning = true
+				break
+			default:
+				jobRunning = false
+			}
+		}
+		if jobRunning {
+			database.Spec.Pause = current.Spec.Pause
+		}
 	}
 	pxc := &pxcv1.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -520,7 +575,10 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			}
 			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil && database.Spec.Backup.Image != "" {
+		if database.Spec.Backup != nil {
+			if database.Spec.Backup.Image == "" {
+				database.Spec.Backup.Image = fmt.Sprintf(pxcBackupImageTmpl, pxc.Spec.CRVersion)
+			}
 			pxc.Spec.Backup = &pxcv1.PXCScheduledBackup{
 				Image:              database.Spec.Backup.Image,
 				ImagePullSecrets:   database.Spec.Backup.ImagePullSecrets,
