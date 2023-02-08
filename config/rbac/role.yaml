@@ -24,6 +24,32 @@ rules:
 - apiGroups:
   - dbaas.percona.com
   resources:
+  - databaseclusterrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterrestores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - dbaas.percona.com
+  resources:
   - databaseclusters
   verbs:
   - create
@@ -76,7 +102,31 @@ rules:
 - apiGroups:
   - psmdb.percona.com
   resources:
+  - perconaservermongodbrestores
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - psmdb.percona.com
+  resources:
   - perconaservermongodbs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pxc.percona.com
+  resources:
+  - perconaxtradbclusterrestores
   verbs:
   - create
   - delete
