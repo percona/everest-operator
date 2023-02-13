@@ -10,6 +10,12 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
+        API
+      displayName: Database Cluster Restore
+      kind: DatabaseClusterRestore
+      name: databaseclusterrestores.dbaas.percona.com
+      version: v1
     - description: DatabaseCluster is the Schema for the databases API
       displayName: Database Cluster
       kind: DatabaseCluster

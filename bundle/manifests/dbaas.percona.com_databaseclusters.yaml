@@ -13,6 +13,7 @@ spec:
     plural: databaseclusters
     shortNames:
     - db
+    - dbc
     singular: databasecluster
   scope: Namespaced
   versions:
