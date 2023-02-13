@@ -1,0 +1,101 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-kind: PXCTemplateUgradeOptions
+    dbaas.percona.com/dbtemplate-name: test-pxc-template
+spec:
+  databaseType: pxc
+  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
+  databaseConfig: |
+    [mysqld]
+    wsrep_provider_options="debug=1;gcache.size=1G"
+    wsrep_debug=1
+    wsrep_trx_fragment_unit='bytes'
+    wsrep_trx_fragment_size=3670016
+  secretsName: pxc-sample-secrets
+  clusterSize: 3
+  loadBalancer:
+    type: haproxy
+    exposeType: ClusterIP
+    size: 3
+    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G
+---
+apiVersion: dbaas.percona.com/v1
+kind: PXCTemplateUgradeOptions
+metadata:
+  name: test-pxc-template
+  annotations:
+    dbaas.percona.com/dbtemplate-origin: kuttl
+  labels:
+    dbaas.percona.com/engine: pxc
+spec:
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: Disabled
+---
+apiVersion: pxc.percona.com/v1-11-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-origin: kuttl
+  labels:
+    dbaas.percona.com/engine: pxc
+spec:
+  crVersion: 1.11.0
+  haproxy:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    serviceType: ClusterIP
+    size: 3
+  pxc:
+    configuration: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
+    expose: {}
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    livenessProbes: {}
+    readinessProbes: {}
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1G
+    serviceType: ClusterIP
+    sidecarResources: {}
+    size: 3
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 15G
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: Disabled
+status:
+  haproxy:
+    ready: 3
+    size: 3
+    status: ready
+  pxc:
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    ready: 3
+    size: 3
+    status: ready
+    version: 8.0.27-18.1
+  ready: 6
+  size: 6
+  state: ready

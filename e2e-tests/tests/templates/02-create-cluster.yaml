@@ -1,0 +1,31 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+commands:
+  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8089 -health-probe-bind-address :8090
+    background: true
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  databaseType: pxc
+  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
+  databaseConfig: |
+    [mysqld]
+    wsrep_provider_options="debug=1;gcache.size=1G"
+    wsrep_debug=1
+    wsrep_trx_fragment_unit='bytes'
+    wsrep_trx_fragment_size=3670016
+  secretsName: pxc-sample-secrets
+  clusterSize: 3
+  loadBalancer:
+    type: haproxy
+    exposeType: ClusterIP
+    size: 3
+    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G

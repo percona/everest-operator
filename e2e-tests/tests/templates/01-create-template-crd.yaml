@@ -1,0 +1,47 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: pxctemplateupgradeoptions.dbaas.percona.com
+spec:
+  group: dbaas.percona.com
+  names:
+    kind: PXCTemplateUgradeOptions
+    listKind: PXCTemplateUgradeOptionsList
+    plural: pxctemplateupgradeoptions
+    singular: pxctemplateupgradeoptions
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              updateStrategy:
+                type: string
+              upgradeOptions:
+                properties:
+                  apply:
+                    type: string
+                  schedule:
+                    type: string
+                  versionServiceEndpoint:
+                    type: string
+                type: object
+            type: object
+          status:
+            type: object
+        type: object
+    served: true
+    storage: true
