@@ -83,6 +83,9 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 			Affinity: &pxcv1.PodAffinity{
 				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 			},
+			PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
+				MaxUnavailable: &maxUnavailable,
+			},
 		},
 	},
 	PMM: &pxcv1.PMMSpec{
@@ -110,100 +113,102 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 	},
 }
 
-var maxUnavailable = intstr.FromInt(1)
-var defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
-	UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
-	UpgradeOptions: psmdbv1.UpgradeOptions{ // TODO: Get rid of hardcode
-		Apply:    "disabled",
-		Schedule: "0 4 * * *",
-	},
-	PMM: psmdbv1.PMMSpec{
-		Enabled: false,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
+var (
+	maxUnavailable   = intstr.FromInt(1)
+	defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
+		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
+		UpgradeOptions: psmdbv1.UpgradeOptions{ // TODO: Get rid of hardcode
+			Apply:    "disabled",
+			Schedule: "0 4 * * *",
 		},
-	},
-	Mongod: &psmdbv1.MongodSpec{
-		Net: &psmdbv1.MongodSpecNet{
-			Port: 27017,
-		},
-		OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
-			Mode:              psmdbv1.OperationProfilingModeSlowOp,
-			SlowOpThresholdMs: 100,
-			RateLimit:         100,
-		},
-		Security: &psmdbv1.MongodSpecSecurity{
-			RedactClientLogData:  false,
-			EnableEncryption:     pointer.ToBool(true),
-			EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
-		},
-		SetParameter: &psmdbv1.MongodSpecSetParameter{
-			TTLMonitorSleepSecs: 60,
-		},
-		Storage: &psmdbv1.MongodSpecStorage{
-			Engine: psmdbv1.StorageEngineWiredTiger,
-			MMAPv1: &psmdbv1.MongodSpecMMAPv1{
-				NsSize:     16,
-				Smallfiles: false,
-			},
-			WiredTiger: &psmdbv1.MongodSpecWiredTiger{
-				CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
-					BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
-				},
-				EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
-					DirectoryForIndexes: false,
-					JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
-				},
-				IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
-					PrefixCompression: true,
+		PMM: psmdbv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
 				},
 			},
 		},
-	},
-	Replsets: []*psmdbv1.ReplsetSpec{
-		{
-			Name: "rs0",
-			// TODO: Add pod disruption budget
-			MultiAZ: psmdbv1.MultiAZ{
-				PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
-					MaxUnavailable: &maxUnavailable,
+		Mongod: &psmdbv1.MongodSpec{
+			Net: &psmdbv1.MongodSpecNet{
+				Port: 27017,
+			},
+			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
+				Mode:              psmdbv1.OperationProfilingModeSlowOp,
+				SlowOpThresholdMs: 100,
+				RateLimit:         100,
+			},
+			Security: &psmdbv1.MongodSpecSecurity{
+				RedactClientLogData:  false,
+				EnableEncryption:     pointer.ToBool(true),
+				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
+			},
+			SetParameter: &psmdbv1.MongodSpecSetParameter{
+				TTLMonitorSleepSecs: 60,
+			},
+			Storage: &psmdbv1.MongodSpecStorage{
+				Engine: psmdbv1.StorageEngineWiredTiger,
+				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
+					NsSize:     16,
+					Smallfiles: false,
 				},
-				Affinity: &psmdbv1.PodAffinity{
-					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
+					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
+						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
+						DirectoryForIndexes: false,
+						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
+						PrefixCompression: true,
+					},
 				},
 			},
 		},
-	},
-	Sharding: psmdbv1.Sharding{
-		Enabled: true,
-		ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-			MultiAZ: psmdbv1.MultiAZ{
-				Affinity: &psmdbv1.PodAffinity{
-					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-				},
-			},
-			Arbiter: psmdbv1.Arbiter{
-				Enabled: false,
+		Replsets: []*psmdbv1.ReplsetSpec{
+			{
+				Name: "rs0",
+				// TODO: Add pod disruption budget
 				MultiAZ: psmdbv1.MultiAZ{
+					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
+						MaxUnavailable: &maxUnavailable,
+					},
 					Affinity: &psmdbv1.PodAffinity{
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
 				},
 			},
 		},
-		Mongos: &psmdbv1.MongosSpec{
-			MultiAZ: psmdbv1.MultiAZ{
-				Affinity: &psmdbv1.PodAffinity{
-					TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+		Sharding: psmdbv1.Sharding{
+			Enabled: true,
+			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+				},
+				Arbiter: psmdbv1.Arbiter{
+					Enabled: false,
+					MultiAZ: psmdbv1.MultiAZ{
+						Affinity: &psmdbv1.PodAffinity{
+							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+						},
+					},
 				},
 			},
-			// TODO: Add traffic policy
+			Mongos: &psmdbv1.MongosSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+				},
+				// TODO: Add traffic policy
+			},
 		},
-	},
-}
+	}
+)
 
 // DatabaseReconciler reconciles a Database object
 type DatabaseReconciler struct {
@@ -266,6 +271,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
+
 func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
 	clusterType := ClusterTypeMinikube
 	unstructuredResource := &unstructured.Unstructured{}
@@ -291,8 +297,8 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 		}
 	}
 	return clusterType, nil
-
 }
+
 func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -459,7 +465,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 					CompressionType:  v.CompressionType,
 					CompressionLevel: v.CompressionLevel,
 				})
-
 			}
 			psmdb.Spec.Backup.Storages = storages
 			psmdb.Spec.Backup.Tasks = tasks
@@ -485,6 +490,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	}
 	return nil
 }
+
 func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -511,7 +517,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	current := &pxcv1.PerconaXtraDBCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, current)
 	if err != nil {
-
 		if err = client.IgnoreNotFound(err); err != nil {
 			return err
 		}
@@ -622,7 +627,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 
 			if database.Spec.LoadBalancer.Image == "" {
 				database.Spec.LoadBalancer.Image = fmt.Sprintf(haProxyTemplate, version.String())
-
 			}
 			pxc.Spec.HAProxy.PodSpec.Size = database.Spec.LoadBalancer.Size
 			pxc.Spec.HAProxy.PodSpec.ServiceType = database.Spec.LoadBalancer.ExposeType
@@ -707,7 +711,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					Keep:        v.Keep,
 					StorageName: v.StorageName,
 				})
-
 			}
 			pxc.Spec.Backup.Storages = storages
 			pxc.Spec.Backup.Schedule = schedules
@@ -728,6 +731,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 	return nil
 }
+
 func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
@@ -747,6 +751,7 @@ func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.
 	version := strings.Split(deployment.Spec.Template.Spec.Containers[0].Image, ":")[1]
 	return NewVersion(version)
 }
+
 func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
 		Name:      pxcDeploymentName,
@@ -767,6 +772,7 @@ func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
 	return nil
 }
+
 func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
 		Name:      psmdbDeploymentName,
@@ -787,10 +793,12 @@ func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
 	return nil
 }
+
 func (r *DatabaseReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
 	return builder.AddToScheme(scheme)
 }
+
 func (r *DatabaseReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
 	return builder.AddToScheme(scheme)
