@@ -245,3 +245,10 @@ local-env-up: ## Create a local minikube cluster
 	minikube addons disable storage-provisioner
 	kubectl delete storageclass standard
 	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
+
+## Location to output deployment manifests
+DEPLOYDIR = ./deploy
+
+.PHONY: $(DEPLOYDIR)/bundle.yaml
+$(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
+	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml

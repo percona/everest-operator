@@ -5,6 +5,31 @@
 
 **This project is in the tech preview state right now. Don't use it on production.**
 
+## Getting started
+
+### Deploy the DBaaS operator
+
+The first step is to deploy the DBaaS operator. This can be done using `kubectl`:
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/percona/dbaas-operator/v0.1.3/deploy/bundle.yaml
+```
+
+### Deploy the underlying DB engine operators
+
+The DBaaS operator relies on underlying operators for deploying DB clusters of a given engine type.
+
+#### Percona XtraDB Cluster
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.11.0/deploy/bundle.yaml
+```
+
+#### Percona Server for MongoDB
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml
+```
 
 ## How to get involved
 
