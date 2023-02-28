@@ -23,7 +23,7 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
   dbInstance:
-    cpu: "1"
+    cpu: 600m
     memory: 1G
     diskSize: 15G
 ---
@@ -51,7 +51,7 @@ spec:
     readinessProbes: {}
     resources:
       limits:
-        cpu: "1"
+        cpu: 600m
         memory: 1G
     serviceType: ClusterIP
     sidecarResources: {}
@@ -64,7 +64,7 @@ spec:
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
-    apply: 8.0-recommended
+    apply: never
     schedule: 0 4 * * *
 status:
   haproxy:

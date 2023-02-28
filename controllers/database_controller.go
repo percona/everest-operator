@@ -54,10 +54,9 @@ const (
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 
-	pxcDeploymentName    = "percona-xtradb-cluster-operator"
-	psmdbDeploymentName  = "percona-server-mongodb-operator"
-	pxcBackupImageTmpl   = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
-	psmdbBackupImageTmpl = "percona/percona-server-mongodb-operator:%s-backup"
+	pxcDeploymentName   = "percona-xtradb-cluster-operator"
+	psmdbDeploymentName = "percona-server-mongodb-operator"
+	pxcBackupImageTmpl  = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
 
 	psmdbCRDName                            = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                              = "perconaxtradbclusters.pxc.percona.com"
@@ -69,12 +68,33 @@ const (
 	dbTemplateNameAnnotationKey             = "dbaas.percona.com/dbtemplate-name"
 	ClusterTypeEKS              ClusterType = "eks"
 	ClusterTypeMinikube         ClusterType = "minikube"
+
+	memorySmallSize  = int64(2) * 1000 * 1000 * 1000
+	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
+	memoryLargeSize  = int64(32) * 1000 * 1000 * 1000
+
+	pxcDefaultConfigurationTemplate = `[mysqld]
+wsrep_provider_options="gcache.size=%s"
+wsrep_trx_fragment_unit='bytes'
+wsrep_trx_fragment_size=3670016
+`
+	pxcMinimalConfigurationTemplate = `[mysqld]
+wsrep_provider_options="gcache.size=%s"
+`
+	haProxyDefaultConfigurationTemplate = `timeout client 28800s
+timeout connect 100500
+timeout server 28800s
+`
+	psmdbDefaultConfigurationTemplate = `
+      operationProfiling:
+        mode: slowOp
+`
 )
 
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
 	UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
-		Apply:    "8.0-recommended",
+		Apply:    "never",
 		Schedule: "0 4 * * *",
 	},
 	PXC: &pxcv1.PXCSpec{
@@ -332,6 +352,9 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		},
 		Spec: psmdbSpec,
 	}
+	if database.Spec.DatabaseConfig == "" {
+		database.Spec.DatabaseConfig = psmdbDefaultConfigurationTemplate
+	}
 
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
@@ -418,7 +441,11 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		}
 		if database.Spec.Backup != nil {
 			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = fmt.Sprintf(psmdbBackupImageTmpl, psmdb.Spec.CRVersion)
+				image, err := version.PSMDBBackupImage()
+				if err != nil {
+					return err
+				}
+				database.Spec.Backup.Image = image
 			}
 			psmdb.Spec.Backup = psmdbv1.BackupSpec{
 				Enabled:                  true,
@@ -572,6 +599,28 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			Annotations: database.Annotations,
 		},
 		Spec: pxcSpec,
+	}
+	if database.Spec.DatabaseConfig == "" {
+		gCacheSize := "600M"
+
+		if database.Spec.DBInstance.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) <= 0 {
+			gCacheSize = "2457M"
+		}
+		if database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) <= 0 {
+			gCacheSize = "9830M"
+		}
+		if database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) >= 0 {
+			gCacheSize = "9830M"
+		}
+		ver, _ := goversion.NewVersion("v1.11.0")
+		database.Spec.DatabaseConfig = fmt.Sprintf(pxcDefaultConfigurationTemplate, gCacheSize)
+		if version.version.GreaterThan(ver) {
+			database.Spec.DatabaseConfig = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
+		}
+
+	}
+	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
+		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
 	}
 
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {

@@ -58,7 +58,7 @@ spec:
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
-    apply: 8.0-recommended
+    apply: never
     schedule: 0 4 * * *
 status:
   haproxy:

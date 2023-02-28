@@ -62,7 +62,7 @@ spec:
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
-    apply: 8.0-recommended
+    apply: never
     schedule: 0 4 * * *
   backup:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
