@@ -1,0 +1,124 @@
+---
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
+  cyclop:
+    max-complexity: 30
+
+
+  depguard:
+    list-type: blacklist
+    include-go-root: true
+    packages:
+      # use "github.com/pkg/errors" instead
+      - errors
+      # use "github.com/golang/protobuf/proto" instead
+      - github.com/gogo/protobuf/proto
+      # use only forked parser
+      - github.com/percona/go-mysql/log/slow
+      # use "github.com/percona-platform/saas" instead
+      - github.com/percona-platform/platform
+      # use "gopkg.in/yaml.v3" instead
+      - gopkg.in/yaml.v2
+
+  gci:
+    sections:
+      - standard # Captures all standard packages if they do not match another section.
+      - default # Contains all imports that could not be matched to another section type.
+      - prefix(github.com/percona/dbaas-operator) # Groups all local imports.
+
+  godot:
+    capital: true
+
+  goimports:
+    local-prefixes: github.com/percona/dbaas-operator
+
+#  gomoddirectives:
+#    replace-allow-list:
+#      - github.com/percona-platform/dbaas-api
+
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+      - github.com/charmbracelet/bubbletea.Model
+
+  lll:
+    line-length: 170
+    tab-width: 4
+
+  tagliatelle:
+    # Check the struck tag name case.
+    case:
+      rules:
+        avro: snake
+        bson: camel
+        # Disabled because we have too many errors at the moment
+        json: ""
+        # Disabled because we have too many errors at the moment
+        yaml: ""
+        xml: camel
+
+  unused:
+    check-exported: false #TODO: set true for agent
+
+  unparam:
+    check-exported: true
+
+linters:
+  enable-all: true
+  disable:
+    # keep sorted
+    - exhaustivestruct  # too annoying
+    - funlen            # useless
+    - gochecknoglobals  # mostly useless
+    - gochecknoinits    # we use init functions
+    - gomnd             # we are using numbers in many cases
+    - gomoddirectives   # we use replace directives
+    - ifshort           # a lot of false positives
+    - interfacer        # deprecated
+    - maligned          # deprecated
+    - nlreturn          # too annoying
+    - scopelint         # too many false positives
+    - varnamelen        # useless
+    - wrapcheck         # we do not use wrapping everywhere
+    - wsl               # too annoying
+    - exhaustruct       # too many files to fix/nolint
+    - goerr113          # extra work & poor benefit
+    - varcheck          # deprecated
+    - structcheck       # deprecated
+    - golint
+    - nosnakecase
+    - deadcode
+    - exhaustive
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - agent/agents/mongodb/internal/
+    - qan-api2/migrations/
+
+issues:
+  exclude-use-default: false
+  exclude:
+    # gas: Duplicated errcheck checks
+    - 'G104: Errors unhandled'
+    # golint: Methods for implementing interfaces are not documented
+    - 'exported method `.+` should have comment or be unexported'
+    - 'comment on exported method `.+` should be of the form `.+ ...`'
+    # golint: We have to return unexported types due to oneof implementation
+    - 'exported method .+ returns unexported type .+, which can be annoying to use'
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        # keep sorted
+        - exhaustivestruct # very annoying
+        - funlen           # tests may be long
+        - gocognit         # triggered by subtests
+        - gomnd            # tests are full of magic numbers
+        - testpackage      # senseless
+        - unused           # very annoying false positive: https://github.com/golangci/golangci-lint/issues/791
+        - lll              # tests often require long lines
+

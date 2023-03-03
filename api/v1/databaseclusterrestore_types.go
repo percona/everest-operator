@@ -20,23 +20,30 @@ import (
 )
 
 const (
+	// BackupStorageFilesystem represents file system storage type.
 	BackupStorageFilesystem BackupStorageType = "filesystem"
-	BackupStorageS3         BackupStorageType = "s3"
-	BackupStorageGCS        BackupStorageType = "gcs"
-	BackupStorageAzure      BackupStorageType = "azure"
+	// BackupStorageS3 represents s3 storage.
+	BackupStorageS3 BackupStorageType = "s3"
+	// BackupStorageGCS represents Google Cloud storage.
+	BackupStorageGCS BackupStorageType = "gcs"
+	// BackupStorageAzure represents azure storage.
+	BackupStorageAzure BackupStorageType = "azure"
 )
 
 type (
-	RestoreState      string
+	// RestoreState represents state of restoration.
+	RestoreState string
+	// BackupStorageType represents backup storage type.
 	BackupStorageType string
 
-	// DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore
+	// DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
 	DatabaseClusterRestoreSpec struct {
 		DatabaseCluster string        `json:"databaseCluster"`
 		DatabaseType    EngineType    `json:"databaseType"`
 		BackupName      string        `json:"backupName,omitempty"`
 		BackupSource    *BackupSource `json:"backupSource,omitempty"`
 	}
+	// BackupSource represents settings of a source where to get a backup to run restoration.
 	BackupSource struct {
 		Destination           string                     `json:"destination,omitempty"`
 		StorageName           string                     `json:"storageName,omitempty"`
@@ -50,7 +57,7 @@ type (
 	}
 )
 
-// DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore
+// DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore.
 type DatabaseClusterRestoreStatus struct {
 	State         RestoreState       `json:"state,omitempty"`
 	CompletedAt   *metav1.Time       `json:"completed,omitempty"`
@@ -71,7 +78,8 @@ type DatabaseClusterRestoreStatus struct {
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Completed time"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// DatabaseClusterRestore is the Schema for the databaseclusterrestores API
+
+// DatabaseClusterRestore is the Schema for the databaseclusterrestores API.
 type DatabaseClusterRestore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -82,7 +90,7 @@ type DatabaseClusterRestore struct {
 
 //+kubebuilder:object:root=true
 
-// DatabaseClusterRestoreList contains a list of DatabaseClusterRestore
+// DatabaseClusterRestoreList contains a list of DatabaseClusterRestore.
 type DatabaseClusterRestoreList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

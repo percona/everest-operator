@@ -21,7 +21,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,17 +30,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
-	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
+var (
+	cfg       *rest.Config
+	k8sClient client.Client
+	testEnv   *envtest.Environment
+)
 
 func TestAPIs(t *testing.T) {
+	t.Parallel()
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
@@ -72,7 +73,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
 }, 60)
 
 var _ = AfterSuite(func() {

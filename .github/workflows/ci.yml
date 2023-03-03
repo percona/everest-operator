@@ -41,8 +41,8 @@ jobs:
         run:
           make test
         env:
-          PXC_OPERATOR_VERSION: 1.11.0
-          PSMDB_OPERATOR_VERSION: 1.11.0
+          PXC_OPERATOR_VERSION: 1.12.0
+          PSMDB_OPERATOR_VERSION: 1.13.0
 
     #kind-e2e-tests:
     #  name: E2E tests (Kind)

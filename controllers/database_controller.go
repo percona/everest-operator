@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controllers contains a set of controllers for DBaaS
 package controllers
 
 import (
@@ -26,7 +27,6 @@ import (
 	"github.com/AlekSi/pointer"
 	goversion "github.com/hashicorp/go-version"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
-
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,26 +48,31 @@ import (
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 )
 
+// ClusterType used to understand the underlying platform of k8s cluster.
 type ClusterType string
 
 const (
+	// PerconaXtraDBClusterKind represents pxc kind.
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
+	// PerconaServerMongoDBKind represents psmdb kind.
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 
 	pxcDeploymentName   = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pxcBackupImageTmpl  = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
 
-	psmdbCRDName                            = "perconaservermongodbs.psmdb.percona.com"
-	pxcCRDName                              = "perconaxtradbclusters.pxc.percona.com"
-	pxcAPIGroup                             = "pxc.percona.com"
-	psmdbAPIGroup                           = "psmdb.percona.com"
-	haProxyTemplate                         = "percona/percona-xtradb-cluster-operator:%s-haproxy"
-	restartAnnotationKey                    = "dbaas.percona.com/restart"
-	dbTemplateKindAnnotationKey             = "dbaas.percona.com/dbtemplate-kind"
-	dbTemplateNameAnnotationKey             = "dbaas.percona.com/dbtemplate-name"
-	ClusterTypeEKS              ClusterType = "eks"
-	ClusterTypeMinikube         ClusterType = "minikube"
+	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
+	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
+	pxcAPIGroup                 = "pxc.percona.com"
+	psmdbAPIGroup               = "psmdb.percona.com"
+	haProxyTemplate             = "percona/percona-xtradb-cluster-operator:%s-haproxy"
+	restartAnnotationKey        = "dbaas.percona.com/restart"
+	dbTemplateKindAnnotationKey = "dbaas.percona.com/dbtemplate-kind"
+	dbTemplateNameAnnotationKey = "dbaas.percona.com/dbtemplate-name"
+	// ClusterTypeEKS represents EKS cluster type.
+	ClusterTypeEKS ClusterType = "eks"
+	// ClusterTypeMinikube represents minikube cluster type.
+	ClusterTypeMinikube ClusterType = "minikube"
 
 	memorySmallSize  = int64(2) * 1000 * 1000 * 1000
 	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
@@ -93,7 +98,7 @@ timeout server 28800s
 
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
-	UpgradeOptions: pxcv1.UpgradeOptions{ // TODO: Get rid of hardcode
+	UpgradeOptions: pxcv1.UpgradeOptions{
 		Apply:    "never",
 		Schedule: "0 4 * * *",
 	},
@@ -137,7 +142,7 @@ var (
 	maxUnavailable   = intstr.FromInt(1)
 	defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
 		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
-		UpgradeOptions: psmdbv1.UpgradeOptions{ // TODO: Get rid of hardcode
+		UpgradeOptions: psmdbv1.UpgradeOptions{
 			Apply:    "disabled",
 			Schedule: "0 4 * * *",
 		},
@@ -190,7 +195,6 @@ var (
 		Replsets: []*psmdbv1.ReplsetSpec{
 			{
 				Name: "rs0",
-				// TODO: Add pod disruption budget
 				MultiAZ: psmdbv1.MultiAZ{
 					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: &maxUnavailable,
@@ -224,13 +228,12 @@ var (
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
 				},
-				// TODO: Add traffic policy
 			},
 		},
 	}
 )
 
-// DatabaseReconciler reconciles a Database object
+// DatabaseReconciler reconciles a Database object.
 type DatabaseReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -319,7 +322,7 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 	return clusterType, nil
 }
 
-func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
+func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      psmdbDeploymentName,
@@ -367,6 +370,12 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+		if hasTemplateKind && !hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+		}
+		if !hasTemplateKind && hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+		}
 		if hasTemplateKind && hasTemplateName {
 			err := r.applyTemplate(ctx, psmdb, dbTemplateKind, types.NamespacedName{
 				Namespace: req.NamespacedName.Namespace,
@@ -375,10 +384,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			if err != nil {
 				return err
 			}
-		} else if hasTemplateKind {
-			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
-		} else if hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
 		}
 
 		psmdb.Spec.CRVersion = version.ToCRVersion()
@@ -401,7 +406,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 				},
 			},
 		}
-		// TODO: Add pod disruption budget
 		psmdb.Spec.Replsets[0].MultiAZ.Resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
@@ -427,7 +431,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		}
 		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration)
 		psmdb.Spec.Sharding.Mongos.MultiAZ.Resources = database.Spec.LoadBalancer.Resources
-		// TODO: Add traffic policy
 		if database.Spec.ClusterSize == 1 {
 			psmdb.Spec.Sharding.Enabled = false
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
@@ -495,7 +498,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			}
 			psmdb.Spec.Backup.Storages = storages
 			psmdb.Spec.Backup.Tasks = tasks
-
 		}
 		return nil
 	})
@@ -518,7 +520,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	return nil
 }
 
-func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error {
+func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      pxcDeploymentName,
@@ -566,22 +568,16 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			switch restore.Status.State {
 			case dbaasv1.RestoreState(pxcv1.RestoreNew):
 				jobRunning = true
-				break
 			case dbaasv1.RestoreState(pxcv1.RestoreStarting):
 				jobRunning = true
-				break
 			case dbaasv1.RestoreState(pxcv1.RestoreStopCluster):
 				jobRunning = true
-				break
 			case dbaasv1.RestoreState(pxcv1.RestoreRestore):
 				jobRunning = true
-				break
 			case dbaasv1.RestoreState(pxcv1.RestoreStartCluster):
 				jobRunning = true
-				break
 			case dbaasv1.RestoreState(pxcv1.RestorePITR):
 				jobRunning = true
-				break
 			default:
 				jobRunning = false
 			}
@@ -617,7 +613,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		if version.version.GreaterThan(ver) {
 			database.Spec.DatabaseConfig = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
 		}
-
 	}
 	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
 		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
@@ -634,6 +629,12 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
+		if hasTemplateKind && !hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+		}
+		if !hasTemplateKind && hasTemplateName {
+			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+		}
 		if hasTemplateKind && hasTemplateName {
 			err := r.applyTemplate(ctx, pxc, dbTemplateKind, types.NamespacedName{
 				Namespace: req.NamespacedName.Namespace,
@@ -642,10 +643,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			if err != nil {
 				return err
 			}
-		} else if hasTemplateKind {
-			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
-		} else if hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
 		}
 
 		pxc.Spec.CRVersion = version.ToCRVersion()
@@ -763,7 +760,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			}
 			pxc.Spec.Backup.Storages = storages
 			pxc.Spec.Backup.Schedule = schedules
-
 		}
 		return nil
 	})
@@ -809,14 +805,14 @@ func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	if err != nil {
 		return err
 	}
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: strings.Replace("v"+version.String(), ".", "-", -1)}
+	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
 	ver, _ := goversion.NewVersion("v1.11.0")
 	if version.version.GreaterThan(ver) {
 		pxcSchemeGroupVersion = schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
 	}
+
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{},
-	)
+		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{})
 
 	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
 	return nil
@@ -830,14 +826,13 @@ func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	if err != nil {
 		return err
 	}
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: strings.Replace("v"+version.String(), ".", "-", -1)}
+	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
 	ver, _ := goversion.NewVersion("v1.12.0")
 	if version.version.GreaterThan(ver) {
 		psmdbSchemeGroupVersion = schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
 	}
 	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
-		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{},
-	)
+		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{})
 
 	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
 	return nil
@@ -867,14 +862,12 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
-			fmt.Println("Registered PXC")
 		}
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Owns(&psmdbv1.PerconaServerMongoDB{})
-			fmt.Println("Registered psmdb")
 		}
 	}
 	return controller.Complete(r)
@@ -885,12 +878,12 @@ func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, pa
 		if dst[k] != nil && reflect.TypeOf(dst[k]) != reflect.TypeOf(v) {
 			return errors.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
 		}
-		switch v.(type) {
+		switch v.(type) { //nolint:gocritic
 		case map[string]interface{}:
-			switch dst[k].(type) {
+			switch dst[k].(type) { //nolint:gocritic
 			case nil:
 				dst[k] = v
-			case map[string]interface{}:
+			case map[string]interface{}: //nolint:forcetypeassert
 				err := mergeMapInternal(dst[k].(map[string]interface{}),
 					v.(map[string]interface{}), fmt.Sprintf("%s.%s", parent, k))
 				if err != nil {
@@ -934,17 +927,18 @@ func (r *DatabaseReconciler) applyTemplate(
 	if err != nil {
 		return err
 	}
-
+	//nolint:forcetypeassert
 	err = mergeMap(unstructuredDB.Object["spec"].(map[string]interface{}),
 		unstructuredTemplate.Object["spec"].(map[string]interface{}))
 	if err != nil {
 		return err
 	}
 
-	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"] != nil {
-		if unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] == nil {
-			unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] = map[string]interface{}{}
+	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"] != nil { //nolint:forcetypeassert
+		if unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] == nil { //nolint:forcetypeassert
+			unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] = make(map[string]interface{}) //nolint:forcetypeassert
 		}
+		//nolint:forcetypeassert
 		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}),
 			unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}))
 		if err != nil {
@@ -952,10 +946,11 @@ func (r *DatabaseReconciler) applyTemplate(
 		}
 	}
 
-	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"] != nil {
-		if unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] == nil {
-			unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] = map[string]interface{}{}
+	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"] != nil { //nolint:forcetypeassert
+		if unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] == nil { //nolint:forcetypeassert
+			unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] = make(map[string]interface{}) //nolint:forcetypeassert
 		}
+		//nolint:forcetypeassert
 		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}),
 			unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}))
 		if err != nil {

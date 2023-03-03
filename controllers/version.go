@@ -17,14 +17,18 @@ const (
 )
 
 type (
+	// Version is a wrapper around github.com/hashicorp/go-version that adds additional
+	// functions for developer's usability.
 	Version struct {
 		version *goversion.Version
 	}
+	// Image is contains needed fields to parse information from version service.
 	Image struct {
 		ImagePath string `json:"imagePath"`
 		ImageHash string `json:"imageHash"`
 		Status    string `json:"status"`
 	}
+	// VersionResponse is a response model for version service response parsing.
 	VersionResponse struct {
 		Versions []struct {
 			Matrix struct {
@@ -34,6 +38,7 @@ type (
 	}
 )
 
+// NewVersion creates a new version from given string.
 func NewVersion(v string) (*Version, error) {
 	version, err := goversion.NewVersion(v)
 	if err != nil {
@@ -41,31 +46,41 @@ func NewVersion(v string) (*Version, error) {
 	}
 	return &Version{version: version}, nil
 }
+
+// String returns version string.
 func (v *Version) String() string {
 	return v.version.String()
 }
+
+// ToCRVersion returns version usable as CRversion parameter.
 func (v *Version) ToCRVersion() string {
-	return strings.Replace(v.String(), "v", "", -1)
+	return strings.ReplaceAll(v.String(), "v", "")
 }
+
+// ToSemver returns version is semver format.
 func (v *Version) ToSemver() string {
 	return fmt.Sprintf("v%s", v.String())
 }
+
+// ToAPIVersion returns version that can be used as K8s APIVersion parameter.
 func (v *Version) ToAPIVersion(apiRoot string) string {
 	ver, _ := goversion.NewVersion("v1.12.0")
 	if v.version.GreaterThan(ver) {
 		return fmt.Sprintf("%s/v1", apiRoot)
 	}
-	return fmt.Sprintf("%s/v%s", apiRoot, strings.Replace(v.String(), ".", "-", -1))
+	return fmt.Sprintf("%s/v%s", apiRoot, strings.ReplaceAll(v.String(), ".", "-"))
 }
 
+// PSMDBBackupImage returns backup image for psmdb clusters depending on operator version
+// For 1.12+ it gets image from version service.
 func (v *Version) PSMDBBackupImage() (string, error) {
 	ver, _ := goversion.NewVersion("v1.11.0")
 	if v.version.GreaterThan(ver) {
-		resp, err := http.Get(fmt.Sprintf(defaultVersionServiceURL, v.ToCRVersion()))
+		resp, err := http.Get(fmt.Sprintf(defaultVersionServiceURL, v.ToCRVersion())) //nolint:noctx
 		if err != nil {
 			return "", err
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck,gosec
 		var vr VersionResponse
 		if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
 			return "", err

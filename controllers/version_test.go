@@ -8,6 +8,7 @@ import (
 )
 
 func TestVersion(t *testing.T) {
+	t.Parallel()
 	v, err := NewVersion("1.11.0")
 	require.NoError(t, err)
 

@@ -17,9 +17,11 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
-
-	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -48,7 +46,7 @@ const (
 	clusterReadyTimeout = 10 * time.Minute
 )
 
-// DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object
+// DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
 type DatabaseClusterRestoreReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -60,6 +58,8 @@ type DatabaseClusterRestoreReconciler struct {
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbrestores,verbs=get;list;watch;create;update;patch;delete
 
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("reconciling", "request", req)
@@ -78,13 +78,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	if cr.Spec.DatabaseType == dbaasv1.PXCEngine {
-		if err := r.restorePXC(cr); err != nil {
+		if err := r.restorePXC(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
 	}
 	if cr.Spec.DatabaseType == dbaasv1.PSMDBEngine {
-		if err := r.restorePSMDB(cr); err != nil {
+		if err := r.restorePSMDB(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
@@ -92,6 +92,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 
 	return ctrl.Result{}, nil
 }
+
 func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *dbaasv1.DatabaseClusterRestore) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -111,6 +112,7 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *dbaasv1
 		}
 	}
 }
+
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *dbaasv1.DatabaseClusterRestore) error {
 	if err := r.ensureClusterIsReady(restore); err != nil {
 		return err
@@ -173,6 +175,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *dbaasv1.Databas
 	restore.Status.Message = psmdbCR.Status.Error
 	return r.Status().Update(context.Background(), restore)
 }
+
 func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *dbaasv1.DatabaseClusterRestore) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
@@ -237,17 +240,16 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *dbaasv1.DatabaseC
 func (r *DatabaseClusterRestoreReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBClusterRestore{}, &pxcv1.PerconaXtraDBClusterRestoreList{},
-	)
+		&pxcv1.PerconaXtraDBClusterRestore{}, &pxcv1.PerconaXtraDBClusterRestoreList{})
 
 	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
 	return nil
 }
+
 func (r *DatabaseClusterRestoreReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	pxcSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&psmdbv1.PerconaServerMongoDBRestore{}, &psmdbv1.PerconaServerMongoDBRestoreList{},
-	)
+		&psmdbv1.PerconaServerMongoDBRestore{}, &psmdbv1.PerconaServerMongoDBRestoreList{})
 
 	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
 	return nil
@@ -257,6 +259,7 @@ func (r *DatabaseClusterRestoreReconciler) addPXCToScheme(scheme *runtime.Scheme
 	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
 	return builder.AddToScheme(scheme)
 }
+
 func (r *DatabaseClusterRestoreReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
 	return builder.AddToScheme(scheme)
@@ -273,25 +276,22 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseClusterRestore{})
 	err := r.Get(context.Background(), types.NamespacedName{Name: pxcRestoreCRDName}, unstructuredResource)
-	fmt.Println(unstructuredResource, err)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBClusterRestore{})
-			fmt.Println("Registered PXC")
 		}
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbRestoreCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Owns(&psmdbv1.PerconaServerMongoDBRestore{})
-			fmt.Println("Registered psmdb")
 		}
 	}
 	if err := r.addPSMDBToScheme(r.Scheme); err != nil {
 		return err
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &dbaasv1.DatabaseClusterRestore{}, "spec.databaseCluster", func(rawObj client.Object) []string {
-		res := rawObj.(*dbaasv1.DatabaseClusterRestore)
+		res := rawObj.(*dbaasv1.DatabaseClusterRestore) //nolint:forcetypeassert
 		return []string{res.Spec.DatabaseCluster}
 	}); err != nil {
 		return err

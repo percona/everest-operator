@@ -20,23 +20,29 @@ import (
 )
 
 const (
+	// DBEngineStateNotInstalled represents the state of engine when underlying operator is not installed.
 	DBEngineStateNotInstalled EngineState = "not installed"
-	DBEngineStateInstalling   EngineState = "installing"
-	DBEngineStateInstalled    EngineState = "installed"
+	// DBEngineStateInstalling represents the state of engine when underlying operator is installing.
+	DBEngineStateInstalling EngineState = "installing"
+	// DBEngineStateInstalled represents the state of engine when underlying operator is installed.
+	DBEngineStateInstalled EngineState = "installed"
 )
 
 type (
 	// EngineType stands for the supported database engines. Right now it's only pxc
-	// and psmdb. However, it can be ps, pg and any other source
-	EngineType  string
+	// and psmdb. However, it can be ps, pg and any other source.
+	EngineType string
+
+	// EngineState represents state of engine in a k8s cluster.
 	EngineState string
 )
 
+// DatabaseEngineSpec is a spec for a database engine.
 type DatabaseEngineSpec struct {
 	Type EngineType `json:"type"`
 }
 
-// DatabaseEngineStatus defines the observed state of DatabaseEngine
+// DatabaseEngineStatus defines the observed state of DatabaseEngine.
 type DatabaseEngineStatus struct {
 	State   EngineState `json:"status,omitempty"`
 	Version string      `json:"version,omitempty"`
@@ -49,7 +55,7 @@ type DatabaseEngineStatus struct {
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
 //+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
 
-// DatabaseEngine is the Schema for the databaseengines API
+// DatabaseEngine is the Schema for the databaseengines API.
 type DatabaseEngine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -60,7 +66,7 @@ type DatabaseEngine struct {
 
 //+kubebuilder:object:root=true
 
-// DatabaseEngineList contains a list of DatabaseEngine
+// DatabaseEngineList contains a list of DatabaseEngine.
 type DatabaseEngineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

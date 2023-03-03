@@ -13,21 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main ...
+//
+//nolint:gci
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -37,7 +40,7 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
-const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
+const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -67,12 +70,11 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", WatchNamespaceEnvVar))
+		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", watchNamespaceEnvVar))
 
 		os.Exit(1)
-
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
