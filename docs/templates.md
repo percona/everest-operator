@@ -7,7 +7,7 @@
 - [Examples](#examples)
   - [Disabling Percona XtraDB Cluster Automatic Upgrade](#disabling-percona-xtradb-cluster-automatic-upgrade)
     - [Creating The Template CRD](#creating-the-template-crd)
-    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUgradeOptions CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplateugradeoptions-crs)
+    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplateugradeoptions-crs)
     - [Creating The Template CR](#creating-the-template-cr)
     - [Applying The Template To Existing DB Clusters](#applying-the-template-to-existing-db-clusters)
 <!-- /toc -->
@@ -67,6 +67,10 @@ There could be optional annotations (both in DatabaseCluster CR and DatabaseClus
 
 All the labels from the DatabaseCluster Template are merged to the final DB Cluster CR.
 
+In order for PMM to be able to list the templates the following labels must be set in both the template CRD and CR:
+- `dbaas.percona.com/template: yes`
+- `dbaas.percona.com/engine: pxc`: the underlying DB engine: pxc or psmdb
+
 ## Examples
 
 ### Disabling Percona XtraDB Cluster Automatic Upgrade
@@ -85,11 +89,14 @@ kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
   name: pxctemplateupgradeoptions.dbaas.percona.com
+  labels:
+    dbaas.percona.com/template: "yes"
+    dbaas.percona.com/engine: "pxc"
 spec:
   group: dbaas.percona.com
   names:
-    kind: PXCTemplateUgradeOptions
-    listKind: PXCTemplateUgradeOptionsList
+    kind: PXCTemplateUpgradeOptions
+    listKind: PXCTemplateUpgradeOptionsList
     plural: pxctemplateupgradeoptions
     singular: pxctemplateupgradeoptions
   scope: Namespaced
@@ -130,12 +137,12 @@ $ kubectl apply -f pxctpl-crd-upgrade-options.yaml
 customresourcedefinition.apiextensions.k8s.io/pxctemplateupgradeoptions.dbaas.percona.com created
 ```
 
-#### Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUgradeOptions CRs
+#### Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs
 
 In order for the dbaas-operator to apply the template it needs access to the template CRs.
 
 ```sh
-$ kubectl get clusterroles/dbaas-operator-manager-role -o yaml > dbaas-operator-manager-role.yaml
+$ DBAAS_OPERATOR_MANAGER_ROLE=$(kubectl get clusterroles | grep dbaas-operator | grep -v metrics | grep -v proxy | cut -f 1 -d ' '); kubectl get clusterroles/"$DBAAS_OPERATOR_MANAGER_ROLE" -o yaml > dbaas-operator-manager-role.yaml
 $ cat <<EOF >>dbaas-operator-manager-role.yaml
 - apiGroups:
   - dbaas.percona.com
@@ -155,9 +162,12 @@ The DBA creates a corresponding CR `pxctpl-disable-automatic-upgrades.yaml` with
 
 ```yaml
 apiVersion: dbaas.percona.com/v1
-kind: PXCTemplateUgradeOptions
+kind: PXCTemplateUpgradeOptions
 metadata:
   name: disable-automatic-upgrades
+  labels:
+    dbaas.percona.com/template: "yes"
+    dbaas.percona.com/engine: "pxc"
 spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
@@ -179,7 +189,7 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   annotations:
-    dbaas.percona.com/dbtemplate-kind: PXCTemplateUgradeOptions
+    dbaas.percona.com/dbtemplate-kind: PXCTemplateUpgradeOptions
     dbaas.percona.com/dbtemplate-name: disable-automatic-upgrades
 ...
 ```

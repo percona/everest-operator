@@ -12,7 +12,7 @@
 The first step is to deploy the DBaaS operator. This can be done using `kubectl`:
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/dbaas-operator/v0.1.3/deploy/bundle.yaml
+kubectl apply -f https://raw.githubusercontent.com/percona/dbaas-operator/v0.1.4/deploy/bundle.yaml
 ```
 
 ### Deploy the underlying DB engine operators
@@ -22,13 +22,13 @@ The DBaaS operator relies on underlying operators for deploying DB clusters of a
 #### Percona XtraDB Cluster
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.11.0/deploy/bundle.yaml
+kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.11.0/deploy/bundle.yaml -n dbaas-operator-system
 ```
 
 #### Percona Server for MongoDB
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml
+kubectl apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml -n dbaas-operator-system
 ```
 
 ## How to get involved
