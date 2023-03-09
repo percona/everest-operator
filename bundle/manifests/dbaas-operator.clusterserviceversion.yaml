@@ -69,27 +69,27 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-03-09T12:06:59Z"
+    createdAt: "2023-03-09T12:23:41Z"
     operators.operatorframework.io/builder: operator-sdk-v1.27.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.1.5
+  name: dbaas-operator.v0.1.6
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
     - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
-        API
+        API.
       displayName: Database Cluster Restore
       kind: DatabaseClusterRestore
       name: databaseclusterrestores.dbaas.percona.com
       version: v1
-    - description: DatabaseCluster is the Schema for the databases API
+    - description: DatabaseCluster is the Schema for the databases API.
       displayName: Database Cluster
       kind: DatabaseCluster
       name: databaseclusters.dbaas.percona.com
       version: v1
-    - description: DatabaseEngine is the Schema for the databaseengines API
+    - description: DatabaseEngine is the Schema for the databaseengines API.
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.dbaas.percona.com
@@ -318,7 +318,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.1.5
+                image: docker.io/percona/dbaas-operator:0.1.6
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -407,4 +407,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.1.5
+  version: 0.1.6

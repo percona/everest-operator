@@ -45,7 +45,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -60,13 +60,17 @@ spec:
           metadata:
             type: object
           spec:
-            description: DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore
+            description: DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
             properties:
               backupName:
                 type: string
               backupSource:
+                description: BackupSource represents settings of a source where to
+                  get a backup to run restoration.
                 properties:
                   azure:
+                    description: BackupStorageProviderSpec represents set of settings
+                      to configure cloud provider.
                     properties:
                       bucket:
                         type: string
@@ -86,7 +90,7 @@ spec:
                         description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
                           Hot (Frequently accessed or modified data), Cool (Infrequently
                           accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure
+                          modified data) for Azure.
                         type: string
                     required:
                     - credentialsSecret
@@ -96,6 +100,8 @@ spec:
                   image:
                     type: string
                   s3:
+                    description: BackupStorageProviderSpec represents set of settings
+                      to configure cloud provider.
                     properties:
                       bucket:
                         type: string
@@ -115,7 +121,7 @@ spec:
                         description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
                           Hot (Frequently accessed or modified data), Cool (Infrequently
                           accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure
+                          modified data) for Azure.
                         type: string
                     required:
                     - credentialsSecret
@@ -125,6 +131,7 @@ spec:
                   sslSecretName:
                     type: string
                   storage_type:
+                    description: BackupStorageType represents backup storage type.
                     type: string
                   storageName:
                     type: string
@@ -138,7 +145,7 @@ spec:
               databaseType:
                 description: EngineType stands for the supported database engines.
                   Right now it's only pxc and psmdb. However, it can be ps, pg and
-                  any other source
+                  any other source.
                 type: string
             required:
             - databaseCluster
@@ -146,7 +153,7 @@ spec:
             type: object
           status:
             description: DatabaseClusterRestoreStatus defines the observed state of
-              DatabaseClusterRestore
+              DatabaseClusterRestore.
             properties:
               completed:
                 format: date-time
@@ -227,6 +234,7 @@ spec:
               message:
                 type: string
               state:
+                description: RestoreState represents state of restoration.
                 type: string
               storageName:
                 type: string

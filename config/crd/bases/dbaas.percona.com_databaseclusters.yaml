@@ -37,7 +37,7 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: DatabaseCluster is the Schema for the databases API
+        description: DatabaseCluster is the Schema for the databases API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -52,9 +52,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: DatabaseSpec defines the desired state of Database
+            description: DatabaseSpec defines the desired state of Database.
             properties:
               backup:
+                description: Backup contains backup settings.
                 properties:
                   annotations:
                     additionalProperties:
@@ -286,6 +287,8 @@ spec:
                     type: object
                   schedule:
                     items:
+                      description: BackupSchedule represents set of settings to configure
+                        backup schedule.
                       properties:
                         compressionLevel:
                           type: integer
@@ -307,6 +310,8 @@ spec:
                     type: string
                   storages:
                     additionalProperties:
+                      description: BackupStorageSpec represents set of settings to
+                        configure backup storage.
                       properties:
                         affinity:
                           description: Affinity is a group of affinity scheduling
@@ -1643,6 +1648,8 @@ spec:
                         schedulerName:
                           type: string
                         storageProvider:
+                          description: BackupStorageProviderSpec represents set of
+                            settings to configure cloud provider.
                           properties:
                             bucket:
                               type: string
@@ -1662,7 +1669,7 @@ spec:
                               description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for
                                 GCP Hot (Frequently accessed or modified data), Cool
                                 (Infrequently accessed or modified data), Archive
-                                (Rarely accessed or modified data) for Azure
+                                (Rarely accessed or modified data) for Azure.
                               type: string
                           required:
                           - credentialsSecret
@@ -1710,10 +1717,14 @@ spec:
                             type: object
                           type: array
                         type:
+                          description: BackupStorageType represents backup storage
+                            type.
                           type: string
                         verifyTLS:
                           type: boolean
                         volumeSpec:
+                          description: VolumeSpec represents a specification to configure
+                            volume for underlying database.
                           properties:
                             emptyDir:
                               description: EmptyDir to use as data volume for mysql.
@@ -1962,17 +1973,19 @@ spec:
                 type: integer
               databaseConfig:
                 description: DatabaseConfig contains a config settings for the specified
-                  database
+                  database.
                 type: string
               databaseImage:
                 description: DatabaseVersion sets from version service and uses the
-                  recommended version by default
+                  recommended version by default.
                 type: string
               databaseType:
                 description: Database type stands for supported databases by the PMM
-                  API Now it's pxc or psmdb types but we can extend it
+                  API Now it's pxc or psmdb types but we can extend it.
                 type: string
               dbInstance:
+                description: DBInstance represents resource requests for a database
+                  cluster.
                 properties:
                   cpu:
                     anyOf:
@@ -2059,6 +2072,7 @@ spec:
                     type: string
                 type: object
               monitoring:
+                description: Monitoring contains a monitoring settings.
                 properties:
                   containerSecurityContext:
                     description: SecurityContext holds security configuration that
@@ -2236,6 +2250,7 @@ spec:
                       a container image
                     type: string
                   pmm:
+                    description: PMMSpec contains PMM settings.
                     properties:
                       image:
                         type: string
@@ -2281,8 +2296,11 @@ spec:
                     type: string
                 type: object
               pause:
+                description: Pause represents is a cluster paused or not.
                 type: boolean
               secretsName:
+                description: SecretsName contains name of a secrets file for a database
+                  cluster.
                 type: string
             required:
             - clusterSize
@@ -2292,7 +2310,7 @@ spec:
             - dbInstance
             type: object
           status:
-            description: DatabaseClusterStatus defines the observed state of Database
+            description: DatabaseClusterStatus defines the observed state of Database.
             properties:
               host:
                 type: string
@@ -2305,6 +2323,7 @@ spec:
                 format: int32
                 type: integer
               status:
+                description: AppState is used to represent cluster's state.
                 type: string
             type: object
         type: object
