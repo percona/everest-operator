@@ -108,7 +108,7 @@ init:                             ## Install development tools
 format:
 	bin/gofumpt -l -w .
 	bin/goimports -local github.com/percona/dbaas-operator -l -w .
-	bin/gci write --skip-generated --section "standard,default,prefix(github.com/percona/dbaas-operator)" .
+	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/dbaas-operator)" .
 check:
 	LOG_LEVEL=error bin/golangci-lint run
 	bin/go-sumtype ./...
