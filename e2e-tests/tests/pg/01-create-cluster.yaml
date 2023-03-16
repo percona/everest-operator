@@ -1,0 +1,25 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+commands:
+  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8091 -health-probe-bind-address :8092
+    background: true
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  databaseType: postgresql
+  databaseImage: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  databaseConfig: ""
+  clusterSize: 3
+  loadBalancer:
+    type: pgbouncer
+    exposeType: ClusterIP
+    size: 3
+    image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G

@@ -21,11 +21,15 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
 	goversion "github.com/hashicorp/go-version"
+	pgv2beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/pg.percona.com/v2beta1"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
@@ -56,15 +60,20 @@ const (
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
 	// PerconaServerMongoDBKind represents psmdb kind.
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
+	// PerconaPGClusterKind represents postgresql kind.
+	PerconaPGClusterKind = "PerconaPGCluster"
 
 	pxcDeploymentName   = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName = "percona-server-mongodb-operator"
+	pgDeploymentName    = "percona-postgresql-operator"
 	pxcBackupImageTmpl  = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
 
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
+	pgCRDName                   = "perconapgclusters.pg.percona.com"
 	pxcAPIGroup                 = "pxc.percona.com"
 	psmdbAPIGroup               = "psmdb.percona.com"
+	pgAPIGroup                  = "pg.percona.com"
 	haProxyTemplate             = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey        = "dbaas.percona.com/restart"
 	dbTemplateKindAnnotationKey = "dbaas.percona.com/dbtemplate-kind"
@@ -233,6 +242,26 @@ var (
 	}
 )
 
+var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
+	InstanceSets: pgv2beta1.PGInstanceSets{
+		{
+			Name: "instance1",
+		},
+	},
+	PMM: &pgv2beta1.PMMSpec{
+		Enabled: false,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("300M"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		},
+	},
+	Proxy: &pgv2beta1.PGProxySpec{
+		PGBouncer: &pgv2beta1.PGBouncerSpec{},
+	},
+}
+
 // DatabaseReconciler reconciles a Database object.
 type DatabaseReconciler struct {
 	client.Client
@@ -290,6 +319,10 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			logger.Error(err, "unable to reconcile psmdb")
 		}
+		return reconcile.Result{}, err
+	}
+	if database.Spec.Database == "postgresql" {
+		err := r.reconcilePG(ctx, req, database)
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -801,6 +834,174 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	return nil
 }
 
+func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
+	version, err := NewVersion("v2beta1")
+	if err != nil {
+		return err
+	}
+	clusterType, err := r.getClusterType(ctx)
+	if err != nil {
+		return err
+	}
+
+	pgSpec := defaultPGSpec
+	if clusterType == ClusterTypeEKS {
+		affinity := &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		}
+		pgSpec.InstanceSets[0].Affinity = affinity
+		pgSpec.Proxy.PGBouncer.Affinity = affinity
+	}
+
+	pg := &pgv2beta1.PerconaPGCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        database.Name,
+			Namespace:   database.Namespace,
+			Finalizers:  database.Finalizers,
+			Annotations: database.Annotations,
+		},
+		Spec: pgSpec,
+	}
+
+	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
+		return err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
+		pg.TypeMeta = metav1.TypeMeta{
+			APIVersion: version.ToAPIVersion(pgAPIGroup),
+			Kind:       PerconaPGClusterKind,
+		}
+
+		//nolint:godox
+		// FIXME add the secrets name when
+		// https://jira.percona.com/browse/K8SPG-309 is fixed
+		// pg.Spec.SecretsName = database.Spec.SecretsName
+		pg.Spec.Shutdown = &database.Spec.Pause
+		pg.Spec.Image = database.Spec.DatabaseImage
+		pgVersionMatch := regexp.MustCompile(`-ppg(\d+)-`).FindStringSubmatch(database.Spec.DatabaseImage)
+		if len(pgVersionMatch) < 2 {
+			return errors.Errorf("failed to extract the PostgresVersion from %s", database.Spec.DatabaseImage)
+		}
+		pgVersion, err := strconv.Atoi(pgVersionMatch[1])
+		if err != nil {
+			return err
+		}
+		pg.Spec.PostgresVersion = pgVersion
+
+		//nolint:godox
+		// FIXME This backup section has a hardcoded image field and a
+		// PVC-backed repo because the pg-operator requires a backup to be set
+		// up in order to create replicas. This needs to be fixed when
+		// implementing the entire backup feature.
+		// https://jira.percona.com/browse/K8SPG-297
+		pg.Spec.Backups = crunchyv1beta1.Backups{
+			PGBackRest: crunchyv1beta1.PGBackRestArchive{
+				Image: fmt.Sprintf("percona/percona-postgresql-operator:2.0.0-ppg%d-pgbackrest", pgVersion),
+				Repos: []crunchyv1beta1.PGBackRestRepo{
+					{
+						Name: "repo1",
+						Volume: &crunchyv1beta1.RepoPVC{
+							VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+								AccessModes: []corev1.PersistentVolumeAccessMode{
+									corev1.ReadWriteOnce,
+								},
+								StorageClassName: database.Spec.DBInstance.StorageClassName,
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		pg.Spec.InstanceSets[0].Replicas = &database.Spec.ClusterSize
+		pg.Spec.InstanceSets[0].Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
+				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
+			},
+		}
+		pg.Spec.InstanceSets[0].DataVolumeClaimSpec = corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			StorageClassName: database.Spec.DBInstance.StorageClassName,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+				},
+			},
+		}
+
+		pg.Spec.Proxy.PGBouncer.Image = database.Spec.LoadBalancer.Image
+		pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.LoadBalancer.Size
+		//nolint:godox
+		// TODO add support for database.Spec.LoadBalancer.LoadBalancerSourceRanges
+		// https://jira.percona.com/browse/K8SPG-311
+		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+			Metadata: crunchyv1beta1.Metadata{
+				Annotations: database.Spec.LoadBalancer.Annotations,
+			},
+			Type: string(database.Spec.LoadBalancer.ExposeType),
+		}
+		pg.Spec.Proxy.PGBouncer.Resources = database.Spec.LoadBalancer.Resources
+
+		if database.Spec.Monitoring.PMM != nil {
+			pg.Spec.PMM.Enabled = true
+			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	//nolint:godox
+	// FIXME the status updates below are made as a hacky workaround until
+	// https://jira.percona.com/browse/K8SPG-295 is addressed.
+	database.Status.Ready = 0
+	database.Status.Size = 0
+	for _, instanceStatus := range pg.Status.InstanceSets {
+		database.Status.Ready += instanceStatus.ReadyReplicas
+		database.Status.Size += instanceStatus.Replicas
+	}
+	database.Status.Ready += pg.Status.Proxy.PGBouncer.ReadyReplicas
+	database.Status.Size += pg.Status.Proxy.PGBouncer.Replicas
+	database.Status.Host = fmt.Sprintf("%s-pgbouncer.%s.svc", database.Name, database.Namespace)
+
+	database.Status.State = dbaasv1.AppStateInit
+	if database.Status.Ready != 0 && database.Status.Ready == database.Status.Size {
+		database.Status.State = dbaasv1.AppStateReady
+	}
+	if database.Spec.Pause {
+		database.Status.State = dbaasv1.AppStateStopping
+	}
+
+	var message string
+	conditions := pg.Status.Conditions
+	if len(conditions) != 0 {
+		message = conditions[len(conditions)-1].Message
+	}
+	database.Status.Message = message
+
+	if err := r.Status().Update(ctx, database); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
@@ -862,6 +1063,15 @@ func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
+func (r *DatabaseReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
+	pgSchemeGroupVersion := schema.GroupVersion{Group: "pg.percona.com", Version: "v2beta1"}
+	scheme.AddKnownTypes(pgSchemeGroupVersion,
+		&pgv2beta1.PerconaPGCluster{}, &pgv2beta1.PerconaPGClusterList{})
+
+	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
+	return nil
+}
+
 func (r *DatabaseReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
 	return builder.AddToScheme(scheme)
@@ -869,6 +1079,11 @@ func (r *DatabaseReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 
 func (r *DatabaseReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
+	return builder.AddToScheme(scheme)
+}
+
+func (r *DatabaseReconciler) addPGToScheme(scheme *runtime.Scheme) error {
+	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
 	return builder.AddToScheme(scheme)
 }
 
@@ -892,6 +1107,12 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Owns(&psmdbv1.PerconaServerMongoDB{})
+		}
+	}
+	err = r.Get(context.Background(), types.NamespacedName{Name: pgCRDName}, unstructuredResource)
+	if err == nil {
+		if err := r.addPGToScheme(r.Scheme); err == nil {
+			controller.Owns(&pgv2beta1.PerconaPGCluster{})
 		}
 	}
 	return controller.Complete(r)

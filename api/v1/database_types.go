@@ -27,12 +27,16 @@ const (
 	PXCEngine EngineType = "pxc"
 	// PSMDBEngine represents engine type for PSMDB clusters.
 	PSMDBEngine EngineType = "psmdb"
+	// PostgresqlEngine represents engine type for Postgresql clusters.
+	PostgresqlEngine EngineType = "postgresql"
 	// LoadBalancerMongos represents mongos load balancer.
 	LoadBalancerMongos LoadBalancerType = "mongos"
 	// LoadBalancerHAProxy represents haproxy load balancer.
 	LoadBalancerHAProxy LoadBalancerType = "haproxy"
 	// LoadBalancerProxySQL represents proxySQL load balancer.
 	LoadBalancerProxySQL LoadBalancerType = "proxysql"
+	// LoadBalancerPGBouncer represents PGBouncer load balancer.
+	LoadBalancerPGBouncer LoadBalancerType = "pgbouncer"
 	// AppStateUnknown is an unknown state.
 	AppStateUnknown AppState = "unknown"
 	// AppStateInit is a initializing state.
@@ -51,9 +55,7 @@ const (
 
 type (
 	// LoadBalancerType contains supported loadbalancers. It can be proxysql or haproxy
-	// for PXC clusters and mongos for PSMDB clusters.
-	//
-	// Once PG support will be added, it can be pg-bouncer or something else.
+	// for PXC clusters, mongos for PSMDB clusters or pgbouncer for Postgresql clusters.
 	LoadBalancerType string
 	// AppState is used to represent cluster's state.
 	AppState string

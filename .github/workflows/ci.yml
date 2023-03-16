@@ -43,6 +43,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.12.0
           PSMDB_OPERATOR_VERSION: 1.13.0
+          PG_OPERATOR_VERSION: 2.0.0
 
     #kind-e2e-tests:
     #  name: E2E tests (Kind)
@@ -93,6 +94,7 @@ jobs:
     #      env:
     #        PXC_OPERATOR_VERSION: 1.11.0
     #        PSMDB_OPERATOR_VERSION: 1.11.0
+    #        PG_OPERATOR_VERSION: 2.0.0
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -147,6 +149,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.12.0
           PSMDB_OPERATOR_VERSION: 1.13.0
+          PG_OPERATOR_VERSION: 2.0.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
 
   make-bundle:

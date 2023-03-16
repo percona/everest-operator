@@ -1,0 +1,94 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  databaseType: postgresql
+  databaseImage: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  databaseConfig: ""
+  clusterSize: 3
+  loadBalancer:
+    type: pgbouncer
+    exposeType: ClusterIP
+    size: 3
+    image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G
+status:
+  ready: 6
+  size: 6
+  status: ready
+---
+apiVersion: pg.percona.com/v2beta1
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  backups:
+    pgbackrest:
+      image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbackrest
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 15G
+  image: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  instances:
+  - dataVolumeClaimSpec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 15G
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1G
+    name: instance1
+    replicas: 3
+  pmm:
+    enabled: false
+    image: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 300M
+  port: 5432
+  postgresVersion: 14
+  proxy:
+    pgBouncer:
+      image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+      port: 5432
+      replicas: 3
+      expose:
+        type: ClusterIP
+status:
+  instances:
+  - name: instance1
+    readyReplicas: 3
+    replicas: 3
+    updatedReplicas: 3
+  pgbackrest:
+    repoHost:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      ready: true
+    repos:
+    - bound: true
+      name: repo1
+      replicaCreateBackupComplete: true
+#  postgresVersion: 14
+  proxy:
+    pgBouncer:
+      readyReplicas: 3
+      replicas: 3
