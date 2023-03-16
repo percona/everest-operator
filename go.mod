@@ -10,6 +10,7 @@ require (
 	github.com/percona/percona-backup-mongodb v1.8.1
 	github.com/percona/percona-server-mongodb-operator v1.13.0
 	github.com/percona/percona-xtradb-cluster-operator v1.12.0
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.25.3
@@ -69,7 +70,6 @@ require (
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect

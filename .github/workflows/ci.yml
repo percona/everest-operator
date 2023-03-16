@@ -144,8 +144,8 @@ jobs:
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl kuttl test --config ./e2e-tests/kuttl-eks.yml
         env:
-          PXC_OPERATOR_VERSION: 1.11.0
-          PSMDB_OPERATOR_VERSION: 1.11.0
+          PXC_OPERATOR_VERSION: 1.12.0
+          PSMDB_OPERATOR_VERSION: 1.13.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
 
   make-bundle:

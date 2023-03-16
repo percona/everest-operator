@@ -18,7 +18,7 @@ spec:
     type: haproxy
     exposeType: ClusterIP
     size: 1
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   dbInstance:
     cpu: "1"
     memory: 1G
@@ -50,15 +50,15 @@ spec:
         keep: 5
         storageName: azure
 ---
-apiVersion: pxc.percona.com/v1-11-0
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  crVersion: 1.11.0
+  crVersion: 1.12.0
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:

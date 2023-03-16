@@ -16,8 +16,6 @@ linters-settings:
       - github.com/gogo/protobuf/proto
       # use only forked parser
       - github.com/percona/go-mysql/log/slow
-      # use "github.com/percona-platform/saas" instead
-      - github.com/percona-platform/platform
       # use "gopkg.in/yaml.v3" instead
       - gopkg.in/yaml.v2
 
@@ -32,10 +30,6 @@ linters-settings:
 
   goimports:
     local-prefixes: github.com/percona/dbaas-operator
-
-#  gomoddirectives:
-#    replace-allow-list:
-#      - github.com/percona-platform/dbaas-api
 
   ireturn:
     allow:
