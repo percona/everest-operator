@@ -23,7 +23,7 @@ kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
 spec:
-  crVersion: 1.12.0
+  crVersion: 1.13.0
   image: percona/percona-server-mongodb:4.4.10-11
   secrets:
     users:  psmdb-sample-secrets
