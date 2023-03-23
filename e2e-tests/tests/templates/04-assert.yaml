@@ -6,6 +6,9 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
+    dbaas.percona.com/dbtemplate-name: test-pxc-template
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
@@ -22,10 +25,28 @@ spec:
     memory: 1G
     diskSize: 15G
 ---
+apiVersion: dbaas.percona.com/v1
+kind: PXCTemplatePXCConfiguration
+metadata:
+  name: test-pxc-template
+  annotations:
+    dbaas.percona.com/dbtemplate-origin: kuttl
+  labels:
+    dbaas.percona.com/engine: pxc
+spec:
+  pxc:
+    configuration: |
+      [mysqld]
+      max_connections = 789
+---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
+  annotations:
+    dbaas.percona.com/dbtemplate-origin: kuttl
+  labels:
+    dbaas.percona.com/engine: pxc
 spec:
   crVersion: 1.12.0
   haproxy:
@@ -36,7 +57,7 @@ spec:
   pxc:
     configuration: |
       [mysqld]
-      wsrep_provider_options="gcache.size=600M"
+      max_connections = 789
     expose: {}
     image: percona/percona-xtradb-cluster:8.0.27-18.1
     livenessProbes: {}

@@ -7,17 +7,12 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   annotations:
-    dbaas.percona.com/dbtemplate-kind: PXCTemplateUgradeOptions
+    dbaas.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
     dbaas.percona.com/dbtemplate-name: test-pxc-template
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-    wsrep_debug=1
-    wsrep_trx_fragment_unit='bytes'
-    wsrep_trx_fragment_size=3670016
+  databaseConfig: ""
   secretsName: pxc-sample-secrets
   clusterSize: 3
   loadBalancer:
@@ -31,7 +26,7 @@ spec:
     diskSize: 15G
 ---
 apiVersion: dbaas.percona.com/v1
-kind: PXCTemplateUgradeOptions
+kind: PXCTemplatePXCConfiguration
 metadata:
   name: test-pxc-template
   annotations:
@@ -39,6 +34,7 @@ metadata:
   labels:
     dbaas.percona.com/engine: pxc
 spec:
-  updateStrategy: SmartUpdate
-  upgradeOptions:
-    apply: Disabled
+  pxc:
+    configuration: |
+      [mysqld]
+      max_connections = 789

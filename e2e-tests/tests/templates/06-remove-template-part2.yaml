@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+# XXX
+# An update to the cluster's database config is reflected immediately in the CR spec before any change to the status. Therefore, in step 05 we wait for the state to change to initializing and in step 06 we assert the CR.

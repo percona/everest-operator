@@ -1,7 +1,5 @@
 apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 300
+kind: TestStep
+timeout: 10
 # XXX
 # An update to the cluster's database config is reflected immediately in the CR spec before any change to the status. Therefore, in step 03 we wait for the state to change to initializing and in step 04 we assert the CR.
-commands:
-  - command: kubectl wait --for=jsonpath='{.status.status}'=initializing db/test-pxc-cluster -n "${NAMESPACE}"

@@ -330,21 +330,6 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return err
 	}
-	clusterType, err := r.getClusterType(ctx)
-	if err != nil {
-		return err
-	}
-
-	psmdbSpec := defaultPSMDBSpec
-	if clusterType == ClusterTypeEKS {
-		affinity := &psmdbv1.PodAffinity{
-			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
-		}
-		psmdbSpec.Replsets[0].MultiAZ.Affinity = affinity
-		psmdbSpec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = affinity
-		psmdbSpec.Sharding.ConfigsvrReplSet.Arbiter.MultiAZ.Affinity = affinity
-		psmdbSpec.Sharding.Mongos.MultiAZ.Affinity = affinity
-	}
 
 	psmdb := &psmdbv1.PerconaServerMongoDB{
 		ObjectMeta: metav1.ObjectMeta{
@@ -353,10 +338,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
-		Spec: psmdbSpec,
-	}
-	if database.Spec.DatabaseConfig == "" {
-		database.Spec.DatabaseConfig = psmdbDefaultConfigurationTemplate
+		Spec: defaultPSMDBSpec,
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
@@ -369,6 +351,22 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
+		}
+
+		clusterType, err := r.getClusterType(ctx)
+		if err != nil {
+			return err
+		}
+
+		psmdb.Spec = defaultPSMDBSpec
+		if clusterType == ClusterTypeEKS {
+			affinity := &psmdbv1.PodAffinity{
+				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+			}
+			psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
+			psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = affinity
+			psmdb.Spec.Sharding.ConfigsvrReplSet.Arbiter.MultiAZ.Affinity = affinity
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = affinity
 		}
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
@@ -397,7 +395,15 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			Users: database.Spec.SecretsName,
 		}
 		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
-		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig)
+
+		if database.Spec.DatabaseConfig != "" {
+			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig)
+		}
+		if psmdb.Spec.Replsets[0].Configuration == "" {
+			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
+			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
+		}
+
 		psmdb.Spec.Replsets[0].Size = database.Spec.ClusterSize
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
@@ -531,20 +537,6 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return err
 	}
-	clusterType, err := r.getClusterType(ctx)
-	if err != nil {
-		return err
-	}
-
-	pxcSpec := defaultPXCSpec
-	if clusterType == ClusterTypeEKS {
-		affinity := &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
-		}
-		pxcSpec.PXC.PodSpec.Affinity = affinity
-		pxcSpec.HAProxy.PodSpec.Affinity = affinity
-		pxcSpec.ProxySQL.Affinity = affinity
-	}
 
 	current := &pxcv1.PerconaXtraDBCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, current)
@@ -586,7 +578,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			}
 		}
 		if jobRunning {
-			pxcSpec.Pause = current.Spec.Pause
+			database.Spec.Pause = current.Spec.Pause
 		}
 	}
 
@@ -597,25 +589,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
-		Spec: pxcSpec,
-	}
-	if database.Spec.DatabaseConfig == "" {
-		gCacheSize := "600M"
-
-		if database.Spec.DBInstance.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) <= 0 {
-			gCacheSize = "2457M"
-		}
-		if database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) <= 0 {
-			gCacheSize = "9830M"
-		}
-		if database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) >= 0 {
-			gCacheSize = "9830M"
-		}
-		ver, _ := goversion.NewVersion("v1.11.0")
-		database.Spec.DatabaseConfig = fmt.Sprintf(pxcDefaultConfigurationTemplate, gCacheSize)
-		if version.version.GreaterThan(ver) {
-			database.Spec.DatabaseConfig = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
-		}
+		Spec: defaultPXCSpec,
 	}
 	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
 		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
@@ -631,6 +605,21 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
+		}
+
+		clusterType, err := r.getClusterType(ctx)
+		if err != nil {
+			return err
+		}
+
+		pxc.Spec = defaultPXCSpec
+		if clusterType == ClusterTypeEKS {
+			affinity := &pxcv1.PodAffinity{
+				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+			}
+			pxc.Spec.PXC.PodSpec.Affinity = affinity
+			pxc.Spec.HAProxy.PodSpec.Affinity = affinity
+			pxc.Spec.ProxySQL.Affinity = affinity
 		}
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
@@ -655,7 +644,30 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		pxc.Spec.AllowUnsafeConfig = database.Spec.ClusterSize == 1
 		pxc.Spec.Pause = database.Spec.Pause
 		pxc.Spec.SecretsName = database.Spec.SecretsName
-		pxc.Spec.PXC.PodSpec.Configuration = database.Spec.DatabaseConfig
+
+		if database.Spec.DatabaseConfig != "" {
+			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.DatabaseConfig
+		}
+		if pxc.Spec.PXC.PodSpec.Configuration == "" {
+			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
+			gCacheSize := "600M"
+
+			if database.Spec.DBInstance.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) <= 0 {
+				gCacheSize = "2457M"
+			}
+			if database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) <= 0 {
+				gCacheSize = "9830M"
+			}
+			if database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) >= 0 {
+				gCacheSize = "9830M"
+			}
+			ver, _ := goversion.NewVersion("v1.11.0")
+			pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcDefaultConfigurationTemplate, gCacheSize)
+			if version.version.GreaterThan(ver) {
+				pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
+			}
+		}
+
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.ClusterSize
 		pxc.Spec.PXC.PodSpec.Image = database.Spec.DatabaseImage
 		pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
