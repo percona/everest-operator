@@ -16,7 +16,7 @@
 package v1
 
 import (
-	"github.com/percona/percona-backup-mongodb/pbm"
+	"github.com/percona/percona-backup-mongodb/pbm/compress"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,13 +138,13 @@ type (
 	}
 	// BackupSchedule represents set of settings to configure backup schedule.
 	BackupSchedule struct {
-		Name             string              `json:"name,omitempty"`
-		Enabled          bool                `json:"enabled,omitempty"`
-		Schedule         string              `json:"schedule,omitempty"`
-		Keep             int                 `json:"keep,omitempty"`
-		StorageName      string              `json:"storageName,omitempty"`
-		CompressionType  pbm.CompressionType `json:"compressionType,omitempty"`
-		CompressionLevel *int                `json:"compressionLevel,omitempty"`
+		Name             string                   `json:"name,omitempty"`
+		Enabled          bool                     `json:"enabled,omitempty"`
+		Schedule         string                   `json:"schedule,omitempty"`
+		Keep             int                      `json:"keep,omitempty"`
+		StorageName      string                   `json:"storageName,omitempty"`
+		CompressionType  compress.CompressionType `json:"compressionType,omitempty"`
+		CompressionLevel *int                     `json:"compressionLevel,omitempty"`
 	}
 	// BackupStorageProviderSpec represents set of settings to configure cloud provider.
 	BackupStorageProviderSpec struct {

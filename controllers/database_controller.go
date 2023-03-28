@@ -406,11 +406,13 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 
 		psmdb.Spec.Replsets[0].Size = database.Spec.ClusterSize
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.DBInstance.StorageClassName,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+			PersistentVolumeClaim: psmdbv1.PVCSpec{
+				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+						},
 					},
 				},
 			},
@@ -423,20 +425,24 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		}
 		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.ClusterSize
 		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.DBInstance.StorageClassName,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+			PersistentVolumeClaim: psmdbv1.PVCSpec{
+				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+						},
 					},
 				},
 			},
 		}
 		psmdb.Spec.Sharding.Mongos.Size = database.Spec.LoadBalancer.Size
 		psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
-			ExposeType:               database.Spec.LoadBalancer.ExposeType,
-			LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-			ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
+			Expose: psmdbv1.Expose{
+				ExposeType:               database.Spec.LoadBalancer.ExposeType,
+				LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
+				ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
+			},
 		}
 		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration)
 		psmdb.Spec.Sharding.Mongos.MultiAZ.Resources = database.Spec.LoadBalancer.Resources
