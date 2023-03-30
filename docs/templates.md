@@ -6,15 +6,15 @@
   - [Labels](#labels)
 - [Examples](#examples)
   - [Customizing The PXC DB configuration](#customizing-the-pxc-db-configuration)
-    - [Creating The Template CRD](#creating-the-template-crd)
-    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplateugradeoptions-crs)
-    - [Creating The Template CR](#creating-the-template-cr)
-    - [Applying The Template To Existing DB Clusters](#applying-the-template-to-existing-db-clusters)
+    - [Creating The PXCTemplatePXCConfiguration Template CRD](#creating-the-pxctemplatepxcconfiguration-template-crd)
+    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplatePXCConfiguration CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplatepxcconfiguration-crs)
+    - [Creating The PXCTemplatePXCConfiguration Template CR](#creating-the-pxctemplatepxcconfiguration-template-cr)
+    - [Applying The PXCTemplatePXCConfiguration Template To Existing DB Clusters](#applying-the-pxctemplatepxcconfiguration-template-to-existing-db-clusters)
   - [Enabling Percona XtraDB Cluster Automatic Upgrade](#enabling-percona-xtradb-cluster-automatic-upgrade)
-    - [Creating The Template CRD](#creating-the-template-crd)
-    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplateugradeoptions-crs)
-    - [Creating The Template CR](#creating-the-template-cr)
-    - [Applying The Template To Existing DB Clusters](#applying-the-template-to-existing-db-clusters)
+    - [Creating The PXCTemplateUpgradeOptions Template CRD](#creating-the-pxctemplateupgradeoptions-template-crd)
+    - [Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs](#adding-read-permissions-for-the-dbaas-operator-to-get-the-pxctemplateupgradeoptions-crs)
+    - [Creating The PXCTemplateUpgradeOptions Template CR](#creating-the-pxctemplateupgradeoptions-template-cr)
+    - [Applying The PXCTemplateUpgradeOptions Template To Existing DB Clusters](#applying-the-pxctemplateupgradeoptions-template-to-existing-db-clusters)
 <!-- /toc -->
 
 DatabaseCluster Templates is a convention between different providers and `dbaas-operator` as a consumer to assemble customized CR object for the specific Database Engine.
@@ -89,7 +89,7 @@ wsrep_provider_options="gcache.size=600M"
 
 A DBA may want to customize the PXC DB configuration to his needs. To accomplish this, the DBA can create a template to change that specific field.
 
-#### Creating The Template CRD
+#### Creating The PXCTemplatePXCConfiguration Template CRD
 
 By inspecting the [PXC CRD](https://github.com/percona/percona-xtradb-cluster-operator/blob/v1.11.0/deploy/crd.yaml#L6378-L6379) the DBA finds that he/she needs to change the `spec.pxc.configuration` field.
 Therefore, he/she creates a template CRD `pxctpl-crd-pxc-configuration.yaml` with just that field.
@@ -144,7 +144,7 @@ $ kubectl apply -f pxctpl-crd-pxc-configuration.yaml
 customresourcedefinition.apiextensions.k8s.io/pxctemplatepxcconfiguration.dbaas.percona.com created
 ```
 
-#### Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs
+#### Adding Read Permissions For The dbaas-operator To Get The PXCTemplatePXCConfiguration CRs
 
 In order for the dbaas-operator to apply the template it needs access to the template CRs.
 
@@ -163,7 +163,7 @@ $ kubectl apply -f dbaas-operator-manager-role.yaml
 clusterrole.rbac.authorization.k8s.io/dbaas-operator-manager-role configured
 ```
 
-#### Creating The Template CR
+#### Creating The PXCTemplatePXCConfiguration Template CR
 
 The DBA creates a corresponding CR `pxctpl-pxc-config-max-connection-789.yaml` with the desired values.
 
@@ -187,7 +187,7 @@ $ kubectl apply -f pxctpl-pxc-config-max-connection-789.yaml
 pxctemplatepxcconfiguration.dbaas.percona.com/pxc-config-max-connections-789 created
 ```
 
-#### Applying The Template To Existing DB Clusters
+#### Applying The PXCTemplatePXCConfiguration Template To Existing DB Clusters
 
 To apply the template to an existing DB, the DBA should update the DB cluster CR to include the following annotations.
 
@@ -216,7 +216,7 @@ $ kubectl describe pxc/test-pxc-cluster | grep -A2 'Configuration'
 By default, when creating a PXC DB cluster, the DBaaS operator sets the upgrade strategy to never check the official Percona’s Version Service and thus never upgrade the cluster accordingly.
 A DBA may want the upgrade process to happen automatically in certain environments. To accomplish this, the DBA can create a template that enables this functionality and applies it to all relevant clusters.
 
-#### Creating The Template CRD
+#### Creating The PXCTemplateUpgradeOptions Template CRD
 
 By reading the [PXC operator documentation](https://docs.percona.com/percona-operator-for-mysql/pxc/update.html#automated-upgrade) and by inspecting the [PXC CRD](https://github.com/percona/percona-xtradb-cluster-operator/blob/v1.11.0/deploy/crd.yaml#L8379-L8392) the DBA finds that he/she needs to change the `spec.updateStrategy` and `spec.upgradeOptions` fields.
 Therefore, he/she creates a template CRD `pxctpl-crd-upgrade-options.yaml` with just that small subset of fields.
@@ -294,7 +294,7 @@ $ kubectl apply -f dbaas-operator-manager-role.yaml
 clusterrole.rbac.authorization.k8s.io/dbaas-operator-manager-role configured
 ```
 
-#### Creating The Template CR
+#### Creating The PXCTemplateUpgradeOptions Template CR
 
 The DBA creates a corresponding CR `pxctpl-enable-automatic-upgrades.yaml` with the desired values.
 
@@ -318,7 +318,7 @@ $ kubectl apply -f pxctpl-enable-automatic-upgrades.yaml
 pxctemplateugradeoptions.dbaas.percona.com/enable-automatic-upgrades created
 ```
 
-#### Applying The Template To Existing DB Clusters
+#### Applying The PXCTemplateUpgradeOptions Template To Existing DB Clusters
 
 To apply the template to an existing DB, the DBA should update the DB cluster CR to include the following annotations.
 
