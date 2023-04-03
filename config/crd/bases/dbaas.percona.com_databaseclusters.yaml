@@ -2183,10 +2183,9 @@ spec:
                       IPs).
                     type: string
                   type:
-                    description: "LoadBalancerType contains supported loadbalancers.
-                      It can be proxysql or haproxy for PXC clusters and mongos for
-                      PSMDB clusters. \n Once PG support will be added, it can be
-                      pg-bouncer or something else."
+                    description: LoadBalancerType contains supported loadbalancers.
+                      It can be proxysql or haproxy for PXC clusters, mongos for PSMDB
+                      clusters or pgbouncer for Postgresql clusters.
                     type: string
                 type: object
               monitoring:
