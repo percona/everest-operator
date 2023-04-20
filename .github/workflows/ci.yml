@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - name: Install tools
@@ -60,7 +60,7 @@ jobs:
     #    - name: Set up Go release
     #      uses: actions/setup-go@v3
     #      with:
-    #        go-version: '1.18'
+    #        go-version: '1.20'
     #        check-latest: true
 
     #    - name: Build operator
@@ -112,7 +112,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - name: Build operator
@@ -167,7 +167,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'
+          go-version: '1.20'
           check-latest: true
 
       - name: Install operator-sdk
