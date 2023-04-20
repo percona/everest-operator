@@ -1,0 +1,24 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+  annotations:
+    dbaas.percona.com/restart: "true"
+spec:
+  databaseType: postgresql
+  databaseImage: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  databaseConfig: ""
+  clusterSize: 3
+  loadBalancer:
+    type: pgbouncer
+    exposeType: ClusterIP
+    size: 3
+    image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+  dbInstance:
+    cpu: "1"
+    memory: 1G
+    diskSize: 15G

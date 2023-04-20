@@ -883,7 +883,7 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 		// FIXME add the secrets name when
 		// https://jira.percona.com/browse/K8SPG-309 is fixed
 		// pg.Spec.SecretsName = database.Spec.SecretsName
-		pg.Spec.Shutdown = &database.Spec.Pause
+		pg.Spec.Pause = &database.Spec.Pause
 		pg.Spec.Image = database.Spec.DatabaseImage
 		pgVersionMatch := regexp.MustCompile(`-ppg(\d+)-`).FindStringSubmatch(database.Spec.DatabaseImage)
 		if len(pgVersionMatch) < 2 {
