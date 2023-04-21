@@ -883,7 +883,7 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 		// FIXME add the secrets name when
 		// https://jira.percona.com/browse/K8SPG-309 is fixed
 		// pg.Spec.SecretsName = database.Spec.SecretsName
-		pg.Spec.Shutdown = &database.Spec.Pause
+		pg.Spec.Pause = &database.Spec.Pause
 		pg.Spec.Image = database.Spec.DatabaseImage
 		pgVersionMatch := regexp.MustCompile(`-ppg(\d+)-`).FindStringSubmatch(database.Spec.DatabaseImage)
 		if len(pgVersionMatch) < 2 {
@@ -968,34 +968,10 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 		return err
 	}
 
-	//nolint:godox
-	// FIXME the status updates below are made as a hacky workaround until
-	// https://jira.percona.com/browse/K8SPG-295 is addressed.
-	database.Status.Ready = 0
-	database.Status.Size = 0
-	for _, instanceStatus := range pg.Status.InstanceSets {
-		database.Status.Ready += instanceStatus.ReadyReplicas
-		database.Status.Size += instanceStatus.Replicas
-	}
-	database.Status.Ready += pg.Status.Proxy.PGBouncer.ReadyReplicas
-	database.Status.Size += pg.Status.Proxy.PGBouncer.Replicas
-	database.Status.Host = fmt.Sprintf("%s-pgbouncer.%s.svc", database.Name, database.Namespace)
-
-	database.Status.State = dbaasv1.AppStateInit
-	if database.Status.Ready != 0 && database.Status.Ready == database.Status.Size {
-		database.Status.State = dbaasv1.AppStateReady
-	}
-	if database.Spec.Pause {
-		database.Status.State = dbaasv1.AppStateStopping
-	}
-
-	var message string
-	conditions := pg.Status.Conditions
-	if len(conditions) != 0 {
-		message = conditions[len(conditions)-1].Message
-	}
-	database.Status.Message = message
-
+	database.Status.Host = pg.Status.Host
+	database.Status.State = dbaasv1.AppState(pg.Status.State)
+	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
+	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	if err := r.Status().Update(ctx, database); err != nil {
 		return err
 	}

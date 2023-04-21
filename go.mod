@@ -1,6 +1,6 @@
 module github.com/percona/dbaas-operator
 
-go 1.18
+go 1.20
 
 require (
 	github.com/AlekSi/pointer v1.2.0
@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20221024072933-3ec38a5fc670
-	github.com/percona/percona-postgresql-operator v0.0.0-20230303091527-87e23aea398c
+	github.com/percona/percona-postgresql-operator v0.0.0-20230420093920-6c8be07a38b4
 	github.com/percona/percona-server-mongodb-operator v1.14.0
 	github.com/percona/percona-xtradb-cluster-operator v1.12.0
 	github.com/pkg/errors v0.9.1
@@ -76,16 +76,16 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect
-	github.com/xdg-go/stringprep v1.0.3 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	go.mongodb.org/mongo-driver v1.11.2 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0 // indirect
+	go.mongodb.org/mongo-driver v1.11.3 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.4.0 // indirect
+	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/oauth2 v0.4.0 // indirect
+	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
@@ -94,12 +94,12 @@ require (
 	golang.org/x/tools v0.7.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
-	k8s.io/component-base v0.26.1 // indirect
+	k8s.io/component-base v0.26.3 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20221205233837-bacb3aba404b // indirect
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
