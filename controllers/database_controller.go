@@ -573,10 +573,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		message = conditions[len(conditions)-1].Message
 	}
 	database.Status.Message = message
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
-	}
-	return nil
+	return r.Status().Update(ctx, database)
 }
 
 func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
@@ -839,10 +836,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
-	}
-	return nil
+	return r.Status().Update(ctx, database)
 }
 
 func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
@@ -1058,11 +1052,7 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 	database.Status.State = dbaasv1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
-	}
-
-	return nil
+	return r.Status().Update(ctx, database)
 }
 
 func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
