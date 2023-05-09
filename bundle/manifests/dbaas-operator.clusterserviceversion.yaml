@@ -69,8 +69,8 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-05-02T14:27:40Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.27.0
+    createdAt: "2023-05-09T10:03:00Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.28.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: dbaas-operator.v0.1.15
   namespace: placeholder
@@ -118,6 +118,18 @@ spec:
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - dbaas.percona.com
