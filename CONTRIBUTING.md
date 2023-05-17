@@ -144,4 +144,4 @@ As a PR created you are responsible to:
 
 Once your pull request is merged, you are an official Percona Community Contributor. Welcome to the community!
 
-We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com) and [Discord](https://per.co.na/discord).
+We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com).
