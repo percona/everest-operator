@@ -12,7 +12,7 @@ require (
 	github.com/percona/percona-server-mongodb-operator v1.14.0
 	github.com/percona/percona-xtradb-cluster-operator v1.12.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.27.2
