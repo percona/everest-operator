@@ -6,7 +6,7 @@ require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/onsi/ginkgo/v2 v2.10.0
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/gomega v1.27.8
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20221024072933-3ec38a5fc670
 	github.com/percona/percona-postgresql-operator v0.0.0-20230420093920-6c8be07a38b4
 	github.com/percona/percona-server-mongodb-operator v1.14.0
