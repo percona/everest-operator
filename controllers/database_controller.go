@@ -839,6 +839,79 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	return r.Status().Update(ctx, database)
 }
 
+func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
+	backups := crunchyv1beta1.Backups{
+		PGBackRest: crunchyv1beta1.PGBackRestArchive{
+			Image: database.Spec.Backup.Image,
+		},
+	}
+	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
+	for idx, v := range database.Spec.Backup.Schedule {
+		storage, ok := database.Spec.Backup.Storages[v.StorageName]
+		if !ok {
+			return crunchyv1beta1.Backups{}, errors.Errorf("unknown backup storage %s", v.StorageName)
+		}
+		repos[idx] = crunchyv1beta1.PGBackRestRepo{
+			Name: v.Name,
+			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
+				Full: &database.Spec.Backup.Schedule[idx].Schedule,
+			},
+		}
+
+		switch storage.Type {
+		case dbaasv1.BackupStorageS3:
+			repos[idx].S3 = &crunchyv1beta1.RepoS3{
+				Bucket:   storage.StorageProvider.Bucket,
+				Endpoint: storage.StorageProvider.EndpointURL,
+				Region:   storage.StorageProvider.Region,
+			}
+
+			s3StorageSecret := &corev1.Secret{}
+			err := r.Get(ctx, types.NamespacedName{Name: storage.StorageProvider.CredentialsSecret, Namespace: database.Namespace}, s3StorageSecret)
+			if err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
+
+			pgbackrestS3Conf := fmt.Sprintf("[global]\n%s-s3-key=%s\n%s-s3-key-secret=%s\n",
+				repos[idx].Name, s3StorageSecret.Data["AWS_ACCESS_KEY_ID"],
+				repos[idx].Name, s3StorageSecret.Data["AWS_SECRET_ACCESS_KEY"],
+			)
+			pgbackrestSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      database.Name + "-pgbackrest-secrets",
+					Namespace: database.Namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"s3.conf": []byte(pgbackrestS3Conf),
+				},
+			}
+			err = controllerutil.SetControllerReference(database, pgbackrestSecret, r.Scheme)
+			if err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
+			err = r.createOrUpdate(ctx, pgbackrestSecret)
+			if err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
+
+			backups.PGBackRest.Configuration = []corev1.VolumeProjection{
+				{
+					Secret: &corev1.SecretProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: pgbackrestSecret.Name,
+						},
+					},
+				},
+			}
+		default:
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", storage.Type, v.StorageName)
+		}
+	}
+	backups.PGBackRest.Repos = repos
+	return backups, nil
+}
+
 func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	opVersion, _ := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: database.Namespace,
@@ -972,76 +1045,12 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 			if database.Spec.Backup.Image == "" {
 				database.Spec.Backup.Image = fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion)
 			}
-			pg.Spec.Backups = crunchyv1beta1.Backups{
-				PGBackRest: crunchyv1beta1.PGBackRestArchive{
-					Image: database.Spec.Backup.Image,
-				},
+			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database)
+			if err != nil {
+				return err
 			}
-			repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
-			for idx, v := range database.Spec.Backup.Schedule {
-				storage, ok := database.Spec.Backup.Storages[v.StorageName]
-				if !ok {
-					return errors.Errorf("unknown backup storage %s", v.StorageName)
-				}
-				repos[idx] = crunchyv1beta1.PGBackRestRepo{
-					Name: v.Name,
-					BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
-						Full: &database.Spec.Backup.Schedule[idx].Schedule,
-					},
-				}
-
-				switch storage.Type {
-				case dbaasv1.BackupStorageS3:
-					repos[idx].S3 = &crunchyv1beta1.RepoS3{
-						Bucket:   storage.StorageProvider.Bucket,
-						Endpoint: storage.StorageProvider.EndpointURL,
-						Region:   storage.StorageProvider.Bucket,
-					}
-
-					s3StorageSecret := &corev1.Secret{}
-					err = r.Get(ctx, types.NamespacedName{Name: storage.StorageProvider.CredentialsSecret, Namespace: database.Namespace}, s3StorageSecret)
-					if err != nil {
-						return err
-					}
-
-					pgbackrestS3Conf := fmt.Sprintf("[global]\n%s-s3-key=%s\n%s-s3-key-secret=%s\n",
-						repos[idx].Name, s3StorageSecret.Data["AWS_ACCESS_KEY_ID"],
-						repos[idx].Name, s3StorageSecret.Data["AWS_SECRET_ACCESS_KEY"],
-					)
-					pgbackrestSecret := &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      database.Name + "-pgbackrest-secrets",
-							Namespace: database.Namespace,
-						},
-						Type: corev1.SecretTypeOpaque,
-						Data: map[string][]byte{
-							"s3.conf": []byte(pgbackrestS3Conf),
-						},
-					}
-					err = controllerutil.SetControllerReference(database, pgbackrestSecret, r.Scheme)
-					if err != nil {
-						return err
-					}
-					err = r.createOrUpdate(ctx, pgbackrestSecret)
-					if err != nil {
-						return err
-					}
-
-					pg.Spec.Backups.PGBackRest.Configuration = []corev1.VolumeProjection{
-						{
-							Secret: &corev1.SecretProjection{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: pgbackrestSecret.Name,
-								},
-							},
-						},
-					}
-				default:
-					return errors.Errorf("unsupported backup storage type %s for %s", storage.Type, v.StorageName)
-				}
-			}
-			pg.Spec.Backups.PGBackRest.Repos = repos
 		}
+
 		return nil
 	})
 	if err != nil {
