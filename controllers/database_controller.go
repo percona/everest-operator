@@ -1339,23 +1339,8 @@ func getObjectHash(obj runtime.Object) (string, error) {
 }
 
 func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
-	return compareMaps(oldObj.GetAnnotations(), newObj.GetAnnotations()) &&
-		compareMaps(oldObj.GetLabels(), newObj.GetLabels())
-}
-
-func compareMaps(x, y map[string]string) bool {
-	if len(x) != len(y) {
-		return false
-	}
-
-	for k, v := range x {
-		yVal, ok := y[k]
-		if !ok || yVal != v {
-			return false
-		}
-	}
-
-	return true
+	return reflect.DeepEqual(oldObj.GetAnnotations(), newObj.GetAnnotations()) &&
+		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
 }
 
 func (r *DatabaseReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
