@@ -153,6 +153,6 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseEngine{}).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForObject{}).
+		WatchesRawSource(source.Kind(mgr.GetCache(), &appsv1.Deployment{}), &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

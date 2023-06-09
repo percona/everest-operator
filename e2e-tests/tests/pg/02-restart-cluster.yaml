@@ -6,6 +6,8 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
+  finalizers:
+    - percona.com/delete-pvc
   annotations:
     dbaas.percona.com/restart: "true"
 spec:

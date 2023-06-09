@@ -9,6 +9,8 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
+  finalizers:
+    - delete-psmdb-pvc
 spec:
   databaseType: psmdb
   databaseImage: percona/percona-server-mongodb:4.4.10-11
