@@ -845,6 +845,10 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 			Image: database.Spec.Backup.Image,
 		},
 	}
+	if len(database.Spec.Backup.Schedule) > 4 {
+		return crunchyv1beta1.Backups{}, errors.Errorf("number of backup schedules for postgresql cannot exceed 4")
+	}
+
 	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
 	for idx, v := range database.Spec.Backup.Schedule {
 		storage, ok := database.Spec.Backup.Storages[v.StorageName]
@@ -852,7 +856,7 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 			return crunchyv1beta1.Backups{}, errors.Errorf("unknown backup storage %s", v.StorageName)
 		}
 		repos[idx] = crunchyv1beta1.PGBackRestRepo{
-			Name: v.Name,
+			Name: fmt.Sprintf("repo%d", idx+1),
 			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
 				Full: &database.Spec.Backup.Schedule[idx].Schedule,
 			},
