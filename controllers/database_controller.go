@@ -1145,7 +1145,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := mgr.GetFieldIndexer().IndexField(context.Background(), &dbaasv1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
 		var res []string
 		database, ok := o.(*dbaasv1.DatabaseCluster)
-		if !ok {
+		if !ok || database.Spec.Backup == nil {
 			return res
 		}
 		for _, storage := range database.Spec.Backup.Storages {
