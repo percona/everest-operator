@@ -1362,12 +1362,11 @@ func (r *DatabaseReconciler) createOrUpdate(ctx context.Context, obj client.Obje
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 	}, oldObject)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return r.Create(ctx, obj)
+		}
 		return errors.Wrap(err, "get object")
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return r.Create(ctx, obj)
 	}
 
 	oldHash, err := getObjectHash(oldObject)
