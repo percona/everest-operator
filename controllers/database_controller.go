@@ -1195,6 +1195,12 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			controller.Owns(&pgv2beta1.PerconaPGCluster{})
 		}
 	}
+	// In PG reconciliation we create a backup credentials secret because the
+	// PG operator requires this secret to be encoded differently from the
+	// generic one used in PXC and PSMDB. Therefore, we need to watch for
+	// secrets, specifically the ones that are referenced in DatabaseCluster
+	// CRs, and trigger a reconciliation if these change so that we can
+	// reenconde the secret required by PG.
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&source.Kind{Type: &corev1.Secret{}},
