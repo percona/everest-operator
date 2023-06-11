@@ -938,6 +938,67 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 	return backups, nil
 }
 
+func (r *DatabaseReconciler) genPGDataSourceSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.Destination)
+	if len(destMatch) < 3 {
+		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.Destination)
+	}
+	repoName := destMatch[1]
+	backupName := destMatch[2]
+
+	pgDataSource := &crunchyv1beta1.DataSource{
+		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
+			Global: map[string]string{
+				repoName + "-path": "/pgbackrest/" + repoName,
+			},
+			Stanza: "db",
+			Options: []string{
+				"--type=immediate",
+				"--set=" + backupName,
+			},
+		},
+	}
+
+	switch database.Spec.DataSource.StorageType {
+	case dbaasv1.BackupStorageS3:
+		if database.Spec.DataSource.S3 == nil {
+			return nil, errors.Errorf("data source storage is of type %s but is missing s3 field", dbaasv1.BackupStorageS3)
+		}
+
+		pgBackrestSecret, err := r.createPGBackrestSecret(
+			ctx,
+			database,
+			database.Spec.DataSource.S3.CredentialsSecret,
+			repoName,
+			database.Name+"-pgbackrest-datasource-secrets",
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: pgBackrestSecret.Name,
+					},
+				},
+			},
+		}
+		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
+			Name: repoName,
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket:   database.Spec.DataSource.S3.Bucket,
+				Endpoint: database.Spec.DataSource.S3.EndpointURL,
+				Region:   database.Spec.DataSource.S3.Region,
+			},
+		}
+	default:
+		return nil, errors.Errorf("unsupported data source storage type \"%s\"", database.Spec.DataSource.StorageType)
+	}
+	return pgDataSource, nil
+}
+
 func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
 	opVersion, _ := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: database.Namespace,
@@ -1072,6 +1133,13 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 				database.Spec.Backup.Image = fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion)
 			}
 			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database)
+			if err != nil {
+				return err
+			}
+		}
+
+		if database.Spec.DataSource != nil {
+			pg.Spec.DataSource, err = r.genPGDataSourceSpec(ctx, database)
 			if err != nil {
 				return err
 			}
