@@ -839,6 +839,45 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	return r.Status().Update(ctx, database)
 }
 
+func (r *DatabaseReconciler) createPGBackrestSecret(
+	ctx context.Context,
+	database *dbaasv1.DatabaseCluster,
+	storageSecretName,
+	repoName,
+	pgBackrestSecretName string,
+) (*corev1.Secret, error) {
+	s3StorageSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: storageSecretName, Namespace: database.Namespace}, s3StorageSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	pgbackrestS3Conf := fmt.Sprintf("[global]\n%s-s3-key=%s\n%s-s3-key-secret=%s\n",
+		repoName, s3StorageSecret.Data["AWS_ACCESS_KEY_ID"],
+		repoName, s3StorageSecret.Data["AWS_SECRET_ACCESS_KEY"],
+	)
+	pgBackrestSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pgBackrestSecretName,
+			Namespace: database.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"s3.conf": []byte(pgbackrestS3Conf),
+		},
+	}
+	err = controllerutil.SetControllerReference(database, pgBackrestSecret, r.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	err = r.createOrUpdate(ctx, pgBackrestSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgBackrestSecret, nil
+}
+
 func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
 	backups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
@@ -871,31 +910,13 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 				Region:   storage.StorageProvider.Region,
 			}
 
-			s3StorageSecret := &corev1.Secret{}
-			err := r.Get(ctx, types.NamespacedName{Name: storage.StorageProvider.CredentialsSecret, Namespace: database.Namespace}, s3StorageSecret)
-			if err != nil {
-				return crunchyv1beta1.Backups{}, err
-			}
-
-			pgbackrestS3Conf := fmt.Sprintf("[global]\n%s-s3-key=%s\n%s-s3-key-secret=%s\n",
-				repos[idx].Name, s3StorageSecret.Data["AWS_ACCESS_KEY_ID"],
-				repos[idx].Name, s3StorageSecret.Data["AWS_SECRET_ACCESS_KEY"],
+			pgBackrestSecret, err := r.createPGBackrestSecret(
+				ctx,
+				database,
+				storage.StorageProvider.CredentialsSecret,
+				repos[idx].Name,
+				database.Name+"-pgbackrest-secrets",
 			)
-			pgbackrestSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      database.Name + "-pgbackrest-secrets",
-					Namespace: database.Namespace,
-				},
-				Type: corev1.SecretTypeOpaque,
-				Data: map[string][]byte{
-					"s3.conf": []byte(pgbackrestS3Conf),
-				},
-			}
-			err = controllerutil.SetControllerReference(database, pgbackrestSecret, r.Scheme)
-			if err != nil {
-				return crunchyv1beta1.Backups{}, err
-			}
-			err = r.createOrUpdate(ctx, pgbackrestSecret)
 			if err != nil {
 				return crunchyv1beta1.Backups{}, err
 			}
@@ -904,7 +925,7 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 				{
 					Secret: &corev1.SecretProjection{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: pgbackrestSecret.Name,
+							Name: pgBackrestSecret.Name,
 						},
 					},
 				},
