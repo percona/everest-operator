@@ -861,6 +861,7 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 				Full: &database.Spec.Backup.Schedule[idx].Schedule,
 			},
 		}
+		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedule[idx].Keep)
 
 		switch storage.Type {
 		case dbaasv1.BackupStorageS3:
