@@ -880,7 +880,8 @@ func (r *DatabaseReconciler) createPGBackrestSecret(
 func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
 	backups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
-			Image: database.Spec.Backup.Image,
+			Global: map[string]string{},
+			Image:  database.Spec.Backup.Image,
 		},
 	}
 	if len(database.Spec.Backup.Schedule) > 4 {
