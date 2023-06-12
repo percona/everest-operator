@@ -55,7 +55,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 )
@@ -1225,20 +1224,20 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// reenconde the secret required by PG.
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
-		&source.Kind{Type: &corev1.Secret{}},
+		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.findObjectsForBackupSecretsName),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 	return controller.Complete(r)
 }
 
-func (r *DatabaseReconciler) findObjectsForBackupSecretsName(secret client.Object) []reconcile.Request {
+func (r *DatabaseReconciler) findObjectsForBackupSecretsName(ctx context.Context, secret client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &dbaasv1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(backupStorageCredentialSecretName, secret.GetName()),
 		Namespace:     secret.GetNamespace(),
 	}
-	err := r.List(context.TODO(), attachedDatabaseClusters, listOps)
+	err := r.List(ctx, attachedDatabaseClusters, listOps)
 	if err != nil {
 		return []reconcile.Request{}
 	}
