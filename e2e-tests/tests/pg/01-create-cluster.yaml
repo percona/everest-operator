@@ -9,6 +9,8 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
+  finalizers:
+    - percona.com/delete-pvc
 spec:
   databaseType: postgresql
   databaseImage: percona/percona-postgresql-operator:2.0.0-ppg14-postgres

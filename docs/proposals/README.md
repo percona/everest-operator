@@ -14,7 +14,7 @@ processes.
 ## Process
 
 1. Draft a proposal under `docs/proposals`. Refer to the [proposal template](/docs/proposals/template.md).
-2. Discuss the proposal with other contributors opening new issues and/or joining [Discord](https://per.co.na/discord). 
+2. Discuss the proposal with other contributors opening new issues. 
 3. If the proposal is approved, submit a Pull Request.
    1. create a new directory in the format `NNN-Enhancement-Title`
    2. add your proposal based on the template and additional files to the new directory

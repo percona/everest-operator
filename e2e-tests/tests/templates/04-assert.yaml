@@ -6,6 +6,8 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
+  finalizers:
+    - delete-pxc-pvc
   annotations:
     dbaas.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
     dbaas.percona.com/dbtemplate-name: test-pxc-template
@@ -29,6 +31,8 @@ apiVersion: dbaas.percona.com/v1
 kind: PXCTemplatePXCConfiguration
 metadata:
   name: test-pxc-template
+  finalizers:
+    - delete-pxc-pvc
   annotations:
     dbaas.percona.com/dbtemplate-origin: kuttl
   labels:

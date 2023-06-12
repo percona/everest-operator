@@ -6,6 +6,8 @@ apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
+  finalizers:
+    - delete-psmdb-pvc
   annotations:
     dbaas.percona.com/restart: "true"
 spec:

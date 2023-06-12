@@ -37,7 +37,7 @@ We encourage contributions and are always looking for new members that are as de
 
 If you’re looking for information about how you can contribute, we have [contribution guidelines](CONTRIBUTING.md) across all our repositories in `CONTRIBUTING.md` files. Some of them may just link to the main project’s repository’s contribution guidelines.
 
-We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com) and [Discord](https://per.co.na/discord).
+We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com).
 
 ## Submitting Bug Reports
 
