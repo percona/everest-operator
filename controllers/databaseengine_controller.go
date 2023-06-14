@@ -39,6 +39,7 @@ import (
 var operatorEngine = map[string]dbaasv1.EngineType{
 	pxcDeploymentName:   dbaasv1.PXCEngine,
 	psmdbDeploymentName: dbaasv1.PSMDBEngine,
+	pgDeploymentName:    dbaasv1.PostgresqlEngine,
 }
 
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
