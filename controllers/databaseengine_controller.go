@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 )
@@ -154,6 +153,6 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseEngine{}).
-		WatchesRawSource(source.Kind(mgr.GetCache(), &appsv1.Deployment{}), &handler.EnqueueRequestForObject{}).
+		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
