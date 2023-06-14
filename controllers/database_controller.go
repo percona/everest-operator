@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -36,17 +38,22 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
@@ -103,6 +110,7 @@ timeout server 28800s
       operationProfiling:
         mode: slowOp
 `
+	backupStorageCredentialSecretName = ".spec.backup.storages.storageProvider.credentialsSecret" //nolint:gosec
 )
 
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
@@ -277,6 +285,7 @@ type DatabaseReconciler struct {
 //+kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pg.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -563,10 +572,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		message = conditions[len(conditions)-1].Message
 	}
 	database.Status.Message = message
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
-	}
-	return nil
+	return r.Status().Update(ctx, database)
 }
 
 func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
@@ -829,13 +835,114 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
+	return r.Status().Update(ctx, database)
+}
+
+func (r *DatabaseReconciler) createPGBackrestSecret(
+	ctx context.Context,
+	database *dbaasv1.DatabaseCluster,
+	storageSecretName,
+	repoName,
+	pgBackrestSecretName string,
+) (*corev1.Secret, error) {
+	s3StorageSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: storageSecretName, Namespace: database.Namespace}, s3StorageSecret)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	pgbackrestS3Conf := fmt.Sprintf("[global]\n%s-s3-key=%s\n%s-s3-key-secret=%s\n",
+		repoName, s3StorageSecret.Data["AWS_ACCESS_KEY_ID"],
+		repoName, s3StorageSecret.Data["AWS_SECRET_ACCESS_KEY"],
+	)
+	pgBackrestSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pgBackrestSecretName,
+			Namespace: database.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"s3.conf": []byte(pgbackrestS3Conf),
+		},
+	}
+	err = controllerutil.SetControllerReference(database, pgBackrestSecret, r.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	err = r.createOrUpdate(ctx, pgBackrestSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgBackrestSecret, nil
+}
+
+func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
+	backups := crunchyv1beta1.Backups{
+		PGBackRest: crunchyv1beta1.PGBackRestArchive{
+			Global: map[string]string{},
+			Image:  database.Spec.Backup.Image,
+		},
+	}
+	if len(database.Spec.Backup.Schedule) > 4 {
+		return crunchyv1beta1.Backups{}, errors.Errorf("number of backup schedules for postgresql cannot exceed 4")
+	}
+
+	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
+	for idx, v := range database.Spec.Backup.Schedule {
+		storage, ok := database.Spec.Backup.Storages[v.StorageName]
+		if !ok {
+			return crunchyv1beta1.Backups{}, errors.Errorf("unknown backup storage %s", v.StorageName)
+		}
+		repos[idx] = crunchyv1beta1.PGBackRestRepo{
+			Name: fmt.Sprintf("repo%d", idx+1),
+			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
+				Full: &database.Spec.Backup.Schedule[idx].Schedule,
+			},
+		}
+		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedule[idx].Keep)
+
+		switch storage.Type {
+		case dbaasv1.BackupStorageS3:
+			repos[idx].S3 = &crunchyv1beta1.RepoS3{
+				Bucket:   storage.StorageProvider.Bucket,
+				Endpoint: storage.StorageProvider.EndpointURL,
+				Region:   storage.StorageProvider.Region,
+			}
+
+			pgBackrestSecret, err := r.createPGBackrestSecret(
+				ctx,
+				database,
+				storage.StorageProvider.CredentialsSecret,
+				repos[idx].Name,
+				database.Name+"-pgbackrest-secrets",
+			)
+			if err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
+
+			backups.PGBackRest.Configuration = []corev1.VolumeProjection{
+				{
+					Secret: &corev1.SecretProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: pgBackrestSecret.Name,
+						},
+					},
+				},
+			}
+		default:
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", storage.Type, v.StorageName)
+		}
+	}
+	backups.PGBackRest.Repos = repos
+	return backups, nil
 }
 
 func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
+	opVersion, _ := r.getOperatorVersion(ctx, types.NamespacedName{
+		Namespace: database.Namespace,
+		Name:      pgDeploymentName,
+	})
 	version, err := NewVersion("v2beta1")
 	if err != nil {
 		return err
@@ -895,36 +1002,6 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 		}
 		pg.Spec.PostgresVersion = pgVersion
 
-		//nolint:godox
-		// FIXME This backup section has a hardcoded image field and a
-		// PVC-backed repo because the pg-operator requires a backup to be set
-		// up in order to create replicas. This needs to be fixed when
-		// implementing the entire backup feature.
-		// https://jira.percona.com/browse/K8SPG-297
-		pg.Spec.Backups = crunchyv1beta1.Backups{
-			PGBackRest: crunchyv1beta1.PGBackRestArchive{
-				Image: fmt.Sprintf("percona/percona-postgresql-operator:2.0.0-ppg%d-pgbackrest", pgVersion),
-				Repos: []crunchyv1beta1.PGBackRestRepo{
-					{
-						Name: "repo1",
-						Volume: &crunchyv1beta1.RepoPVC{
-							VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-								AccessModes: []corev1.PersistentVolumeAccessMode{
-									corev1.ReadWriteOnce,
-								},
-								StorageClassName: database.Spec.DBInstance.StorageClassName,
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
 		pg.Spec.InstanceSets[0].Replicas = &database.Spec.ClusterSize
 		pg.Spec.InstanceSets[0].Resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -962,6 +1039,44 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
+
+		// If no backup is specified we need to define a repo regardless.
+		// Without credentials need to define a PVC-backed repo because the
+		// pg-operator requires a backup to be set up in order to create
+		// replicas.
+		pg.Spec.Backups = crunchyv1beta1.Backups{
+			PGBackRest: crunchyv1beta1.PGBackRestArchive{
+				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion),
+				Repos: []crunchyv1beta1.PGBackRestRepo{
+					{
+						Name: "repo1",
+						Volume: &crunchyv1beta1.RepoPVC{
+							VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+								AccessModes: []corev1.PersistentVolumeAccessMode{
+									corev1.ReadWriteOnce,
+								},
+								StorageClassName: database.Spec.DBInstance.StorageClassName,
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		if database.Spec.Backup != nil {
+			if database.Spec.Backup.Image == "" {
+				database.Spec.Backup.Image = fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion)
+			}
+			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database)
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -972,11 +1087,7 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 	database.Status.State = dbaasv1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
-	if err := r.Status().Update(ctx, database); err != nil {
-		return err
-	}
-
-	return nil
+	return r.Status().Update(ctx, database)
 }
 
 func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
@@ -1066,6 +1177,20 @@ func (r *DatabaseReconciler) addPGToScheme(scheme *runtime.Scheme) error {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &dbaasv1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
+		var res []string
+		database, ok := o.(*dbaasv1.DatabaseCluster)
+		if !ok || database.Spec.Backup == nil {
+			return res
+		}
+		for _, storage := range database.Spec.Backup.Storages {
+			res = append(res, storage.StorageProvider.CredentialsSecret)
+		}
+		return res
+	})
+	if err != nil {
+		return err
+	}
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -1074,7 +1199,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&dbaasv1.DatabaseCluster{})
-	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
+	err = r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
@@ -1092,7 +1217,42 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			controller.Owns(&pgv2beta1.PerconaPGCluster{})
 		}
 	}
+	// In PG reconciliation we create a backup credentials secret because the
+	// PG operator requires this secret to be encoded differently from the
+	// generic one used in PXC and PSMDB. Therefore, we need to watch for
+	// secrets, specifically the ones that are referenced in DatabaseCluster
+	// CRs, and trigger a reconciliation if these change so that we can
+	// reenconde the secret required by PG.
+	controller.Owns(&corev1.Secret{})
+	controller.Watches(
+		&corev1.Secret{},
+		handler.EnqueueRequestsFromMapFunc(r.findObjectsForBackupSecretsName),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
 	return controller.Complete(r)
+}
+
+func (r *DatabaseReconciler) findObjectsForBackupSecretsName(ctx context.Context, secret client.Object) []reconcile.Request {
+	attachedDatabaseClusters := &dbaasv1.DatabaseClusterList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(backupStorageCredentialSecretName, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+	err := r.List(ctx, attachedDatabaseClusters, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+	for i, item := range attachedDatabaseClusters.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
+		}
+	}
+	return requests
 }
 
 func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, parent string) error {
@@ -1184,5 +1344,82 @@ func (r *DatabaseReconciler) applyTemplate(
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func getObjectHash(obj runtime.Object) (string, error) {
+	var dataToMarshall interface{}
+	switch object := obj.(type) {
+	case *appsv1.StatefulSet:
+		dataToMarshall = object.Spec
+	case *appsv1.Deployment:
+		dataToMarshall = object.Spec
+	case *corev1.Service:
+		dataToMarshall = object.Spec
+	default:
+		dataToMarshall = obj
+	}
+	data, err := json.Marshal(dataToMarshall)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
+	return reflect.DeepEqual(oldObj.GetAnnotations(), newObj.GetAnnotations()) &&
+		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
+}
+
+func (r *DatabaseReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+	hash, err := getObjectHash(obj)
+	if err != nil {
+		return errors.Wrap(err, "calculate object hash")
+	}
+
+	val := reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	oldObject, ok := reflect.New(val.Type()).Interface().(client.Object)
+	if !ok {
+		return errors.Errorf("failed type conversion")
+	}
+
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}, oldObject)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return r.Create(ctx, obj)
+		}
+		return errors.Wrap(err, "get object")
+	}
+
+	oldHash, err := getObjectHash(oldObject)
+	if err != nil {
+		return errors.Wrap(err, "calculate old object hash")
+	}
+
+	if oldHash != hash ||
+		!isObjectMetaEqual(obj, oldObject) {
+		obj.SetResourceVersion(oldObject.GetResourceVersion())
+		switch object := obj.(type) {
+		case *corev1.Service:
+			oldObjectService, ok := oldObject.(*corev1.Service)
+			if !ok {
+				return errors.Errorf("failed type conversion")
+			}
+			object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
+			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
+				object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
+			}
+		default:
+		}
+
+		return r.Update(ctx, obj)
+	}
+
 	return nil
 }
