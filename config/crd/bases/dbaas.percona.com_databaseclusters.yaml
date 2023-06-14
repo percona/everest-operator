@@ -2067,6 +2067,81 @@ spec:
                   cluster. A database starts in cluster mode if clusterSize >= 3.
                 format: int32
                 type: integer
+              dataSource:
+                description: DataSource defines a data source for a new cluster
+                properties:
+                  azure:
+                    description: BackupStorageProviderSpec represents set of settings
+                      to configure cloud provider.
+                    properties:
+                      bucket:
+                        type: string
+                      containerName:
+                        description: A container name is a valid DNS name that conforms
+                          to the Azure naming rules.
+                        type: string
+                      credentialsSecret:
+                        type: string
+                      endpointUrl:
+                        type: string
+                      prefix:
+                        type: string
+                      region:
+                        type: string
+                      storageClass:
+                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
+                          Hot (Frequently accessed or modified data), Cool (Infrequently
+                          accessed or modified data), Archive (Rarely accessed or
+                          modified data) for Azure.
+                        type: string
+                    required:
+                    - credentialsSecret
+                    type: object
+                  destination:
+                    type: string
+                  image:
+                    type: string
+                  s3:
+                    description: BackupStorageProviderSpec represents set of settings
+                      to configure cloud provider.
+                    properties:
+                      bucket:
+                        type: string
+                      containerName:
+                        description: A container name is a valid DNS name that conforms
+                          to the Azure naming rules.
+                        type: string
+                      credentialsSecret:
+                        type: string
+                      endpointUrl:
+                        type: string
+                      prefix:
+                        type: string
+                      region:
+                        type: string
+                      storageClass:
+                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
+                          Hot (Frequently accessed or modified data), Cool (Infrequently
+                          accessed or modified data), Archive (Rarely accessed or
+                          modified data) for Azure.
+                        type: string
+                    required:
+                    - credentialsSecret
+                    type: object
+                  sslInternalSecretName:
+                    type: string
+                  sslSecretName:
+                    type: string
+                  storage_type:
+                    description: BackupStorageType represents backup storage type.
+                    type: string
+                  storageName:
+                    type: string
+                  vaultSecretName:
+                    type: string
+                required:
+                - storage_type
+                type: object
               databaseConfig:
                 description: DatabaseConfig contains a config settings for the specified
                   database.

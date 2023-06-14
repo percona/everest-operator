@@ -85,6 +85,8 @@ type (
 		DBInstance DBInstanceSpec `json:"dbInstance"`
 		// Backup contains backup settings.
 		Backup *BackupSpec `json:"backup,omitempty"`
+		// DataSource defines a data source for a new cluster
+		DataSource *BackupSource `json:"dataSource,omitempty"`
 	}
 	// LoadBalancerSpec contains a load balancer settings. For PXC it's haproxy
 	// or proxysql. For PSMDB it's mongos.
