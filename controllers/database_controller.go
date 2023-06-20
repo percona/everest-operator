@@ -495,7 +495,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			psmdb.Spec.Replsets[0].Expose.ExposeType = database.Spec.LoadBalancer.ExposeType
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
-		if database.Spec.Monitoring.PMM != nil {
+		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
