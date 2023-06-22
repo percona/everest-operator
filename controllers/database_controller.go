@@ -597,6 +597,14 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return err
 	}
+
+	if database.Spec.DataSource != nil {
+		err = r.reconcileDBRestoreFromDataSource(ctx, database)
+		if err != nil {
+			return err
+		}
+	}
+
 	database.Status.Host = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
