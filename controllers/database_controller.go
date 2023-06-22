@@ -365,6 +365,41 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 	return clusterType, nil
 }
 
+func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *dbaasv1.DatabaseCluster) error {
+	dbRestore := &dbaasv1.DatabaseClusterRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      database.Name + "-datasource",
+			Namespace: database.Namespace,
+		},
+	}
+	if err := controllerutil.SetControllerReference(database, dbRestore, r.Client.Scheme()); err != nil {
+		return err
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
+		dbRestore.Spec.DatabaseCluster = database.Name
+		dbRestore.Spec.DatabaseType = database.Spec.Database
+		dbRestore.Spec.BackupSource = &dbaasv1.BackupSource{
+			Destination: database.Spec.DataSource.Destination,
+			StorageName: database.Spec.DataSource.StorageName,
+			StorageType: database.Spec.DataSource.StorageType,
+		}
+		switch database.Spec.DataSource.StorageType {
+		case dbaasv1.BackupStorageS3:
+			dbRestore.Spec.BackupSource.S3 = &dbaasv1.BackupStorageProviderSpec{
+				Bucket:            database.Spec.DataSource.S3.Bucket,
+				CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
+				Region:            database.Spec.DataSource.S3.Region,
+				EndpointURL:       database.Spec.DataSource.S3.EndpointURL,
+			}
+		default:
+			return errors.Errorf("unsupported data source storage type %s", database.Spec.DataSource.StorageType)
+		}
+		return nil
+	})
+
+	return err
+}
+
 func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -832,36 +867,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 
 	if database.Spec.DataSource != nil {
-		dbRestore := &dbaasv1.DatabaseClusterRestore{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      database.Name + "-datasource",
-				Namespace: database.Namespace,
-			},
-		}
-		if err := controllerutil.SetControllerReference(database, dbRestore, r.Client.Scheme()); err != nil {
-			return err
-		}
-		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
-			dbRestore.Spec.DatabaseCluster = database.Name
-			dbRestore.Spec.DatabaseType = dbaasv1.PXCEngine
-			dbRestore.Spec.BackupSource = &dbaasv1.BackupSource{
-				Destination: database.Spec.DataSource.Destination,
-				StorageName: database.Spec.DataSource.StorageName,
-				StorageType: database.Spec.DataSource.StorageType,
-			}
-			switch database.Spec.DataSource.StorageType {
-			case dbaasv1.BackupStorageS3:
-				dbRestore.Spec.BackupSource.S3 = &dbaasv1.BackupStorageProviderSpec{
-					Bucket:            database.Spec.DataSource.S3.Bucket,
-					CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
-					Region:            database.Spec.DataSource.S3.Region,
-					EndpointURL:       database.Spec.DataSource.S3.EndpointURL,
-				}
-			default:
-				return errors.Errorf("unsupported data source storage type %s", database.Spec.DataSource.StorageType)
-			}
-			return nil
-		})
+		err = r.reconcileDBRestoreFromDataSource(ctx, database)
 		if err != nil {
 			return err
 		}
