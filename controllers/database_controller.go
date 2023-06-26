@@ -1051,10 +1051,13 @@ func (r *DatabaseReconciler) genPGDataSourceSpec(ctx context.Context, database *
 }
 
 func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
-	opVersion, _ := r.getOperatorVersion(ctx, types.NamespacedName{
+	opVersion, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: database.Namespace,
 		Name:      pgDeploymentName,
 	})
+	if err != nil {
+		return err
+	}
 	version, err := NewVersion("v2beta1")
 	if err != nil {
 		return err
