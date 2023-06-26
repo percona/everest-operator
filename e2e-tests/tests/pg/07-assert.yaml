@@ -10,14 +10,14 @@ metadata:
     - percona.com/delete-pvc
 spec:
   databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
   databaseConfig: ""
   clusterSize: 1
   loadBalancer:
     type: pgbouncer
     exposeType: ClusterIP
     size: 1
-    image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
   dbInstance:
     cpu: "1"
     memory: 1G
@@ -36,7 +36,7 @@ metadata:
 spec:
   backups:
     pgbackrest:
-      image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbackrest
+      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbackrest
       repos:
       - name: repo1
         volume:
@@ -46,7 +46,7 @@ spec:
             resources:
               requests:
                 storage: 15G
-  image: percona/percona-postgresql-operator:2.0.0-ppg14-postgres
+  image: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
   instances:
   - dataVolumeClaimSpec:
       accessModes:
@@ -71,7 +71,7 @@ spec:
   postgresVersion: 14
   proxy:
     pgBouncer:
-      image: percona/percona-postgresql-operator:2.0.0-ppg14-pgbouncer
+      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
       port: 5432
       replicas: 1
       expose:
