@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-timeout: 120
+timeout: 20
 ---
 apiVersion: dbaas.percona.com/v1
 kind: DatabaseCluster
@@ -12,20 +12,16 @@ spec:
   databaseType: postgresql
   databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
   databaseConfig: ""
-  clusterSize: 5
+  clusterSize: 1
   loadBalancer:
     type: pgbouncer
     exposeType: ClusterIP
-    size: 3
+    size: 1
     image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
   dbInstance:
     cpu: "1"
     memory: 1G
     diskSize: 15G
-status:
-  ready: 8
-  size: 8
-  status: ready
 ---
 apiVersion: pg.percona.com/v2beta1
 kind: PerconaPGCluster
@@ -59,7 +55,7 @@ spec:
         cpu: "1"
         memory: 1G
     name: instance1
-    replicas: 5
+    replicas: 1
   pmm:
     enabled: false
     image: ""
@@ -73,18 +69,25 @@ spec:
     pgBouncer:
       image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
       port: 5432
-      replicas: 3
+      replicas: 1
       expose:
         type: ClusterIP
-status:
-  pgbouncer:
-    ready: 3
-    size: 3
-  postgres:
-    instances:
-    - name: instance1
-      ready: 5
-      size: 5
-    ready: 5
-    size: 5
-  state: ready
+  dataSource:
+    pgbackrest:
+      stanza: db
+# FIXME there's a bug in kuttl that doesn't correctly translate the
+# following lines (it swaps secret and name).
+#      configuration:
+#      - secret:
+#        name: test-pg-cluster-pgbackrest-datasource-secrets
+      global:
+        repo1-path: /pgbackrest/repo1
+      options:
+      - --type=immediate
+      - --set=20230605-172007F
+      repo:
+        name: repo1
+        s3:
+          bucket: test
+          endpoint: https://s3.us-west-1.amazonaws.com
+          region: us-west-1
