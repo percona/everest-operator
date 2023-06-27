@@ -7,17 +7,17 @@ linters-settings:
 
 
   depguard:
-    list-type: blacklist
-    include-go-root: true
-    packages:
-      # use "github.com/pkg/errors" instead
-      - errors
-      # use "github.com/golang/protobuf/proto" instead
-      - github.com/gogo/protobuf/proto
-      # use only forked parser
-      - github.com/percona/go-mysql/log/slow
-      # use "gopkg.in/yaml.v3" instead
-      - gopkg.in/yaml.v2
+    rules:
+      main:
+        deny:
+          - pkg: "errors"
+            desc: "use 'github.com/pkg/errors' instead"
+          - pkg: "github.com/gogo/protobuf/proto"
+            desc: "use 'github.com/golang/protobuf/proto' instead"
+          - pkg: "github.com/percona/go-mysql/log/slow"
+            desc: "use only forked parser"
+          - pkg: "gopkg.in/yaml.v2"
+            desc: "use 'gopkg.in/yaml.v3' instead"
 
   gci:
     sections:
