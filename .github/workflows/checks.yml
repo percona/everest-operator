@@ -51,15 +51,9 @@ jobs:
         run: bin/go-sumtype ./...
 
       - name: Run linters
-        uses: reviewdog/action-golangci-lint@v2
-        with:
-          github_token: ${{ secrets.ROBOT_TOKEN || secrets.GITHUB_TOKEN }}
-          go_version: ${{ env.GO_VERSION }}
-          reporter: github-pr-review
-          fail_on_error: true
-          cache: false
-          golangci_lint_flags: "-c=.golangci.yml"
-          golangci_lint_version: v1.51.1 # Version should match specified in Makefile
+        run: |
+          # use GITHUB_TOKEN because only it has access to GitHub Checks API
+          bin/golangci-lint run --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} bin/reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
 
       - name: Run debug commands on failure
         if: ${{ failure() }}
