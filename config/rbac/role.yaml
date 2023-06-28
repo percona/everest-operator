@@ -36,6 +36,32 @@ rules:
 - apiGroups:
   - dbaas.percona.com
   resources:
+  - databaseclusterbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterbackups/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dbaas.percona.com
+  resources:
+  - databaseclusterbackups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - dbaas.percona.com
+  resources:
   - databaseclusterrestores
   verbs:
   - create
