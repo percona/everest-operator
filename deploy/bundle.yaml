@@ -48,7 +48,7 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: DatabaseClusterBackup is the Schema for the databaseclusterbackups API
+        description: DatabaseClusterBackup is the Schema for the databaseclusterbackups API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -59,7 +59,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup
+            description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
               backupSource:
                 description: BackupSource is the object with the storage location info.
@@ -142,7 +142,7 @@ spec:
             - name
             type: object
           status:
-            description: DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup
+            description: DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
             properties:
               completed:
                 description: Completed is the time when the job was completed.

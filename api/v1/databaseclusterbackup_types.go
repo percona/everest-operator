@@ -22,7 +22,7 @@ import (
 // BackupState is used to represent cluster's state.
 type BackupState string
 
-// DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup
+// DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
 type DatabaseClusterBackupSpec struct {
 	// Name is the backup name.
 	Name string `json:"name"`
@@ -34,7 +34,7 @@ type DatabaseClusterBackupSpec struct {
 	BackupSource BackupSource `json:"backupSource"`
 }
 
-// DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup
+// DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
 type DatabaseClusterBackupStatus struct {
 	// Completed is the time when the job was completed.
 	Completed *metav1.Time `json:"completed"`
@@ -51,7 +51,7 @@ type DatabaseClusterBackupStatus struct {
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Time the job was completed"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age of the resource"
 
-// DatabaseClusterBackup is the Schema for the databaseclusterbackups API
+// DatabaseClusterBackup is the Schema for the databaseclusterbackups API.
 type DatabaseClusterBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -62,7 +62,7 @@ type DatabaseClusterBackup struct {
 
 //+kubebuilder:object:root=true
 
-// DatabaseClusterBackupList contains a list of DatabaseClusterBackup
+// DatabaseClusterBackupList contains a list of DatabaseClusterBackup.
 type DatabaseClusterBackupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -11,7 +11,7 @@ spec:
   customresourcedefinitions:
     owned:
     - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
-        API
+        API.
       displayName: Database Cluster Backup
       kind: DatabaseClusterBackup
       name: databaseclusterbackups.dbaas.percona.com

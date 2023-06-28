@@ -84,7 +84,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-06-28T13:49:21Z"
+    createdAt: "2023-06-28T14:31:14Z"
     operators.operatorframework.io/builder: operator-sdk-v1.29.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: dbaas-operator.v0.1.15
@@ -94,7 +94,7 @@ spec:
   customresourcedefinitions:
     owned:
     - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
-        API
+        API.
       displayName: Database Cluster Backup
       kind: DatabaseClusterBackup
       name: databaseclusterbackups.dbaas.percona.com

@@ -26,7 +26,7 @@ import (
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 )
 
-// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object
+// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -38,17 +38,15 @@ type DatabaseClusterBackupReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
+// Modify the Reconcile function to compare the state specified by
 // the DatabaseClusterBackup object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-
-	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
 }

@@ -42,7 +42,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -57,7 +57,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup
+            description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
               backupSource:
                 description: BackupSource is the object with the storage location
@@ -152,7 +152,7 @@ spec:
             type: object
           status:
             description: DatabaseClusterBackupStatus defines the observed state of
-              DatabaseClusterBackup
+              DatabaseClusterBackup.
             properties:
               completed:
                 description: Completed is the time when the job was completed.
