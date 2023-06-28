@@ -1,0 +1,12 @@
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseClusterBackup
+metadata:
+  labels:
+    app.kubernetes.io/name: databaseclusterbackup
+    app.kubernetes.io/instance: databaseclusterbackup-sample
+    app.kubernetes.io/part-of: dbaas-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: dbaas-operator
+  name: databaseclusterbackup-sample
+spec:
+  # TODO(user): Add fields here
