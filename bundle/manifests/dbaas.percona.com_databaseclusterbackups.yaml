@@ -11,10 +11,34 @@ spec:
     kind: DatabaseClusterBackup
     listKind: DatabaseClusterBackupList
     plural: databaseclusterbackups
+    shortNames:
+    - dbbackup
+    - dbb
     singular: databaseclusterbackup
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The original database cluster name
+      jsonPath: .spec.dbClusterName
+      name: Cluster
+      type: string
+    - description: Backup destination
+      jsonPath: .spec.destination
+      name: Destination
+      type: string
+    - description: Job status
+      jsonPath: .status.state
+      name: Status
+      type: string
+    - description: Time the job was completed
+      jsonPath: .status.completed
+      name: Completed
+      type: date
+    - description: Age of the resource
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
