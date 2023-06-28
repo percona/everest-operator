@@ -19,22 +19,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// BackupState is used to represent cluster's state.
+type BackupState string
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup
 type DatabaseClusterBackupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of DatabaseClusterBackup. Edit databaseclusterbackup_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Name is the backup name.
+	Name string `json:"name"`
+	// DBClusterName is the original database cluster name.
+	DBClusterName string `json:"dbClusterName"`
+	// Destination is the full path to the backup.
+	Destination string `json:"destination"`
+	// BackupSource is the object with the storage location info.
+	BackupSource BackupSource `json:"backupSource"`
 }
 
 // DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup
 type DatabaseClusterBackupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Completed is the time when the job was completed.
+	Completed *metav1.Time `json:"completed"`
+	// State is the DatabaseBackup state.
+	State BackupState `json:"state"`
 }
 
 //+kubebuilder:object:root=true
