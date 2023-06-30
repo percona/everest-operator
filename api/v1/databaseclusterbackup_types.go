@@ -26,6 +26,8 @@ type BackupState string
 type DatabaseClusterBackupSpec struct {
 	// Name is the backup name.
 	Name string `json:"name"`
+	// Type of the db cluster - pxc, psmdb, pg
+	DBClusterType string `json:"dbClusterType"`
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
 	// Destination is the full path to the backup.
@@ -46,6 +48,7 @@ type DatabaseClusterBackupStatus struct {
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dbbackup;dbb
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.dbClusterName",description="The original database cluster name"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.dbClusterType",description="The original database cluster type"
 // +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".spec.destination",description="Backup destination"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Time the job was completed"

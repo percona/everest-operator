@@ -29,6 +29,10 @@ spec:
       jsonPath: .spec.dbClusterName
       name: Cluster
       type: string
+    - description: The original database cluster type
+      jsonPath: .spec.dbClusterType
+      name: Type
+      type: string
     - description: Backup destination
       jsonPath: .spec.destination
       name: Destination
@@ -129,6 +133,9 @@ spec:
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
+              dbClusterType:
+                description: Type of the db cluster - pxc, psmdb, pg
+                type: string
               destination:
                 description: Destination is the full path to the backup.
                 type: string
@@ -138,6 +145,7 @@ spec:
             required:
             - backupSource
             - dbClusterName
+            - dbClusterType
             - destination
             - name
             type: object

@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,8 +46,23 @@ type DatabaseClusterBackupReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	logger.Info("Reconciling", "request", req)
+
+	backup := &dbaasv1.DatabaseClusterBackup{}
+
+	err := r.Get(ctx, req.NamespacedName, backup)
+	if err != nil {
+		// NotFound cannot be fixed by requeuing so ignore it. During background
+		// deletion, we receive delete events from cluster's dependents after
+		// cluster is deleted.
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch DatabaseCluster")
+		}
+		return reconcile.Result{}, err
+	}
+	logger.Info("Reconciled", "request", req)
 
 	return ctrl.Result{}, nil
 }
