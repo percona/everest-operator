@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 10
+---
+apiVersion: dbaas.percona.com/v1
+kind: DatabaseEngine
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  type: psmdb
+  allowedVersions:
+    - 5.0.15-13
+    - 6.0.4-3
+    - 6.0.5-4

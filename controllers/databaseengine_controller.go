@@ -36,15 +36,16 @@ import (
 )
 
 var operatorEngine = map[string]dbaasv1.EngineType{
-	pxcDeploymentName:   dbaasv1.PXCEngine,
-	psmdbDeploymentName: dbaasv1.PSMDBEngine,
-	pgDeploymentName:    dbaasv1.PostgresqlEngine,
+	pxcDeploymentName:   dbaasv1.DatabaseEnginePXC,
+	psmdbDeploymentName: dbaasv1.DatabaseEnginePSMDB,
+	pgDeploymentName:    dbaasv1.DatabaseEnginePostgresql,
 }
 
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	versionService *VersionService
 }
 
 //+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
@@ -68,7 +69,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Namespace: req.NamespacedName.Namespace,
 		},
 	}
-
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
 		dbEngine.Spec.Type = engineType
 		return nil
@@ -78,7 +78,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	dbEngine.Status.State = dbaasv1.DBEngineStateNotInstalled
-	dbEngine.Status.Version = ""
+	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -86,11 +86,39 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 	if version != "" {
-		dbEngine.Status.Version = version
+		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = dbaasv1.DBEngineStateInstalling
 	}
 	if ready {
 		dbEngine.Status.State = dbaasv1.DBEngineStateInstalled
+		matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		versions := dbaasv1.Versions{
+			Backup: matrix.Backup,
+		}
+		if dbEngine.Spec.Type == dbaasv1.DatabaseEnginePXC {
+			versions.Engine = matrix.PXC
+			versions.Proxy = map[string]map[string]*dbaasv1.Component{
+				"haproxy":  matrix.HAProxy,
+				"proxysql": matrix.ProxySQL,
+			}
+			versions.Tools = map[string]map[string]*dbaasv1.Component{
+				"logCollector": matrix.LogCollector,
+			}
+		}
+		if dbEngine.Spec.Type == dbaasv1.DatabaseEnginePSMDB {
+			versions.Engine = matrix.Mongod
+		}
+		if dbEngine.Spec.Type == dbaasv1.DatabaseEnginePostgresql {
+			versions.Engine = matrix.Postgresql
+			versions.Backup = matrix.PGBackRest
+			versions.Proxy = map[string]map[string]*dbaasv1.Component{
+				"pgbouncer": matrix.PGBouncer,
+			}
+		}
+		dbEngine.Status.AvailableVersions = versions
 	}
 
 	if err := r.Status().Update(ctx, dbEngine); err != nil {
@@ -127,6 +155,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// yet so we use the client.Reader returned from manager.GetAPIReader() to
 	// hit the API server directly and avoid an ErrCacheNotStarted.
 	clientReader := mgr.GetAPIReader()
+	r.versionService = NewVersionService()
 
 	for operatorName, engineType := range operatorEngine {
 		dbEngine := &dbaasv1.DatabaseEngine{

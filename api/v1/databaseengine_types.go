@@ -26,6 +26,12 @@ const (
 	DBEngineStateInstalling EngineState = "installing"
 	// DBEngineStateInstalled represents the state of engine when underlying operator is installed.
 	DBEngineStateInstalled EngineState = "installed"
+	// DatabaseEnginePXC represents engine type for PXC clusters.
+	DatabaseEnginePXC EngineType = "pxc"
+	// DatabaseEnginePSMDB represents engine type for PSMDB clusters.
+	DatabaseEnginePSMDB EngineType = "psmdb"
+	// DatabaseEnginePostgresql represents engine type for Postgresql clusters.
+	DatabaseEnginePostgresql EngineType = "postgresql"
 )
 
 type (
@@ -39,13 +45,15 @@ type (
 
 // DatabaseEngineSpec is a spec for a database engine.
 type DatabaseEngineSpec struct {
-	Type EngineType `json:"type"`
+	Type            EngineType `json:"type"`
+	AllowedVersions []string   `json:"allowedVersions,omitempty"`
 }
 
 // DatabaseEngineStatus defines the observed state of DatabaseEngine.
 type DatabaseEngineStatus struct {
-	State   EngineState `json:"status,omitempty"`
-	Version string      `json:"version,omitempty"`
+	State             EngineState `json:"status,omitempty"`
+	OperatorVersion   string      `json:"operatorVersion,omitempty"`
+	AvailableVersions Versions    `json:"availableVersions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -71,6 +79,33 @@ type DatabaseEngineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DatabaseEngine `json:"items"`
+}
+
+// Versions struct represents available versions of database engine components.
+type Versions struct {
+	Engine map[string]*Component            `json:"engine,omitempty"`
+	Backup map[string]*Component            `json:"backup,omitempty"`
+	Proxy  map[string]map[string]*Component `json:"proxy,omitempty"`
+	Tools  map[string]map[string]*Component `json:"tools,omitempty"`
+}
+
+// Component contains information of the database engine component.
+// Database Engine component can be database engine, database proxy or tools image path.
+type Component struct {
+	Critical  bool   `json:"critical,omitempty"`
+	ImageHash string `json:"imageHash,omitempty"`
+	ImagePath string `json:"imagePath,omitempty"`
+	Status    string `json:"status,omitempty"`
+}
+
+// RecommendedBackupImage returns the recommended image for a backup component.
+func (d DatabaseEngine) RecommendedBackupImage() string {
+	for _, component := range d.Status.AvailableVersions.Backup {
+		if component.Status == "recommended" {
+			return component.ImagePath
+		}
+	}
+	return ""
 }
 
 func init() {

@@ -23,12 +23,6 @@ import (
 )
 
 const (
-	// PXCEngine represents engine type for PXC clusters.
-	PXCEngine EngineType = "pxc"
-	// PSMDBEngine represents engine type for PSMDB clusters.
-	PSMDBEngine EngineType = "psmdb"
-	// PostgresqlEngine represents engine type for Postgresql clusters.
-	PostgresqlEngine EngineType = "postgresql"
 	// LoadBalancerMongos represents mongos load balancer.
 	LoadBalancerMongos LoadBalancerType = "mongos"
 	// LoadBalancerHAProxy represents haproxy load balancer.

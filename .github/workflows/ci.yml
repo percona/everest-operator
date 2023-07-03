@@ -42,8 +42,9 @@ jobs:
           make test
         env:
           PXC_OPERATOR_VERSION: 1.12.0
-          PSMDB_OPERATOR_VERSION: 1.13.0
+          PSMDB_OPERATOR_VERSION: 1.14.0
           PG_OPERATOR_VERSION: 2.1.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
     #kind-e2e-tests:
     #  name: E2E tests (Kind)
@@ -92,8 +93,8 @@ jobs:
     #      run:
     #        kubectl kuttl test --start-kind --config ./e2e-tests/kuttl.yml
     #      env:
-    #        PXC_OPERATOR_VERSION: 1.11.0
-    #        PSMDB_OPERATOR_VERSION: 1.11.0
+    #        PXC_OPERATOR_VERSION: 1.12.0
+    #        PSMDB_OPERATOR_VERSION: 1.14.0
     #        PG_OPERATOR_VERSION: 2.1.0
 
   eks-e2e-tests:
@@ -148,9 +149,10 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks.yml
         env:
           PXC_OPERATOR_VERSION: 1.12.0
-          PSMDB_OPERATOR_VERSION: 1.13.0
+          PSMDB_OPERATOR_VERSION: 1.14.0
           PG_OPERATOR_VERSION: 2.1.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   make-bundle:
     name: Make Bundle

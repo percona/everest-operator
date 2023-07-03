@@ -77,13 +77,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if cr.Spec.DatabaseType == dbaasv1.PXCEngine {
+	if cr.Spec.DatabaseType == dbaasv1.DatabaseEnginePXC {
 		if err := r.restorePXC(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
 	}
-	if cr.Spec.DatabaseType == dbaasv1.PSMDBEngine {
+	if cr.Spec.DatabaseType == dbaasv1.DatabaseEnginePSMDB {
 		if err := r.restorePSMDB(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err

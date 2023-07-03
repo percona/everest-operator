@@ -113,6 +113,12 @@ timeout server 28800s
 	backupStorageCredentialSecretName = ".spec.backup.storages.storageProvider.credentialsSecret" //nolint:gosec
 )
 
+var operatorDeployment = map[dbaasv1.EngineType]string{
+	dbaasv1.DatabaseEnginePXC:        pxcDeploymentName,
+	dbaasv1.DatabaseEnginePSMDB:      psmdbDeploymentName,
+	dbaasv1.DatabaseEnginePostgresql: pgDeploymentName,
+}
+
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
 	UpgradeOptions: pxcv1.UpgradeOptions{
@@ -320,11 +326,11 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return reconcile.Result{}, err
 		}
 	}
-	if database.Spec.Database == "pxc" {
+	if database.Spec.Database == dbaasv1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == "psmdb" {
+	if database.Spec.Database == dbaasv1.DatabaseEnginePSMDB {
 		err := r.reconcilePSMDB(ctx, req, database)
 		if err != nil {
 			logger.Error(err, "unable to reconcile psmdb")
@@ -419,6 +425,11 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		Spec: defaultPSMDBSpec,
 	}
 	if err := r.Update(ctx, database); err != nil {
+		return err
+	}
+	engine := &dbaasv1.DatabaseEngine{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Database]}, engine)
+	if err != nil {
 		return err
 	}
 
@@ -537,11 +548,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 		}
 		if database.Spec.Backup != nil {
 			if database.Spec.Backup.Image == "" {
-				image, err := version.PSMDBBackupImage()
-				if err != nil {
-					return err
-				}
-				database.Spec.Backup.Image = image
+				database.Spec.Backup.Image = engine.RecommendedBackupImage()
 			}
 			psmdb.Spec.Backup = psmdbv1.BackupSpec{
 				Enabled:                  true,
