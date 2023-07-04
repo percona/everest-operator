@@ -8,8 +8,8 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: dbaas-operator
-repo: github.com/percona/dbaas-operator
+projectName: everest-operator
+repo: github.com/percona/everest-operator
 resources:
 - api:
     crdVersion: v1
