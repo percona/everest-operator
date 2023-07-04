@@ -1,4 +1,4 @@
-module github.com/percona/dbaas-operator/tools
+module github.com/percona/everest-operator/tools
 
 go 1.19
 
