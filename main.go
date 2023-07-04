@@ -36,6 +36,7 @@ import (
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 	"github.com/percona/dbaas-operator/controllers"
+	//+kubebuilder:scaffold:imports
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
@@ -81,7 +82,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "c423cb25.percona.com",
+		LeaderElectionID:       "9094838c.percona.com",
 		Namespace:              ns,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
