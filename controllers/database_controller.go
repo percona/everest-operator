@@ -373,7 +373,7 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 }
 
 func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *dbaasv1.DatabaseCluster) error {
-	dbRestore := &dbaasv1.DatabaseClusterRestore{
+	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      database.Name + "-datasource",
 			Namespace: database.Namespace,
@@ -385,13 +385,13 @@ func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Contex
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
 		dbRestore.Spec.DatabaseCluster = database.Name
 		dbRestore.Spec.DatabaseType = database.Spec.Database
-		dbRestore.Spec.BackupSource = &dbaasv1.BackupSource{
+		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
 			Destination: database.Spec.DataSource.Destination,
 			StorageName: database.Spec.DataSource.StorageName,
 			StorageType: database.Spec.DataSource.StorageType,
 		}
 		switch database.Spec.DataSource.StorageType {
-		case dbaasv1.BackupStorageS3:
+		case everestv1alpha1.BackupStorageS3:
 			dbRestore.Spec.BackupSource.S3 = &dbaasv1.BackupStorageProviderSpec{
 				Bucket:            database.Spec.DataSource.S3.Bucket,
 				CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
@@ -564,7 +564,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 			var tasks []psmdbv1.BackupTaskSpec
 			for k, v := range database.Spec.Backup.Storages {
 				switch v.Type {
-				case dbaasv1.BackupStorageS3:
+				case everestv1alpha1.BackupStorageS3:
 					storages[k] = psmdbv1.BackupStorageSpec{
 						Type: psmdbv1.BackupStorageType(v.Type),
 						S3: psmdbv1.BackupStorageS3Spec{
@@ -575,7 +575,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 							StorageClass:      v.StorageProvider.StorageClass,
 						},
 					}
-				case dbaasv1.BackupStorageAzure:
+				case everestv1alpha1.BackupStorageAzure:
 					storages[k] = psmdbv1.BackupStorageSpec{
 						Type: psmdbv1.BackupStorageType(v.Type),
 						Azure: psmdbv1.BackupStorageAzureSpec{
@@ -650,7 +650,7 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		// hence we have this piece of the migration of spec.pause field
 		// from PerconaXtraDBCluster object to a DatabaseCluster object.
 
-		restores := &dbaasv1.DatabaseClusterRestoreList{}
+		restores := &everestv1alpha1.DatabaseClusterRestoreList{}
 
 		if err := r.List(ctx, restores, client.MatchingFields{"spec.databaseCluster": database.Name}); err != nil {
 			return err
@@ -658,17 +658,17 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 		jobRunning := false
 		for _, restore := range restores.Items {
 			switch restore.Status.State {
-			case dbaasv1.RestoreState(pxcv1.RestoreNew):
+			case everestv1alpha1.RestoreState(pxcv1.RestoreNew):
 				jobRunning = true
-			case dbaasv1.RestoreState(pxcv1.RestoreStarting):
+			case everestv1alpha1.RestoreState(pxcv1.RestoreStarting):
 				jobRunning = true
-			case dbaasv1.RestoreState(pxcv1.RestoreStopCluster):
+			case everestv1alpha1.RestoreState(pxcv1.RestoreStopCluster):
 				jobRunning = true
-			case dbaasv1.RestoreState(pxcv1.RestoreRestore):
+			case everestv1alpha1.RestoreState(pxcv1.RestoreRestore):
 				jobRunning = true
-			case dbaasv1.RestoreState(pxcv1.RestoreStartCluster):
+			case everestv1alpha1.RestoreState(pxcv1.RestoreStartCluster):
 				jobRunning = true
-			case dbaasv1.RestoreState(pxcv1.RestorePITR):
+			case everestv1alpha1.RestoreState(pxcv1.RestorePITR):
 				jobRunning = true
 			default:
 				jobRunning = false
@@ -849,14 +849,14 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 					VerifyTLS:                v.VerifyTLS,
 				}
 				switch v.Type {
-				case dbaasv1.BackupStorageS3:
+				case everestv1alpha1.BackupStorageS3:
 					storages[k].S3 = &pxcv1.BackupStorageS3Spec{
 						Bucket:            v.StorageProvider.Bucket,
 						CredentialsSecret: v.StorageProvider.CredentialsSecret,
 						Region:            v.StorageProvider.Region,
 						EndpointURL:       v.StorageProvider.EndpointURL,
 					}
-				case dbaasv1.BackupStorageAzure:
+				case everestv1alpha1.BackupStorageAzure:
 					storages[k].Azure = &pxcv1.BackupStorageAzureSpec{
 						ContainerPath:     v.StorageProvider.ContainerName,
 						CredentialsSecret: v.StorageProvider.CredentialsSecret,
@@ -962,7 +962,7 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedule[idx].Keep)
 
 		switch storage.Type {
-		case dbaasv1.BackupStorageS3:
+		case everestv1alpha1.BackupStorageS3:
 			repos[idx].S3 = &crunchyv1beta1.RepoS3{
 				Bucket:   storage.StorageProvider.Bucket,
 				Endpoint: storage.StorageProvider.EndpointURL,
@@ -1019,9 +1019,9 @@ func (r *DatabaseReconciler) genPGDataSourceSpec(ctx context.Context, database *
 	}
 
 	switch database.Spec.DataSource.StorageType {
-	case dbaasv1.BackupStorageS3:
+	case everestv1alpha1.BackupStorageS3:
 		if database.Spec.DataSource.S3 == nil {
-			return nil, errors.Errorf("data source storage is of type %s but is missing s3 field", dbaasv1.BackupStorageS3)
+			return nil, errors.Errorf("data source storage is of type %s but is missing s3 field", everestv1alpha1.BackupStorageS3)
 		}
 
 		pgBackrestSecret, err := r.createPGBackrestSecret(
