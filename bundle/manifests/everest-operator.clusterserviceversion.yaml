@@ -5,78 +5,60 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "dbaas.percona.com/v1",
+          "apiVersion": "everest.percona.com/v1alpha1",
           "kind": "DatabaseCluster",
           "metadata": {
-            "name": "database-sample",
-            "namespace": "default"
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databasecluster-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databasecluster",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "databasecluster-sample"
           },
-          "spec": {
-            "clusterSize": 5,
-            "databaseConfig": "[mysqld]\nwsrep_provider_options=\"debug=1;gcache.size=1G\"\nwsrep_debug=1\nwsrep_trx_fragment_unit='bytes'\nwsrep_trx_fragment_size=3670016\n",
-            "databaseImage": "percona/percona-xtradb-cluster:8.0.27-18.1",
-            "databaseType": "pxc",
-            "dbInstance": {
-              "cpu": "1",
-              "diskSize": "15G",
-              "memory": "1G"
-            },
-            "loadBalancer": {
-              "exposeType": "ClusterIP",
-              "image": "percona/percona-xtradb-cluster-operator:1.11.0-haproxy",
-              "size": 3,
-              "type": "haproxy"
-            },
-            "monitoring": {
-              "imagePullPolicy": "Always",
-              "pmm": {
-                "image": "percona/pmm-client:2",
-                "serverHost": "http://127.0.0.1",
-                "serverUser": "admin"
-              },
-              "resources": {
-                "requests": {
-                  "cpu": "500m",
-                  "memory": "500M"
-                }
-              }
-            },
-            "secretsName": "pxc-sample-secrets"
-          }
+          "spec": null
         },
         {
-          "apiVersion": "dbaas.percona.com/v1",
+          "apiVersion": "everest.percona.com/v1alpha1",
           "kind": "DatabaseClusterBackup",
           "metadata": {
             "labels": {
-              "app.kubernetes.io/created-by": "dbaas-operator",
+              "app.kubernetes.io/created-by": "everest-operator",
               "app.kubernetes.io/instance": "databaseclusterbackup-sample",
               "app.kubernetes.io/managed-by": "kustomize",
               "app.kubernetes.io/name": "databaseclusterbackup",
-              "app.kubernetes.io/part-of": "dbaas-operator"
+              "app.kubernetes.io/part-of": "everest-operator"
             },
             "name": "databaseclusterbackup-sample"
           },
           "spec": null
         },
         {
-          "apiVersion": "dbaas.percona.com/v1",
+          "apiVersion": "everest.percona.com/v1alpha1",
           "kind": "DatabaseClusterRestore",
           "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databaseclusterrestore-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databaseclusterrestore",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
             "name": "databaseclusterrestore-sample"
           },
           "spec": null
         },
         {
-          "apiVersion": "dbaas.percona.com/v1",
+          "apiVersion": "everest.percona.com/v1alpha1",
           "kind": "DatabaseEngine",
           "metadata": {
             "labels": {
-              "app.kubernetes.io/created-by": "dbaas-operator",
+              "app.kubernetes.io/created-by": "everest-operator",
               "app.kubernetes.io/instance": "databaseengine-sample",
               "app.kubernetes.io/managed-by": "kustomize",
               "app.kubernetes.io/name": "databaseengine",
-              "app.kubernetes.io/part-of": "dbaas-operator"
+              "app.kubernetes.io/part-of": "everest-operator"
             },
             "name": "databaseengine-sample"
           },
@@ -84,10 +66,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-07-04T08:26:10Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.27.0
+    createdAt: "2023-07-04T20:15:06Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.30.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: dbaas-operator.v0.1.17
+  name: everest-operator.v0.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -97,26 +79,26 @@ spec:
         API.
       displayName: Database Cluster Backup
       kind: DatabaseClusterBackup
-      name: databaseclusterbackups.dbaas.percona.com
-      version: v1
+      name: databaseclusterbackups.everest.percona.com
+      version: v1alpha1
     - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
         API.
       displayName: Database Cluster Restore
       kind: DatabaseClusterRestore
-      name: databaseclusterrestores.dbaas.percona.com
-      version: v1
+      name: databaseclusterrestores.everest.percona.com
+      version: v1alpha1
     - description: DatabaseCluster is the Schema for the databases API.
       displayName: Database Cluster
       kind: DatabaseCluster
-      name: databaseclusters.dbaas.percona.com
-      version: v1
+      name: databaseclusters.everest.percona.com
+      version: v1alpha1
     - description: DatabaseEngine is the Schema for the databaseengines API.
       displayName: Database Engine
       kind: DatabaseEngine
-      name: databaseengines.dbaas.percona.com
-      version: v1
-  description: Deploy database clusters easily with DBaaS operator
-  displayName: DBaaS operator
+      name: databaseengines.everest.percona.com
+      version: v1alpha1
+  description: Deploy database clusters easily with Everest operator
+  displayName: Everest operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -153,7 +135,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterbackups
           verbs:
@@ -165,13 +147,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterbackups/finalizers
           verbs:
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterbackups/status
           verbs:
@@ -179,7 +161,7 @@ spec:
           - patch
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterrestores
           verbs:
@@ -191,13 +173,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterrestores/finalizers
           verbs:
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusterrestores/status
           verbs:
@@ -205,7 +187,7 @@ spec:
           - patch
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusters
           verbs:
@@ -217,13 +199,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusters/finalizers
           verbs:
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseclusters/status
           verbs:
@@ -231,7 +213,7 @@ spec:
           - patch
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseengines
           verbs:
@@ -243,13 +225,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseengines/finalizers
           verbs:
           - update
         - apiGroups:
-          - dbaas.percona.com
+          - everest.percona.com
           resources:
           - databaseengines/status
           verbs:
@@ -336,11 +318,17 @@ spec:
           - subjectaccessreviews
           verbs:
           - create
-        serviceAccountName: dbaas-operator-controller-manager
+        serviceAccountName: everest-operator-controller-manager
       deployments:
       - label:
+          app.kubernetes.io/component: manager
+          app.kubernetes.io/created-by: everest-operator
+          app.kubernetes.io/instance: controller-manager
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: deployment
+          app.kubernetes.io/part-of: everest-operator
           control-plane: controller-manager
-        name: dbaas-operator-controller-manager
+        name: everest-operator-controller-manager
         spec:
           replicas: 1
           selector:
@@ -354,13 +342,29 @@ spec:
               labels:
                 control-plane: controller-manager
             spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/arch
+                        operator: In
+                        values:
+                        - amd64
+                        - arm64
+                        - ppc64le
+                        - s390x
+                      - key: kubernetes.io/os
+                        operator: In
+                        values:
+                        - linux
               containers:
               - args:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
                 - --logtostderr=true
                 - --v=0
-                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
                 name: kube-rbac-proxy
                 ports:
                 - containerPort: 8443
@@ -389,7 +393,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/dbaas-operator:0.1.17
+                image: controller:latest
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -417,7 +421,7 @@ spec:
                     - ALL
               securityContext:
                 runAsNonRoot: true
-              serviceAccountName: dbaas-operator-controller-manager
+              serviceAccountName: everest-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -452,30 +456,35 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: dbaas-operator-controller-manager
+        serviceAccountName: everest-operator-controller-manager
     strategy: deployment
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
   keywords:
+  - everest
   - dbaas
   - percona
   links:
-  - name: Dbaas Operator
-    url: https://dbaas-operator.domain
+  - name: Everest Operator
+    url: https://everest-operator.domain
   maintainers:
   - email: andrew.minkin@percona.com
     name: gen1us2k
-  - email: denys.kondratenko@percona.com
-    name: denisok
+  - email: diogo.recharte@percona.com
+    name: recharte
+  - email: oksana.grishchenko@percona.com
+    name: oksana-grishchenko
+  - email: michal.kralik@percona.com
+    name: michal-kralik
   maturity: alpha
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.1.17
+  version: 0.0.1
