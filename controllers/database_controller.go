@@ -57,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 // ClusterType used to understand the underlying platform of k8s cluster.
@@ -113,10 +114,10 @@ timeout server 28800s
 	backupStorageCredentialSecretName = ".spec.backup.storages.storageProvider.credentialsSecret" //nolint:gosec
 )
 
-var operatorDeployment = map[dbaasv1.EngineType]string{
-	dbaasv1.DatabaseEnginePXC:        pxcDeploymentName,
-	dbaasv1.DatabaseEnginePSMDB:      psmdbDeploymentName,
-	dbaasv1.DatabaseEnginePostgresql: pgDeploymentName,
+var operatorDeployment = map[everestv1alpha1.EngineType]string{
+	everestv1alpha1.DatabaseEnginePXC:        pxcDeploymentName,
+	everestv1alpha1.DatabaseEnginePSMDB:      psmdbDeploymentName,
+	everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
 }
 
 var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
@@ -326,11 +327,11 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return reconcile.Result{}, err
 		}
 	}
-	if database.Spec.Database == dbaasv1.DatabaseEnginePXC {
+	if database.Spec.Database == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == dbaasv1.DatabaseEnginePSMDB {
+	if database.Spec.Database == everestv1alpha1.DatabaseEnginePSMDB {
 		err := r.reconcilePSMDB(ctx, req, database)
 		if err != nil {
 			logger.Error(err, "unable to reconcile psmdb")
@@ -427,7 +428,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	if err := r.Update(ctx, database); err != nil {
 		return err
 	}
-	engine := &dbaasv1.DatabaseEngine{}
+	engine := &everestv1alpha1.DatabaseEngine{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Database]}, engine)
 	if err != nil {
 		return err

@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 const (
@@ -77,13 +78,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if cr.Spec.DatabaseType == dbaasv1.DatabaseEnginePXC {
+	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePXC {
 		if err := r.restorePXC(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
 	}
-	if cr.Spec.DatabaseType == dbaasv1.DatabaseEnginePSMDB {
+	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePSMDB {
 		if err := r.restorePSMDB(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
