@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,18 +23,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
+// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object
 type DatabaseClusterBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterbackups/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterbackups/finalizers,verbs=update
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -45,7 +45,7 @@ type DatabaseClusterBackupReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
@@ -54,6 +54,6 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, _ ctrl.
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.DatabaseClusterBackup{}).
+		For(&everestv1alpha1.DatabaseClusterBackup{}).
 		Complete(r)
 }
