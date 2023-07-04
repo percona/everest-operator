@@ -23,13 +23,13 @@ linters-settings:
     sections:
       - standard # Captures all standard packages if they do not match another section.
       - default # Contains all imports that could not be matched to another section type.
-      - prefix(github.com/percona/dbaas-operator) # Groups all local imports.
+      - prefix(github.com/percona/everest-operator) # Groups all local imports.
 
   godot:
     capital: true
 
   goimports:
-    local-prefixes: github.com/percona/dbaas-operator
+    local-prefixes: github.com/percona/everest-operator
 
   ireturn:
     allow:
