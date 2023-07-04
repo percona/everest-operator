@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
@@ -102,12 +101,12 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everest
 		case <-timeoutCtx.Done():
 			return errors.New("wait timeout exceeded")
 		default:
-			cluster := &dbaasv1.DatabaseCluster{}
+			cluster := &everestv1alpha1.DatabaseCluster{}
 			err := r.Get(context.Background(), types.NamespacedName{Name: restore.Spec.DatabaseCluster, Namespace: restore.Namespace}, cluster)
 			if err != nil {
 				return err
 			}
-			if cluster.Status.State == dbaasv1.AppStateReady {
+			if cluster.Status.State == everestv1alpha1.AppStateReady {
 				return nil
 			}
 		}

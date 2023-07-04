@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -102,11 +101,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DatabaseReconciler{
+	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Database")
+		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseEngineReconciler{

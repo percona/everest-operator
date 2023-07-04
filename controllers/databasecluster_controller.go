@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package controllers contains a set of controllers for DBaaS
 package controllers
 
 import (
@@ -56,7 +55,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
@@ -83,9 +81,9 @@ const (
 	psmdbAPIGroup               = "psmdb.percona.com"
 	pgAPIGroup                  = "pg.percona.com"
 	haProxyTemplate             = "percona/percona-xtradb-cluster-operator:%s-haproxy"
-	restartAnnotationKey        = "dbaas.percona.com/restart"
-	dbTemplateKindAnnotationKey = "dbaas.percona.com/dbtemplate-kind"
-	dbTemplateNameAnnotationKey = "dbaas.percona.com/dbtemplate-name"
+	restartAnnotationKey        = "everest.percona.com/restart"
+	dbTemplateKindAnnotationKey = "everest.percona.com/dbtemplate-kind"
+	dbTemplateNameAnnotationKey = "everest.percona.com/dbtemplate-name"
 	// ClusterTypeEKS represents EKS cluster type.
 	ClusterTypeEKS ClusterType = "eks"
 	// ClusterTypeMinikube represents minikube cluster type.
@@ -277,15 +275,15 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 	},
 }
 
-// DatabaseReconciler reconciles a Database object.
-type DatabaseReconciler struct {
+// DatabaseClusterReconciler reconciles a DatabaseCluster object
+type DatabaseClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
 //+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
@@ -297,12 +295,12 @@ type DatabaseReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
-func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 
-	database := &dbaasv1.DatabaseCluster{}
+	database := &everestv1alpha1.DatabaseCluster{}
 
 	err := r.Get(ctx, req.NamespacedName, database)
 	if err != nil {
@@ -320,7 +318,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if ok && !database.Spec.Pause {
 		database.Spec.Pause = true
 	}
-	if ok && database.Status.State == dbaasv1.AppStatePaused {
+	if ok && database.Status.State == everestv1alpha1.AppStatePaused {
 		database.Spec.Pause = false
 		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
 		if err := r.Update(ctx, database); err != nil {
@@ -345,7 +343,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
-func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
+func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
 	clusterType := ClusterTypeMinikube
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
@@ -372,7 +370,7 @@ func (r *DatabaseReconciler) getClusterType(ctx context.Context) (ClusterType, e
 	return clusterType, nil
 }
 
-func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *dbaasv1.DatabaseCluster) error {
+func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      database.Name + "-datasource",
@@ -392,7 +390,7 @@ func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Contex
 		}
 		switch database.Spec.DataSource.StorageType {
 		case everestv1alpha1.BackupStorageS3:
-			dbRestore.Spec.BackupSource.S3 = &dbaasv1.BackupStorageProviderSpec{
+			dbRestore.Spec.BackupSource.S3 = &everestv1alpha1.BackupStorageProviderSpec{
 				Bucket:            database.Spec.DataSource.S3.Bucket,
 				CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
 				Region:            database.Spec.DataSource.S3.Region,
@@ -407,7 +405,7 @@ func (r *DatabaseReconciler) reconcileDBRestoreFromDataSource(ctx context.Contex
 	return err
 }
 
-func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,maintidx
+func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:gocognit,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      psmdbDeploymentName,
@@ -616,7 +614,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	database.Status.Host = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
-	database.Status.State = dbaasv1.AppState(psmdb.Status.State)
+	database.Status.State = everestv1alpha1.AppState(psmdb.Status.State)
 	message := psmdb.Status.Message
 	conditions := psmdb.Status.Conditions
 	if message == "" && len(conditions) != 0 {
@@ -626,7 +624,7 @@ func (r *DatabaseReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Reques
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *dbaasv1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
+func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      pxcDeploymentName,
@@ -890,16 +888,16 @@ func (r *DatabaseReconciler) reconcilePXC(ctx context.Context, req ctrl.Request,
 	}
 
 	database.Status.Host = pxc.Status.Host
-	database.Status.State = dbaasv1.AppState(pxc.Status.Status)
+	database.Status.State = everestv1alpha1.AppState(pxc.Status.Status)
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseReconciler) createPGBackrestSecret(
+func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	ctx context.Context,
-	database *dbaasv1.DatabaseCluster,
+	database *everestv1alpha1.DatabaseCluster,
 	storageSecretName,
 	repoName,
 	pgBackrestSecretName string,
@@ -936,7 +934,7 @@ func (r *DatabaseReconciler) createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
-func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
+func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
 	backups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
 			Global: map[string]string{},
@@ -997,7 +995,7 @@ func (r *DatabaseReconciler) genPGBackupsSpec(ctx context.Context, database *dba
 	return backups, nil
 }
 
-func (r *DatabaseReconciler) genPGDataSourceSpec(ctx context.Context, database *dbaasv1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
 	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.Destination)
 	if len(destMatch) < 3 {
 		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.Destination)
@@ -1058,7 +1056,7 @@ func (r *DatabaseReconciler) genPGDataSourceSpec(ctx context.Context, database *
 	return pgDataSource, nil
 }
 
-func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *dbaasv1.DatabaseCluster) error {
+func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
 	opVersion, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: database.Namespace,
 		Name:      pgDeploymentName,
@@ -1214,13 +1212,13 @@ func (r *DatabaseReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, da
 	}
 
 	database.Status.Host = pg.Status.Host
-	database.Status.State = dbaasv1.AppState(pg.Status.State)
+	database.Status.State = everestv1alpha1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
+func (r *DatabaseClusterReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apps",
@@ -1240,7 +1238,7 @@ func (r *DatabaseReconciler) getOperatorVersion(ctx context.Context, name types.
 	return NewVersion(version)
 }
 
-func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
 		Name:      pxcDeploymentName,
 		Namespace: os.Getenv("WATCH_NAMESPACE"),
@@ -1261,7 +1259,7 @@ func (r *DatabaseReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
 		Name:      psmdbDeploymentName,
 		Namespace: os.Getenv("WATCH_NAMESPACE"),
@@ -1281,7 +1279,7 @@ func (r *DatabaseReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func (r *DatabaseReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
 	pgSchemeGroupVersion := schema.GroupVersion{Group: "pg.percona.com", Version: "v2beta1"}
 	scheme.AddKnownTypes(pgSchemeGroupVersion,
 		&pgv2beta1.PerconaPGCluster{}, &pgv2beta1.PerconaPGClusterList{})
@@ -1290,26 +1288,26 @@ func (r *DatabaseReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func (r *DatabaseReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
 	return builder.AddToScheme(scheme)
 }
 
-func (r *DatabaseReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
 	return builder.AddToScheme(scheme)
 }
 
-func (r *DatabaseReconciler) addPGToScheme(scheme *runtime.Scheme) error {
+func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
 	return builder.AddToScheme(scheme)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &dbaasv1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
 		var res []string
-		database, ok := o.(*dbaasv1.DatabaseCluster)
+		database, ok := o.(*everestv1alpha1.DatabaseCluster)
 		if !ok || database.Spec.Backup == nil {
 			return res
 		}
@@ -1328,7 +1326,7 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Version: "v1",
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.DatabaseCluster{})
+		For(&everestv1alpha1.DatabaseCluster{})
 	err = r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
@@ -1362,8 +1360,8 @@ func (r *DatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return controller.Complete(r)
 }
 
-func (r *DatabaseReconciler) findObjectsForBackupSecretsName(ctx context.Context, secret client.Object) []reconcile.Request {
-	attachedDatabaseClusters := &dbaasv1.DatabaseClusterList{}
+func (r *DatabaseClusterReconciler) findObjectsForBackupSecretsName(ctx context.Context, secret client.Object) []reconcile.Request {
+	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(backupStorageCredentialSecretName, secret.GetName()),
 		Namespace:     secret.GetNamespace(),
@@ -1415,7 +1413,7 @@ func mergeMap(dst map[string]interface{}, src map[string]interface{}) error {
 	return mergeMapInternal(dst, src, "")
 }
 
-func (r *DatabaseReconciler) applyTemplate(
+func (r *DatabaseClusterReconciler) applyTemplate(
 	ctx context.Context,
 	obj interface{},
 	kind string,
@@ -1425,9 +1423,9 @@ func (r *DatabaseReconciler) applyTemplate(
 	unstructuredDB := &unstructured.Unstructured{}
 
 	unstructuredTemplate.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "dbaas.percona.com",
+		Group:   "everest.percona.com",
 		Kind:    kind,
-		Version: "v1",
+		Version: "v1alpha1",
 	})
 	err := r.Get(ctx, namespacedName, unstructuredTemplate)
 	if err != nil {
@@ -1501,7 +1499,7 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
 }
 
-func (r *DatabaseReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
