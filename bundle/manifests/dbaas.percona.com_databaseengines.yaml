@@ -46,6 +46,10 @@ spec:
           spec:
             description: DatabaseEngineSpec is a spec for a database engine.
             properties:
+              allowedVersions:
+                items:
+                  type: string
+                type: array
               type:
                 description: EngineType stands for the supported database engines.
                   Right now it's only pxc and psmdb. However, it can be ps, pg and
@@ -57,10 +61,83 @@ spec:
           status:
             description: DatabaseEngineStatus defines the observed state of DatabaseEngine.
             properties:
+              availableVersions:
+                description: Versions struct represents available versions of database
+                  engine components.
+                properties:
+                  backup:
+                    additionalProperties:
+                      description: Component contains information of the database
+                        engine component. Database Engine component can be database
+                        engine, database proxy or tools image path.
+                      properties:
+                        critical:
+                          type: boolean
+                        imageHash:
+                          type: string
+                        imagePath:
+                          type: string
+                        status:
+                          type: string
+                      type: object
+                    type: object
+                  engine:
+                    additionalProperties:
+                      description: Component contains information of the database
+                        engine component. Database Engine component can be database
+                        engine, database proxy or tools image path.
+                      properties:
+                        critical:
+                          type: boolean
+                        imageHash:
+                          type: string
+                        imagePath:
+                          type: string
+                        status:
+                          type: string
+                      type: object
+                    type: object
+                  proxy:
+                    additionalProperties:
+                      additionalProperties:
+                        description: Component contains information of the database
+                          engine component. Database Engine component can be database
+                          engine, database proxy or tools image path.
+                        properties:
+                          critical:
+                            type: boolean
+                          imageHash:
+                            type: string
+                          imagePath:
+                            type: string
+                          status:
+                            type: string
+                        type: object
+                      type: object
+                    type: object
+                  tools:
+                    additionalProperties:
+                      additionalProperties:
+                        description: Component contains information of the database
+                          engine component. Database Engine component can be database
+                          engine, database proxy or tools image path.
+                        properties:
+                          critical:
+                            type: boolean
+                          imageHash:
+                            type: string
+                          imagePath:
+                            type: string
+                          status:
+                            type: string
+                        type: object
+                      type: object
+                    type: object
+                type: object
+              operatorVersion:
+                type: string
               status:
                 description: EngineState represents state of engine in a k8s cluster.
-                type: string
-              version:
                 type: string
             type: object
         type: object
