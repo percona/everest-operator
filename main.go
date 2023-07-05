@@ -36,7 +36,6 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers"
-	//+kubebuilder:scaffold:imports
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
