@@ -1,6 +1,0 @@
-apiVersion: dbaas.percona.com/v1
-kind: DatabaseClusterRestore
-metadata:
-  name: databaseclusterrestore-sample
-spec:
-  # TODO(user): Add fields here

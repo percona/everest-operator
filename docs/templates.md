@@ -54,8 +54,8 @@ A template should therefore be comprised of a Kubernetes CRD and CR.
 ### Annotations
 
 Annotations that the user should set for the DatabaseCluster CR for `dbaas-operator` that are related to the templates:
-- `dbaas.percona.com/dbtemplate-kind: PSMDBtemplate`: is CustomResource (CR) Kind that implements template
-- `dbaas.percona.com/dbtemplate-name: prod-app-X-small`: `metadata.name` identifier for CR that provides the template.
+- `everest.percona.com/dbtemplate-kind: PSMDBtemplate`: is CustomResource (CR) Kind that implements template
+- `everest.percona.com/dbtemplate-name: prod-app-X-small`: `metadata.name` identifier for CR that provides the template.
 
 If one of those two parameters (kind, name) is not set - `dbaas-operator` wouldn't be able to identify the template and thus would ignore it.
 
@@ -63,9 +63,9 @@ If one of those two parameters (kind, name) is not set - `dbaas-operator` wouldn
 
 There could be optional annotations (both in DatabaseCluster CR and DatabaseCluster Template) that are used by SRE and/or specific applications that manage templates, such as:
 
-- `dbaas.percona.com/dbtemplate-origin: pmm`: who created the template: pmm, user, sre, dba, ci
-- `dbaas.percona.com/dbtemplate-type: infra`: type of the template: infra, db-conf, net-conf, etc
-- `dbaas.percona.com/origin: pmm`: who created CR for `database-operator`: pmm, user, sre, dba, ci
+- `everest.percona.com/dbtemplate-origin: pmm`: who created the template: pmm, user, sre, dba, ci
+- `everest.percona.com/dbtemplate-type: infra`: type of the template: infra, db-conf, net-conf, etc
+- `everest.percona.com/origin: pmm`: who created CR for `database-operator`: pmm, user, sre, dba, ci
 - etc
 
 ### Labels
@@ -73,8 +73,8 @@ There could be optional annotations (both in DatabaseCluster CR and DatabaseClus
 All the labels from the DatabaseCluster Template are merged to the final DB Cluster CR.
 
 In order for PMM to be able to list the templates the following labels must be set in both the template CRD and CR:
-- `dbaas.percona.com/template: yes`
-- `dbaas.percona.com/engine: pxc`: the underlying DB engine: pxc or psmdb
+- `everest.percona.com/template: yes`
+- `everest.percona.com/engine: pxc`: the underlying DB engine: pxc or psmdb
 
 ## Examples
 
@@ -101,12 +101,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: pxctemplatepxcconfiguration.dbaas.percona.com
+  name: pxctemplatepxcconfiguration.everest.percona.com
   labels:
-    dbaas.percona.com/template: "yes"
-    dbaas.percona.com/engine: "pxc"
+    everest.percona.com/template: "yes"
+    everest.percona.com/engine: "pxc"
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: PXCTemplatePXCConfiguration
     listKind: PXCTemplatePXCConfigurationList
@@ -141,7 +141,7 @@ spec:
 
 ```sh
 $ kubectl apply -f pxctpl-crd-pxc-configuration.yaml
-customresourcedefinition.apiextensions.k8s.io/pxctemplatepxcconfiguration.dbaas.percona.com created
+customresourcedefinition.apiextensions.k8s.io/pxctemplatepxcconfiguration.everest.percona.com created
 ```
 
 #### Adding Read Permissions For The dbaas-operator To Get The PXCTemplatePXCConfiguration CRs
@@ -152,7 +152,7 @@ In order for the dbaas-operator to apply the template it needs access to the tem
 $ DBAAS_OPERATOR_MANAGER_ROLE=$(kubectl get clusterroles | grep dbaas-operator | grep -v metrics | grep -v proxy | cut -f 1 -d ' '); kubectl get clusterroles/"$DBAAS_OPERATOR_MANAGER_ROLE" -o yaml > dbaas-operator-manager-role.yaml
 $ cat <<EOF >>dbaas-operator-manager-role.yaml
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - pxctemplatepxcconfiguration
   verbs:
@@ -168,13 +168,13 @@ clusterrole.rbac.authorization.k8s.io/dbaas-operator-manager-role configured
 The DBA creates a corresponding CR `pxctpl-pxc-config-max-connection-789.yaml` with the desired values.
 
 ```yaml
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: PXCTemplatePXCConfiguration
 metadata:
   name: pxc-config-max-connections-789
   labels:
-    dbaas.percona.com/template: "yes"
-    dbaas.percona.com/engine: "pxc"
+    everest.percona.com/template: "yes"
+    everest.percona.com/engine: "pxc"
 spec:
   pxc:
     configuration: |
@@ -184,7 +184,7 @@ spec:
 
 ```sh
 $ kubectl apply -f pxctpl-pxc-config-max-connection-789.yaml
-pxctemplatepxcconfiguration.dbaas.percona.com/pxc-config-max-connections-789 created
+pxctemplatepxcconfiguration.everest.percona.com/pxc-config-max-connections-789 created
 ```
 
 #### Applying The PXCTemplatePXCConfiguration Template To Existing DB Clusters
@@ -192,19 +192,19 @@ pxctemplatepxcconfiguration.dbaas.percona.com/pxc-config-max-connections-789 cre
 To apply the template to an existing DB, the DBA should update the DB cluster CR to include the following annotations.
 
 ```yaml
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   annotations:
-    dbaas.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
-    dbaas.percona.com/dbtemplate-name: pxc-config-max-connections-789
+    everest.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
+    everest.percona.com/dbtemplate-name: pxc-config-max-connections-789
 ...
 ```
 
 ```sh
 $ kubectl apply -f databasecluster.yaml
-databasecluster.dbaas.percona.com/test-pxc-cluster configured
+databasecluster.everest.percona.com/test-pxc-cluster configured
 $ kubectl describe pxc/test-pxc-cluster | grep -A2 'Configuration'
   Configuration: |
     [mysqld]
@@ -226,12 +226,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
-  name: pxctemplateupgradeoptions.dbaas.percona.com
+  name: pxctemplateupgradeoptions.everest.percona.com
   labels:
-    dbaas.percona.com/template: "yes"
-    dbaas.percona.com/engine: "pxc"
+    everest.percona.com/template: "yes"
+    everest.percona.com/engine: "pxc"
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: PXCTemplateUpgradeOptions
     listKind: PXCTemplateUpgradeOptionsList
@@ -272,7 +272,7 @@ spec:
 
 ```sh
 $ kubectl apply -f pxctpl-crd-upgrade-options.yaml
-customresourcedefinition.apiextensions.k8s.io/pxctemplateupgradeoptions.dbaas.percona.com created
+customresourcedefinition.apiextensions.k8s.io/pxctemplateupgradeoptions.everest.percona.com created
 ```
 
 #### Adding Read Permissions For The dbaas-operator To Get The PXCTemplateUpgradeOptions CRs
@@ -283,7 +283,7 @@ In order for the dbaas-operator to apply the template it needs access to the tem
 $ DBAAS_OPERATOR_MANAGER_ROLE=$(kubectl get clusterroles | grep dbaas-operator | grep -v metrics | grep -v proxy | cut -f 1 -d ' '); kubectl get clusterroles/"$DBAAS_OPERATOR_MANAGER_ROLE" -o yaml > dbaas-operator-manager-role.yaml
 $ cat <<EOF >>dbaas-operator-manager-role.yaml
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - pxctemplateupgradeoptions
   verbs:
@@ -299,13 +299,13 @@ clusterrole.rbac.authorization.k8s.io/dbaas-operator-manager-role configured
 The DBA creates a corresponding CR `pxctpl-enable-automatic-upgrades.yaml` with the desired values.
 
 ```yaml
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: PXCTemplateUpgradeOptions
 metadata:
   name: enable-automatic-upgrades
   labels:
-    dbaas.percona.com/template: "yes"
-    dbaas.percona.com/engine: "pxc"
+    everest.percona.com/template: "yes"
+    everest.percona.com/engine: "pxc"
 spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
@@ -315,7 +315,7 @@ spec:
 
 ```sh
 $ kubectl apply -f pxctpl-enable-automatic-upgrades.yaml
-pxctemplateugradeoptions.dbaas.percona.com/enable-automatic-upgrades created
+pxctemplateugradeoptions.everest.percona.com/enable-automatic-upgrades created
 ```
 
 #### Applying The PXCTemplateUpgradeOptions Template To Existing DB Clusters
@@ -323,19 +323,19 @@ pxctemplateugradeoptions.dbaas.percona.com/enable-automatic-upgrades created
 To apply the template to an existing DB, the DBA should update the DB cluster CR to include the following annotations.
 
 ```yaml
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   annotations:
-    dbaas.percona.com/dbtemplate-kind: PXCTemplateUpgradeOptions
-    dbaas.percona.com/dbtemplate-name: enable-automatic-upgrades
+    everest.percona.com/dbtemplate-kind: PXCTemplateUpgradeOptions
+    everest.percona.com/dbtemplate-name: enable-automatic-upgrades
 ...
 ```
 
 ```sh
 $ kubectl apply -f databasecluster.yaml
-databasecluster.dbaas.percona.com/test-pxc-cluster configured
+databasecluster.everest.percona.com/test-pxc-cluster configured
 $ kubectl describe pxc/test-pxc-cluster | grep -A2 'Update Strategy'
   Update Strategy:    SmartUpdate
   Upgrade Options:

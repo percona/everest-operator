@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: dbaas-operator.v0.0.0
+  name: everest-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -14,26 +14,26 @@ spec:
         API.
       displayName: Database Cluster Backup
       kind: DatabaseClusterBackup
-      name: databaseclusterbackups.dbaas.percona.com
-      version: v1
+      name: databaseclusterbackups.everest.percona.com
+      version: v1alpha1
     - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
         API.
       displayName: Database Cluster Restore
       kind: DatabaseClusterRestore
-      name: databaseclusterrestores.dbaas.percona.com
-      version: v1
+      name: databaseclusterrestores.everest.percona.com
+      version: v1alpha1
     - description: DatabaseCluster is the Schema for the databases API.
       displayName: Database Cluster
       kind: DatabaseCluster
-      name: databaseclusters.dbaas.percona.com
-      version: v1
+      name: databaseclusters.everest.percona.com
+      version: v1alpha1
     - description: DatabaseEngine is the Schema for the databaseengines API.
       displayName: Database Engine
       kind: DatabaseEngine
-      name: databaseengines.dbaas.percona.com
-      version: v1
-  description: Deploy database clusters easily with DBaaS operator
-  displayName: DBaaS operator
+      name: databaseengines.everest.percona.com
+      version: v1alpha1
+  description: Deploy database clusters easily with Everest operator
+  displayName: Everest operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -42,25 +42,30 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
   keywords:
+  - everest
   - dbaas
   - percona
   links:
-  - name: Dbaas Operator
-    url: https://dbaas-operator.domain
+  - name: Everest Operator
+    url: https://everest-operator.domain
   maintainers:
   - email: andrew.minkin@percona.com
     name: gen1us2k
-  - email: denys.kondratenko@percona.com
-    name: denisok
+  - email: diogo.recharte@percona.com
+    name: recharte
+  - email: oksana.grishchenko@percona.com
+    name: oksana-grishchenko
+  - email: michal.kralik@percona.com
+    name: michal-kralik
   maturity: alpha
   provider:
     name: Percona

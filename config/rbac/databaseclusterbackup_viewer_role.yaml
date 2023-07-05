@@ -6,13 +6,13 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: databaseclusterbackup-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: dbaas-operator
-    app.kubernetes.io/part-of: dbaas-operator
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/part-of: everest-operator
     app.kubernetes.io/managed-by: kustomize
   name: databaseclusterbackup-viewer-role
 rules:
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups/status
   verbs:

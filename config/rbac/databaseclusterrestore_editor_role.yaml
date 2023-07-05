@@ -2,10 +2,17 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: databaseclusterrestore-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/part-of: everest-operator
+    app.kubernetes.io/managed-by: kustomize
   name: databaseclusterrestore-editor-role
 rules:
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores
   verbs:
@@ -17,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores/status
   verbs:

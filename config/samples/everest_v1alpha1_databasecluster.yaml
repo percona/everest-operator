@@ -1,0 +1,12 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: databasecluster
+    app.kubernetes.io/instance: databasecluster-sample
+    app.kubernetes.io/part-of: everest-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: everest-operator
+  name: databasecluster-sample
+spec:
+  # TODO(user): Add fields here

@@ -1,7 +1,7 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- dbaas_v1_database.yaml
-- dbaas_v1_databaseengine.yaml
-- dbaas_v1_databaseclusterrestore.yaml
-- dbaas_v1_databaseclusterbackup.yaml
+- everest_v1alpha1_databasecluster.yaml
+- everest_v1alpha1_databaseclusterbackup.yaml
+- everest_v1alpha1_databaseclusterrestore.yaml
+- everest_v1alpha1_databaseengine.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

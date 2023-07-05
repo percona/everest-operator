@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 func TestGetOperatorVersion(t *testing.T) {
@@ -51,8 +51,8 @@ func TestGetOperatorVersion(t *testing.T) {
 	}
 	cl := fake.NewClientBuilder().WithObjects(deployment).Build()
 	s := scheme.Scheme
-	s.AddKnownTypes(dbaasv1.GroupVersion, &dbaasv1.DatabaseCluster{})
-	r := &DatabaseReconciler{Client: cl, Scheme: s}
+	s.AddKnownTypes(everestv1alpha1.GroupVersion, &everestv1alpha1.DatabaseCluster{})
+	r := &DatabaseClusterReconciler{Client: cl, Scheme: s}
 	version, err := r.getOperatorVersion(context.TODO(), types.NamespacedName{
 		Namespace: "super-x",
 		Name:      "percona-xtradb-cluster-operator",

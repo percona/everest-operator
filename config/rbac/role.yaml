@@ -34,7 +34,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups
   verbs:
@@ -46,13 +46,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups/status
   verbs:
@@ -60,7 +60,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores
   verbs:
@@ -72,13 +72,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores/status
   verbs:
@@ -86,7 +86,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters
   verbs:
@@ -98,13 +98,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters/status
   verbs:
@@ -112,7 +112,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines
   verbs:
@@ -124,13 +124,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines/status
   verbs:

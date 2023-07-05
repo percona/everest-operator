@@ -50,8 +50,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/dbaas-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
-            perconalab/dbaas-operator
+            percona/everest-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            perconalab/everest-operator
           tags: |
             type=match,pattern=v(.*),group=1
             type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
@@ -63,8 +63,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/dbaas-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
-            perconalab/dbaas-operator-bundle
+            percona/everest-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            perconalab/everest-operator-bundle
           tags: |
             type=match,pattern=v(.*),group=1
             type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}

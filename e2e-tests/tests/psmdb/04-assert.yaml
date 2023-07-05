@@ -6,7 +6,7 @@ timeout: 300
 # In the test assertion 03 we assert that the cluster is stopped and in 04 we assert that the cluster is up and ready to use.
 # The test steps are still declarative so no operation is executed in 04.
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster

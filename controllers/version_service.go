@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 type (
@@ -33,15 +33,15 @@ type (
 	}
 	// Matrix represents the response from the version service.
 	Matrix struct {
-		Backup       map[string]*dbaasv1.Component `json:"backup"`
-		Mongod       map[string]*dbaasv1.Component `json:"mongod"`
-		PXC          map[string]*dbaasv1.Component `json:"pxc"`
-		ProxySQL     map[string]*dbaasv1.Component `json:"proxysql"`
-		HAProxy      map[string]*dbaasv1.Component `json:"haproxy"`
-		LogCollector map[string]*dbaasv1.Component `json:"logCollector"`
-		Postgresql   map[string]*dbaasv1.Component `json:"postgresql"`
-		PGBackRest   map[string]*dbaasv1.Component `json:"pgbackrest"`
-		PGBouncer    map[string]*dbaasv1.Component `json:"pgbouncer"`
+		Backup       map[string]*everestv1alpha1.Component `json:"backup"`
+		Mongod       map[string]*everestv1alpha1.Component `json:"mongod"`
+		PXC          map[string]*everestv1alpha1.Component `json:"pxc"`
+		ProxySQL     map[string]*everestv1alpha1.Component `json:"proxysql"`
+		HAProxy      map[string]*everestv1alpha1.Component `json:"haproxy"`
+		LogCollector map[string]*everestv1alpha1.Component `json:"logCollector"`
+		Postgresql   map[string]*everestv1alpha1.Component `json:"postgresql"`
+		PGBackRest   map[string]*everestv1alpha1.Component `json:"pgbackrest"`
+		PGBouncer    map[string]*everestv1alpha1.Component `json:"pgbouncer"`
 	}
 	// VersionResponse is a response model for version service response parsing.
 	VersionResponse struct {
@@ -56,10 +56,10 @@ const (
 	versionServiceStatusRecommended = "recommended"
 )
 
-var operatorNames = map[dbaasv1.EngineType]string{
-	dbaasv1.DatabaseEnginePXC:        "pxc-operator",
-	dbaasv1.DatabaseEnginePSMDB:      "psmdb-operator",
-	dbaasv1.DatabaseEnginePostgresql: "pg-operator",
+var operatorNames = map[everestv1alpha1.EngineType]string{
+	everestv1alpha1.DatabaseEnginePXC:        "pxc-operator",
+	everestv1alpha1.DatabaseEnginePSMDB:      "psmdb-operator",
+	everestv1alpha1.DatabaseEnginePostgresql: "pg-operator",
 }
 
 // NewVersionService creates a version service client.
@@ -72,7 +72,7 @@ func NewVersionService() *VersionService {
 }
 
 // GetVersions returns a matrix of available versions for a database engine.
-func (v *VersionService) GetVersions(engineType dbaasv1.EngineType, operatorVersion string) (*Matrix, error) {
+func (v *VersionService) GetVersions(engineType everestv1alpha1.EngineType, operatorVersion string) (*Matrix, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/%s/%s", v.url, operatorNames[engineType], operatorVersion)) //nolint:noctx
 	if err != nil {
 		return nil, err
