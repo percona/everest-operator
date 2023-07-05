@@ -2,15 +2,15 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 timeout: 10
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   finalizers:
     - delete-pxc-pvc
   annotations:
-    dbaas.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
-    dbaas.percona.com/dbtemplate-name: test-pxc-template
+    everest.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
+    everest.percona.com/dbtemplate-name: test-pxc-template
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
@@ -27,16 +27,16 @@ spec:
     memory: 1G
     diskSize: 15G
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: PXCTemplatePXCConfiguration
 metadata:
   name: test-pxc-template
   finalizers:
     - delete-pxc-pvc
   annotations:
-    dbaas.percona.com/dbtemplate-origin: kuttl
+    everest.percona.com/dbtemplate-origin: kuttl
   labels:
-    dbaas.percona.com/engine: pxc
+    everest.percona.com/engine: pxc
 spec:
   pxc:
     configuration: |

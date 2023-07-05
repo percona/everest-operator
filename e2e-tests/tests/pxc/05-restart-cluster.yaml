@@ -2,14 +2,14 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 timeout: 10
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   finalizers:
     - delete-pxc-pvc
   annotations:
-    dbaas.percona.com/restart: "true"
+    everest.percona.com/restart: "true"
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1

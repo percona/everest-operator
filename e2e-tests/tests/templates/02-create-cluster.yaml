@@ -5,7 +5,7 @@ commands:
   - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8089 -health-probe-bind-address :8090
     background: true
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster

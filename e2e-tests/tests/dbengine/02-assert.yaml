@@ -1,4 +1,4 @@
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
 metadata:
   name: percona-server-mongodb-operator

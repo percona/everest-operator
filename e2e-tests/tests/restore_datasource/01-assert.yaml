@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 20
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
@@ -52,7 +52,7 @@ spec:
     apply: never
     schedule: 0 4 * * *
 ---
-apiVersion: dbaas.percona.com/v1
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterRestore
 metadata:
   name: test-pxc-cluster-datasource
