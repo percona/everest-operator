@@ -26,7 +26,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object
+// DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -45,7 +45,7 @@ type DatabaseClusterBackupReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil

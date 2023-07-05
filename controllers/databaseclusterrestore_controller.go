@@ -46,7 +46,7 @@ const (
 	clusterReadyTimeout = 10 * time.Minute
 )
 
-// DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object
+// DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
 type DatabaseClusterRestoreReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme

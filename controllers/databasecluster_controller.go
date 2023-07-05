@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controllers contains a set of controllers for everest
 package controllers
 
 import (
@@ -275,7 +276,7 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 	},
 }
 
-// DatabaseClusterReconciler reconciles a DatabaseCluster object
+// DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -624,7 +625,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:gocognit,gocyclo,cyclop,maintidx
+func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:lll,gocognit,gocyclo,cyclop,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
 		Name:      pxcDeploymentName,

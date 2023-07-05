@@ -41,7 +41,7 @@ var operatorEngine = map[string]everestv1alpha1.EngineType{
 	pgDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
-// DatabaseEngineReconciler reconciles a DatabaseEngine object
+// DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
