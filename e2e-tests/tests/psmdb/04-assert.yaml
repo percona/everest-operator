@@ -25,8 +25,8 @@ spec:
     exposeType: ClusterIP
     size: 3
   dbInstance:
-    cpu: 500m
-    memory: 1G
+    cpu: 300m
+    memory: 500M
     diskSize: 15G
 status:
   ready: 9
