@@ -25,7 +25,7 @@ spec:
     size: 1
     image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   dbInstance:
-    cpu: "1"
+    cpu: 600m
     memory: 1G
     diskSize: 15G
   dataSource:
