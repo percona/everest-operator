@@ -49,8 +49,8 @@ spec:
       name: rs0
       resources:
         limits:
-          cpu: 500m
-          memory:  1G
+          cpu: 300m
+          memory:  500M
       size:        3
       volumeSpec:
         persistentVolumeClaim:
