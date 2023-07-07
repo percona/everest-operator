@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 const (
@@ -52,9 +52,9 @@ type DatabaseClusterRestoreReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterrestores/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseclusterrestores/finalizers,verbs=update
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbrestores,verbs=get;list;watch;create;update;patch;delete
 
@@ -65,7 +65,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	logger.Info("reconciling", "request", req)
 	time.Sleep(time.Second)
 
-	cr := &dbaasv1.DatabaseClusterRestore{}
+	cr := &everestv1alpha1.DatabaseClusterRestore{}
 	err := r.Get(ctx, req.NamespacedName, cr)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
@@ -77,13 +77,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if cr.Spec.DatabaseType == dbaasv1.PXCEngine {
+	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePXC {
 		if err := r.restorePXC(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
 	}
-	if cr.Spec.DatabaseType == dbaasv1.PSMDBEngine {
+	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePSMDB {
 		if err := r.restorePSMDB(cr); err != nil { //nolint:contextcheck
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
@@ -93,7 +93,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *dbaasv1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everestv1alpha1.DatabaseClusterRestore) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	for {
@@ -101,19 +101,19 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *dbaasv1
 		case <-timeoutCtx.Done():
 			return errors.New("wait timeout exceeded")
 		default:
-			cluster := &dbaasv1.DatabaseCluster{}
+			cluster := &everestv1alpha1.DatabaseCluster{}
 			err := r.Get(context.Background(), types.NamespacedName{Name: restore.Spec.DatabaseCluster, Namespace: restore.Namespace}, cluster)
 			if err != nil {
 				return err
 			}
-			if cluster.Status.State == dbaasv1.AppStateReady {
+			if cluster.Status.State == everestv1alpha1.AppStateReady {
 				return nil
 			}
 		}
 	}
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *dbaasv1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *everestv1alpha1.DatabaseClusterRestore) error {
 	if err := r.ensureClusterIsReady(restore); err != nil {
 		return err
 	}
@@ -145,14 +145,14 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *dbaasv1.Databas
 				StorageName: restore.Spec.BackupSource.StorageName,
 			}
 			switch restore.Spec.BackupSource.StorageType {
-			case dbaasv1.BackupStorageS3:
+			case everestv1alpha1.BackupStorageS3:
 				psmdbCR.Spec.BackupSource.S3 = &psmdbv1.BackupStorageS3Spec{
 					Bucket:            restore.Spec.BackupSource.S3.Bucket,
 					CredentialsSecret: restore.Spec.BackupSource.S3.CredentialsSecret,
 					Region:            restore.Spec.BackupSource.S3.Region,
 					EndpointURL:       restore.Spec.BackupSource.S3.EndpointURL,
 				}
-			case dbaasv1.BackupStorageAzure:
+			case everestv1alpha1.BackupStorageAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
 					CredentialsSecret: restore.Spec.BackupSource.Azure.CredentialsSecret,
 					Container:         restore.Spec.BackupSource.Azure.ContainerName,
@@ -170,13 +170,13 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *dbaasv1.Databas
 	if err != nil {
 		return err
 	}
-	restore.Status.State = dbaasv1.RestoreState(psmdbCR.Status.State)
+	restore.Status.State = everestv1alpha1.RestoreState(psmdbCR.Status.State)
 	restore.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	restore.Status.Message = psmdbCR.Status.Error
 	return r.Status().Update(context.Background(), restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *dbaasv1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *everestv1alpha1.DatabaseClusterRestore) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restore.Name,
@@ -204,14 +204,14 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *dbaasv1.DatabaseC
 				StorageName: restore.Spec.BackupSource.StorageName,
 			}
 			switch restore.Spec.BackupSource.StorageType {
-			case dbaasv1.BackupStorageS3:
+			case everestv1alpha1.BackupStorageS3:
 				pxcCR.Spec.BackupSource.S3 = &pxcv1.BackupStorageS3Spec{
 					Bucket:            restore.Spec.BackupSource.S3.Bucket,
 					CredentialsSecret: restore.Spec.BackupSource.S3.CredentialsSecret,
 					Region:            restore.Spec.BackupSource.S3.Region,
 					EndpointURL:       restore.Spec.BackupSource.S3.EndpointURL,
 				}
-			case dbaasv1.BackupStorageAzure:
+			case everestv1alpha1.BackupStorageAzure:
 				pxcCR.Spec.BackupSource.Azure = &pxcv1.BackupStorageAzureSpec{
 					CredentialsSecret: restore.Spec.BackupSource.Azure.CredentialsSecret,
 					ContainerPath:     restore.Spec.BackupSource.Azure.ContainerName,
@@ -230,7 +230,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *dbaasv1.DatabaseC
 	if err != nil {
 		return err
 	}
-	restore.Status.State = dbaasv1.RestoreState(pxcCR.Status.State)
+	restore.Status.State = everestv1alpha1.RestoreState(pxcCR.Status.State)
 	restore.Status.CompletedAt = pxcCR.Status.CompletedAt
 	restore.Status.LastScheduled = pxcCR.Status.LastScheduled
 	restore.Status.Message = pxcCR.Status.Comments
@@ -274,7 +274,7 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 		Version: "v1",
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.DatabaseClusterRestore{})
+		For(&everestv1alpha1.DatabaseClusterRestore{})
 	err := r.Get(context.Background(), types.NamespacedName{Name: pxcRestoreCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
@@ -290,8 +290,8 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	if err := r.addPSMDBToScheme(r.Scheme); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &dbaasv1.DatabaseClusterRestore{}, "spec.databaseCluster", func(rawObj client.Object) []string {
-		res := rawObj.(*dbaasv1.DatabaseClusterRestore) //nolint:forcetypeassert
+	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &everestv1alpha1.DatabaseClusterRestore{}, "spec.databaseCluster", func(rawObj client.Object) []string {
+		res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
 		return []string{res.Spec.DatabaseCluster}
 	}); err != nil {
 		return err

@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,24 +32,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-var operatorEngine = map[string]dbaasv1.EngineType{
-	pxcDeploymentName:   dbaasv1.PXCEngine,
-	psmdbDeploymentName: dbaasv1.PSMDBEngine,
-	pgDeploymentName:    dbaasv1.PostgresqlEngine,
+var operatorEngine = map[string]everestv1alpha1.EngineType{
+	pxcDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
+	psmdbDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
+	pgDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	versionService *VersionService
 }
 
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseengines/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dbaas.percona.com,resources=databaseengines/finalizers,verbs=update
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -62,13 +63,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	dbEngine := &dbaasv1.DatabaseEngine{
+	dbEngine := &everestv1alpha1.DatabaseEngine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.NamespacedName.Name,
 			Namespace: req.NamespacedName.Namespace,
 		},
 	}
-
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
 		dbEngine.Spec.Type = engineType
 		return nil
@@ -77,8 +77,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	dbEngine.Status.State = dbaasv1.DBEngineStateNotInstalled
-	dbEngine.Status.Version = ""
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
+	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -86,11 +86,39 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 	if version != "" {
-		dbEngine.Status.Version = version
-		dbEngine.Status.State = dbaasv1.DBEngineStateInstalling
+		dbEngine.Status.OperatorVersion = version
+		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 	}
 	if ready {
-		dbEngine.Status.State = dbaasv1.DBEngineStateInstalled
+		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
+		matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		versions := everestv1alpha1.Versions{
+			Backup: matrix.Backup,
+		}
+		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
+			versions.Engine = matrix.PXC
+			versions.Proxy = map[string]map[string]*everestv1alpha1.Component{
+				"haproxy":  matrix.HAProxy,
+				"proxysql": matrix.ProxySQL,
+			}
+			versions.Tools = map[string]map[string]*everestv1alpha1.Component{
+				"logCollector": matrix.LogCollector,
+			}
+		}
+		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
+			versions.Engine = matrix.Mongod
+		}
+		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
+			versions.Engine = matrix.Postgresql
+			versions.Backup = matrix.PGBackRest
+			versions.Proxy = map[string]map[string]*everestv1alpha1.Component{
+				"pgbouncer": matrix.PGBouncer,
+			}
+		}
+		dbEngine.Status.AvailableVersions = versions
 	}
 
 	if err := r.Status().Update(ctx, dbEngine); err != nil {
@@ -127,19 +155,20 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// yet so we use the client.Reader returned from manager.GetAPIReader() to
 	// hit the API server directly and avoid an ErrCacheNotStarted.
 	clientReader := mgr.GetAPIReader()
+	r.versionService = NewVersionService()
 
 	for operatorName, engineType := range operatorEngine {
-		dbEngine := &dbaasv1.DatabaseEngine{
+		dbEngine := &everestv1alpha1.DatabaseEngine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      operatorName,
 				Namespace: os.Getenv("WATCH_NAMESPACE"),
 			},
-			Spec: dbaasv1.DatabaseEngineSpec{
+			Spec: everestv1alpha1.DatabaseEngineSpec{
 				Type: engineType,
 			},
 		}
 
-		found := &dbaasv1.DatabaseEngine{}
+		found := &everestv1alpha1.DatabaseEngine{}
 		err := clientReader.Get(context.Background(), types.NamespacedName{Name: dbEngine.Name, Namespace: dbEngine.Namespace}, found)
 		if err != nil && apierrors.IsNotFound(err) {
 			err = r.Create(context.Background(), dbEngine)
@@ -152,7 +181,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&dbaasv1.DatabaseEngine{}).
+		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

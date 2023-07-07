@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -44,9 +44,7 @@ func TestAPIs(t *testing.T) {
 	t.Parallel()
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t,
-		"Controller Suite",
-	)
+	RunSpecs(t, "Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -64,7 +62,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = dbaasv1.AddToScheme(scheme.Scheme)
+	err = everestv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

@@ -2,18 +2,24 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/part-of: everest-operator
     control-plane: controller-manager
-  name: dbaas-operator-system
+  name: everest-operator-system
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: databaseclusterbackups.dbaas.percona.com
+  name: databaseclusterbackups.everest.percona.com
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: DatabaseClusterBackup
     listKind: DatabaseClusterBackupList
@@ -49,7 +55,7 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DatabaseClusterBackup is the Schema for the databaseclusterbackups API.
@@ -173,11 +179,11 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: databaseclusterrestores.dbaas.percona.com
+  name: databaseclusterrestores.everest.percona.com
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: DatabaseClusterRestore
     listKind: DatabaseClusterRestoreList
@@ -212,7 +218,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DatabaseClusterRestore is the Schema for the databaseclusterrestores API.
@@ -376,11 +382,11 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: databaseclusters.dbaas.percona.com
+  name: databaseclusters.everest.percona.com
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: DatabaseCluster
     listKind: DatabaseClusterList
@@ -407,7 +413,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DatabaseCluster is the Schema for the databases API.
@@ -1867,11 +1873,11 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: databaseengines.dbaas.percona.com
+  name: databaseengines.everest.percona.com
 spec:
-  group: dbaas.percona.com
+  group: everest.percona.com
   names:
     kind: DatabaseEngine
     listKind: DatabaseEngineList
@@ -1891,7 +1897,7 @@ spec:
     - jsonPath: .status.version
       name: Version
       type: string
-    name: v1
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DatabaseEngine is the Schema for the databaseengines API.
@@ -1907,6 +1913,10 @@ spec:
           spec:
             description: DatabaseEngineSpec is a spec for a database engine.
             properties:
+              allowedVersions:
+                items:
+                  type: string
+                type: array
               type:
                 description: EngineType stands for the supported database engines. Right now it's only pxc and psmdb. However, it can be ps, pg and any other source.
                 type: string
@@ -1916,10 +1926,74 @@ spec:
           status:
             description: DatabaseEngineStatus defines the observed state of DatabaseEngine.
             properties:
+              availableVersions:
+                description: Versions struct represents available versions of database engine components.
+                properties:
+                  backup:
+                    additionalProperties:
+                      description: Component contains information of the database engine component. Database Engine component can be database engine, database proxy or tools image path.
+                      properties:
+                        critical:
+                          type: boolean
+                        imageHash:
+                          type: string
+                        imagePath:
+                          type: string
+                        status:
+                          type: string
+                      type: object
+                    type: object
+                  engine:
+                    additionalProperties:
+                      description: Component contains information of the database engine component. Database Engine component can be database engine, database proxy or tools image path.
+                      properties:
+                        critical:
+                          type: boolean
+                        imageHash:
+                          type: string
+                        imagePath:
+                          type: string
+                        status:
+                          type: string
+                      type: object
+                    type: object
+                  proxy:
+                    additionalProperties:
+                      additionalProperties:
+                        description: Component contains information of the database engine component. Database Engine component can be database engine, database proxy or tools image path.
+                        properties:
+                          critical:
+                            type: boolean
+                          imageHash:
+                            type: string
+                          imagePath:
+                            type: string
+                          status:
+                            type: string
+                        type: object
+                      type: object
+                    type: object
+                  tools:
+                    additionalProperties:
+                      additionalProperties:
+                        description: Component contains information of the database engine component. Database Engine component can be database engine, database proxy or tools image path.
+                        properties:
+                          critical:
+                            type: boolean
+                          imageHash:
+                            type: string
+                          imagePath:
+                            type: string
+                          status:
+                            type: string
+                        type: object
+                      type: object
+                    type: object
+                type: object
+              operatorVersion:
+                type: string
               status:
                 description: EngineState represents state of engine in a k8s cluster.
-                type: string
-              version:
                 type: string
             type: object
         type: object
@@ -1931,14 +2005,28 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: dbaas-operator-controller-manager
-  namespace: dbaas-operator-system
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: serviceaccount
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-controller-manager
+  namespace: everest-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: dbaas-operator-leader-election-role
-  namespace: dbaas-operator-system
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: leader-election-role
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: role
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-leader-election-role
+  namespace: everest-operator-system
 rules:
 - apiGroups:
   - ""
@@ -1976,7 +2064,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: dbaas-operator-manager-role
+  name: everest-operator-manager-role
 rules:
 - apiGroups:
   - apiextensions.k8s.io
@@ -2007,7 +2095,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups
   verbs:
@@ -2019,13 +2107,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterbackups/status
   verbs:
@@ -2033,7 +2121,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores
   verbs:
@@ -2045,13 +2133,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusterrestores/status
   verbs:
@@ -2059,7 +2147,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters
   verbs:
@@ -2071,13 +2159,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseclusters/status
   verbs:
@@ -2085,7 +2173,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines
   verbs:
@@ -2097,13 +2185,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines/finalizers
   verbs:
   - update
 - apiGroups:
-  - dbaas.percona.com
+  - everest.percona.com
   resources:
   - databaseengines/status
   verbs:
@@ -2182,7 +2270,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: dbaas-operator-metrics-reader
+  labels:
+    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: metrics-reader
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
@@ -2192,7 +2287,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: dbaas-operator-proxy-role
+  labels:
+    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: proxy-role
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-proxy-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -2210,79 +2312,77 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: dbaas-operator-leader-election-rolebinding
-  namespace: dbaas-operator-system
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-leader-election-rolebinding
+  namespace: everest-operator-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: dbaas-operator-leader-election-role
+  name: everest-operator-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: dbaas-operator-controller-manager
-  namespace: dbaas-operator-system
+  name: everest-operator-controller-manager
+  namespace: everest-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: dbaas-operator-manager-rolebinding
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: dbaas-operator-manager-role
+  name: everest-operator-manager-role
 subjects:
 - kind: ServiceAccount
-  name: dbaas-operator-controller-manager
-  namespace: dbaas-operator-system
+  name: everest-operator-controller-manager
+  namespace: everest-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: dbaas-operator-proxy-rolebinding
+  labels:
+    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: proxy-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: everest-operator
+  name: everest-operator-proxy-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: dbaas-operator-proxy-role
+  name: everest-operator-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: dbaas-operator-controller-manager
-  namespace: dbaas-operator-system
----
-apiVersion: v1
-data:
-  controller_manager_config.yaml: |
-    apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
-    kind: ControllerManagerConfig
-    health:
-      healthProbeBindAddress: :8081
-    metrics:
-      bindAddress: 127.0.0.1:8080
-    webhook:
-      port: 9443
-    leaderElection:
-      leaderElect: true
-      resourceName: c423cb25.percona.com
-    # leaderElectionReleaseOnCancel defines if the leader should step down volume
-    # when the Manager ends. This requires the binary to immediately end when the
-    # Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-    # speeds up voluntary leader transitions as the new leader don't have to wait
-    # LeaseDuration time first.
-    # In the default scaffold provided, the program ends immediately after
-    # the manager stops, so would be fine to enable this option. However,
-    # if you are doing or is intended to do any operation such as perform cleanups
-    # after the manager stops then its usage might be unsafe.
-    # leaderElectionReleaseOnCancel: true
-kind: ConfigMap
-metadata:
-  name: dbaas-operator-manager-config
-  namespace: dbaas-operator-system
+  name: everest-operator-controller-manager
+  namespace: everest-operator-system
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
+    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: controller-manager-metrics-service
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: service
+    app.kubernetes.io/part-of: everest-operator
     control-plane: controller-manager
-  name: dbaas-operator-controller-manager-metrics-service
-  namespace: dbaas-operator-system
+  name: everest-operator-controller-manager-metrics-service
+  namespace: everest-operator-system
 spec:
   ports:
   - name: https
@@ -2296,9 +2396,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: everest-operator
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/part-of: everest-operator
     control-plane: controller-manager
-  name: dbaas-operator-controller-manager
-  namespace: dbaas-operator-system
+  name: everest-operator-controller-manager
+  namespace: everest-operator-system
 spec:
   replicas: 1
   selector:
@@ -2311,13 +2417,29 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
+                - ppc64le
+                - s390x
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
       containers:
       - args:
         - --secure-listen-address=0.0.0.0:8443
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
         - --v=0
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
@@ -2346,7 +2468,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: docker.io/percona/dbaas-operator:0.1.15
+        image: controller:latest
         livenessProbe:
           httpGet:
             path: /healthz
@@ -2374,5 +2496,5 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: dbaas-operator-controller-manager
+      serviceAccountName: everest-operator-controller-manager
       terminationGracePeriodSeconds: 10

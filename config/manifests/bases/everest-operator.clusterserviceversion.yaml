@@ -1,0 +1,73 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: everest-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
+        API.
+      displayName: Database Cluster Backup
+      kind: DatabaseClusterBackup
+      name: databaseclusterbackups.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
+        API.
+      displayName: Database Cluster Restore
+      kind: DatabaseClusterRestore
+      name: databaseclusterrestores.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseCluster is the Schema for the databases API.
+      displayName: Database Cluster
+      kind: DatabaseCluster
+      name: databaseclusters.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseEngine is the Schema for the databaseengines API.
+      displayName: Database Engine
+      kind: DatabaseEngine
+      name: databaseengines.everest.percona.com
+      version: v1alpha1
+  description: Deploy database clusters easily with Everest operator
+  displayName: Everest operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - everest
+  - dbaas
+  - percona
+  links:
+  - name: Everest Operator
+    url: https://everest-operator.domain
+  maintainers:
+  - email: andrew.minkin@percona.com
+    name: gen1us2k
+  - email: diogo.recharte@percona.com
+    name: recharte
+  - email: oksana.grishchenko@percona.com
+    name: oksana-grishchenko
+  - email: michal.kralik@percona.com
+    name: michal-kralik
+  maturity: alpha
+  provider:
+    name: Percona
+    url: https://percona.com
+  version: 0.0.0

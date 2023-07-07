@@ -3,44 +3,17 @@ You’ll need a Kubernetes cluster to run against. You can use KIND to get a loc
 
 ## Architecture 
 
-DBaaS operator provides an unified CR definition to create the following database cluster
+Everest operator provides an unified CR definition to create the following database cluster
 
 1. Percona Server for MongoDB
 2. Percona XtraDB Cluster
-3. Postgres (Coming soon)
+3. Postgres
 4. Percona Server (Coming soon)
 
-DBaaS operator relies on upstream operator to create a database cluster and once a user wants to create PXC clusters the following steps should be done
+Everest operator relies on upstream operator to create a database cluster and once a user wants to create PXC clusters the following steps should be done
 
 1. PXC operator is installed and running
-2. DBaaS operator is installed and running
-
-This operator was implemented during the arhitectural changes for PMM/DBaaS and the diagram below shows how to works with PMM
-
-```mermaid
-sequenceDiagram
-    autonumber
-    PMM UI->>ManageD: Create a Database cluster
-    Note right of PMM UI: (DatabaseType: PXC)
-    ManageD->>K8S: Create a Database Kind
-    K8S->>DBaaS Operator: Create a Database Kind object
-    DBaaS Operator->>PXC Operator: Create a PXC cluster
-    Note right of DBaaS Operator: Binds objects to each other
-    Note right of DBaaS Operator:  (Database->PerconaXtraDBCluster)
-    break when PXC cluster is in ready state
-    	PXC Operator->>Statefulset: provisions PXC cluster
-    end
-    Note right of PXC Operator: PXC Cluster is created
-    PMM UI->>ManageD: Get me a list of database clusters 
-    ManageD->>K8S: Get list of Database clusters 
-    K8S->>DBaaS Operator: Get list Database clusters
-    DBaaS Operator->>K8S: returns array of Database objects
-    Note right of K8S: They can be with DatabaseType either PXC or PSMDB
-    K8S->>ManageD: Returns list of databases
-    ManageD->>PMM UI: Returns list of database clusters
-    Note right of PMM UI:  Pagination is available by default as well as caches
-    
-```    
+2. Everest operator is installed and running
 
 ## Setting up development environment
 
@@ -77,13 +50,13 @@ kubectl apply -f config/samples/
 2. Build and push your image to the location specified by `IMG`:
 	
 ```sh
-make docker-build docker-push IMG=<some-registry>/dbaas-operator:tag
+make docker-build docker-push IMG=<some-registry>/everest-operator:tag
 ```
 	
 3. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```sh
-make deploy IMG=<some-registry>/dbaas-operator:tag
+make deploy IMG=<some-registry>/everest-operator:tag
 ```
 -->
 

@@ -1,4 +1,4 @@
-module github.com/percona/dbaas-operator
+module github.com/percona/everest-operator
 
 go 1.20
 

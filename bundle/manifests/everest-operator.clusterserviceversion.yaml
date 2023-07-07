@@ -1,0 +1,490 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "DatabaseCluster",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databasecluster-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databasecluster",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "databasecluster-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "DatabaseClusterBackup",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databaseclusterbackup-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databaseclusterbackup",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "databaseclusterbackup-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "DatabaseClusterRestore",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databaseclusterrestore-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databaseclusterrestore",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "databaseclusterrestore-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "DatabaseEngine",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "databaseengine-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "databaseengine",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "databaseengine-sample"
+          },
+          "spec": null
+        }
+      ]
+    capabilities: Basic Install
+    createdAt: "2023-07-06T17:38:47Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.30.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: everest-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
+        API.
+      displayName: Database Cluster Backup
+      kind: DatabaseClusterBackup
+      name: databaseclusterbackups.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseClusterRestore is the Schema for the databaseclusterrestores
+        API.
+      displayName: Database Cluster Restore
+      kind: DatabaseClusterRestore
+      name: databaseclusterrestores.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseCluster is the Schema for the databases API.
+      displayName: Database Cluster
+      kind: DatabaseCluster
+      name: databaseclusters.everest.percona.com
+      version: v1alpha1
+    - description: DatabaseEngine is the Schema for the databaseengines API.
+      displayName: Database Engine
+      kind: DatabaseEngine
+      name: databaseengines.everest.percona.com
+      version: v1alpha1
+  description: Deploy database clusters easily with Everest operator
+  displayName: Everest operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterbackups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterbackups/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterbackups/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterrestores/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusterrestores/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusters/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseclusters/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseengines
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseengines/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - databaseengines/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - pg.percona.com
+          resources:
+          - perconapgclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - psmdb.percona.com
+          resources:
+          - perconaservermongodbrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - psmdb.percona.com
+          resources:
+          - perconaservermongodbs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusterrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - storage.k8s.io
+          resources:
+          - storageclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: everest-operator-controller-manager
+      deployments:
+      - label:
+          app.kubernetes.io/component: manager
+          app.kubernetes.io/created-by: everest-operator
+          app.kubernetes.io/instance: controller-manager
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: deployment
+          app.kubernetes.io/part-of: everest-operator
+          control-plane: controller-manager
+        name: everest-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                control-plane: controller-manager
+            spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/arch
+                        operator: In
+                        values:
+                        - amd64
+                        - arm64
+                        - ppc64le
+                        - s390x
+                      - key: kubernetes.io/os
+                        operator: In
+                        values:
+                        - linux
+              containers:
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=0
+                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 5m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              - args:
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=127.0.0.1:8080
+                - --leader-elect
+                command:
+                - /manager
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                image: docker.io/percona/everest-operator:0.0.1
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: everest-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: everest-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - everest
+  - dbaas
+  - percona
+  links:
+  - name: Everest Operator
+    url: https://everest-operator.domain
+  maintainers:
+  - email: andrew.minkin@percona.com
+    name: gen1us2k
+  - email: diogo.recharte@percona.com
+    name: recharte
+  - email: oksana.grishchenko@percona.com
+    name: oksana-grishchenko
+  - email: michal.kralik@percona.com
+    name: michal-kralik
+  maturity: alpha
+  provider:
+    name: Percona
+    url: https://percona.com
+  version: 0.0.1

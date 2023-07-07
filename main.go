@@ -1,4 +1,4 @@
-// dbaas-operator
+// everest-operator
 // Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dbaasv1 "github.com/percona/dbaas-operator/api/v1"
-	"github.com/percona/dbaas-operator/controllers"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers"
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
@@ -48,7 +48,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(dbaasv1.AddToScheme(scheme))
+	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -81,7 +81,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "c423cb25.percona.com",
+		LeaderElectionID:       "9094838c.percona.com",
 		Namespace:              ns,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -100,11 +100,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DatabaseReconciler{
+	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Database")
+		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseEngineReconciler{
