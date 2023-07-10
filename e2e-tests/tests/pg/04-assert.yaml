@@ -10,7 +10,7 @@ spec:
   databaseType: postgresql
   databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
   databaseConfig: ""
-  clusterSize: 5
+  clusterSize: 4
   loadBalancer:
     type: pgbouncer
     exposeType: ClusterIP
@@ -21,8 +21,8 @@ spec:
     memory: 1G
     diskSize: 15G
 status:
-  ready: 8
-  size: 8
+  ready: 7
+  size: 7
   status: ready
 ---
 apiVersion: pg.percona.com/v2beta1
@@ -57,7 +57,7 @@ spec:
         cpu: "1"
         memory: 1G
     name: instance1
-    replicas: 5
+    replicas: 4
   pmm:
     enabled: false
     image: ""
@@ -81,8 +81,8 @@ status:
   postgres:
     instances:
     - name: instance1
-      ready: 5
-      size: 5
-    ready: 5
-    size: 5
+      ready: 4
+      size: 4
+    ready: 4
+    size: 4
   state: ready

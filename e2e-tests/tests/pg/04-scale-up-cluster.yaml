@@ -12,7 +12,7 @@ spec:
   databaseType: postgresql
   databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
   databaseConfig: ""
-  clusterSize: 5
+  clusterSize: 4
   loadBalancer:
     type: pgbouncer
     exposeType: ClusterIP
