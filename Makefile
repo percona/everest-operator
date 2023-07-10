@@ -122,7 +122,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 test-kind: build #local-env-up ## Run integration tests against kind cluster
 	minikube kubectl -- config view --flatten --minify > ~/.kube/test-minikube
-	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl.yml --test templates
+	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl.yml --test pg
 ##@ Build
 
 .PHONY: build
