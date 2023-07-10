@@ -36,7 +36,7 @@ jobs:
           cp kubectl "$TOOLS_PATH"
           rm kubectl
         env:
-          KUBECTL_VERSION: 1.26.1
+          KUBECTL_VERSION: 1.25.1
       - name: Run tests
         run:
           make test
@@ -89,7 +89,7 @@ jobs:
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
         env:
-          KUBECTL_VERSION: 1.26.1
+          KUBECTL_VERSION: 1.25.1
       - name: Run tests
         run: |
           export KUBECONFIG="${HOME}/.kube/config"
