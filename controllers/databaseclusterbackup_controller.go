@@ -82,21 +82,21 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
-	if backup.Spec.DBClusterType == "pxc" {
+	if backup.Spec.EngineType == "pxc" {
 		if err = r.reconcilePXC(ctx, backup); err != nil {
 			logger.Error(err, "failed to reconcile PXC backup")
 			return reconcile.Result{}, err
 		}
 	}
 
-	if backup.Spec.DBClusterType == "psmdb" {
+	if backup.Spec.EngineType == "psmdb" {
 		if err = r.reconcilePSMDB(ctx, backup); err != nil {
 			logger.Error(err, "failed to reconcile PXC backup")
 			return reconcile.Result{}, err
 		}
 	}
 
-	if backup.Spec.DBClusterType == "pg" {
+	if backup.Spec.EngineType == "pg" {
 		if err = r.reconcilePG(ctx, backup); err != nil {
 			logger.Error(err, "failed to reconcile PXC backup")
 			return reconcile.Result{}, err

@@ -27,7 +27,7 @@ type DatabaseClusterBackupSpec struct {
 	// Name is the backup name.
 	Name string `json:"name"`
 	// Type of the db cluster - pxc, psmdb, pg
-	DBClusterType string `json:"dbClusterType"`
+	EngineType string `json:"engineType"`
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
 	// Destination is the full path to the backup.

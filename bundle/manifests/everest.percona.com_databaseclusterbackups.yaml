@@ -142,11 +142,11 @@ spec:
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
-              dbClusterType:
-                description: Type of the db cluster - pxc, psmdb, pg
-                type: string
               destination:
                 description: Destination is the full path to the backup.
+                type: string
+              engineType:
+                description: Type of the db cluster - pxc, psmdb, pg
                 type: string
               name:
                 description: Name is the backup name.
@@ -154,8 +154,8 @@ spec:
             required:
             - backupSource
             - dbClusterName
-            - dbClusterType
             - destination
+            - engineType
             - name
             type: object
           status:
