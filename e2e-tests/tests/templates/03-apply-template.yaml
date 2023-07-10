@@ -31,8 +31,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: PXCTemplatePXCConfiguration
 metadata:
   name: test-pxc-template
-  finalizers:
-    - delete-pxc-pvc
   annotations:
     everest.percona.com/dbtemplate-origin: kuttl
   labels:
