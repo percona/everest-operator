@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1

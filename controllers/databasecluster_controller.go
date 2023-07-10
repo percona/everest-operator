@@ -419,10 +419,13 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
 			Namespace:   database.Namespace,
-			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
 		Spec: defaultPSMDBSpec,
+	}
+	if len(database.Finalizers) != 0 {
+		psmdb.Finalizers = database.Finalizers
+		database.Finalizers = []string{}
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
@@ -686,6 +689,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			Annotations: database.Annotations,
 		},
 		Spec: defaultPXCSpec,
+	}
+	if len(database.Finalizers) != 0 {
+		pxc.Finalizers = database.Finalizers
+		database.Finalizers = []string{}
 	}
 	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
 		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
@@ -1093,10 +1100,16 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
 			Namespace:   database.Namespace,
-			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
 		Spec: pgSpec,
+	}
+	if len(database.Finalizers) != 0 {
+		pg.Finalizers = database.Finalizers
+		database.Finalizers = []string{}
+	}
+	if err := r.Update(ctx, database); err != nil {
+		return err
 	}
 
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {

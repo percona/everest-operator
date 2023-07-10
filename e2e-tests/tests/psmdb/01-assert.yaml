@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pvc
 spec:
   databaseType: psmdb
   databaseImage: percona/percona-server-mongodb:4.4.10-11
@@ -49,8 +47,8 @@ spec:
       name: rs0
       resources:
         limits:
-          cpu: 500m
-          memory:  1G
+          cpu: 300m
+          memory:  500M
       size:        3
       volumeSpec:
         persistentVolumeClaim:
