@@ -16,7 +16,7 @@ spec:
     wsrep_trx_fragment_unit='bytes'
     wsrep_trx_fragment_size=3670016
   secretsName: pxc-sample-secrets
-  clusterSize: 5
+  clusterSize: 4
   loadBalancer:
     type: haproxy
     exposeType: ClusterIP
@@ -57,7 +57,7 @@ spec:
         memory: 1G
     serviceType: ClusterIP
     sidecarResources: {}
-    size: 5
+    size: 4
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -75,10 +75,10 @@ status:
     status: ready
   pxc:
     image: percona/percona-xtradb-cluster:8.0.27-18.1
-    ready: 5
-    size: 5
+    ready: 4
+    size: 4
     status: ready
     version: 8.0.27-18.1
-  ready: 8
-  size: 8
+  ready: 7
+  size: 7
   state: ready

@@ -17,7 +17,7 @@ spec:
      operationProfiling:
         mode: off
   secretsName: psmdb-sample-secrets
-  clusterSize: 5
+  clusterSize: 4
   loadBalancer:
     type: mongos
     exposeType: ClusterIP
