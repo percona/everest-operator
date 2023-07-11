@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 commands:
@@ -16,13 +16,13 @@ spec:
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
   databaseConfig: ""
   secretsName: pxc-sample-secrets
-  clusterSize: 3
+  clusterSize: 1
   loadBalancer:
     type: haproxy
     exposeType: ClusterIP
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   dbInstance:
-    cpu: "1"
+    cpu: 600m
     memory: 1G
     diskSize: 15G

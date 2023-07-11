@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
@@ -23,6 +23,6 @@ spec:
     exposeType: ClusterIP
     size: 3
   dbInstance:
-    cpu: 500m
-    memory: 1G
+    cpu: 300m
+    memory: 500M
     diskSize: 15G

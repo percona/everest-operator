@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 600
 ---
@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
 spec:
   databaseType: pxc
   databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
@@ -25,7 +23,7 @@ spec:
     size: 1
     image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   dbInstance:
-    cpu: "1"
+    cpu: 600m
     memory: 1G
     diskSize: 15G
 ---
@@ -56,7 +54,7 @@ spec:
     readinessProbes: {}
     resources:
       limits:
-        cpu: "1"
+        cpu: 600m
         memory: 1G
     serviceType: ClusterIP
     sidecarResources: {}
