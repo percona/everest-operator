@@ -685,7 +685,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
 			Namespace:   database.Namespace,
-			Finalizers:  database.Finalizers,
 			Annotations: database.Annotations,
 		},
 		Spec: defaultPXCSpec,
