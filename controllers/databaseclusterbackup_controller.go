@@ -185,7 +185,7 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error { //nolint:dupl
+func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -201,7 +201,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 			Kind:       pxcBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
-		pxcCR.Spec.StorageName = backup.Spec.DBClusterName
+		pxcCR.Spec.StorageName = backup.Spec.BackupSource.StorageName
 
 		return nil
 	})
@@ -214,11 +214,14 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 		return err
 	}
 	backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
-	backup.Status.Completed = pxcCR.Status.CompletedAt
+	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
+	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
+	backup.Status.Destination = &pxcCR.Status.Destination
+
 	return r.Status().Update(ctx, backup)
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error { //nolint:dupl
+func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	psmdbCR := &psmdbv1.PerconaServerMongoDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -247,11 +250,13 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 		return err
 	}
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
-	backup.Status.Completed = psmdbCR.Status.CompletedAt
+	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
+	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
+	backup.Status.Destination = &psmdbCR.Status.Destination
 	return r.Status().Update(ctx, backup)
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error { //nolint:dupl //may change in the future
+func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
 	pgCR := &pgv2beta1.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -280,6 +285,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backu
 		return err
 	}
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
-	backup.Status.Completed = pgCR.Status.CompletedAt
+	backup.Status.CompletedAt = pgCR.Status.CompletedAt
+	backup.Status.CreatedAt = &pgCR.CreationTimestamp
 	return r.Status().Update(ctx, backup)
 }
