@@ -52,7 +52,7 @@ type (
 )
 
 const (
-	defaultVersionServiceURL        = "https://check.percona.com/versions/v1"
+	defaultVersionServiceURL        = "https://check-dev.percona.com/versions/v1"
 	versionServiceStatusRecommended = "recommended"
 )
 

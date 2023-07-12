@@ -1,0 +1,12 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: ObjectStorage
+metadata:
+  labels:
+    app.kubernetes.io/name: objectstorage
+    app.kubernetes.io/instance: objectstorage-sample
+    app.kubernetes.io/part-of: everest-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: everest-operator
+  name: objectstorage-sample
+spec:
+  # TODO(user): Add fields here

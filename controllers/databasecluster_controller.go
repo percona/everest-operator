@@ -73,7 +73,6 @@ const (
 	pxcDeploymentName   = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pgDeploymentName    = "percona-postgresql-operator"
-	pxcBackupImageTmpl  = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
 
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
@@ -134,6 +133,9 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 			PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
 				MaxUnavailable: &maxUnavailable,
 			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	PMM: &pxcv1.PMMSpec{
@@ -151,12 +153,18 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 			Affinity: &pxcv1.PodAffinity{
 				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	ProxySQL: &pxcv1.PodSpec{
 		Enabled: false,
 		Affinity: &pxcv1.PodAffinity{
 			TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{},
 		},
 	},
 }
@@ -225,6 +233,9 @@ var (
 					Affinity: &psmdbv1.PodAffinity{
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
 				},
 			},
 		},
@@ -250,6 +261,9 @@ var (
 					Affinity: &psmdbv1.PodAffinity{
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
 				},
 			},
 		},
@@ -260,6 +274,9 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 	InstanceSets: pgv2beta1.PGInstanceSets{
 		{
 			Name: "instance1",
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	PMM: &pgv2beta1.PMMSpec{
@@ -272,7 +289,11 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 		},
 	},
 	Proxy: &pgv2beta1.PGProxySpec{
-		PGBouncer: &pgv2beta1.PGBouncerSpec{},
+		PGBouncer: &pgv2beta1.PGBouncerSpec{
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
+		},
 	},
 }
 
@@ -292,6 +313,7 @@ type DatabaseClusterReconciler struct {
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pg.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=objectstorages,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -316,28 +338,28 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger.Info("Reconciled", "request", req)
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 
-	if ok && !database.Spec.Pause {
-		database.Spec.Pause = true
+	if ok && !database.Spec.Paused {
+		database.Spec.Paused = true
 	}
-	if ok && database.Status.State == everestv1alpha1.AppStatePaused {
-		database.Spec.Pause = false
+	if ok && database.Status.Status == everestv1alpha1.AppStatePaused {
+		database.Spec.Paused = false
 		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
 		if err := r.Update(ctx, database); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
-	if database.Spec.Database == everestv1alpha1.DatabaseEnginePXC {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == everestv1alpha1.DatabaseEnginePSMDB {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
 		err := r.reconcilePSMDB(ctx, req, database)
 		if err != nil {
 			logger.Error(err, "unable to reconcile psmdb")
 		}
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == "postgresql" {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePostgresql {
 		err := r.reconcilePG(ctx, req, database)
 		return reconcile.Result{}, err
 	}
@@ -382,28 +404,88 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		return err
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
-		dbRestore.Spec.DatabaseCluster = database.Name
-		dbRestore.Spec.DatabaseType = database.Spec.Database
-		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
-			Destination: database.Spec.DataSource.Destination,
-			StorageName: database.Spec.DataSource.StorageName,
-			StorageType: database.Spec.DataSource.StorageType,
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
 		}
-		switch database.Spec.DataSource.StorageType {
-		case everestv1alpha1.BackupStorageS3:
+
+		dbRestore.Spec.DatabaseCluster = database.Name
+		dbRestore.Spec.DatabaseType = database.Spec.Engine.Type
+		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
+			Destination: fmt.Sprintf("s3://%s/%s", objectStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
+			StorageName: database.Spec.DataSource.ObjectStorageName,
+			// FIXME The dbrestore object should be change to have the same type as the object storage or even better reference the object storage directly. the BackupSource should actually be everestv1.DataSource
+			StorageType: everestv1alpha1.BackupStorageType(objectStorage.Spec.Type),
+		}
+		switch objectStorage.Spec.Type {
+		// FIXME Create a constant for the s3 provider
+		case "s3":
 			dbRestore.Spec.BackupSource.S3 = &everestv1alpha1.BackupStorageProviderSpec{
-				Bucket:            database.Spec.DataSource.S3.Bucket,
-				CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
-				Region:            database.Spec.DataSource.S3.Region,
-				EndpointURL:       database.Spec.DataSource.S3.EndpointURL,
+				Bucket: objectStorage.Spec.Bucket,
+				// FIXME Create a new secret for the restore
+				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+				Region:            objectStorage.Spec.Region,
+				EndpointURL:       objectStorage.Spec.EndpointURL,
 			}
 		default:
-			return errors.Errorf("unsupported data source storage type %s", database.Spec.DataSource.StorageType)
+			//FIXME look at PG's log
+			return errors.Errorf("unsupported data source storage type %s", objectStorage.Spec.Type)
 		}
 		return nil
 	})
 
 	return err
+	return nil
+}
+
+func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (psmdbv1.BackupSpec, error) {
+	psmdbBackupSpec := psmdbv1.BackupSpec{
+		Enabled: true,
+		Image:   engine.RecommendedBackupImage(),
+	}
+	storages := make(map[string]psmdbv1.BackupStorageSpec)
+	var tasks []psmdbv1.BackupTaskSpec
+	for _, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
+		switch objectStorage.Spec.Type {
+		// FIXME create a const for this in ObjectStorage
+		case "s3":
+			storages[schedule.ObjectStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(objectStorage.Spec.Type),
+				S3: psmdbv1.BackupStorageS3Spec{
+					Bucket: objectStorage.Spec.Bucket,
+					// FIXME we need to create a new secret
+					CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+					Region:            objectStorage.Spec.Region,
+					EndpointURL:       objectStorage.Spec.EndpointURL,
+				},
+			}
+		default:
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("invalid backup storage type %s", objectStorage.Spec.Type)
+		}
+
+		tasks = append(tasks, psmdbv1.BackupTaskSpec{
+			Name:        schedule.Name,
+			Enabled:     true,
+			Schedule:    schedule.Schedule,
+			Keep:        int(schedule.RetentionCopies),
+			StorageName: schedule.ObjectStorageName,
+		})
+	}
+	psmdbBackupSpec.Storages = storages
+	psmdbBackupSpec.Tasks = tasks
+
+	return psmdbBackupSpec, nil
 }
 
 func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:gocognit,maintidx,gocyclo,lll,cyclop
@@ -431,9 +513,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 	engine := &everestv1alpha1.DatabaseEngine{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Database]}, engine)
+	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Engine.Type]}, engine)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to get database engine %s", operatorDeployment[database.Spec.Engine.Type])
 	}
 
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
@@ -480,127 +562,125 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		psmdb.Spec.CRVersion = version.ToCRVersion()
-		psmdb.Spec.UnsafeConf = database.Spec.ClusterSize == 1
-		psmdb.Spec.Pause = database.Spec.Pause
-		psmdb.Spec.Image = database.Spec.DatabaseImage
+		psmdb.Spec.UnsafeConf = database.Spec.Engine.Replicas == 1
+		psmdb.Spec.Pause = database.Spec.Paused
+
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+		}
+		engineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		psmdb.Spec.Image = engineVersion.ImagePath
+
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
-			Users: database.Spec.SecretsName,
+			// FIXME we're not supposed to use the same secret, we shall create a new one
+			Users: database.Spec.Engine.UserSecretsName,
 		}
 		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
 
-		if database.Spec.DatabaseConfig != "" {
-			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig)
+		if database.Spec.Engine.Config != "" {
+			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.Engine.Config)
 		}
 		if psmdb.Spec.Replsets[0].Configuration == "" {
 			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
 			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 		}
 
-		psmdb.Spec.Replsets[0].Size = database.Spec.ClusterSize
+		psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
 				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					StorageClassName: database.Spec.Engine.Storage.Class,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 						},
 					},
 				},
 			},
 		}
-		psmdb.Spec.Replsets[0].MultiAZ.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
 		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.ClusterSize
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
+		}
+		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
 				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					StorageClassName: database.Spec.Engine.Storage.Class,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 						},
 					},
 				},
 			},
 		}
-		psmdb.Spec.Sharding.Mongos.Size = database.Spec.LoadBalancer.Size
-		psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
-			Expose: psmdbv1.Expose{
-				ExposeType:               database.Spec.LoadBalancer.ExposeType,
-				LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-				ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
-			},
+		if database.Spec.Proxy.Replicas == 0 {
+			// By default we set the same number of replicas as the engine
+			psmdb.Spec.Sharding.Mongos.Size = database.Spec.Engine.Replicas
+		} else {
+			psmdb.Spec.Sharding.Mongos.Size = database.Spec.Proxy.Replicas
 		}
-		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration)
-		psmdb.Spec.Sharding.Mongos.MultiAZ.Resources = database.Spec.LoadBalancer.Resources
-		if database.Spec.ClusterSize == 1 {
+		switch database.Spec.Proxy.Expose.Type {
+		case "Internal":
+			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
+				Expose: psmdbv1.Expose{
+					ExposeType: corev1.ServiceTypeClusterIP,
+				},
+			}
+		case "External":
+			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
+				Expose: psmdbv1.Expose{
+					ExposeType:               corev1.ServiceTypeLoadBalancer,
+					LoadBalancerSourceRanges: database.Spec.Proxy.Expose.IPSourceRanges,
+					// FIXME infer from database.Spec.Proxy.Expose.Type
+					//ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
+				},
+			}
+		default:
+			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+		}
+
+		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.Proxy.Config)
+		if !database.Spec.Proxy.Resources.CPU.IsZero() {
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+		}
+		if !database.Spec.Proxy.Resources.Memory.IsZero() {
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+		}
+		if database.Spec.Engine.Replicas == 1 {
 			psmdb.Spec.Sharding.Enabled = false
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
-			psmdb.Spec.Replsets[0].Expose.ExposeType = database.Spec.LoadBalancer.ExposeType
+			switch database.Spec.Proxy.Expose.Type {
+			case "Internal":
+				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
+			case "External":
+				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
+			default:
+				return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+			}
+			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
-		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
-			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
-		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = engine.RecommendedBackupImage()
+		// FIXME
+		//		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
+		//			psmdb.Spec.PMM.Enabled = true
+		//			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+		//			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		//		}
+		//FIXME Should I parse it regardless of being enabled? I didn't do it for the schedules inside of genPSMDBBackupSpec
+		if database.Spec.Backup.Enabled == true {
+			psmdb.Spec.Backup, err = r.genPSMDBBackupSpec(ctx, database, engine)
+			if err != nil {
+				// FIXME should I wrap the error?
+				return err
 			}
-			psmdb.Spec.Backup = psmdbv1.BackupSpec{
-				Enabled:                  true,
-				Image:                    database.Spec.Backup.Image,
-				ServiceAccountName:       database.Spec.Backup.ServiceAccountName,
-				ContainerSecurityContext: database.Spec.Backup.ContainerSecurityContext,
-				Resources:                database.Spec.Backup.Resources,
-				Annotations:              database.Spec.Backup.Annotations,
-				Labels:                   database.Spec.Backup.Labels,
-			}
-			storages := make(map[string]psmdbv1.BackupStorageSpec)
-			var tasks []psmdbv1.BackupTaskSpec
-			for k, v := range database.Spec.Backup.Storages {
-				switch v.Type {
-				case everestv1alpha1.BackupStorageS3:
-					storages[k] = psmdbv1.BackupStorageSpec{
-						Type: psmdbv1.BackupStorageType(v.Type),
-						S3: psmdbv1.BackupStorageS3Spec{
-							Bucket:            v.StorageProvider.Bucket,
-							CredentialsSecret: v.StorageProvider.CredentialsSecret,
-							Region:            v.StorageProvider.Region,
-							EndpointURL:       v.StorageProvider.EndpointURL,
-							StorageClass:      v.StorageProvider.StorageClass,
-						},
-					}
-				case everestv1alpha1.BackupStorageAzure:
-					storages[k] = psmdbv1.BackupStorageSpec{
-						Type: psmdbv1.BackupStorageType(v.Type),
-						Azure: psmdbv1.BackupStorageAzureSpec{
-							Container:         v.StorageProvider.ContainerName,
-							CredentialsSecret: v.StorageProvider.CredentialsSecret,
-							Prefix:            v.StorageProvider.Prefix,
-						},
-					}
-				}
-			}
-			for _, v := range database.Spec.Backup.Schedule {
-				tasks = append(tasks, psmdbv1.BackupTaskSpec{
-					Name:             v.Name,
-					Enabled:          v.Enabled,
-					Keep:             v.Keep,
-					Schedule:         v.Schedule,
-					StorageName:      v.StorageName,
-					CompressionType:  v.CompressionType,
-					CompressionLevel: v.CompressionLevel,
-				})
-			}
-			psmdb.Spec.Backup.Storages = storages
-			psmdb.Spec.Backup.Tasks = tasks
 		}
 		return nil
 	})
@@ -615,10 +695,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 	}
 
-	database.Status.Host = psmdb.Status.Host
+	database.Status.Hostname = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
-	database.Status.State = everestv1alpha1.AppState(psmdb.Status.State)
+	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
 	message := psmdb.Status.Message
 	conditions := psmdb.Status.Conditions
 	if message == "" && len(conditions) != 0 {
@@ -626,6 +706,195 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	}
 	database.Status.Message = message
 	return r.Status().Update(ctx, database)
+}
+
+func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
+	haProxy := defaultPXCSpec.HAProxy
+
+	haProxy.PodSpec.Enabled = true
+
+	if database.Spec.Proxy.Replicas == 0 {
+		// By default we set the same number of replicas as the engine
+		haProxy.PodSpec.Size = database.Spec.Engine.Replicas
+	} else {
+		haProxy.PodSpec.Size = database.Spec.Proxy.Replicas
+	}
+
+	switch database.Spec.Proxy.Expose.Type {
+	case "Internal":
+		haProxy.PodSpec.ServiceType = corev1.ServiceTypeClusterIP
+		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeClusterIP
+	case "External":
+		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
+		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
+		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+		// FIXME what about annotations?
+		//pxc.Spec.HAProxy.PodSpec.Annotations = database.Spec.LoadBalancer.Annotations
+	default:
+		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+	}
+
+	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
+
+	haProxyAvailVersions, ok := engine.Status.AvailableVersions.Proxy["haproxy"]
+	if !ok {
+		return nil, errors.Errorf("haproxy version not available")
+	}
+
+	recommendedHAProxyVersion := haProxyAvailVersions.RecommendedVersion()
+	haProxyVersion, ok := haProxyAvailVersions[recommendedHAProxyVersion]
+	if !ok {
+		return nil, errors.Errorf("haproxy version %s not available", recommendedHAProxyVersion)
+	}
+
+	haProxy.PodSpec.Image = haProxyVersion.ImagePath
+
+	if !database.Spec.Proxy.Resources.CPU.IsZero() {
+		haProxy.PodSpec.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+	}
+	if !database.Spec.Proxy.Resources.Memory.IsZero() {
+		haProxy.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+	}
+
+	return haProxy, nil
+}
+
+func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.PodSpec, error) {
+	proxySQL := defaultPXCSpec.ProxySQL
+
+	proxySQL.Enabled = true
+
+	if database.Spec.Proxy.Replicas == 0 {
+		// By default we set the same number of replicas as the engine
+		proxySQL.Size = database.Spec.Engine.Replicas
+	} else {
+		proxySQL.Size = database.Spec.Proxy.Replicas
+	}
+
+	switch database.Spec.Proxy.Expose.Type {
+	case "Internal":
+		proxySQL.ServiceType = corev1.ServiceTypeClusterIP
+		proxySQL.ReplicasServiceType = corev1.ServiceTypeClusterIP
+	case "External":
+		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
+		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
+		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+	default:
+		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+	}
+
+	proxySQL.Configuration = database.Spec.Proxy.Config
+
+	proxySQLAvailVersions, ok := engine.Status.AvailableVersions.Proxy["proxysql"]
+	if !ok {
+		return nil, errors.Errorf("proxysql version not available")
+	}
+
+	recommendedProxySQLVersion := proxySQLAvailVersions.RecommendedVersion()
+	proxySQLVersion, ok := proxySQLAvailVersions[recommendedProxySQLVersion]
+	if !ok {
+		return nil, errors.Errorf("proxysql version %s not available", recommendedProxySQLVersion)
+	}
+
+	proxySQL.Image = proxySQLVersion.ImagePath
+
+	if !database.Spec.Proxy.Resources.CPU.IsZero() {
+		proxySQL.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+	}
+	if !database.Spec.Proxy.Resources.Memory.IsZero() {
+		proxySQL.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+	}
+
+	return proxySQL, nil
+}
+
+// FIXME return error if no recommended version found?
+// FIXME should I also consider non-recommended versions? If the user disables some of the versions the recommended might not be available.
+func getBackupVersionForPXCEngine(backupVersions everestv1alpha1.ComponentsMap, engineVersion string) string {
+	engineGoVersion, err := goversion.NewVersion(engineVersion)
+	if err != nil {
+		//FIXME return error?
+	}
+	v8, _ := goversion.NewVersion("8.0.0")
+	isV8 := engineGoVersion.GreaterThanOrEqual(v8)
+
+	for version, component := range backupVersions {
+		if component.Status != "recommended" {
+			continue
+		}
+		v, err := goversion.NewVersion(version)
+		if err != nil {
+			continue
+		}
+		if isV8 && v.LessThan(v8) {
+			continue
+		}
+
+		if !isV8 && v.GreaterThanOrEqual(v8) {
+			continue
+		}
+		return version
+	}
+
+	return ""
+}
+
+func (r *DatabaseClusterReconciler) genPXCBackupSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.PXCScheduledBackup, error) {
+	//FIXME should this be engine.Status.AvailableVersions.Backup.GetMatchingVersion(database.Spec.Engine.Version)?
+	// FIXME review naming
+	matchingBackupVersion := getBackupVersionForPXCEngine(engine.Status.AvailableVersions.Backup, database.Spec.Engine.Version)
+	backupVersion, ok := engine.Status.AvailableVersions.Backup[matchingBackupVersion]
+	if !ok {
+		return nil, errors.Errorf("backup version %s not available", matchingBackupVersion)
+	}
+
+	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
+		Image: backupVersion.ImagePath,
+	}
+
+	storages := make(map[string]*pxcv1.BackupStorageSpec)
+	var pxcSchedules []pxcv1.PXCScheduledBackupSchedule
+	for _, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
+		storages[schedule.ObjectStorageName] = &pxcv1.BackupStorageSpec{
+			Type: pxcv1.BackupStorageType(objectStorage.Spec.Type),
+		}
+		switch objectStorage.Spec.Type {
+		// FIXME create a const for this in ObjectStorage
+		case "s3":
+			storages[schedule.ObjectStorageName].S3 = &pxcv1.BackupStorageS3Spec{
+				Bucket: objectStorage.Spec.Bucket,
+				// FIXME we need to create a new secret
+				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+				Region:            objectStorage.Spec.Region,
+				EndpointURL:       objectStorage.Spec.EndpointURL,
+			}
+		default:
+			// FIXME have a look at PG's log
+			return nil, errors.Errorf("invalid backup storage type %s", objectStorage.Spec.Type)
+		}
+
+		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
+			Name:        schedule.Name,
+			Schedule:    schedule.Schedule,
+			Keep:        int(schedule.RetentionCopies),
+			StorageName: schedule.ObjectStorageName,
+		})
+	}
+
+	pxcBackupSpec.Storages = storages
+	pxcBackupSpec.Schedule = pxcSchedules
+
+	return pxcBackupSpec, nil
 }
 
 func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:lll,gocognit,gocyclo,cyclop,maintidx
@@ -644,7 +913,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return err
 		}
 	}
-	if current.Spec.Pause != database.Spec.Pause {
+	if current.Spec.Pause != database.Spec.Paused {
 		// During the restoration of PXC clusters
 		// They need to be shutted down
 		//
@@ -677,7 +946,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 		if jobRunning {
-			database.Spec.Pause = current.Spec.Pause
+			database.Spec.Paused = current.Spec.Pause
 		}
 	}
 
@@ -689,15 +958,26 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		},
 		Spec: defaultPXCSpec,
 	}
+
 	if len(database.Finalizers) != 0 {
 		pxc.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
 	}
-	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
-		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
+
+	if database.Spec.Proxy.Type == "" {
+		database.Spec.Proxy.Type = "haproxy"
+	}
+	if database.Spec.Proxy.Type == "haproxy" && database.Spec.Proxy.Config == "" {
+		database.Spec.Proxy.Config = haProxyDefaultConfigurationTemplate
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
+	}
+
+	engine := &everestv1alpha1.DatabaseEngine{}
+	err = r.Get(ctx, types.NamespacedName{Name: pxcDeploymentName, Namespace: database.Namespace}, engine)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get database engine %s", pxcDeploymentName)
 	}
 
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
@@ -743,24 +1023,25 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		pxc.Spec.CRVersion = version.ToCRVersion()
-		pxc.Spec.AllowUnsafeConfig = database.Spec.ClusterSize == 1
-		pxc.Spec.Pause = database.Spec.Pause
-		pxc.Spec.SecretsName = database.Spec.SecretsName
+		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.Replicas == 1
+		pxc.Spec.Pause = database.Spec.Paused
+		// FIXME we're not supposed to use the same secret, we shall create a new one
+		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
 
-		if database.Spec.DatabaseConfig != "" {
-			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.DatabaseConfig
+		if database.Spec.Engine.Config != "" {
+			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.Engine.Config
 		}
 		if pxc.Spec.PXC.PodSpec.Configuration == "" {
 			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
 			gCacheSize := "600M"
 
-			if database.Spec.DBInstance.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) <= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) <= 0 {
 				gCacheSize = "2457M"
 			}
-			if database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) <= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) <= 0 {
 				gCacheSize = "9830M"
 			}
-			if database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) >= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
 				gCacheSize = "9830M"
 			}
 			ver, _ := goversion.NewVersion("v1.11.0")
@@ -770,116 +1051,69 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		pxc.Spec.PXC.PodSpec.Size = database.Spec.ClusterSize
-		pxc.Spec.PXC.PodSpec.Image = database.Spec.DatabaseImage
+		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
+
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+		}
+		pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		pxc.Spec.PXC.PodSpec.Image = pxcEngineVersion.ImagePath
+
 		pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.DBInstance.StorageClassName,
+				StorageClassName: database.Spec.Engine.Storage.Class,
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 					},
 				},
 			},
 		}
-		pxc.Spec.PXC.PodSpec.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
 		}
-		if database.Spec.LoadBalancer.Type == "haproxy" {
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
+		}
+
+		switch database.Spec.Proxy.Type {
+		case "haproxy":
 			pxc.Spec.ProxySQL.Enabled = false
-
-			if database.Spec.LoadBalancer.Image == "" {
-				database.Spec.LoadBalancer.Image = fmt.Sprintf(haProxyTemplate, version.String())
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine)
+			if err != nil {
+				// FIXME should I wrap the error?
+				return err
 			}
-			pxc.Spec.HAProxy.PodSpec.Size = database.Spec.LoadBalancer.Size
-			pxc.Spec.HAProxy.PodSpec.ServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.HAProxy.PodSpec.ReplicasServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.HAProxy.PodSpec.Configuration = database.Spec.LoadBalancer.Configuration
-			pxc.Spec.HAProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
-			pxc.Spec.HAProxy.PodSpec.Annotations = database.Spec.LoadBalancer.Annotations
-			pxc.Spec.HAProxy.PodSpec.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.HAProxy.PodSpec.ReplicasExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.HAProxy.PodSpec.Resources = database.Spec.LoadBalancer.Resources
-			pxc.Spec.HAProxy.PodSpec.Enabled = true
-			pxc.Spec.HAProxy.PodSpec.Image = database.Spec.LoadBalancer.Image
-		}
-		if database.Spec.LoadBalancer.Type == "proxysql" {
+		case "proxysql":
 			pxc.Spec.HAProxy.PodSpec.Enabled = false
+			pxc.Spec.ProxySQL, err = r.genPXCProxySQLSpec(database, engine)
+			if err != nil {
+				// FIXME should I wrap the error?
+				return err
+			}
+		default:
+			return errors.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
+		}
 
-			pxc.Spec.ProxySQL.Size = database.Spec.LoadBalancer.Size
-			pxc.Spec.ProxySQL.ServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.ProxySQL.Configuration = database.Spec.LoadBalancer.Configuration
-			pxc.Spec.ProxySQL.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
-			pxc.Spec.ProxySQL.Annotations = database.Spec.LoadBalancer.Annotations
-			pxc.Spec.ProxySQL.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.ProxySQL.Resources = database.Spec.LoadBalancer.Resources
-			pxc.Spec.ProxySQL.Enabled = true
-			pxc.Spec.ProxySQL.Image = database.Spec.LoadBalancer.Image
-		}
-		if database.Spec.Monitoring.PMM != nil {
-			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
-			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
-		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = fmt.Sprintf(pxcBackupImageTmpl, pxc.Spec.CRVersion)
+		// FIXME
+		//if database.Spec.Monitoring.PMM != nil {
+		//	pxc.Spec.PMM.Enabled = true
+		//	pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+		//	pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
+		//	pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		//}
+		//FIXME Should I parse it regardless of being enabled?
+		if database.Spec.Backup.Enabled == true {
+			pxc.Spec.Backup, err = r.genPXCBackupSpec(ctx, database, engine)
+			if err != nil {
+				// FIXME should I wrap the error?
+				return err
 			}
-			pxc.Spec.Backup = &pxcv1.PXCScheduledBackup{
-				Image:              database.Spec.Backup.Image,
-				ImagePullSecrets:   database.Spec.Backup.ImagePullSecrets,
-				ImagePullPolicy:    database.Spec.Backup.ImagePullPolicy,
-				ServiceAccountName: database.Spec.Backup.ServiceAccountName,
-			}
-			storages := make(map[string]*pxcv1.BackupStorageSpec)
-			var schedules []pxcv1.PXCScheduledBackupSchedule
-			for k, v := range database.Spec.Backup.Storages {
-				storages[k] = &pxcv1.BackupStorageSpec{
-					Type:                     pxcv1.BackupStorageType(v.Type),
-					NodeSelector:             v.NodeSelector,
-					Resources:                v.Resources,
-					Affinity:                 v.Affinity,
-					Tolerations:              v.Tolerations,
-					Annotations:              v.Annotations,
-					Labels:                   v.Labels,
-					SchedulerName:            v.SchedulerName,
-					PriorityClassName:        v.PriorityClassName,
-					PodSecurityContext:       v.PodSecurityContext,
-					ContainerSecurityContext: v.ContainerSecurityContext,
-					RuntimeClassName:         v.RuntimeClassName,
-					VerifyTLS:                v.VerifyTLS,
-				}
-				switch v.Type {
-				case everestv1alpha1.BackupStorageS3:
-					storages[k].S3 = &pxcv1.BackupStorageS3Spec{
-						Bucket:            v.StorageProvider.Bucket,
-						CredentialsSecret: v.StorageProvider.CredentialsSecret,
-						Region:            v.StorageProvider.Region,
-						EndpointURL:       v.StorageProvider.EndpointURL,
-					}
-				case everestv1alpha1.BackupStorageAzure:
-					storages[k].Azure = &pxcv1.BackupStorageAzureSpec{
-						ContainerPath:     v.StorageProvider.ContainerName,
-						CredentialsSecret: v.StorageProvider.CredentialsSecret,
-						StorageClass:      v.StorageProvider.StorageClass,
-						Endpoint:          v.StorageProvider.EndpointURL,
-					}
-				}
-			}
-			for _, v := range database.Spec.Backup.Schedule {
-				schedules = append(schedules, pxcv1.PXCScheduledBackupSchedule{
-					Name:        v.Name,
-					Schedule:    v.Schedule,
-					Keep:        v.Keep,
-					StorageName: v.StorageName,
-				})
-			}
-			pxc.Spec.Backup.Storages = storages
-			pxc.Spec.Backup.Schedule = schedules
 		}
 		return nil
 	})
@@ -894,8 +1128,8 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 	}
 
-	database.Status.Host = pxc.Status.Host
-	database.Status.State = everestv1alpha1.AppState(pxc.Status.Status)
+	database.Status.Hostname = pxc.Status.Host
+	database.Status.Status = everestv1alpha1.AppState(pxc.Status.Status)
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
@@ -941,43 +1175,55 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
+func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (crunchyv1beta1.Backups, error) {
+	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
+	if !ok {
+		return crunchyv1beta1.Backups{}, errors.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+	}
+
 	backups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
 			Global: map[string]string{},
-			Image:  database.Spec.Backup.Image,
+			Image:  pgbackrestVersion.ImagePath,
 		},
 	}
-	if len(database.Spec.Backup.Schedule) > 4 {
+	if len(database.Spec.Backup.Schedules) > 4 {
 		return crunchyv1beta1.Backups{}, errors.Errorf("number of backup schedules for postgresql cannot exceed 4")
 	}
 
-	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
-	for idx, v := range database.Spec.Backup.Schedule {
-		storage, ok := database.Spec.Backup.Storages[v.StorageName]
-		if !ok {
-			return crunchyv1beta1.Backups{}, errors.Errorf("unknown backup storage %s", v.StorageName)
+	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedules))
+	for idx, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
 		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
 		repos[idx] = crunchyv1beta1.PGBackRestRepo{
 			Name: fmt.Sprintf("repo%d", idx+1),
 			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
-				Full: &database.Spec.Backup.Schedule[idx].Schedule,
+				Full: &database.Spec.Backup.Schedules[idx].Schedule,
 			},
 		}
-		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedule[idx].Keep)
+		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedules[idx].RetentionCopies)
 
-		switch storage.Type {
-		case everestv1alpha1.BackupStorageS3:
+		switch objectStorage.Spec.Type {
+		// FIXME create a const for this in ObjectStorage
+		case "s3":
 			repos[idx].S3 = &crunchyv1beta1.RepoS3{
-				Bucket:   storage.StorageProvider.Bucket,
-				Endpoint: storage.StorageProvider.EndpointURL,
-				Region:   storage.StorageProvider.Region,
+				Bucket:   objectStorage.Spec.Bucket,
+				Region:   objectStorage.Spec.Region,
+				Endpoint: objectStorage.Spec.EndpointURL,
 			}
 
 			pgBackrestSecret, err := r.createPGBackrestSecret(
 				ctx,
 				database,
-				storage.StorageProvider.CredentialsSecret,
+				objectStorage.Spec.CredentialsSecretName,
 				repos[idx].Name,
 				database.Name+"-pgbackrest-secrets",
 			)
@@ -995,7 +1241,7 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, databa
 				},
 			}
 		default:
-			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", storage.Type, v.StorageName)
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
 		}
 	}
 	backups.PGBackRest.Repos = repos
@@ -1003,9 +1249,9 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, databa
 }
 
 func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
-	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.Destination)
+	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.BackupName)
 	if len(destMatch) < 3 {
-		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.Destination)
+		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.BackupName)
 	}
 	repoName := destMatch[1]
 	backupName := destMatch[2]
@@ -1023,16 +1269,19 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		},
 	}
 
-	switch database.Spec.DataSource.StorageType {
-	case everestv1alpha1.BackupStorageS3:
-		if database.Spec.DataSource.S3 == nil {
-			return nil, errors.Errorf("data source storage is of type %s but is missing s3 field", everestv1alpha1.BackupStorageS3)
-		}
+	objectStorage := &everestv1alpha1.ObjectStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
+	}
 
+	switch objectStorage.Spec.Type {
+	// FIXME Create a constant for the s3 provider
+	case "s3":
 		pgBackrestSecret, err := r.createPGBackrestSecret(
 			ctx,
 			database,
-			database.Spec.DataSource.S3.CredentialsSecret,
+			objectStorage.Spec.CredentialsSecretName,
 			repoName,
 			database.Name+"-pgbackrest-datasource-secrets",
 		)
@@ -1052,13 +1301,13 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
 			Name: repoName,
 			S3: &crunchyv1beta1.RepoS3{
-				Bucket:   database.Spec.DataSource.S3.Bucket,
-				Endpoint: database.Spec.DataSource.S3.EndpointURL,
-				Region:   database.Spec.DataSource.S3.Region,
+				Bucket:   objectStorage.Spec.Bucket,
+				Endpoint: objectStorage.Spec.EndpointURL,
+				Region:   objectStorage.Spec.Region,
 			},
 		}
 	default:
-		return nil, errors.Errorf("unsupported data source storage type \"%s\"", database.Spec.DataSource.StorageType)
+		return nil, errors.Errorf("unsupported data source storage type \"%s\"", objectStorage.Spec.Type)
 	}
 	return pgDataSource, nil
 }
@@ -1111,6 +1360,12 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		return err
 	}
 
+	engine := &everestv1alpha1.DatabaseEngine{}
+	err = r.Get(ctx, types.NamespacedName{Name: pgDeploymentName, Namespace: database.Namespace}, engine)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get database engine %s", pgDeploymentName)
+	}
+
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -1123,56 +1378,101 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		//nolint:godox
 		// FIXME add the secrets name when
 		// https://jira.percona.com/browse/K8SPG-309 is fixed
-		// pg.Spec.SecretsName = database.Spec.SecretsName
-		pg.Spec.Pause = &database.Spec.Pause
-		pg.Spec.Image = database.Spec.DatabaseImage
-		pgVersionMatch := regexp.MustCompile(`-ppg(\d+)-`).FindStringSubmatch(database.Spec.DatabaseImage)
-		if len(pgVersionMatch) < 2 {
-			return errors.Errorf("failed to extract the PostgresVersion from %s", database.Spec.DatabaseImage)
+		// We're not supposed to use the same secret, we shall create a new one
+		// pg.Spec.SecretsName = database.Spec.Engine.UserSecretsName
+		pg.Spec.Pause = &database.Spec.Paused
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
 		}
-		pgVersion, err := strconv.Atoi(pgVersionMatch[1])
+		pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		pg.Spec.Image = pgEngineVersion.ImagePath
+
+		pgMajorVersionMatch := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(database.Spec.Engine.Version)
+		if len(pgMajorVersionMatch) < 2 {
+			return errors.Errorf("failed to extract the major version from %s", database.Spec.Engine.Version)
+		}
+		pgMajorVersion, err := strconv.Atoi(pgMajorVersionMatch[1])
 		if err != nil {
 			return err
 		}
-		pg.Spec.PostgresVersion = pgVersion
+		pg.Spec.PostgresVersion = pgMajorVersion
 
-		pg.Spec.InstanceSets[0].Replicas = &database.Spec.ClusterSize
-		pg.Spec.InstanceSets[0].Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+		pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
+		}
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
 		pg.Spec.InstanceSets[0].DataVolumeClaimSpec = corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteOnce,
 			},
-			StorageClassName: database.Spec.DBInstance.StorageClassName,
+			StorageClassName: database.Spec.Engine.Storage.Class,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+					corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 				},
 			},
 		}
 
-		pg.Spec.Proxy.PGBouncer.Image = database.Spec.LoadBalancer.Image
-		pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.LoadBalancer.Size
+		pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
+		if !ok {
+			return errors.Errorf("pgbouncer version not available")
+		}
+
+		pgbouncerVersion, ok := pgbouncerAvailVersions[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("pgbouncer version %s not available", database.Spec.Engine.Version)
+		}
+
+		pg.Spec.Proxy.PGBouncer.Image = pgbouncerVersion.ImagePath
+
+		// FIXME maybe make this a pointer so we can have a default value
+		if database.Spec.Proxy.Replicas == 0 {
+			// By default we set the same number of replicas as the engine
+			pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.Engine.Replicas
+		} else {
+			pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.Proxy.Replicas
+		}
 		//nolint:godox
 		// TODO add support for database.Spec.LoadBalancer.LoadBalancerSourceRanges
 		// https://jira.percona.com/browse/K8SPG-311
-		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
-			Metadata: crunchyv1beta1.Metadata{
-				Annotations: database.Spec.LoadBalancer.Annotations,
-			},
-			Type: string(database.Spec.LoadBalancer.ExposeType),
+		switch database.Spec.Proxy.Expose.Type {
+		case "Internal":
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+				Type: string(corev1.ServiceTypeClusterIP),
+			}
+		case "External":
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+				Type: string(corev1.ServiceTypeLoadBalancer),
+				// FIXME infer from database.Spec.Proxy.Expose.Type
+				//Metadata: crunchyv1beta1.Metadata{
+				//	Annotations: database.Spec.LoadBalancer.Annotations,
+				//},
+			}
+		default:
+			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
-		pg.Spec.Proxy.PGBouncer.Resources = database.Spec.LoadBalancer.Resources
 
-		if database.Spec.Monitoring.PMM != nil {
-			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		if !database.Spec.Proxy.Resources.CPU.IsZero() {
+			pg.Spec.Proxy.PGBouncer.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
 		}
+		if !database.Spec.Proxy.Resources.Memory.IsZero() {
+			pg.Spec.Proxy.PGBouncer.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+		}
+
+		// FIXME
+		//		if database.Spec.Monitoring.PMM != nil {
+		//			pg.Spec.PMM.Enabled = true
+		//			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
+		//			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+		//		}
+		//
 
 		// If no backup is specified we need to define a repo regardless.
 		// Without credentials need to define a PVC-backed repo because the
@@ -1180,7 +1480,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		// replicas.
 		pg.Spec.Backups = crunchyv1beta1.Backups{
 			PGBackRest: crunchyv1beta1.PGBackRestArchive{
-				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion),
+				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgMajorVersion),
 				Repos: []crunchyv1beta1.PGBackRestRepo{
 					{
 						Name: "repo1",
@@ -1189,10 +1489,10 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 								AccessModes: []corev1.PersistentVolumeAccessMode{
 									corev1.ReadWriteOnce,
 								},
-								StorageClassName: database.Spec.DBInstance.StorageClassName,
+								StorageClassName: database.Spec.Engine.Storage.Class,
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
-										corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+										corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 									},
 								},
 							},
@@ -1201,11 +1501,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 				},
 			},
 		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion)
-			}
-			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database)
+
+		if database.Spec.Backup.Enabled == true {
+			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database, engine)
 			if err != nil {
 				return err
 			}
@@ -1218,14 +1516,27 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 			}
 		}
 
+		//pg.Spec.Proxy.PGBouncer.ExposeSuperusers = true
+		//pg.Spec.Users = []crunchyv1beta1.PostgresUserSpec{
+		//	{
+		//		Name: "postgres",
+		//	},
+		//	{
+		//		Name: "pg-test",
+		//		Databases: []crunchyv1beta1.PostgresIdentifier{
+		//			"pg-test",
+		//		},
+		//	},
+		//}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 
-	database.Status.Host = pg.Status.Host
-	database.Status.State = everestv1alpha1.AppState(pg.Status.State)
+	// FIXME if we set the proxy.replicas to 0 then the host is pointing to the pgbouncer svc even though it has no pods to route to
+	database.Status.Hostname = pg.Status.Host
+	database.Status.Status = everestv1alpha1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	return r.Status().Update(ctx, database)
@@ -1318,20 +1629,21 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
-		var res []string
-		database, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok || database.Spec.Backup == nil {
-			return res
-		}
-		for _, storage := range database.Spec.Backup.Storages {
-			res = append(res, storage.StorageProvider.CredentialsSecret)
-		}
-		return res
-	})
-	if err != nil {
-		return err
-	}
+	// FIXME
+	//	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
+	//		var res []string
+	//		database, ok := o.(*everestv1alpha1.DatabaseCluster)
+	//		if !ok || database.Spec.Backup == nil {
+	//			return res
+	//		}
+	//		for _, storage := range database.Spec.Backup.Storages {
+	//			res = append(res, storage.StorageProvider.CredentialsSecret)
+	//		}
+	//		return res
+	//	})
+	//	if err != nil {
+	//		return err
+	//	}
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -1340,7 +1652,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseCluster{})
-	err = r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
+	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})

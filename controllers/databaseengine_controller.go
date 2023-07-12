@@ -100,11 +100,11 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
 			versions.Engine = matrix.PXC
-			versions.Proxy = map[string]map[string]*everestv1alpha1.Component{
+			versions.Proxy = map[string]everestv1alpha1.ComponentsMap{
 				"haproxy":  matrix.HAProxy,
 				"proxysql": matrix.ProxySQL,
 			}
-			versions.Tools = map[string]map[string]*everestv1alpha1.Component{
+			versions.Tools = map[string]everestv1alpha1.ComponentsMap{
 				"logCollector": matrix.LogCollector,
 			}
 		}
@@ -114,7 +114,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
 			versions.Engine = matrix.Postgresql
 			versions.Backup = matrix.PGBackRest
-			versions.Proxy = map[string]map[string]*everestv1alpha1.Component{
+			versions.Proxy = map[string]everestv1alpha1.ComponentsMap{
 				"pgbouncer": matrix.PGBouncer,
 			}
 		}
