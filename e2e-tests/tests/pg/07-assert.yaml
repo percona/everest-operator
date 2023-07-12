@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 120
 ---
@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
-  finalizers:
-    - percona.com/delete-pvc
 spec:
   databaseType: postgresql
   databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres

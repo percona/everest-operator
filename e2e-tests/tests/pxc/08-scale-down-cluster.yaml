@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
@@ -25,6 +25,6 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
   dbInstance:
-    cpu: "1"
+    cpu: 600m
     memory: 1G
     diskSize: 15G

@@ -1,4 +1,4 @@
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
@@ -17,12 +17,12 @@ spec:
      operationProfiling:
         mode: off
   secretsName: psmdb-sample-secrets
-  clusterSize: 5
+  clusterSize: 4
   loadBalancer:
     type: mongos
     exposeType: ClusterIP
     size: 3
   dbInstance:
-    cpu: 500m
-    memory: 1G
+    cpu: 300m
+    memory: 500M
     diskSize: 15G
