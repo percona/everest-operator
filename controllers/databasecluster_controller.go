@@ -794,6 +794,92 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 	return proxySQL, nil
 }
 
+func getBackupVersionForPXCEngine(backupVersions everestv1alpha1.ComponentsMap, engineVersion string) string {
+	engineGoVersion, err := goversion.NewVersion(engineVersion)
+	if err != nil {
+		return ""
+	}
+	v8, _ := goversion.NewVersion("8.0.0")
+	isV8 := engineGoVersion.GreaterThanOrEqual(v8)
+
+	for version, component := range backupVersions {
+		if component.Status != "recommended" {
+			continue
+		}
+		v, err := goversion.NewVersion(version)
+		if err != nil {
+			continue
+		}
+		if isV8 && v.LessThan(v8) {
+			continue
+		}
+
+		if !isV8 && v.GreaterThanOrEqual(v8) {
+			continue
+		}
+		return version
+	}
+
+	return ""
+}
+
+func (r *DatabaseClusterReconciler) genPXCBackupSpec(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+	engine *everestv1alpha1.DatabaseEngine,
+) (*pxcv1.PXCScheduledBackup, error) {
+	matchingBackupVersion := getBackupVersionForPXCEngine(engine.Status.AvailableVersions.Backup, database.Spec.Engine.Version)
+	backupVersion, ok := engine.Status.AvailableVersions.Backup[matchingBackupVersion]
+	if !ok {
+		return nil, errors.Errorf("backup version %s not available", matchingBackupVersion)
+	}
+
+	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
+		Image: backupVersion.ImagePath,
+	}
+
+	storages := make(map[string]*pxcv1.BackupStorageSpec)
+	var pxcSchedules []pxcv1.PXCScheduledBackupSchedule //nolint:prealloc
+	for _, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
+		storages[schedule.ObjectStorageName] = &pxcv1.BackupStorageSpec{
+			Type: pxcv1.BackupStorageType(objectStorage.Spec.Type),
+		}
+		switch objectStorage.Spec.Type {
+		case everestv1alpha1.ObjectStorageTypeS3:
+			storages[schedule.ObjectStorageName].S3 = &pxcv1.BackupStorageS3Spec{
+				Bucket:            objectStorage.Spec.Bucket,
+				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+				Region:            objectStorage.Spec.Region,
+				EndpointURL:       objectStorage.Spec.EndpointURL,
+			}
+		default:
+			return nil, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+		}
+
+		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
+			Name:        schedule.Name,
+			Schedule:    schedule.Schedule,
+			Keep:        int(schedule.RetentionCopies),
+			StorageName: schedule.ObjectStorageName,
+		})
+	}
+
+	pxcBackupSpec.Storages = storages
+	pxcBackupSpec.Schedule = pxcSchedules
+
+	return pxcBackupSpec, nil
+}
+
 func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:lll,gocognit,gocyclo,cyclop,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -1000,61 +1086,12 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
 			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = fmt.Sprintf(pxcBackupImageTmpl, pxc.Spec.CRVersion)
+
+		if database.Spec.Backup.Enabled {
+			pxc.Spec.Backup, err = r.genPXCBackupSpec(ctx, database, engine)
+			if err != nil {
+				return err
 			}
-			pxc.Spec.Backup = &pxcv1.PXCScheduledBackup{
-				Image:              database.Spec.Backup.Image,
-				ImagePullSecrets:   database.Spec.Backup.ImagePullSecrets,
-				ImagePullPolicy:    database.Spec.Backup.ImagePullPolicy,
-				ServiceAccountName: database.Spec.Backup.ServiceAccountName,
-			}
-			storages := make(map[string]*pxcv1.BackupStorageSpec)
-			var schedules []pxcv1.PXCScheduledBackupSchedule
-			for k, v := range database.Spec.Backup.Storages {
-				storages[k] = &pxcv1.BackupStorageSpec{
-					Type:                     pxcv1.BackupStorageType(v.Type),
-					NodeSelector:             v.NodeSelector,
-					Resources:                v.Resources,
-					Affinity:                 v.Affinity,
-					Tolerations:              v.Tolerations,
-					Annotations:              v.Annotations,
-					Labels:                   v.Labels,
-					SchedulerName:            v.SchedulerName,
-					PriorityClassName:        v.PriorityClassName,
-					PodSecurityContext:       v.PodSecurityContext,
-					ContainerSecurityContext: v.ContainerSecurityContext,
-					RuntimeClassName:         v.RuntimeClassName,
-					VerifyTLS:                v.VerifyTLS,
-				}
-				switch v.Type {
-				case everestv1alpha1.BackupStorageS3:
-					storages[k].S3 = &pxcv1.BackupStorageS3Spec{
-						Bucket:            v.StorageProvider.Bucket,
-						CredentialsSecret: v.StorageProvider.CredentialsSecret,
-						Region:            v.StorageProvider.Region,
-						EndpointURL:       v.StorageProvider.EndpointURL,
-					}
-				case everestv1alpha1.BackupStorageAzure:
-					storages[k].Azure = &pxcv1.BackupStorageAzureSpec{
-						ContainerPath:     v.StorageProvider.ContainerName,
-						CredentialsSecret: v.StorageProvider.CredentialsSecret,
-						StorageClass:      v.StorageProvider.StorageClass,
-						Endpoint:          v.StorageProvider.EndpointURL,
-					}
-				}
-			}
-			for _, v := range database.Spec.Backup.Schedule {
-				schedules = append(schedules, pxcv1.PXCScheduledBackupSchedule{
-					Name:        v.Name,
-					Schedule:    v.Schedule,
-					Keep:        v.Keep,
-					StorageName: v.StorageName,
-				})
-			}
-			pxc.Spec.Backup.Storages = storages
-			pxc.Spec.Backup.Schedule = schedules
 		}
 		return nil
 	})
