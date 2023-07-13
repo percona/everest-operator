@@ -116,9 +116,9 @@ type ExposeType string
 
 // Expose is the expose configuration.
 type Expose struct {
-	// Type is the expose type, can be Internal or External
-	// +kubebuilder:validation:Enum:=Internal;External
-	// +kubebuilder:default:=Internal
+	// Type is the expose type, can be internal or external
+	// +kubebuilder:validation:Enum:=internal;external
+	// +kubebuilder:default:=internal
 	Type ExposeType `json:"type,omitempty"`
 	// IPSourceRanges is the list of IP source ranges to allow access from
 	IPSourceRanges []string `json:"ipSourceRanges,omitempty"`
