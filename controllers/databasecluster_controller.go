@@ -405,23 +405,29 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		return err
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
-		dbRestore.Spec.DatabaseCluster = database.Name
-		dbRestore.Spec.DatabaseType = database.Spec.Database
-		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
-			Destination: database.Spec.DataSource.Destination,
-			StorageName: database.Spec.DataSource.StorageName,
-			StorageType: database.Spec.DataSource.StorageType,
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
 		}
-		switch database.Spec.DataSource.StorageType {
-		case everestv1alpha1.BackupStorageS3:
+
+		dbRestore.Spec.DatabaseCluster = database.Name
+		dbRestore.Spec.DatabaseType = database.Spec.Engine.Type
+		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
+			Destination: fmt.Sprintf("s3://%s/%s", objectStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
+			StorageName: database.Spec.DataSource.ObjectStorageName,
+			StorageType: everestv1alpha1.BackupStorageType(objectStorage.Spec.Type),
+		}
+		switch objectStorage.Spec.Type {
+		case everestv1alpha1.ObjectStorageTypeS3:
 			dbRestore.Spec.BackupSource.S3 = &everestv1alpha1.BackupStorageProviderSpec{
-				Bucket:            database.Spec.DataSource.S3.Bucket,
-				CredentialsSecret: database.Spec.DataSource.S3.CredentialsSecret,
-				Region:            database.Spec.DataSource.S3.Region,
-				EndpointURL:       database.Spec.DataSource.S3.EndpointURL,
+				Bucket:            objectStorage.Spec.Bucket,
+				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+				Region:            objectStorage.Spec.Region,
+				EndpointURL:       objectStorage.Spec.EndpointURL,
 			}
 		default:
-			return errors.Errorf("unsupported data source storage type %s", database.Spec.DataSource.StorageType)
+			return errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
 		}
 		return nil
 	})
