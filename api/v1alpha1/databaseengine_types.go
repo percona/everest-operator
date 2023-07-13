@@ -16,6 +16,9 @@
 package v1alpha1
 
 import (
+	"sort"
+
+	goversion "github.com/hashicorp/go-version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,7 +64,7 @@ type DatabaseEngineStatus struct {
 //+kubebuilder:resource:shortName=dbengine;
 //+kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type"
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
-//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
+//+kubebuilder:printcolumn:name="Operator Version",type="string",JSONPath=".status.operatorVersion"
 
 // DatabaseEngine is the Schema for the databaseengines API.
 type DatabaseEngine struct {
@@ -83,11 +86,14 @@ type DatabaseEngineList struct {
 
 // Versions struct represents available versions of database engine components.
 type Versions struct {
-	Engine map[string]*Component            `json:"engine,omitempty"`
-	Backup map[string]*Component            `json:"backup,omitempty"`
-	Proxy  map[string]map[string]*Component `json:"proxy,omitempty"`
-	Tools  map[string]map[string]*Component `json:"tools,omitempty"`
+	Engine ComponentsMap               `json:"engine,omitempty"`
+	Backup ComponentsMap               `json:"backup,omitempty"`
+	Proxy  map[ProxyType]ComponentsMap `json:"proxy,omitempty"`
+	Tools  map[string]ComponentsMap    `json:"tools,omitempty"`
 }
+
+// ComponentsMap is a map of database engine components.
+type ComponentsMap map[string]*Component
 
 // Component contains information of the database engine component.
 // Database Engine component can be database engine, database proxy or tools image path.
@@ -98,7 +104,33 @@ type Component struct {
 	Status    string `json:"status,omitempty"`
 }
 
-// RecommendedBackupImage returns the recommended image for a backup component.
+// RecommendedVersion returns the recommended version for the components map.
+func (c ComponentsMap) RecommendedVersion() string {
+	var versions []*goversion.Version //nolint:prealloc
+	for version, component := range c {
+		if component.Status != "recommended" {
+			continue
+		}
+		v, err := goversion.NewVersion(version)
+		if err != nil {
+			continue
+		}
+		versions = append(versions, v)
+	}
+	if len(versions) == 0 {
+		return ""
+	}
+	sort.Sort(goversion.Collection(versions))
+
+	return versions[len(versions)-1].Original()
+}
+
+// RecommendedEngineVersion returns the recommended version for the database engine.
+func (d DatabaseEngine) RecommendedEngineVersion() string {
+	return d.Status.AvailableVersions.Engine.RecommendedVersion()
+}
+
+// RecommendedBackupImage returns the recommended image for the backup component.
 func (d DatabaseEngine) RecommendedBackupImage() string {
 	for _, component := range d.Status.AvailableVersions.Backup {
 		if component.Status == "recommended" {
