@@ -429,6 +429,57 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 	return err
 }
 
+func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+	engine *everestv1alpha1.DatabaseEngine,
+) (psmdbv1.BackupSpec, error) {
+	psmdbBackupSpec := psmdbv1.BackupSpec{
+		Enabled: true,
+		Image:   engine.RecommendedBackupImage(),
+	}
+	storages := make(map[string]psmdbv1.BackupStorageSpec)
+	var tasks []psmdbv1.BackupTaskSpec //nolint:prealloc
+	for _, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
+		switch objectStorage.Spec.Type {
+		case everestv1alpha1.ObjectStorageTypeS3:
+			storages[schedule.ObjectStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(objectStorage.Spec.Type),
+				S3: psmdbv1.BackupStorageS3Spec{
+					Bucket:            objectStorage.Spec.Bucket,
+					CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
+					Region:            objectStorage.Spec.Region,
+					EndpointURL:       objectStorage.Spec.EndpointURL,
+				},
+			}
+		default:
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+		}
+
+		tasks = append(tasks, psmdbv1.BackupTaskSpec{
+			Name:        schedule.Name,
+			Enabled:     true,
+			Schedule:    schedule.Schedule,
+			Keep:        int(schedule.RetentionCopies),
+			StorageName: schedule.ObjectStorageName,
+		})
+	}
+	psmdbBackupSpec.Storages = storages
+	psmdbBackupSpec.Tasks = tasks
+
+	return psmdbBackupSpec, nil
+}
+
 func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:gocognit,maintidx,gocyclo,lll,cyclop
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -612,58 +663,12 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
 			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
 		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = engine.RecommendedBackupImage()
+
+		if database.Spec.Backup.Enabled {
+			psmdb.Spec.Backup, err = r.genPSMDBBackupSpec(ctx, database, engine)
+			if err != nil {
+				return err
 			}
-			psmdb.Spec.Backup = psmdbv1.BackupSpec{
-				Enabled:                  true,
-				Image:                    database.Spec.Backup.Image,
-				ServiceAccountName:       database.Spec.Backup.ServiceAccountName,
-				ContainerSecurityContext: database.Spec.Backup.ContainerSecurityContext,
-				Resources:                database.Spec.Backup.Resources,
-				Annotations:              database.Spec.Backup.Annotations,
-				Labels:                   database.Spec.Backup.Labels,
-			}
-			storages := make(map[string]psmdbv1.BackupStorageSpec)
-			var tasks []psmdbv1.BackupTaskSpec
-			for k, v := range database.Spec.Backup.Storages {
-				switch v.Type {
-				case everestv1alpha1.BackupStorageS3:
-					storages[k] = psmdbv1.BackupStorageSpec{
-						Type: psmdbv1.BackupStorageType(v.Type),
-						S3: psmdbv1.BackupStorageS3Spec{
-							Bucket:            v.StorageProvider.Bucket,
-							CredentialsSecret: v.StorageProvider.CredentialsSecret,
-							Region:            v.StorageProvider.Region,
-							EndpointURL:       v.StorageProvider.EndpointURL,
-							StorageClass:      v.StorageProvider.StorageClass,
-						},
-					}
-				case everestv1alpha1.BackupStorageAzure:
-					storages[k] = psmdbv1.BackupStorageSpec{
-						Type: psmdbv1.BackupStorageType(v.Type),
-						Azure: psmdbv1.BackupStorageAzureSpec{
-							Container:         v.StorageProvider.ContainerName,
-							CredentialsSecret: v.StorageProvider.CredentialsSecret,
-							Prefix:            v.StorageProvider.Prefix,
-						},
-					}
-				}
-			}
-			for _, v := range database.Spec.Backup.Schedule {
-				tasks = append(tasks, psmdbv1.BackupTaskSpec{
-					Name:             v.Name,
-					Enabled:          v.Enabled,
-					Keep:             v.Keep,
-					Schedule:         v.Schedule,
-					StorageName:      v.StorageName,
-					CompressionType:  v.CompressionType,
-					CompressionLevel: v.CompressionLevel,
-				})
-			}
-			psmdb.Spec.Backup.Storages = storages
-			psmdb.Spec.Backup.Tasks = tasks
 		}
 		return nil
 	})
