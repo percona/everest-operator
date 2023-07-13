@@ -274,6 +274,9 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 	InstanceSets: pgv2beta1.PGInstanceSets{
 		{
 			Name: "instance1",
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	PMM: &pgv2beta1.PMMSpec{
@@ -286,7 +289,11 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 		},
 	},
 	Proxy: &pgv2beta1.PGProxySpec{
-		PGBouncer: &pgv2beta1.PGBouncerSpec{},
+		PGBouncer: &pgv2beta1.PGBouncerSpec{
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
+		},
 	},
 }
 
@@ -351,7 +358,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == "postgresql" {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePostgresql {
 		err := r.reconcilePG(ctx, req, database)
 		return reconcile.Result{}, err
 	}
@@ -1272,6 +1279,12 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		return err
 	}
 
+	engine := &everestv1alpha1.DatabaseEngine{}
+	err = r.Get(ctx, types.NamespacedName{Name: pgDeploymentName, Namespace: database.Namespace}, engine)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get database engine %s", pgDeploymentName)
+	}
+
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -1284,50 +1297,87 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		//nolint:godox
 		// FIXME add the secrets name when
 		// https://jira.percona.com/browse/K8SPG-309 is fixed
-		// pg.Spec.SecretsName = database.Spec.SecretsName
-		pg.Spec.Pause = &database.Spec.Pause
-		pg.Spec.Image = database.Spec.DatabaseImage
-		pgVersionMatch := regexp.MustCompile(`-ppg(\d+)-`).FindStringSubmatch(database.Spec.DatabaseImage)
-		if len(pgVersionMatch) < 2 {
-			return errors.Errorf("failed to extract the PostgresVersion from %s", database.Spec.DatabaseImage)
+		// pg.Spec.SecretsName = database.Spec.Engine.UserSecretsName
+		pg.Spec.Pause = &database.Spec.Paused
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
 		}
-		pgVersion, err := strconv.Atoi(pgVersionMatch[1])
+		pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		pg.Spec.Image = pgEngineVersion.ImagePath
+
+		pgMajorVersionMatch := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(database.Spec.Engine.Version)
+		if len(pgMajorVersionMatch) < 2 {
+			return errors.Errorf("failed to extract the major version from %s", database.Spec.Engine.Version)
+		}
+		pgMajorVersion, err := strconv.Atoi(pgMajorVersionMatch[1])
 		if err != nil {
 			return err
 		}
-		pg.Spec.PostgresVersion = pgVersion
+		pg.Spec.PostgresVersion = pgMajorVersion
 
-		pg.Spec.InstanceSets[0].Replicas = &database.Spec.ClusterSize
-		pg.Spec.InstanceSets[0].Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+		pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
+		}
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
 		pg.Spec.InstanceSets[0].DataVolumeClaimSpec = corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteOnce,
 			},
-			StorageClassName: database.Spec.DBInstance.StorageClassName,
+			StorageClassName: database.Spec.Engine.Storage.Class,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+					corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 				},
 			},
 		}
 
-		pg.Spec.Proxy.PGBouncer.Image = database.Spec.LoadBalancer.Image
-		pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.LoadBalancer.Size
+		pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
+		if !ok {
+			return errors.Errorf("pgbouncer version not available")
+		}
+
+		pgbouncerVersion, ok := pgbouncerAvailVersions[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("pgbouncer version %s not available", database.Spec.Engine.Version)
+		}
+
+		pg.Spec.Proxy.PGBouncer.Image = pgbouncerVersion.ImagePath
+
+		if database.Spec.Proxy.Replicas == nil {
+			// By default we set the same number of replicas as the engine
+			pg.Spec.Proxy.PGBouncer.Replicas = &database.Spec.Engine.Replicas
+		} else {
+			pg.Spec.Proxy.PGBouncer.Replicas = database.Spec.Proxy.Replicas
+		}
 		//nolint:godox
 		// TODO add support for database.Spec.LoadBalancer.LoadBalancerSourceRanges
 		// https://jira.percona.com/browse/K8SPG-311
-		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
-			Metadata: crunchyv1beta1.Metadata{
-				Annotations: database.Spec.LoadBalancer.Annotations,
-			},
-			Type: string(database.Spec.LoadBalancer.ExposeType),
+		switch database.Spec.Proxy.Expose.Type {
+		case everestv1alpha1.ExposeTypeInternal:
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+				Type: string(corev1.ServiceTypeClusterIP),
+			}
+		case everestv1alpha1.ExposeTypeExternal:
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+				Type: string(corev1.ServiceTypeLoadBalancer),
+			}
+		default:
+			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
-		pg.Spec.Proxy.PGBouncer.Resources = database.Spec.LoadBalancer.Resources
+
+		if !database.Spec.Proxy.Resources.CPU.IsZero() {
+			pg.Spec.Proxy.PGBouncer.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+		}
+		if !database.Spec.Proxy.Resources.Memory.IsZero() {
+			pg.Spec.Proxy.PGBouncer.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+		}
 
 		if database.Spec.Monitoring.PMM != nil {
 			pg.Spec.PMM.Enabled = true
@@ -1341,7 +1391,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		// replicas.
 		pg.Spec.Backups = crunchyv1beta1.Backups{
 			PGBackRest: crunchyv1beta1.PGBackRestArchive{
-				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion),
+				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgMajorVersion),
 				Repos: []crunchyv1beta1.PGBackRestRepo{
 					{
 						Name: "repo1",
@@ -1350,10 +1400,10 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 								AccessModes: []corev1.PersistentVolumeAccessMode{
 									corev1.ReadWriteOnce,
 								},
-								StorageClassName: database.Spec.DBInstance.StorageClassName,
+								StorageClassName: database.Spec.Engine.Storage.Class,
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
-										corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+										corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 									},
 								},
 							},
@@ -1385,8 +1435,8 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		return err
 	}
 
-	database.Status.Host = pg.Status.Host
-	database.Status.State = everestv1alpha1.AppState(pg.Status.State)
+	database.Status.Hostname = pg.Status.Host
+	database.Status.Status = everestv1alpha1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	return r.Status().Update(ctx, database)
