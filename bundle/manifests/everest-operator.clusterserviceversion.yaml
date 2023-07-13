@@ -63,11 +63,26 @@ metadata:
             "name": "databaseengine-sample"
           },
           "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "ObjectStorage",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "objectstorage-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "objectstorage",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "objectstorage-sample"
+          },
+          "spec": null
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-07-12T12:08:29Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.27.0
+    createdAt: "2023-07-13T11:03:32Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.30.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.2
   namespace: placeholder
@@ -87,7 +102,7 @@ spec:
       kind: DatabaseClusterRestore
       name: databaseclusterrestores.everest.percona.com
       version: v1alpha1
-    - description: DatabaseCluster is the Schema for the databases API.
+    - description: DatabaseCluster is the Schema for the databaseclusters API.
       displayName: Database Cluster
       kind: DatabaseCluster
       name: databaseclusters.everest.percona.com
@@ -96,6 +111,11 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
+      version: v1alpha1
+    - description: ObjectStorage is the Schema for the objectstorages API.
+      displayName: Object Storage
+      kind: ObjectStorage
+      name: objectstorages.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator
@@ -238,6 +258,18 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - objectstorages
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - pg.percona.com
           resources:
