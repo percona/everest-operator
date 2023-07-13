@@ -109,7 +109,8 @@ timeout server 28800s
       operationProfiling:
         mode: slowOp
 `
-	backupStorageCredentialSecretName = ".spec.backup.storages.storageProvider.credentialsSecret" //nolint:gosec
+	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
+	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -313,6 +314,7 @@ type DatabaseClusterReconciler struct {
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pg.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=objectstorages,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -1109,43 +1111,58 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (crunchyv1beta1.Backups, error) {
+func (r *DatabaseClusterReconciler) genPGBackupsSpec(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+	engine *everestv1alpha1.DatabaseEngine,
+) (crunchyv1beta1.Backups, error) {
+	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
+	if !ok {
+		return crunchyv1beta1.Backups{}, errors.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+	}
+
 	backups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
 			Global: map[string]string{},
-			Image:  database.Spec.Backup.Image,
+			Image:  pgbackrestVersion.ImagePath,
 		},
 	}
-	if len(database.Spec.Backup.Schedule) > 4 {
+	if len(database.Spec.Backup.Schedules) > 4 {
 		return crunchyv1beta1.Backups{}, errors.Errorf("number of backup schedules for postgresql cannot exceed 4")
 	}
 
-	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedule))
-	for idx, v := range database.Spec.Backup.Schedule {
-		storage, ok := database.Spec.Backup.Storages[v.StorageName]
-		if !ok {
-			return crunchyv1beta1.Backups{}, errors.Errorf("unknown backup storage %s", v.StorageName)
+	repos := make([]crunchyv1beta1.PGBackRestRepo, len(database.Spec.Backup.Schedules))
+	for idx, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
 		}
+
+		objectStorage := &everestv1alpha1.ObjectStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		if err != nil {
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+		}
+
 		repos[idx] = crunchyv1beta1.PGBackRestRepo{
 			Name: fmt.Sprintf("repo%d", idx+1),
 			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
-				Full: &database.Spec.Backup.Schedule[idx].Schedule,
+				Full: &database.Spec.Backup.Schedules[idx].Schedule,
 			},
 		}
-		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedule[idx].Keep)
+		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedules[idx].RetentionCopies)
 
-		switch storage.Type {
-		case everestv1alpha1.BackupStorageS3:
+		switch objectStorage.Spec.Type {
+		case everestv1alpha1.ObjectStorageTypeS3:
 			repos[idx].S3 = &crunchyv1beta1.RepoS3{
-				Bucket:   storage.StorageProvider.Bucket,
-				Endpoint: storage.StorageProvider.EndpointURL,
-				Region:   storage.StorageProvider.Region,
+				Bucket:   objectStorage.Spec.Bucket,
+				Region:   objectStorage.Spec.Region,
+				Endpoint: objectStorage.Spec.EndpointURL,
 			}
 
 			pgBackrestSecret, err := r.createPGBackrestSecret(
 				ctx,
 				database,
-				storage.StorageProvider.CredentialsSecret,
+				objectStorage.Spec.CredentialsSecretName,
 				repos[idx].Name,
 				database.Name+"-pgbackrest-secrets",
 			)
@@ -1163,7 +1180,7 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, databa
 				},
 			}
 		default:
-			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", storage.Type, v.StorageName)
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
 		}
 	}
 	backups.PGBackRest.Repos = repos
@@ -1171,9 +1188,9 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(ctx context.Context, databa
 }
 
 func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
-	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.Destination)
+	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.BackupName)
 	if len(destMatch) < 3 {
-		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.Destination)
+		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.BackupName)
 	}
 	repoName := destMatch[1]
 	backupName := destMatch[2]
@@ -1191,16 +1208,18 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		},
 	}
 
-	switch database.Spec.DataSource.StorageType {
-	case everestv1alpha1.BackupStorageS3:
-		if database.Spec.DataSource.S3 == nil {
-			return nil, errors.Errorf("data source storage is of type %s but is missing s3 field", everestv1alpha1.BackupStorageS3)
-		}
+	objectStorage := &everestv1alpha1.ObjectStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
+	}
 
+	switch objectStorage.Spec.Type {
+	case everestv1alpha1.ObjectStorageTypeS3:
 		pgBackrestSecret, err := r.createPGBackrestSecret(
 			ctx,
 			database,
-			database.Spec.DataSource.S3.CredentialsSecret,
+			objectStorage.Spec.CredentialsSecretName,
 			repoName,
 			database.Name+"-pgbackrest-datasource-secrets",
 		)
@@ -1220,25 +1239,18 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
 			Name: repoName,
 			S3: &crunchyv1beta1.RepoS3{
-				Bucket:   database.Spec.DataSource.S3.Bucket,
-				Endpoint: database.Spec.DataSource.S3.EndpointURL,
-				Region:   database.Spec.DataSource.S3.Region,
+				Bucket:   objectStorage.Spec.Bucket,
+				Endpoint: objectStorage.Spec.EndpointURL,
+				Region:   objectStorage.Spec.Region,
 			},
 		}
 	default:
-		return nil, errors.Errorf("unsupported data source storage type \"%s\"", database.Spec.DataSource.StorageType)
+		return nil, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
 	}
 	return pgDataSource, nil
 }
 
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
-	opVersion, err := r.getOperatorVersion(ctx, types.NamespacedName{
-		Namespace: database.Namespace,
-		Name:      pgDeploymentName,
-	})
-	if err != nil {
-		return err
-	}
 	version, err := NewVersion("v2beta1")
 	if err != nil {
 		return err
@@ -1389,9 +1401,13 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		// Without credentials need to define a PVC-backed repo because the
 		// pg-operator requires a backup to be set up in order to create
 		// replicas.
+		pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+		}
 		pg.Spec.Backups = crunchyv1beta1.Backups{
 			PGBackRest: crunchyv1beta1.PGBackRestArchive{
-				Image: fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgMajorVersion),
+				Image: pgbackrestVersion.ImagePath,
 				Repos: []crunchyv1beta1.PGBackRestRepo{
 					{
 						Name: "repo1",
@@ -1412,11 +1428,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 				},
 			},
 		}
-		if database.Spec.Backup != nil {
-			if database.Spec.Backup.Image == "" {
-				database.Spec.Backup.Image = fmt.Sprintf("percona/percona-postgresql-operator:%s-ppg%d-pgbackrest", opVersion.String(), pgVersion)
-			}
-			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database)
+
+		if database.Spec.Backup.Enabled {
+			pg.Spec.Backups, err = r.genPGBackupsSpec(ctx, database, engine)
 			if err != nil {
 				return err
 			}
@@ -1529,20 +1543,42 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, backupStorageCredentialSecretName, func(o client.Object) []string {
+	// Index the ObjectStorage's CredentialsSecretName field so that it can be
+	// used by the databaseClustersThatReferenceCredentialsSecret function to
+	// find all DatabaseClusters that reference a specific secret through the
+	// ObjectStorage's CredentialsSecretName field
+	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.ObjectStorage{}, credentialsSecretNameField, func(o client.Object) []string {
 		var res []string
-		database, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok || database.Spec.Backup == nil {
+		objectStorage, ok := o.(*everestv1alpha1.ObjectStorage)
+		if !ok {
 			return res
 		}
-		for _, storage := range database.Spec.Backup.Storages {
-			res = append(res, storage.StorageProvider.CredentialsSecret)
+		res = append(res, objectStorage.Spec.CredentialsSecretName)
+		return res
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index the ObjectStorageName so that it can be used by the
+	// databaseClustersThatReferenceObjectStorage function to find all
+	// DatabaseClusters that reference a specific ObjectStorage through the
+	// ObjectStorageName field
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, objectStorageNameField, func(o client.Object) []string {
+		var res []string
+		database, ok := o.(*everestv1alpha1.DatabaseCluster)
+		if !ok || !database.Spec.Backup.Enabled {
+			return res
+		}
+		for _, storage := range database.Spec.Backup.Schedules {
+			res = append(res, storage.ObjectStorageName)
 		}
 		return res
 	})
 	if err != nil {
 		return err
 	}
+
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -1575,20 +1611,28 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// secrets, specifically the ones that are referenced in DatabaseCluster
 	// CRs, and trigger a reconciliation if these change so that we can
 	// reenconde the secret required by PG.
+	controller.Owns(&everestv1alpha1.ObjectStorage{})
+	controller.Watches(
+		&everestv1alpha1.ObjectStorage{},
+		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceObjectStorage),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&corev1.Secret{},
-		handler.EnqueueRequestsFromMapFunc(r.findObjectsForBackupSecretsName),
+		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceCredentialsSecret),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 	return controller.Complete(r)
 }
 
-func (r *DatabaseClusterReconciler) findObjectsForBackupSecretsName(ctx context.Context, secret client.Object) []reconcile.Request {
+// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// requests for all DatabaseClusters that reference the given ObjectStorage.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(ctx context.Context, objectStorage client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(backupStorageCredentialSecretName, secret.GetName()),
-		Namespace:     secret.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(objectStorageNameField, objectStorage.GetName()),
+		Namespace:     objectStorage.GetNamespace(),
 	}
 	err := r.List(ctx, attachedDatabaseClusters, listOps)
 	if err != nil {
@@ -1604,6 +1648,46 @@ func (r *DatabaseClusterReconciler) findObjectsForBackupSecretsName(ctx context.
 			},
 		}
 	}
+
+	return requests
+}
+
+// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// requests for all DatabaseClusters that reference the given secret.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceCredentialsSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	attachedObjectStorage := &everestv1alpha1.ObjectStorageList{}
+	listOps1 := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(credentialsSecretNameField, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+	err := r.List(ctx, attachedObjectStorage, listOps1)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	var requests []reconcile.Request
+	for _, objectStorage := range attachedObjectStorage.Items {
+		attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(objectStorageNameField, objectStorage.GetName()),
+			Namespace:     secret.GetNamespace(),
+		}
+		err = r.List(ctx, attachedDatabaseClusters, listOps)
+		if err != nil {
+			return []reconcile.Request{}
+		}
+
+		for _, item := range attachedDatabaseClusters.Items {
+			request := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			}
+			requests = append(requests, request)
+		}
+	}
+
 	return requests
 }
 
