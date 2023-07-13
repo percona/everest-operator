@@ -73,7 +73,6 @@ const (
 	pxcDeploymentName   = "percona-xtradb-cluster-operator"
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pgDeploymentName    = "percona-postgresql-operator"
-	pxcBackupImageTmpl  = "percona/percona-xtradb-cluster-operator:%s-pxc8.0-backup"
 
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
@@ -134,6 +133,9 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 			PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
 				MaxUnavailable: &maxUnavailable,
 			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	PMM: &pxcv1.PMMSpec{
@@ -151,12 +153,18 @@ var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
 			Affinity: &pxcv1.PodAffinity{
 				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
 		},
 	},
 	ProxySQL: &pxcv1.PodSpec{
 		Enabled: false,
 		Affinity: &pxcv1.PodAffinity{
 			TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{},
 		},
 	},
 }
@@ -316,17 +324,17 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger.Info("Reconciled", "request", req)
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 
-	if ok && !database.Spec.Pause {
-		database.Spec.Pause = true
+	if ok && !database.Spec.Paused {
+		database.Spec.Paused = true
 	}
-	if ok && database.Status.State == everestv1alpha1.AppStatePaused {
-		database.Spec.Pause = false
+	if ok && database.Status.Status == everestv1alpha1.AppStatePaused {
+		database.Spec.Paused = false
 		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
 		if err := r.Update(ctx, database); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
-	if database.Spec.Database == everestv1alpha1.DatabaseEnginePXC {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
 	}
@@ -628,6 +636,104 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	return r.Status().Update(ctx, database)
 }
 
+func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
+	haProxy := defaultPXCSpec.HAProxy
+
+	haProxy.PodSpec.Enabled = true
+
+	if database.Spec.Proxy.Replicas == nil {
+		// By default we set the same number of replicas as the engine
+		haProxy.PodSpec.Size = database.Spec.Engine.Replicas
+	} else {
+		haProxy.PodSpec.Size = *database.Spec.Proxy.Replicas
+	}
+
+	switch database.Spec.Proxy.Expose.Type {
+	case everestv1alpha1.ExposeTypeInternal:
+		haProxy.PodSpec.ServiceType = corev1.ServiceTypeClusterIP
+		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeClusterIP
+	case everestv1alpha1.ExposeTypeExternal:
+		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
+		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
+		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+	default:
+		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+	}
+
+	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
+
+	haProxyAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeHAProxy]
+	if !ok {
+		return nil, errors.Errorf("haproxy version not available")
+	}
+
+	recommendedHAProxyVersion := haProxyAvailVersions.RecommendedVersion()
+	haProxyVersion, ok := haProxyAvailVersions[recommendedHAProxyVersion]
+	if !ok {
+		return nil, errors.Errorf("haproxy version %s not available", recommendedHAProxyVersion)
+	}
+
+	haProxy.PodSpec.Image = haProxyVersion.ImagePath
+
+	if !database.Spec.Proxy.Resources.CPU.IsZero() {
+		haProxy.PodSpec.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+	}
+	if !database.Spec.Proxy.Resources.Memory.IsZero() {
+		haProxy.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+	}
+
+	return haProxy, nil
+}
+
+func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.PodSpec, error) {
+	proxySQL := defaultPXCSpec.ProxySQL
+
+	proxySQL.Enabled = true
+
+	if database.Spec.Proxy.Replicas == nil {
+		// By default we set the same number of replicas as the engine
+		proxySQL.Size = database.Spec.Engine.Replicas
+	} else {
+		proxySQL.Size = *database.Spec.Proxy.Replicas
+	}
+
+	switch database.Spec.Proxy.Expose.Type {
+	case everestv1alpha1.ExposeTypeInternal:
+		proxySQL.ServiceType = corev1.ServiceTypeClusterIP
+		proxySQL.ReplicasServiceType = corev1.ServiceTypeClusterIP
+	case everestv1alpha1.ExposeTypeExternal:
+		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
+		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
+		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+	default:
+		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+	}
+
+	proxySQL.Configuration = database.Spec.Proxy.Config
+
+	proxySQLAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeProxySQL]
+	if !ok {
+		return nil, errors.Errorf("proxysql version not available")
+	}
+
+	recommendedProxySQLVersion := proxySQLAvailVersions.RecommendedVersion()
+	proxySQLVersion, ok := proxySQLAvailVersions[recommendedProxySQLVersion]
+	if !ok {
+		return nil, errors.Errorf("proxysql version %s not available", recommendedProxySQLVersion)
+	}
+
+	proxySQL.Image = proxySQLVersion.ImagePath
+
+	if !database.Spec.Proxy.Resources.CPU.IsZero() {
+		proxySQL.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+	}
+	if !database.Spec.Proxy.Resources.Memory.IsZero() {
+		proxySQL.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+	}
+
+	return proxySQL, nil
+}
+
 func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:lll,gocognit,gocyclo,cyclop,maintidx
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -644,7 +750,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return err
 		}
 	}
-	if current.Spec.Pause != database.Spec.Pause {
+	if current.Spec.Pause != database.Spec.Paused {
 		// During the restoration of PXC clusters
 		// They need to be shutted down
 		//
@@ -677,7 +783,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 		if jobRunning {
-			database.Spec.Pause = current.Spec.Pause
+			database.Spec.Paused = current.Spec.Pause
 		}
 	}
 
@@ -689,15 +795,26 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		},
 		Spec: defaultPXCSpec,
 	}
+
 	if len(database.Finalizers) != 0 {
 		pxc.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
 	}
-	if database.Spec.LoadBalancer.Type == "haproxy" && database.Spec.LoadBalancer.Configuration == "" {
-		database.Spec.LoadBalancer.Configuration = haProxyDefaultConfigurationTemplate
+
+	if database.Spec.Proxy.Type == "" {
+		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
+	}
+	if database.Spec.Proxy.Type == everestv1alpha1.ProxyTypeHAProxy && database.Spec.Proxy.Config == "" {
+		database.Spec.Proxy.Config = haProxyDefaultConfigurationTemplate
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
+	}
+
+	engine := &everestv1alpha1.DatabaseEngine{}
+	err = r.Get(ctx, types.NamespacedName{Name: pxcDeploymentName, Namespace: database.Namespace}, engine)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get database engine %s", pxcDeploymentName)
 	}
 
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
@@ -743,24 +860,24 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		pxc.Spec.CRVersion = version.ToCRVersion()
-		pxc.Spec.AllowUnsafeConfig = database.Spec.ClusterSize == 1
-		pxc.Spec.Pause = database.Spec.Pause
-		pxc.Spec.SecretsName = database.Spec.SecretsName
+		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.Replicas == 1
+		pxc.Spec.Pause = database.Spec.Paused
+		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
 
-		if database.Spec.DatabaseConfig != "" {
-			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.DatabaseConfig
+		if database.Spec.Engine.Config != "" {
+			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.Engine.Config
 		}
 		if pxc.Spec.PXC.PodSpec.Configuration == "" {
 			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
 			gCacheSize := "600M"
 
-			if database.Spec.DBInstance.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) <= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) <= 0 {
 				gCacheSize = "2457M"
 			}
-			if database.Spec.DBInstance.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) <= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) <= 0 {
 				gCacheSize = "9830M"
 			}
-			if database.Spec.DBInstance.Memory.CmpInt64(memoryLargeSize) >= 0 {
+			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
 				gCacheSize = "9830M"
 			}
 			ver, _ := goversion.NewVersion("v1.11.0")
@@ -770,55 +887,53 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		pxc.Spec.PXC.PodSpec.Size = database.Spec.ClusterSize
-		pxc.Spec.PXC.PodSpec.Image = database.Spec.DatabaseImage
+		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
+
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+		}
+		pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		pxc.Spec.PXC.PodSpec.Image = pxcEngineVersion.ImagePath
+
 		pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.DBInstance.StorageClassName,
+				StorageClassName: database.Spec.Engine.Storage.Class,
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 					},
 				},
 			},
 		}
-		pxc.Spec.PXC.PodSpec.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
 		}
-		if database.Spec.LoadBalancer.Type == "haproxy" {
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
+		}
+
+		switch database.Spec.Proxy.Type {
+		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
-
-			if database.Spec.LoadBalancer.Image == "" {
-				database.Spec.LoadBalancer.Image = fmt.Sprintf(haProxyTemplate, version.String())
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine)
+			if err != nil {
+				return err
 			}
-			pxc.Spec.HAProxy.PodSpec.Size = database.Spec.LoadBalancer.Size
-			pxc.Spec.HAProxy.PodSpec.ServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.HAProxy.PodSpec.ReplicasServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.HAProxy.PodSpec.Configuration = database.Spec.LoadBalancer.Configuration
-			pxc.Spec.HAProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
-			pxc.Spec.HAProxy.PodSpec.Annotations = database.Spec.LoadBalancer.Annotations
-			pxc.Spec.HAProxy.PodSpec.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.HAProxy.PodSpec.ReplicasExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.HAProxy.PodSpec.Resources = database.Spec.LoadBalancer.Resources
-			pxc.Spec.HAProxy.PodSpec.Enabled = true
-			pxc.Spec.HAProxy.PodSpec.Image = database.Spec.LoadBalancer.Image
-		}
-		if database.Spec.LoadBalancer.Type == "proxysql" {
+		case everestv1alpha1.ProxyTypeProxySQL:
 			pxc.Spec.HAProxy.PodSpec.Enabled = false
-
-			pxc.Spec.ProxySQL.Size = database.Spec.LoadBalancer.Size
-			pxc.Spec.ProxySQL.ServiceType = database.Spec.LoadBalancer.ExposeType
-			pxc.Spec.ProxySQL.Configuration = database.Spec.LoadBalancer.Configuration
-			pxc.Spec.ProxySQL.LoadBalancerSourceRanges = database.Spec.LoadBalancer.LoadBalancerSourceRanges
-			pxc.Spec.ProxySQL.Annotations = database.Spec.LoadBalancer.Annotations
-			pxc.Spec.ProxySQL.ExternalTrafficPolicy = database.Spec.LoadBalancer.TrafficPolicy
-			pxc.Spec.ProxySQL.Resources = database.Spec.LoadBalancer.Resources
-			pxc.Spec.ProxySQL.Enabled = true
-			pxc.Spec.ProxySQL.Image = database.Spec.LoadBalancer.Image
+			pxc.Spec.ProxySQL, err = r.genPXCProxySQLSpec(database, engine)
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
 		}
+
 		if database.Spec.Monitoring.PMM != nil {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
@@ -894,8 +1009,8 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 	}
 
-	database.Status.Host = pxc.Status.Host
-	database.Status.State = everestv1alpha1.AppState(pxc.Status.Status)
+	database.Status.Hostname = pxc.Status.Host
+	database.Status.Status = everestv1alpha1.AppState(pxc.Status.Status)
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
