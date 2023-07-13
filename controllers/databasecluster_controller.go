@@ -233,6 +233,9 @@ var (
 					Affinity: &psmdbv1.PodAffinity{
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
 				},
 			},
 		},
@@ -257,6 +260,9 @@ var (
 				MultiAZ: psmdbv1.MultiAZ{
 					Affinity: &psmdbv1.PodAffinity{
 						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
 					},
 				},
 			},
@@ -338,7 +344,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	if database.Spec.Database == everestv1alpha1.DatabaseEnginePSMDB {
+	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
 		err := r.reconcilePSMDB(ctx, req, database)
 		if err != nil {
 			logger.Error(err, "unable to reconcile psmdb")
@@ -439,9 +445,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 	engine := &everestv1alpha1.DatabaseEngine{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Database]}, engine)
+	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Engine.Type]}, engine)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to get database engine %s", operatorDeployment[database.Spec.Engine.Type])
 	}
 
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
@@ -488,70 +494,110 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		psmdb.Spec.CRVersion = version.ToCRVersion()
-		psmdb.Spec.UnsafeConf = database.Spec.ClusterSize == 1
-		psmdb.Spec.Pause = database.Spec.Pause
-		psmdb.Spec.Image = database.Spec.DatabaseImage
+		psmdb.Spec.UnsafeConf = database.Spec.Engine.Replicas == 1
+		psmdb.Spec.Pause = database.Spec.Paused
+
+		if database.Spec.Engine.Version == "" {
+			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+		}
+		engineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
+		if !ok {
+			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+		}
+
+		psmdb.Spec.Image = engineVersion.ImagePath
+
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
-			Users: database.Spec.SecretsName,
+			Users: database.Spec.Engine.UserSecretsName,
 		}
 		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
 
-		if database.Spec.DatabaseConfig != "" {
-			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.DatabaseConfig)
+		if database.Spec.Engine.Config != "" {
+			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.Engine.Config)
 		}
 		if psmdb.Spec.Replsets[0].Configuration == "" {
 			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
 			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 		}
 
-		psmdb.Spec.Replsets[0].Size = database.Spec.ClusterSize
+		psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
 				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					StorageClassName: database.Spec.Engine.Storage.Class,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 						},
 					},
 				},
 			},
 		}
-		psmdb.Spec.Replsets[0].MultiAZ.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    database.Spec.DBInstance.CPU,
-				corev1.ResourceMemory: database.Spec.DBInstance.Memory,
-			},
+		if !database.Spec.Engine.Resources.CPU.IsZero() {
+			psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
 		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.ClusterSize
+		if !database.Spec.Engine.Resources.Memory.IsZero() {
+			psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
+		}
+		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
 				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: database.Spec.DBInstance.StorageClassName,
+					StorageClassName: database.Spec.Engine.Storage.Class,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: database.Spec.DBInstance.DiskSize,
+							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 						},
 					},
 				},
 			},
 		}
-		psmdb.Spec.Sharding.Mongos.Size = database.Spec.LoadBalancer.Size
-		psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
-			Expose: psmdbv1.Expose{
-				ExposeType:               database.Spec.LoadBalancer.ExposeType,
-				LoadBalancerSourceRanges: database.Spec.LoadBalancer.LoadBalancerSourceRanges,
-				ServiceAnnotations:       database.Spec.LoadBalancer.Annotations,
-			},
+		if database.Spec.Proxy.Replicas == nil {
+			// By default we set the same number of replicas as the engine
+			psmdb.Spec.Sharding.Mongos.Size = database.Spec.Engine.Replicas
+		} else {
+			psmdb.Spec.Sharding.Mongos.Size = *database.Spec.Proxy.Replicas
 		}
-		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.LoadBalancer.Configuration)
-		psmdb.Spec.Sharding.Mongos.MultiAZ.Resources = database.Spec.LoadBalancer.Resources
-		if database.Spec.ClusterSize == 1 {
+		switch database.Spec.Proxy.Expose.Type {
+		case everestv1alpha1.ExposeTypeInternal:
+			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
+				Expose: psmdbv1.Expose{
+					ExposeType: corev1.ServiceTypeClusterIP,
+				},
+			}
+		case everestv1alpha1.ExposeTypeExternal:
+			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
+				Expose: psmdbv1.Expose{
+					ExposeType:               corev1.ServiceTypeLoadBalancer,
+					LoadBalancerSourceRanges: database.Spec.Proxy.Expose.IPSourceRanges,
+				},
+			}
+		default:
+			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+		}
+
+		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.Proxy.Config)
+		if !database.Spec.Proxy.Resources.CPU.IsZero() {
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+		}
+		if !database.Spec.Proxy.Resources.Memory.IsZero() {
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+		}
+		if database.Spec.Engine.Replicas == 1 {
 			psmdb.Spec.Sharding.Enabled = false
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
-			psmdb.Spec.Replsets[0].Expose.ExposeType = database.Spec.LoadBalancer.ExposeType
+			switch database.Spec.Proxy.Expose.Type {
+			case everestv1alpha1.ExposeTypeInternal:
+				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
+			case everestv1alpha1.ExposeTypeExternal:
+				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
+			default:
+				return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+			}
+			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
+
 		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
@@ -623,10 +669,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 	}
 
-	database.Status.Host = psmdb.Status.Host
+	database.Status.Hostname = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
-	database.Status.State = everestv1alpha1.AppState(psmdb.Status.State)
+	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
 	message := psmdb.Status.Message
 	conditions := psmdb.Status.Conditions
 	if message == "" && len(conditions) != 0 {
