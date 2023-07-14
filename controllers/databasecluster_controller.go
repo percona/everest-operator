@@ -592,6 +592,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 		}
 
+		if database.Spec.Engine.Replicas == 0 {
+			database.Spec.Engine.Replicas = 3
+		}
 		psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
@@ -1016,6 +1019,9 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
+		if database.Spec.Engine.Replicas == 0 {
+			database.Spec.Engine.Replicas = 3
+		}
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
 
 		if database.Spec.Engine.Version == "" {
@@ -1357,6 +1363,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		}
 		pg.Spec.PostgresVersion = pgMajorVersion
 
+		if database.Spec.Engine.Replicas == 0 {
+			database.Spec.Engine.Replicas = 3
+		}
 		pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
 		if !database.Spec.Engine.Resources.CPU.IsZero() {
 			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU

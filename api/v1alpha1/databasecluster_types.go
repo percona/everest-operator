@@ -100,7 +100,7 @@ type Engine struct {
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
 	// Replicas is the number of engine replicas
-	Replicas int32 `json:"replicas"`
+	Replicas int32 `json:"replicas,omitempty"`
 	// Storage is the engine storage configuration
 	Storage Storage `json:"storage"`
 	// Resources is the resource requirements for the engine container
