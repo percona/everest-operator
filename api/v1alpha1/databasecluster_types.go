@@ -85,7 +85,7 @@ type Storage struct {
 	Class *string `json:"class,omitempty"`
 }
 
-// Resources is the resource requirements.
+// Resources are the resource requirements.
 type Resources struct {
 	// CPU is the CPU resource requirements
 	CPU resource.Quantity `json:"cpu,omitempty"`
@@ -103,7 +103,8 @@ type Engine struct {
 	Replicas int32 `json:"replicas,omitempty"`
 	// Storage is the engine storage configuration
 	Storage Storage `json:"storage"`
-	// Resources is the resource requirements for the engine container
+	// Resources are the resource limits for each engine replica.
+	// If not set, resource limits are not imposed
 	Resources Resources `json:"resources,omitempty"`
 	// Config is the engine configuration
 	Config string `json:"config,omitempty"`
@@ -120,7 +121,8 @@ type Expose struct {
 	// +kubebuilder:validation:Enum:=internal;external
 	// +kubebuilder:default:=internal
 	Type ExposeType `json:"type,omitempty"`
-	// IPSourceRanges is the list of IP source ranges to allow access from
+	// IPSourceRanges is the list of IP source ranges (CIDR notation)
+	// to allow access from. If not set, there is no limitations
 	IPSourceRanges []string `json:"ipSourceRanges,omitempty"`
 }
 
@@ -138,13 +140,14 @@ type Proxy struct {
 	Config string `json:"config,omitempty"`
 	// Expose is the proxy expose configuration
 	Expose Expose `json:"expose,omitempty"`
-	// Resources is the resource requirements for the proxy container
+	// Resources are the resource limits for each proxy replica.
+	// If not set, resource limits are not imposed
 	Resources Resources `json:"resources,omitempty"`
 }
 
 // DataSource is the data source configuration.
 type DataSource struct {
-	// BackupName is the name of the backup to use
+	// BackupName is the name of the backup from backup location to use
 	BackupName string `json:"backupName"`
 	// ObjectStorageName is the name of the ObjectStorage CR that defines the
 	// storage location
@@ -195,7 +198,8 @@ type Monitoring struct {
 	//// MonitoringConfigName is the name of the MonitoringConfig CR that defines
 	//// the monitoring configuration
 	//MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
-	//// Resources is the resource requirements for the monitoring container
+	//// Resources are the resource requirements for the monitoring container.
+	//// If not set, resource limits are not imposed
 	//Resources Resources `json:"resources,omitempty"`
 }
 
@@ -205,7 +209,10 @@ type DatabaseClusterSpec struct {
 	Paused bool `json:"paused,omitempty"`
 	// Engine is the database engine specification
 	Engine Engine `json:"engine"`
-	// Proxy is the proxy specification
+	// Proxy is the proxy specification. If not set, an appropriate
+	// proxy specification will be applied for the given engine. A
+	// common use case for setting this field is to control the
+	// external access to the database cluster.
 	Proxy Proxy `json:"proxy,omitempty"`
 	// DataSource defines a data source for bootstraping a new cluster
 	DataSource *DataSource `json:"dataSource,omitempty"`
