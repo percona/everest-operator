@@ -440,9 +440,15 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
 ) (psmdbv1.BackupSpec, error) {
+	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
+	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
+	if !ok {
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("backup version %s not available", bestBackupVersion)
+	}
+
 	psmdbBackupSpec := psmdbv1.BackupSpec{
 		Enabled: true,
-		Image:   engine.RecommendedBackupImage(),
+		Image:   backupVersion.ImagePath,
 	}
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
 	var tasks []psmdbv1.BackupTaskSpec //nolint:prealloc
@@ -564,7 +570,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		psmdb.Spec.Pause = database.Spec.Paused
 
 		if database.Spec.Engine.Version == "" {
-			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+			database.Spec.Engine.Version = engine.BestEngineVersion()
 		}
 		engineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {
@@ -733,10 +739,10 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 		return nil, errors.Errorf("haproxy version not available")
 	}
 
-	recommendedHAProxyVersion := haProxyAvailVersions.RecommendedVersion()
-	haProxyVersion, ok := haProxyAvailVersions[recommendedHAProxyVersion]
+	bestHAProxyVersion := haProxyAvailVersions.BestVersion()
+	haProxyVersion, ok := haProxyAvailVersions[bestHAProxyVersion]
 	if !ok {
-		return nil, errors.Errorf("haproxy version %s not available", recommendedHAProxyVersion)
+		return nil, errors.Errorf("haproxy version %s not available", bestHAProxyVersion)
 	}
 
 	haProxy.PodSpec.Image = haProxyVersion.ImagePath
@@ -782,10 +788,10 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 		return nil, errors.Errorf("proxysql version not available")
 	}
 
-	recommendedProxySQLVersion := proxySQLAvailVersions.RecommendedVersion()
-	proxySQLVersion, ok := proxySQLAvailVersions[recommendedProxySQLVersion]
+	bestProxySQLVersion := proxySQLAvailVersions.BestVersion()
+	proxySQLVersion, ok := proxySQLAvailVersions[bestProxySQLVersion]
 	if !ok {
-		return nil, errors.Errorf("proxysql version %s not available", recommendedProxySQLVersion)
+		return nil, errors.Errorf("proxysql version %s not available", bestProxySQLVersion)
 	}
 
 	proxySQL.Image = proxySQLVersion.ImagePath
@@ -800,44 +806,15 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 	return proxySQL, nil
 }
 
-func getBackupVersionForPXCEngine(backupVersions everestv1alpha1.ComponentsMap, engineVersion string) string {
-	engineGoVersion, err := goversion.NewVersion(engineVersion)
-	if err != nil {
-		return ""
-	}
-	v8, _ := goversion.NewVersion("8.0.0")
-	isV8 := engineGoVersion.GreaterThanOrEqual(v8)
-
-	for version, component := range backupVersions {
-		if component.Status != "recommended" {
-			continue
-		}
-		v, err := goversion.NewVersion(version)
-		if err != nil {
-			continue
-		}
-		if isV8 && v.LessThan(v8) {
-			continue
-		}
-
-		if !isV8 && v.GreaterThanOrEqual(v8) {
-			continue
-		}
-		return version
-	}
-
-	return ""
-}
-
 func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
 ) (*pxcv1.PXCScheduledBackup, error) {
-	matchingBackupVersion := getBackupVersionForPXCEngine(engine.Status.AvailableVersions.Backup, database.Spec.Engine.Version)
-	backupVersion, ok := engine.Status.AvailableVersions.Backup[matchingBackupVersion]
+	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
+	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
 	if !ok {
-		return nil, errors.Errorf("backup version %s not available", matchingBackupVersion)
+		return nil, errors.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
@@ -1042,7 +1019,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
 
 		if database.Spec.Engine.Version == "" {
-			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+			database.Spec.Engine.Version = engine.BestEngineVersion()
 		}
 		pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {
@@ -1360,7 +1337,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		// pg.Spec.SecretsName = database.Spec.Engine.UserSecretsName
 		pg.Spec.Pause = &database.Spec.Paused
 		if database.Spec.Engine.Version == "" {
-			database.Spec.Engine.Version = engine.RecommendedEngineVersion()
+			database.Spec.Engine.Version = engine.BestEngineVersion()
 		}
 		pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {

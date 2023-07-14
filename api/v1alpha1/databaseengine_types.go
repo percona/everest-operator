@@ -29,12 +29,22 @@ const (
 	DBEngineStateInstalling EngineState = "installing"
 	// DBEngineStateInstalled represents the state of engine when underlying operator is installed.
 	DBEngineStateInstalled EngineState = "installed"
+
 	// DatabaseEnginePXC represents engine type for PXC clusters.
 	DatabaseEnginePXC EngineType = "pxc"
 	// DatabaseEnginePSMDB represents engine type for PSMDB clusters.
 	DatabaseEnginePSMDB EngineType = "psmdb"
 	// DatabaseEnginePostgresql represents engine type for Postgresql clusters.
 	DatabaseEnginePostgresql EngineType = "postgresql"
+
+	// DBEngineComponentRecommended represents recommended component status.
+	DBEngineComponentRecommended ComponentStatus = "recommended"
+	// DBEngineComponentAvailable represents available component status.
+	DBEngineComponentAvailable ComponentStatus = "available"
+	// DBEngineComponentUnavailable represents unavailable component status.
+	DBEngineComponentUnavailable ComponentStatus = "unavailable"
+	// DBEngineComponentUnsupported represents unsupported component status.
+	DBEngineComponentUnsupported ComponentStatus = "unsupported"
 )
 
 type (
@@ -95,49 +105,119 @@ type Versions struct {
 // ComponentsMap is a map of database engine components.
 type ComponentsMap map[string]*Component
 
+// ComponentStatus represents status of the database engine component.
+type ComponentStatus string
+
 // Component contains information of the database engine component.
 // Database Engine component can be database engine, database proxy or tools image path.
 type Component struct {
-	Critical  bool   `json:"critical,omitempty"`
-	ImageHash string `json:"imageHash,omitempty"`
-	ImagePath string `json:"imagePath,omitempty"`
-	Status    string `json:"status,omitempty"`
+	Critical  bool            `json:"critical,omitempty"`
+	ImageHash string          `json:"imageHash,omitempty"`
+	ImagePath string          `json:"imagePath,omitempty"`
+	Status    ComponentStatus `json:"status,omitempty"`
 }
 
-// RecommendedVersion returns the recommended version for the components map.
-func (c ComponentsMap) RecommendedVersion() string {
-	var versions []*goversion.Version //nolint:prealloc
+// FilterStatus returns a new ComponentsMap with components filtered by status.
+func (c ComponentsMap) FilterStatus(statuses ...ComponentStatus) ComponentsMap {
+	result := make(ComponentsMap)
 	for version, component := range c {
-		if component.Status != "recommended" {
-			continue
+		for _, status := range statuses {
+			if component.Status == status {
+				result[version] = component
+			}
 		}
+	}
+	return result
+}
+
+// GetSortedVersions returns a sorted slice of versions. Versions are sorted in
+// descending order. Most recent version is first.
+func (c ComponentsMap) GetSortedVersions() []string {
+	versions := make(goversion.Collection, 0, len(c))
+	for version := range c {
 		v, err := goversion.NewVersion(version)
 		if err != nil {
 			continue
 		}
 		versions = append(versions, v)
 	}
-	if len(versions) == 0 {
+	sort.Sort(versions)
+
+	// Reverse order and return the original version strings.
+	result := make([]string, 0, len(versions))
+	for i := len(versions) - 1; i >= 0; i-- {
+		result = append(result, versions[i].Original())
+	}
+
+	return result
+}
+
+// GetAllowedVersionsSorted returns a sorted slice of allowed versions.
+// An allowed version is a version whose status is either recommended or
+// available. Allowed versions are sorted by status, with recommended versions
+// first, followed by available versions. Versions with the same status are
+// sorted by version in descending order. Most recent version is first.
+func (c ComponentsMap) GetAllowedVersionsSorted() []string {
+	recommendedComponents := c.FilterStatus(DBEngineComponentRecommended)
+	recommendedVersions := recommendedComponents.GetSortedVersions()
+
+	availableComponents := c.FilterStatus(DBEngineComponentAvailable)
+	availableVersions := availableComponents.GetSortedVersions()
+
+	return append(recommendedVersions, availableVersions...)
+}
+
+// BestVersion returns the best version for the components map.
+func (c ComponentsMap) BestVersion() string {
+	allowedVersions := c.GetAllowedVersionsSorted()
+	return allowedVersions[0]
+}
+
+// BestEngineVersion returns the best engine version for the database engine.
+func (d DatabaseEngine) BestEngineVersion() string {
+	return d.Status.AvailableVersions.Engine.BestVersion()
+}
+
+// BestBackupVersion returns the best backup version for a given engine version.
+func (d DatabaseEngine) BestBackupVersion(engineVersion string) string {
+	switch d.Spec.Type {
+	case DatabaseEnginePXC:
+		engineGoVersion, err := goversion.NewVersion(engineVersion)
+		if err != nil {
+			return ""
+		}
+
+		v8, err := goversion.NewVersion("8.0.0")
+		if err != nil {
+			return ""
+		}
+
+		engineIsV8 := engineGoVersion.GreaterThanOrEqual(v8)
+		allowedVersions := d.Status.AvailableVersions.Backup.GetAllowedVersionsSorted()
+		for _, version := range allowedVersions {
+			v, err := goversion.NewVersion(version)
+			if err != nil {
+				continue
+			}
+			if !engineIsV8 && v.GreaterThanOrEqual(v8) {
+				continue
+			}
+			if engineIsV8 && v.LessThan(v8) {
+				continue
+			}
+			return version
+		}
+		return ""
+	case DatabaseEnginePSMDB:
+		return d.Status.AvailableVersions.Backup.BestVersion()
+	case DatabaseEnginePostgresql:
+		if d.Status.AvailableVersions.Backup[engineVersion] == nil {
+			return ""
+		}
+		return engineVersion
+	default:
 		return ""
 	}
-	sort.Sort(goversion.Collection(versions))
-
-	return versions[len(versions)-1].Original()
-}
-
-// RecommendedEngineVersion returns the recommended version for the database engine.
-func (d DatabaseEngine) RecommendedEngineVersion() string {
-	return d.Status.AvailableVersions.Engine.RecommendedVersion()
-}
-
-// RecommendedBackupImage returns the recommended image for the backup component.
-func (d DatabaseEngine) RecommendedBackupImage() string {
-	for _, component := range d.Status.AvailableVersions.Backup {
-		if component.Status == "recommended" {
-			return component.ImagePath
-		}
-	}
-	return ""
 }
 
 func init() {
