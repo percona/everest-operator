@@ -97,7 +97,8 @@ spec:
                   cluster
                 properties:
                   backupName:
-                    description: BackupName is the name of the backup to use
+                    description: BackupName is the name of the backup from backup
+                      location to use
                     type: string
                   objectStorageName:
                     description: ObjectStorageName is the name of the ObjectStorage
@@ -118,8 +119,8 @@ spec:
                     format: int32
                     type: integer
                   resources:
-                    description: Resources is the resource requirements for the engine
-                      container
+                    description: Resources are the resource limits for each engine
+                      replica. If not set, resource limits are not imposed
                     properties:
                       cpu:
                         anyOf:
@@ -164,7 +165,6 @@ spec:
                     description: Version is the engine version
                     type: string
                 required:
-                - replicas
                 - storage
                 - type
                 type: object
@@ -247,7 +247,10 @@ spec:
                 description: Paused is a flag to stop the cluster
                 type: boolean
               proxy:
-                description: Proxy is the proxy specification
+                description: Proxy is the proxy specification. If not set, an appropriate
+                  proxy specification will be applied for the given engine. A common
+                  use case for setting this field is to control the external access
+                  to the database cluster.
                 properties:
                   config:
                     description: Config is the proxy configuration
@@ -257,7 +260,8 @@ spec:
                     properties:
                       ipSourceRanges:
                         description: IPSourceRanges is the list of IP source ranges
-                          to allow access from
+                          (CIDR notation) to allow access from. If not set, there
+                          is no limitations
                         items:
                           type: string
                         type: array
@@ -274,8 +278,8 @@ spec:
                     format: int32
                     type: integer
                   resources:
-                    description: Resources is the resource requirements for the proxy
-                      container
+                    description: Resources are the resource limits for each proxy
+                      replica. If not set, resource limits are not imposed
                     properties:
                       cpu:
                         anyOf:
