@@ -1,0 +1,44 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8093 -health-probe-bind-address :8094
+    background: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-psmdb-cluster-backup-s3
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
+  AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+  finalizers:
+    - delete-psmdb-pvc
+spec:
+  databaseType: psmdb
+  databaseImage: percona/percona-server-mongodb:4.4.10-11
+  databaseConfig: ""
+  secretsName: psmdb-sample-secrets
+  clusterSize: 1
+  loadBalancer:
+    type: mongos
+    exposeType: ClusterIP
+    size: 1
+  dbInstance:
+    cpu: 300m
+    memory: 500M
+    diskSize: 15G
+#  backup:
+#    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+#    storages:
+#      testStorage:
+#        type: s3
+#        storageProvider:
+#          bucket: test
+#          credentialsSecret: test-psmdb-cluster-backup-s3
+#          region: us-east-2

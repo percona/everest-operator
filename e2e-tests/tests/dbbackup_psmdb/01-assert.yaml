@@ -1,0 +1,53 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 200
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: databaseclusters.everest.percona.com
+spec:
+  group: everest.percona.com
+  names:
+    kind: DatabaseCluster
+    listKind: DatabaseClusterList
+    plural: databaseclusters
+    shortNames:
+      - db
+      - dbc
+    singular: databasecluster
+  scope: Namespaced
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  databaseType: psmdb
+  databaseImage: percona/percona-server-mongodb:4.4.10-11
+status:
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+  finalizers:
+    - delete-psmdb-pvc
+spec:
+  image: percona/percona-server-mongodb:4.4.10-11
+  multiCluster:
+    enabled: false
+  replsets:
+    - expose:
+        enabled: true
+  secrets:
+    users:  psmdb-sample-secrets
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready
