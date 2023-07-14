@@ -1,0 +1,26 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 200
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup
+spec:
+  engineType: pxc
+  backupSource:
+    storageName: testStorage
+    storage_type: "s3"
+    s3:
+      bucket: test
+      credentialsSecret: test-pxc-cluster-backup-s3
+  dbClusterName: test-pxc-cluster
+  name: dbbtest
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: test-db-backup
+spec:
+  storageName: testStorage
+  pxcCluster: test-pxc-cluster

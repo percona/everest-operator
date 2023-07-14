@@ -1,0 +1,57 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: databaseclusters.everest.percona.com
+spec:
+  group: everest.percona.com
+  names:
+    kind: DatabaseCluster
+    listKind: DatabaseClusterList
+    plural: databaseclusters
+    shortNames:
+      - db
+      - dbc
+    singular: databasecluster
+  scope: Namespaced
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  databaseType: pxc
+  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
+  databaseConfig: ""
+  secretsName: pxc-sample-secrets
+  clusterSize: 1
+  loadBalancer:
+    type: haproxy
+    exposeType: ClusterIP
+    size: 1
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
+  dbInstance:
+    cpu: 600m
+    memory: 1G
+    diskSize: 15G
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+  finalizers:
+    - delete-pxc-pvc
+spec:
+  haproxy:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+status:
+  state: ready

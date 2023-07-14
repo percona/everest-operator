@@ -143,7 +143,11 @@ spec:
                 description: DBClusterName is the original database cluster name.
                 type: string
               engineType:
-                description: Type of the db cluster - pxc, psmdb, pg
+                description: EngineType is the type of the engine
+                enum:
+                - pxc
+                - psmdb
+                - pg
                 type: string
               name:
                 description: Name is the backup name.

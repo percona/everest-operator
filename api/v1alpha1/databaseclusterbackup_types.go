@@ -26,7 +26,8 @@ type BackupState string
 type DatabaseClusterBackupSpec struct {
 	// Name is the backup name.
 	Name string `json:"name"`
-	// Type of the db cluster - pxc, psmdb, pg
+	// EngineType is the type of the engine
+	// +kubebuilder:validation:Enum=pxc;psmdb;pg
 	EngineType string `json:"engineType"`
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
