@@ -1275,6 +1275,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	return pgDataSource, nil
 }
 
+//nolint:gocognit,maintidx
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
 	version, err := NewVersion("v2beta1")
 	if err != nil {
