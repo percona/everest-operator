@@ -263,11 +263,11 @@ spec:
                           type: string
                         type: array
                       type:
-                        default: Internal
-                        description: Type is the expose type, can be Internal or External
+                        default: internal
+                        description: Type is the expose type, can be internal or external
                         enum:
-                        - Internal
-                        - External
+                        - internal
+                        - external
                         type: string
                     type: object
                   replicas:

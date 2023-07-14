@@ -78,6 +78,8 @@ spec:
                         imagePath:
                           type: string
                         status:
+                          description: ComponentStatus represents status of the database
+                            engine component.
                           type: string
                       type: object
                     description: ComponentsMap is a map of database engine components.
@@ -95,6 +97,8 @@ spec:
                         imagePath:
                           type: string
                         status:
+                          description: ComponentStatus represents status of the database
+                            engine component.
                           type: string
                       type: object
                     description: ComponentsMap is a map of database engine components.
@@ -113,6 +117,8 @@ spec:
                           imagePath:
                             type: string
                           status:
+                            description: ComponentStatus represents status of the
+                              database engine component.
                             type: string
                         type: object
                       description: ComponentsMap is a map of database engine components.
@@ -132,6 +138,8 @@ spec:
                           imagePath:
                             type: string
                           status:
+                            description: ComponentStatus represents status of the
+                              database engine component.
                             type: string
                         type: object
                       description: ComponentsMap is a map of database engine components.
