@@ -237,7 +237,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Kind:       psmdbBackupKind,
 		}
 		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
-		psmdbCR.Spec.StorageName = backup.Spec.DBClusterName
+		psmdbCR.Spec.StorageName = backup.Spec.BackupSource.StorageName
 
 		return nil
 	})
@@ -272,7 +272,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backu
 			Kind:       pgBackupKind,
 		}
 		pgCR.Spec.PGCluster = backup.Spec.DBClusterName
-		pgCR.Spec.RepoName = backup.Spec.DBClusterName
+		pgCR.Spec.RepoName = backup.Spec.BackupSource.StorageName
 
 		return nil
 	})

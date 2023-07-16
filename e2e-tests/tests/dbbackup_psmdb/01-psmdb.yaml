@@ -17,8 +17,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pvc
 spec:
   databaseType: psmdb
   databaseImage: percona/percona-server-mongodb:4.4.10-11
@@ -33,12 +31,3 @@ spec:
     cpu: 300m
     memory: 500M
     diskSize: 15G
-#  backup:
-#    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
-#    storages:
-#      testStorage:
-#        type: s3
-#        storageProvider:
-#          bucket: test
-#          credentialsSecret: test-psmdb-cluster-backup-s3
-#          region: us-east-2
