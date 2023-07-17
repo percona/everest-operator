@@ -30,7 +30,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	goversion "github.com/hashicorp/go-version"
-	pgv2beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/pg.percona.com/v2beta1"
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -76,10 +76,10 @@ const (
 
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
-	pgCRDName                   = "perconapgclusters.pg.percona.com"
+	pgCRDName                   = "perconapgclusters.pgv2.percona.com"
 	pxcAPIGroup                 = "pxc.percona.com"
 	psmdbAPIGroup               = "psmdb.percona.com"
-	pgAPIGroup                  = "pg.percona.com"
+	pgAPIGroup                  = "pgv2.percona.com"
 	haProxyTemplate             = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey        = "everest.percona.com/restart"
 	dbTemplateKindAnnotationKey = "everest.percona.com/dbtemplate-kind"
@@ -271,8 +271,8 @@ var (
 	}
 )
 
-var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
-	InstanceSets: pgv2beta1.PGInstanceSets{
+var defaultPGSpec = pgv2.PerconaPGClusterSpec{
+	InstanceSets: pgv2.PGInstanceSets{
 		{
 			Name: "instance1",
 			Resources: corev1.ResourceRequirements{
@@ -280,7 +280,7 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 			},
 		},
 	},
-	PMM: &pgv2beta1.PMMSpec{
+	PMM: &pgv2.PMMSpec{
 		Enabled: false,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -289,8 +289,8 @@ var defaultPGSpec = pgv2beta1.PerconaPGClusterSpec{
 			},
 		},
 	},
-	Proxy: &pgv2beta1.PGProxySpec{
-		PGBouncer: &pgv2beta1.PGBouncerSpec{
+	Proxy: &pgv2.PGProxySpec{
+		PGBouncer: &pgv2.PGBouncerSpec{
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{},
 			},
@@ -312,7 +312,7 @@ type DatabaseClusterReconciler struct {
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 //+kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=pg.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=objectstorages,verbs=get;list;watch;create;update;patch;delete
 
@@ -1282,8 +1282,11 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 }
 
 //nolint:gocognit,maintidx
-func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
-	version, err := NewVersion("v2beta1")
+func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
+	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
+		Namespace: req.NamespacedName.Namespace,
+		Name:      pgDeploymentName,
+	})
 	if err != nil {
 		return err
 	}
@@ -1307,7 +1310,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		pgSpec.Proxy.PGBouncer.Affinity = affinity
 	}
 
-	pg := &pgv2beta1.PerconaPGCluster{
+	pg := &pgv2.PerconaPGCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        database.Name,
 			Namespace:   database.Namespace,
@@ -1408,11 +1411,11 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, _ ctrl.Requ
 		// https://jira.percona.com/browse/K8SPG-311
 		switch database.Spec.Proxy.Expose.Type {
 		case everestv1alpha1.ExposeTypeInternal:
-			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 				Type: string(corev1.ServiceTypeClusterIP),
 			}
 		case everestv1alpha1.ExposeTypeExternal:
-			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2beta1.ServiceExpose{
+			pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 				Type: string(corev1.ServiceTypeLoadBalancer),
 			}
 		default:
@@ -1519,10 +1522,10 @@ func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) err
 	if err != nil {
 		return err
 	}
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
+	pxcSchemeGroupVersion := schema.GroupVersion{Group: pxcAPIGroup, Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
 	ver, _ := goversion.NewVersion("v1.11.0")
 	if version.version.GreaterThan(ver) {
-		pxcSchemeGroupVersion = schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
+		pxcSchemeGroupVersion = schema.GroupVersion{Group: pxcAPIGroup, Version: "v1"}
 	}
 
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
@@ -1540,10 +1543,10 @@ func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) e
 	if err != nil {
 		return err
 	}
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
+	psmdbSchemeGroupVersion := schema.GroupVersion{Group: psmdbAPIGroup, Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
 	ver, _ := goversion.NewVersion("v1.12.0")
 	if version.version.GreaterThan(ver) {
-		psmdbSchemeGroupVersion = schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
+		psmdbSchemeGroupVersion = schema.GroupVersion{Group: psmdbAPIGroup, Version: "v1"}
 	}
 	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
 		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{})
@@ -1553,9 +1556,9 @@ func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) e
 }
 
 func (r *DatabaseClusterReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
-	pgSchemeGroupVersion := schema.GroupVersion{Group: "pg.percona.com", Version: "v2beta1"}
+	pgSchemeGroupVersion := schema.GroupVersion{Group: pgAPIGroup, Version: "v2"}
 	scheme.AddKnownTypes(pgSchemeGroupVersion,
-		&pgv2beta1.PerconaPGCluster{}, &pgv2beta1.PerconaPGClusterList{})
+		&pgv2.PerconaPGCluster{}, &pgv2.PerconaPGClusterList{})
 
 	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
 	return nil
@@ -1637,7 +1640,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err = r.Get(context.Background(), types.NamespacedName{Name: pgCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPGToScheme(r.Scheme); err == nil {
-			controller.Owns(&pgv2beta1.PerconaPGCluster{})
+			controller.Owns(&pgv2.PerconaPGCluster{})
 		}
 	}
 	// In PG reconciliation we create a backup credentials secret because the

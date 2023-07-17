@@ -81,7 +81,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-07-14T14:32:03Z"
+    createdAt: "2023-07-14T18:44:13Z"
     operators.operatorframework.io/builder: operator-sdk-v1.30.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.3
@@ -271,7 +271,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - pg.percona.com
+          - pgv2.percona.com
           resources:
           - perconapgclusters
           verbs:
