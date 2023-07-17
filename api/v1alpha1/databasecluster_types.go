@@ -108,8 +108,6 @@ type Engine struct {
 	Resources Resources `json:"resources,omitempty"`
 	// Config is the engine configuration
 	Config string `json:"config,omitempty"`
-	// UserSecretsName is the name of the secret containing the user secrets
-	UserSecretsName string `json:"userSecretsName,omitempty"`
 }
 
 // ExposeType is the expose type.
@@ -214,6 +212,9 @@ type DatabaseClusterSpec struct {
 	// common use case for setting this field is to control the
 	// external access to the database cluster.
 	Proxy Proxy `json:"proxy,omitempty"`
+	// AdminUserSecretName is the name of the secret that contains the admin
+	// user credentials
+	AdminUserSecretName string `json:"adminSecretName,omitempty"`
 	// DataSource defines a data source for bootstraping a new cluster
 	DataSource *DataSource `json:"dataSource,omitempty"`
 	// Backup is the backup specification

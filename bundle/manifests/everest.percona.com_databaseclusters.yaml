@@ -53,6 +53,10 @@ spec:
           spec:
             description: DatabaseClusterSpec defines the desired state of DatabaseCluster.
             properties:
+              adminSecretName:
+                description: AdminSecretName is the name of the secret that contains
+                  the admin credentials
+                type: string
               backup:
                 description: Backup is the backup specification
                 properties:
@@ -156,10 +160,6 @@ spec:
                     type: object
                   type:
                     description: Type is the engine type
-                    type: string
-                  userSecretsName:
-                    description: UserSecretsName is the name of the secret containing
-                      the user secrets
                     type: string
                   version:
                     description: Version is the engine version

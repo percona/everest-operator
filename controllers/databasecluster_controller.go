@@ -18,9 +18,11 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"regexp"
@@ -111,6 +113,9 @@ timeout server 28800s
 `
 	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+	adminSecretNameField       = ".spec.adminSecretName"       //nolint:gosec
+
+	passwordLength = 24
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -394,6 +399,116 @@ func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (Cluster
 	return clusterType, nil
 }
 
+func generatePassword(n int) (string, error) {
+	// PSMDB does not support all special characters in password https://jira.percona.com/browse/K8SPSMDB-364
+	symbols := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	symbolsLen := len(symbols)
+	b := make([]rune, n)
+	for i := range b {
+		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(symbolsLen)))
+		if err != nil {
+			return "", err
+		}
+		b[i] = symbols[randomIndex.Uint64()]
+	}
+	return string(b), nil
+}
+
+func (r *DatabaseClusterReconciler) reconcileAdminSecret(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+	adminSecretName,
+	internalSecretName string,
+) error {
+	adminSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: adminSecretName, Namespace: database.Namespace}, adminSecret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	if k8serrors.IsNotFound(err) {
+		password, err := generatePassword(passwordLength)
+		if err != nil {
+			return errors.Wrapf(err, "unable to generate password for %s", adminSecretName)
+		}
+
+		var username string
+		switch database.Spec.Engine.Type {
+		case everestv1alpha1.DatabaseEnginePXC:
+			username = "root"
+		case everestv1alpha1.DatabaseEnginePSMDB:
+			username = "userAdmin"
+		case everestv1alpha1.DatabaseEnginePostgresql:
+			username = "postgres"
+		default:
+			return errors.Errorf("unknown database engine %s", database.Spec.Engine.Type)
+		}
+
+		adminSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      adminSecretName,
+				Namespace: database.Namespace,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"username": []byte(username),
+				"password": []byte(password),
+			},
+		}
+		err = r.Create(ctx, adminSecret)
+		if err != nil {
+			return errors.Wrapf(err, "unable to create secret %s", adminSecretName)
+		}
+	}
+
+	internalSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: internalSecretName, Namespace: database.Namespace}, internalSecret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	if k8serrors.IsNotFound(err) {
+		internalSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      internalSecretName,
+				Namespace: database.Namespace,
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+	}
+
+	if internalSecret.Data == nil {
+		internalSecret.Data = map[string][]byte{}
+	}
+
+	switch database.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
+		if string(adminSecret.Data["username"]) != "root" {
+			return errors.Errorf("username for %s is not root", adminSecretName)
+		}
+		internalSecret.Data["root"] = adminSecret.Data["password"]
+	case everestv1alpha1.DatabaseEnginePSMDB:
+		internalSecret.Data["MONGODB_USER_ADMIN_USER"] = adminSecret.Data["username"]
+		internalSecret.Data["MONGODB_USER_ADMIN_PASSWORD"] = adminSecret.Data["password"]
+	case everestv1alpha1.DatabaseEnginePostgresql:
+		if string(adminSecret.Data["username"]) != "postgres" {
+			return errors.Errorf("username for %s is not postgres", adminSecretName)
+		}
+		internalSecret.Data["user"] = adminSecret.Data["username"]
+		internalSecret.Data["password"] = adminSecret.Data["password"]
+		internalSecret.Data["verifier"] = []byte("")
+	default:
+		return errors.Errorf("unknown database engine %s", database.Spec.Engine.Type)
+	}
+
+	err = r.createOrUpdate(ctx, internalSecret)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
@@ -579,8 +694,15 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 
 		psmdb.Spec.Image = engineVersion.ImagePath
 
+		if database.Spec.AdminUserSecretName == "" {
+			database.Spec.AdminUserSecretName = database.Name + "-adminuser"
+		}
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
-			Users: database.Spec.Engine.UserSecretsName,
+			Users: database.Name + "-secrets",
+		}
+		err = r.reconcileAdminSecret(ctx, database, database.Spec.AdminUserSecretName, psmdb.Spec.Secrets.Users)
+		if err != nil {
+			return err
 		}
 		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
 
@@ -994,7 +1116,15 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		pxc.Spec.CRVersion = version.ToCRVersion()
 		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.Replicas == 1
 		pxc.Spec.Pause = database.Spec.Paused
-		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
+
+		if database.Spec.AdminUserSecretName == "" {
+			database.Spec.AdminUserSecretName = database.Name + "-adminuser"
+		}
+		pxc.Spec.SecretsName = database.Name + "-secrets"
+		err = r.reconcileAdminSecret(ctx, database, database.Spec.AdminUserSecretName, pxc.Spec.SecretsName)
+		if err != nil {
+			return err
+		}
 
 		if database.Spec.Engine.Config != "" {
 			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.Engine.Config
@@ -1281,7 +1411,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	return pgDataSource, nil
 }
 
-//nolint:gocognit,maintidx
+//nolint:gocognit,maintidx,gocyclo,cyclop
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
 	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
 		Namespace: req.NamespacedName.Namespace,
@@ -1341,10 +1471,20 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			Kind:       PerconaPGClusterKind,
 		}
 
-		//nolint:godox
-		// FIXME add the secrets name when
-		// https://jira.percona.com/browse/K8SPG-309 is fixed
-		// pg.Spec.SecretsName = database.Spec.Engine.UserSecretsName
+		if database.Spec.AdminUserSecretName == "" {
+			database.Spec.AdminUserSecretName = database.Name + "-adminuser"
+		}
+		pg.Spec.Proxy.PGBouncer.ExposeSuperusers = true
+		pg.Spec.Users = []crunchyv1beta1.PostgresUserSpec{
+			{
+				Name: "postgres",
+			},
+		}
+		err = r.reconcileAdminSecret(ctx, database, database.Spec.AdminUserSecretName, database.Name+"-pguser-"+string(pg.Spec.Users[0].Name))
+		if err != nil {
+			return err
+		}
+
 		pg.Spec.Pause = &database.Spec.Paused
 		if database.Spec.Engine.Version == "" {
 			database.Spec.Engine.Version = engine.BestEngineVersion()
@@ -1617,6 +1757,23 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Index the AdminUserSecretName field so that it can be used by the
+	// databaseClustersThatReferenceAdminUserSecret function to find all
+	// DatabaseClusters that reference a specific secret through the
+	// AdminUserSecretName field
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, adminSecretNameField, func(o client.Object) []string {
+		var res []string
+		database, ok := o.(*everestv1alpha1.DatabaseCluster)
+		if !ok {
+			return res
+		}
+		res = append(res, database.Spec.AdminUserSecretName)
+		return res
+	})
+	if err != nil {
+		return err
+	}
+
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -1661,10 +1818,15 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceCredentialsSecret),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+	controller.Watches(
+		&corev1.Secret{},
+		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceAdminUserSecret),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
 	return controller.Complete(r)
 }
 
-// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// databaseClustersThatReferenceObjectStorage returns a list of reconcile
 // requests for all DatabaseClusters that reference the given ObjectStorage.
 func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(ctx context.Context, objectStorage client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
@@ -1694,11 +1856,11 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(c
 // requests for all DatabaseClusters that reference the given secret.
 func (r *DatabaseClusterReconciler) databaseClustersThatReferenceCredentialsSecret(ctx context.Context, secret client.Object) []reconcile.Request {
 	attachedObjectStorage := &everestv1alpha1.ObjectStorageList{}
-	listOps1 := &client.ListOptions{
+	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(credentialsSecretNameField, secret.GetName()),
 		Namespace:     secret.GetNamespace(),
 	}
-	err := r.List(ctx, attachedObjectStorage, listOps1)
+	err := r.List(ctx, attachedObjectStorage, listOps)
 	if err != nil {
 		return []reconcile.Request{}
 	}
@@ -1723,6 +1885,32 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceCredentialsSecr
 				},
 			}
 			requests = append(requests, request)
+		}
+	}
+
+	return requests
+}
+
+// databaseClustersThatReferenceAdminUserSecret returns a list of reconcile
+// requests for all DatabaseClusters that reference the given admin secret.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceAdminUserSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(adminSecretNameField, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+	err := r.List(ctx, attachedDatabaseClusters, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+	for i, item := range attachedDatabaseClusters.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			},
 		}
 	}
 
