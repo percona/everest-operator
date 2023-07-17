@@ -22,7 +22,7 @@ spec:
       kind: DatabaseClusterRestore
       name: databaseclusterrestores.everest.percona.com
       version: v1alpha1
-    - description: DatabaseCluster is the Schema for the databases API.
+    - description: DatabaseCluster is the Schema for the databaseclusters API.
       displayName: Database Cluster
       kind: DatabaseCluster
       name: databaseclusters.everest.percona.com
@@ -31,6 +31,11 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
+      version: v1alpha1
+    - description: ObjectStorage is the Schema for the objectstorages API.
+      displayName: Object Storage
+      kind: ObjectStorage
+      name: objectstorages.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator

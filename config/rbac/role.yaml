@@ -138,7 +138,19 @@ rules:
   - patch
   - update
 - apiGroups:
-  - pg.percona.com
+  - everest.percona.com
+  resources:
+  - objectstorages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pgv2.percona.com
   resources:
   - perconapgclusters
   verbs:
