@@ -7,8 +7,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
-	github.com/percona/percona-backup-mongodb v1.8.1-0.20221024072933-3ec38a5fc670
-	github.com/percona/percona-postgresql-operator v0.0.0-20230504183427-1e192bc639d4
+	github.com/percona/percona-postgresql-operator v0.0.0-20230629061704-21f8d7d89b98
 	github.com/percona/percona-server-mongodb-operator v1.14.0
 	github.com/percona/percona-xtradb-cluster-operator v1.13.0
 	github.com/pkg/errors v0.9.1
@@ -68,6 +67,7 @@ require (
 	github.com/mongodb/mongo-tools v0.0.0-20220803145531-1d46e6e7021f // indirect
 	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/percona/percona-backup-mongodb v1.8.1-0.20221024072933-3ec38a5fc670 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect

@@ -23,8 +23,8 @@ spec:
     - jsonPath: .status.status
       name: Status
       type: string
-    - jsonPath: .status.version
-      name: Version
+    - jsonPath: .status.operatorVersion
+      name: Operator Version
       type: string
     name: v1alpha1
     schema:
@@ -78,8 +78,11 @@ spec:
                         imagePath:
                           type: string
                         status:
+                          description: ComponentStatus represents status of the database
+                            engine component.
                           type: string
                       type: object
+                    description: ComponentsMap is a map of database engine components.
                     type: object
                   engine:
                     additionalProperties:
@@ -94,8 +97,11 @@ spec:
                         imagePath:
                           type: string
                         status:
+                          description: ComponentStatus represents status of the database
+                            engine component.
                           type: string
                       type: object
+                    description: ComponentsMap is a map of database engine components.
                     type: object
                   proxy:
                     additionalProperties:
@@ -111,8 +117,11 @@ spec:
                           imagePath:
                             type: string
                           status:
+                            description: ComponentStatus represents status of the
+                              database engine component.
                             type: string
                         type: object
+                      description: ComponentsMap is a map of database engine components.
                       type: object
                     type: object
                   tools:
@@ -129,8 +138,11 @@ spec:
                           imagePath:
                             type: string
                           status:
+                            description: ComponentStatus represents status of the
+                              database engine component.
                             type: string
                         type: object
+                      description: ComponentsMap is a map of database engine components.
                       type: object
                     type: object
                 type: object

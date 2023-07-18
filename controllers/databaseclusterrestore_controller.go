@@ -106,7 +106,7 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everest
 			if err != nil {
 				return err
 			}
-			if cluster.Status.State == everestv1alpha1.AppStateReady {
+			if cluster.Status.Status == everestv1alpha1.AppStateReady {
 				return nil
 			}
 		}
