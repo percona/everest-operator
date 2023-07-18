@@ -37,7 +37,6 @@ spec:
       size: 15G
   proxy:
     type: haproxy
-    exposeType: ClusterIP
     replicas: 1
   backup:
     enabled: true

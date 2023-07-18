@@ -22,5 +22,4 @@ spec:
       memory: 1G
   proxy:
     type: pgbouncer
-    exposeType: internal
     replicas: 3

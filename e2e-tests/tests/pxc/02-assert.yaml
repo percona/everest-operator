@@ -23,7 +23,6 @@ spec:
   proxy:
     type: haproxy
     replicas: 3
-    exposeType: internal
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster

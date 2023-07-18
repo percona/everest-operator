@@ -19,7 +19,6 @@ spec:
       size: 15G
   proxy:
     type: haproxy
-    exposeType: internal
     replicas: 1
 ---
 apiVersion: pxc.percona.com/v1

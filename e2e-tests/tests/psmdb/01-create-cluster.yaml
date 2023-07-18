@@ -27,5 +27,4 @@ spec:
       memory: 500M
   proxy:
     type: mongos
-    exposeType: internal
     replicas: 3

@@ -34,7 +34,6 @@ spec:
       size: 15G
   proxy:
     type: mongos
-    exposeType: ClusterIP
     replicas: 1
   backup:
     enabled: true

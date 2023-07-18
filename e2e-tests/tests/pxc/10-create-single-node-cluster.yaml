@@ -28,4 +28,3 @@ spec:
   proxy:
     replicas: 1
     type: haproxy
-    exposeType: internal
