@@ -12,7 +12,7 @@ spec:
   engine:
     type: postgresql
     version: 14.7
-    size: 4
+    replicas: 4
     storage:
       size: 15G
     resources:
@@ -21,4 +21,4 @@ spec:
   proxy:
     type: pgbouncer
     exposeType: internal
-    size: 3
+    replicas: 3

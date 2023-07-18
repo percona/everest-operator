@@ -16,7 +16,7 @@ spec:
      operationProfiling:
         mode: off
     userSecretsName: psmdb-sample-secrets
-    size: 3
+    replicas: 3
     storage:
       size: 15G
     resources:
@@ -25,4 +25,4 @@ spec:
   proxy:
     type: mongos
     exposeType: internal
-    size: 3
+    replicas: 3

@@ -7,16 +7,36 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
-     operationProfiling:
-        mode: slowOp
-  secretsName: psmdb-sample-secrets
-  dbInstance:
-    cpu: 500m
-    memory: 1G
-    diskSize: 15G
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+      operationProfiling:
+         mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 500m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
+    type: mongos
+    exposeType: ClusterIP
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 5
+        objectStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        objectStorageName: aws
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -53,8 +73,8 @@ spec:
         keep: 5
         storageName: aws
         enabled: true
-      - name: azure-backup
+      - name: monthly-backup
         schedule: "0 0 * * *"
         keep: 5
-        storageName: azure
+        storageName: aws
         enabled: true

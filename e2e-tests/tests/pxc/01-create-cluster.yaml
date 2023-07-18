@@ -19,7 +19,7 @@ spec:
     config: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
-    size: 3
+    replicas: 3
     storage:
       size: 15G
     resources:
@@ -27,5 +27,5 @@ spec:
       memory: 1G
   proxy:
     type: haproxy
-    size: 3
+    replicas: 3
     exposeType: internal

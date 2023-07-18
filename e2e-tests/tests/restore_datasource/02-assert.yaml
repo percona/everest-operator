@@ -7,16 +7,32 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
-     operationProfiling:
-        mode: slowOp
-  secretsName: psmdb-sample-secrets
-  dbInstance:
-    cpu: 300m
-    memory: 1G
-    diskSize: 15G
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+      operationProfiling:
+         mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 300m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
+    type: mongos
+    exposeType: ClusterIP
+    replicas: 1
+  dataSource:
+    destination: s3://test/2023-06-21T11:30:21Z
+    storage_type: "s3"
+    storageName: s3
+    s3:
+      bucket: test
+      credentialsSecret: test-psmdb-cluster-backup-s3
+      endpointUrl: https://s3.us-west-1.amazonaws.com
+      region: us-west-1
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB

@@ -3,53 +3,49 @@ kind: TestStep
 timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  credentialsSecretName: test-pxc-cluster-backup-s3
+  region: us-west-1
+---
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
   finalizers:
     - delete-psmdb-pvc
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
-     operationProfiling:
-        mode: slowOp
-  secretsName: psmdb-sample-secrets
-  clusterSize: 1
-  loadBalancer:
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+      operationProfiling:
+         mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 500m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
     type: mongos
     exposeType: ClusterIP
-    size: 1
-  dbInstance:
-    cpu: 500m
-    memory: 1G
-    diskSize: 15G
+    replicas: 1
   backup:
     enabled: true
-    image: perconalab/percona-server-mongodb-operator:main-backup
-    serviceAccountName: percona-server-mongodb-operator
-    storages:
-      aws:
-        type: s3
-        storageProvider:
-          bucket: test
-          credentialsSecret: test-pxc-cluster-backup-s3
-          region: us-west-1
-      azure:
-        type: azure
-        storageProvider:
-          containerName: test
-          credentialsSecret: test-pxc-cluster-backup-azure
-          endpointUrl: https://example.com
-          storageClass: Hot
-    schedule:
-      - enabled: true
-        keep: 5
-        name: daily-backup
+    schedules:
+      - name: daily-backup
+        enabled: true
         schedule: "0 0 * * *"
-        storageName: aws
-      - enabled: true
-        keep: 5
-        name: azure-backup
-        schedule: "0 0 * * *"
-        storageName: azure
+        retentionCopies: 5
+        objectStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        objectStorageName: aws

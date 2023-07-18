@@ -3,52 +3,50 @@ kind: TestAssert
 timeout: 20
 ---
 apiVersion: everest.percona.com/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  credentialsSecretName: test-pxc-cluster-backup-s3
+  region: us-west-1
+---
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-  secretsName: pxc-sample-secrets
-  clusterSize: 1
-  loadBalancer:
+  engine:
+    type: pxc
+    version: 8.0.23-14.1
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    userSecretsName: pxc-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 600m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
     type: haproxy
     exposeType: ClusterIP
-    size: 1
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
-  dbInstance:
-    cpu: 600m
-    memory: 1G
-    diskSize: 15G
+    replicas: 1
   backup:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
-    storages:
-      aws:
-        type: s3
-        storageProvider:
-          bucket: test
-          credentialsSecret: test-pxc-cluster-backup-s3
-          region: us-west-1
-      azure:
-        type: azure
-        storageProvider:
-          containerName: test
-          credentialsSecret: test-pxc-cluster-backup-azure
-          endpointUrl: https://example.com
-          storageClass: Hot
-    schedule:
+    schedules:
       - name: daily-backup
+        enabled: true
         schedule: "0 0 * * *"
-        keep: 5
-        storageName: aws
-      - name: azure-backup
-        schedule: "0 0 * * *"
-        keep: 5
-        storageName: azure
+        retentionCopies: 5
+        objectStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        objectStorageName: aws
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -82,7 +80,7 @@ spec:
         schedule: "0 0 * * *"
         keep: 5
         storageName: aws
-      - name: azure-backup
+      - name: montly-backup
         schedule: "0 0 * * *"
         keep: 5
-        storageName: azure
+        storageName: s3

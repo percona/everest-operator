@@ -19,13 +19,13 @@ spec:
       wsrep_debug=1
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
-    size: 1
+    replicas: 1
     storage:
       size: 15G
     resources:
       cpu: 600m
       memory: 1G
   proxy:
-    size: 1
+    replicas: 1
     type: haproxy
     exposeType: internal

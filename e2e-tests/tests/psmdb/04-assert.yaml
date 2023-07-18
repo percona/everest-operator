@@ -11,21 +11,23 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
      operationProfiling:
         mode: off
-  secretsName: psmdb-sample-secrets
-  clusterSize: 3
-  loadBalancer:
+    userSecretsName: psmdb-sample-secrets
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
     type: mongos
-    exposeType: ClusterIP
-    size: 3
-  dbInstance:
-    cpu: 300m
-    memory: 500M
-    diskSize: 15G
+    exposeType: internal
+    replicas: 3
 status:
   ready: 9
   size: 9

@@ -17,7 +17,7 @@ spec:
       wsrep_debug=1
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
-    size: 3
+    replicas: 3
     storage:
       size: 15G
     resources:
@@ -25,7 +25,7 @@ spec:
       memory: 1G
   proxy:
     type: haproxy
-    size: 3
+    replicas: 3
     exposeType: internal
 ---
 apiVersion: pxc.percona.com/v1

@@ -9,19 +9,19 @@ metadata:
   finalizers:
     - percona.com/delete-pvc
 spec:
-  databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
-  databaseConfig: ""
-  clusterSize: 1
-  loadBalancer:
+  engine:
+    type: postgresql
+    version: 14.7
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
     type: pgbouncer
     exposeType: ClusterIP
-    size: 1
-    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
-  dbInstance:
-    cpu: "1"
-    memory: 1G
-    diskSize: 15G
+    replicas: 1
   dataSource:
     destination: s3://test/pgbackrest/repo1/backup/db/20230605-172007F
     storage_type: "s3"
