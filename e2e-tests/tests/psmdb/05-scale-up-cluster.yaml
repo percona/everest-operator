@@ -8,21 +8,21 @@ metadata:
   name: test-psmdb-cluster
   finalizers:
     - delete-psmdb-pvc
-  annotations:
-    everest.percona.com/restart: "true"
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
      operationProfiling:
         mode: off
-  secretsName: psmdb-sample-secrets
-  clusterSize: 4
-  loadBalancer:
+    userSecretsName: psmdb-sample-secrets
+    size: 4
+    storage:
+      size: 15G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
     type: mongos
-    exposeType: ClusterIP
+    exposeType: internal
     size: 3
-  dbInstance:
-    cpu: 300m
-    memory: 500M
-    diskSize: 15G

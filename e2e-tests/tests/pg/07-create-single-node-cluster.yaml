@@ -9,16 +9,16 @@ metadata:
   finalizers:
     - percona.com/delete-pvc
 spec:
-  databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
-  databaseConfig: ""
-  clusterSize: 1
-  loadBalancer:
-    type: pgbouncer
-    exposeType: ClusterIP
+  engine:
+    type: postgresql
+    version: 14.7
     size: 1
-    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
-  dbInstance:
-    cpu: "1"
-    memory: 1G
-    diskSize: 15G
+    storage:
+      size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
+    type: pgbouncer
+    exposeType: internal
+    size: 1

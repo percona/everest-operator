@@ -12,18 +12,20 @@ metadata:
   finalizers:
     - delete-psmdb-pvc
 spec:
-  databaseType: psmdb
-  databaseImage: percona/percona-server-mongodb:4.4.10-11
-  databaseConfig: |
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
      operationProfiling:
         mode: slowOp
-  secretsName: psmdb-sample-secrets
-  clusterSize: 3
-  loadBalancer:
-    type: mongos
-    exposeType: ClusterIP
+    userSecretsName: psmdb-sample-secrets
     size: 3
-  dbInstance:
-    cpu: 300m
-    memory: 500M
-    diskSize: 15G
+    storage:
+      size: 15G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
+    type: mongos
+    exposeType: internal
+    size: 3

@@ -7,19 +7,19 @@ kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
 spec:
-  databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
-  databaseConfig: ""
-  clusterSize: 4
-  loadBalancer:
+  engine:
+    type: postgresql
+    version: 14.7
+    size: 4
+    storage:
+      size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
     type: pgbouncer
-    exposeType: ClusterIP
+    exposeType: internal
     size: 3
-    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
-  dbInstance:
-    cpu: "1"
-    memory: 1G
-    diskSize: 15G
 status:
   ready: 7
   size: 7
