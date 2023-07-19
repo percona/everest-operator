@@ -41,3 +41,12 @@ status:
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-postgresql-operator
+spec:
+  type: postgresql
+status:
+  status: installed
