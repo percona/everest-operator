@@ -91,7 +91,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	if ready {
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
-		matrix, err := r.versionService.GetVersions(ctx, engineType, dbEngine.Status.OperatorVersion)
+		matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
