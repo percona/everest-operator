@@ -16,6 +16,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -72,7 +73,9 @@ func NewVersionService() *VersionService {
 }
 
 // GetVersions returns a matrix of available versions for a database engine.
-func (v *VersionService) GetVersions(engineType everestv1alpha1.EngineType, operatorVersion string) (*Matrix, error) {
+func (v *VersionService) GetVersions(ctx context.Context, engineType everestv1alpha1.EngineType, operatorVersion string) (*Matrix, error) {
+	log = log.FromContext(ctx)
+	log.Error(v.url)
 	resp, err := http.Get(fmt.Sprintf("%s/%s/%s", v.url, operatorNames[engineType], operatorVersion)) //nolint:noctx
 	if err != nil {
 		return nil, err
