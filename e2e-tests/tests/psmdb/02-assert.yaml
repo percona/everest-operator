@@ -1,92 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 300
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: test-psmdb-cluster
-spec:
-  engine:
-    type: psmdb
-    version: 4.4.10-11
-    config: |
-     operationProfiling:
-        mode: off
-    userSecretsName: psmdb-sample-secrets
-    replicas: 3
-    storage:
-      size: 15G
-    resources:
-      cpu: 300m
-      memory: 500M
-  proxy:
-    type: mongos
-    replicas: 3
-status:
-  ready: 9
-  size: 9
-  status: ready
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDB
-metadata:
-  name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pvc
-spec:
-  crVersion: 1.14.0
-  image: percona/percona-server-mongodb:4.4.10-11
-  multiCluster:
-    enabled: false
-  replsets:
-    - configuration: |
-       operationProfiling:
-          mode: off
-      expose:
-        enabled: false
-      name: rs0
-      resources:
-        limits:
-          cpu: 300m
-          memory:  500M
-      size:        3
-      volumeSpec:
-        persistentVolumeClaim:
-          resources:
-            requests:
-              storage: 15G
-  secrets:
-    users:  psmdb-sample-secrets
-  sharding:
-    configsvrReplSet:
-      size: 3
-      volumeSpec:
-        persistentVolumeClaim:
-          resources:
-            requests:
-              storage: 15G
-    enabled: true
-    mongos:
-      expose:
-        exposeType: ClusterIP
-      size: 3
-status:
-  mongos:
-    ready: 3
-    size: 3
-    status: ready
-  replsets:
-    cfg:
-      initialized: true
-      ready: 3
-      size: 3
-      status: ready
-    rs0:
-      initialized: true
-      ready: 3
-      size: 3
-      status: ready
-  ready: 9
-  size: 9
-  state: ready
+# XXX
+# In order to do a non-declarative test that validates the state transition of a restart action we split the test assertions in 2 parts.
+# In the test assertion 03 we assert that the cluster is stopped and in 04 we assert that the cluster is up and ready to use.
+# The test steps are still declarative so no operation is executed in 04.
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.status}'=stopping db/test-psmdb-cluster -n "${NAMESPACE}"

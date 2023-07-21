@@ -1,7 +1,84 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 300
-# XXX
-# An update to the cluster's database config is reflected immediately in the CR spec before any change to the status. Therefore, in step 03 we wait for the state to change to initializing and in step 04 we assert the CR.
-commands:
-  - command: kubectl wait --for=jsonpath='{.status.status}'=initializing db/test-pxc-cluster -n "${NAMESPACE}"
+timeout: 600
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    version: 8.0.27-18.1
+    userSecretsName: pxc-sample-secrets
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 600m
+      memory: 1G
+  proxy:
+    type: haproxy
+    replicas: 3
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+  finalizers:
+    - delete-pxc-pvc
+spec:
+  crVersion: 1.12.0
+  haproxy:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+    serviceType: ClusterIP
+    size: 3
+  pxc:
+    configuration: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
+    expose: {}
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    livenessProbes: {}
+    readinessProbes: {}
+    resources:
+      limits:
+        cpu: 600m
+        memory: 1G
+    serviceType: ClusterIP
+    sidecarResources: {}
+    size: 3
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 15G
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+status:
+  haproxy:
+    ready: 3
+    size: 3
+    status: ready
+  pxc:
+    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    ready: 3
+    size: 3
+    status: ready
+    version: 8.0.27-18.1
+  ready: 6
+  size: 6
+  state: ready
