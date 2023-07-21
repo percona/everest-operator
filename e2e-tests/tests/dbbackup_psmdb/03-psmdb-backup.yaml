@@ -1,6 +1,5 @@
 apiVersion: kuttl.dev/v1
-kind: TestAssert
-timeout: 100
+kind: TestStep
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
@@ -16,11 +15,3 @@ spec:
       credentialsSecret: test-psmdb-cluster-backup-s3
   dbClusterName: test-psmdb-cluster
   name: dbbtest
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDBBackup
-metadata:
-  name: test-db-backup
-spec:
-  storageName: test-storage
-  psmdbCluster: test-psmdb-cluster

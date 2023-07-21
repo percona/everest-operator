@@ -7,20 +7,20 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
 spec:
-  engineType: psmdb
+  engineType: pxc
   backupSource:
     storageName: test-storage
     storage_type: "s3"
     s3:
       bucket: test-backup-bucket
-      credentialsSecret: test-psmdb-cluster-backup-s3
-  dbClusterName: test-psmdb-cluster
+      credentialsSecret: test-pxc-cluster-backup-s3
+  dbClusterName: test-pxc-cluster
   name: dbbtest
 ---
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDBBackup
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
 metadata:
   name: test-db-backup
 spec:
   storageName: test-storage
-  psmdbCluster: test-psmdb-cluster
+  pxcCluster: test-pxc-cluster

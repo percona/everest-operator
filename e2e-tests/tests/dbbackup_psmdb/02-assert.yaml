@@ -1,17 +1,17 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 500
+timeout: 400
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-pxc-cluster
+  name: test-psmdb-cluster
 spec:
   engine:
     replicas: 1
     storage:
       size: 1G
-    type: pxc
+    type: psmdb
   proxy:
     expose:
       type: internal
@@ -26,20 +26,22 @@ spec:
         retentionCopies: 1
         schedule: 0 0 * * *
 status:
+  ready: 1
+  size: 1
   status: ready
 ---
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBCluster
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
 metadata:
-  name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
+  name: test-psmdb-cluster
 spec:
-  haproxy:
-    enabled: true
-  updateStrategy: SmartUpdate
-  upgradeOptions:
-    apply: never
-    schedule: 0 4 * * *
+  multiCluster:
+    enabled: false
 status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
   state: ready

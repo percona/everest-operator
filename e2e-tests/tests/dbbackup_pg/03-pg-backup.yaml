@@ -6,13 +6,12 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
 spec:
-  engineType: psmdb
-  destination: s3://s3.test.test.amazon.com
+  engineType: pg
   backupSource:
-    storageName: testStorage
+    storageName: test-storage
     storage_type: "s3"
     s3:
-      bucket: test
-      credentialsSecret: test-psmdb-cluster-backup-s3
-  dbClusterName: test-psmdb-cluster
+      bucket: test-backup-bucket
+      credentialsSecret: test-pg-cluster-backup-s3
+  dbClusterName: test-pg-cluster
   name: dbbtest

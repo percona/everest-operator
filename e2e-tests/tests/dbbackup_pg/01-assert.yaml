@@ -5,9 +5,9 @@ timeout: 100
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
 metadata:
-  name: percona-xtradb-cluster-operator
+  name: percona-postgresql-operator
 spec:
-  type: pxc
+  type: postgresql
 status:
   status: installed
 ---

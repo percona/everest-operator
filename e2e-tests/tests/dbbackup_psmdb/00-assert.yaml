@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 500
+timeout: 200
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -27,3 +27,4 @@ status:
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1
+
