@@ -17,6 +17,9 @@ package controllers
 
 import (
 	"context"
+	"strconv"
+	"strings"
+
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -34,8 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strconv"
-	"strings"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
@@ -344,7 +345,7 @@ func (r *DatabaseClusterScheduledBackupReconciler) reconcilePG(ctx context.Conte
 }
 
 // storageName returns ObjectStorageName that corresponds the PG cluster repo name
-// which is like "repo1", "repo2" etc
+// which is like "repo1", "repo2" etc.
 func (r *DatabaseClusterScheduledBackupReconciler) pgStorageName(ctx context.Context, pgBackup *pgv2.PerconaPGBackup) (string, error) {
 	idx, err := strconv.Atoi(strings.TrimPrefix(pgBackup.Spec.RepoName, "repo"))
 	if err != nil {

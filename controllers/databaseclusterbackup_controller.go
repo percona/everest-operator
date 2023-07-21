@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -186,7 +187,7 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
+func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error { //nolint:dupl
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -222,7 +223,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	return r.Status().Update(ctx, backup)
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
+func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error { //nolint:dupl
 	psmdbCR := &psmdbv1.PerconaServerMongoDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -296,7 +297,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backu
 }
 
 // pgRepoName returns the pg cluster's RepoName (which is like "repo1", "repo2" etc)
-// that corresponds the database cluster's ObjectStorageName
+// that corresponds the database cluster's ObjectStorageName.
 func (r *DatabaseClusterBackupReconciler) pgRepoName(ctx context.Context, everestBackup *everestv1alpha1.DatabaseClusterBackup) (string, error) {
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err := r.Get(ctx, types.NamespacedName{Name: everestBackup.Spec.DBClusterName, Namespace: everestBackup.Namespace}, cluster)
@@ -304,6 +305,7 @@ func (r *DatabaseClusterBackupReconciler) pgRepoName(ctx context.Context, everes
 		return "", err
 	}
 
+	//nolint:godox
 	// TODO: decouple PG backups from the schedules list
 	// currently the PG on-demand backups require at least one schedule to be set,
 	// here is an idea how to fix it https://github.com/percona/everest-operator/pull/7#discussion_r1263497633
