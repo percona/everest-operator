@@ -5,36 +5,33 @@ timeout: 120
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-pg-cluster
+  name: test-single-node
 spec:
-  databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
-  databaseConfig: ""
-  clusterSize: 3
-  loadBalancer:
+  engine:
+    type: postgresql
+    version: "14.7"
+    replicas: 1
+    storage:
+      size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
     type: pgbouncer
-    exposeType: ClusterIP
-    size: 3
-    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
-  dbInstance:
-    cpu: "1"
-    memory: 1G
-    diskSize: 15G
+    replicas: 1
 status:
-  ready: 6
-  size: 6
+  ready: 2
+  size: 2
   status: ready
 ---
-apiVersion: pg.percona.com/v2beta1
+apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
-  name: test-pg-cluster
-  finalizers:
-    - percona.com/delete-pvc
+  name: test-single-node
 spec:
   backups:
     pgbackrest:
-      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbackrest
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbackrest
       repos:
       - name: repo1
         volume:
@@ -44,7 +41,7 @@ spec:
             resources:
               requests:
                 storage: 15G
-  image: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
+  image: percona/percona-postgresql-operator:2.2.0-ppg14-postgres
   instances:
   - dataVolumeClaimSpec:
       accessModes:
@@ -57,7 +54,7 @@ spec:
         cpu: "1"
         memory: 1G
     name: instance1
-    replicas: 3
+    replicas: 1
   pmm:
     enabled: false
     image: ""
@@ -69,20 +66,20 @@ spec:
   postgresVersion: 14
   proxy:
     pgBouncer:
-      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbouncer
       port: 5432
-      replicas: 3
+      replicas: 1
       expose:
         type: ClusterIP
 status:
   pgbouncer:
-    ready: 3
-    size: 3
+    ready: 1
+    size: 1
   postgres:
     instances:
     - name: instance1
-      ready: 3
-      size: 3
-    ready: 3
-    size: 3
+      ready: 1
+      size: 1
+    ready: 1
+    size: 1
   state: ready

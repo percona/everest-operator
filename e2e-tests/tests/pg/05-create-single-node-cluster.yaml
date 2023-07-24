@@ -5,18 +5,17 @@ timeout: 10
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-pxc-cluster
+  name: test-single-node
 spec:
   engine:
-    type: pxc
-    version: 8.0.27-18.1
-    userSecretsName: pxc-sample-secrets
+    type: postgresql
+    version: "14.7"
     replicas: 1
-    resources:
-      cpu: 600m
-      memory: 1G
     storage:
       size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
   proxy:
-    type: haproxy
+    type: pgbouncer
     replicas: 1

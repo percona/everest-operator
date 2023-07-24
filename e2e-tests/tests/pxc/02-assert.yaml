@@ -1,78 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 600
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: test-pxc-cluster
-spec:
-  databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.27-18.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-  secretsName: pxc-sample-secrets
-  clusterSize: 3
-  loadBalancer:
-    type: haproxy
-    exposeType: ClusterIP
-    size: 3
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
-  dbInstance:
-    cpu: 600m
-    memory: 1G
-    diskSize: 15G
----
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBCluster
-metadata:
-  name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
-spec:
-  crVersion: 1.12.0
-  haproxy:
-    enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
-    serviceType: ClusterIP
-    size: 3
-  pxc:
-    configuration: |
-      [mysqld]
-      wsrep_provider_options="debug=1;gcache.size=1G"
-    expose: {}
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
-    livenessProbes: {}
-    readinessProbes: {}
-    resources:
-      limits:
-        cpu: 600m
-        memory: 1G
-    serviceType: ClusterIP
-    sidecarResources: {}
-    size: 3
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 15G
-  secretsName: pxc-sample-secrets
-  updateStrategy: SmartUpdate
-  upgradeOptions:
-    apply: never
-    schedule: 0 4 * * *
-status:
-  haproxy:
-    ready: 3
-    size: 3
-    status: ready
-  pxc:
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
-    ready: 3
-    size: 3
-    status: ready
-    version: 8.0.27-18.1
-  ready: 6
-  size: 6
-  state: ready
+timeout: 300
+# XXX
+# In order to do a non-declarative test that validates the state transition of a restart action we split the test assertions in 2 parts.
+# In the test assertion 05 we assert that the cluster is stopped and in 06 we assert that the cluster is up and ready to use.
+# The test steps are still declarative so no operation is executed in 06.
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.status}'=stopping db/test-pxc-cluster -n "${NAMESPACE}"

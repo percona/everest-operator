@@ -1,27 +1,37 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 300
+timeout: 20
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  credentialsSecretName: test-pxc-cluster-backup-s3
+  region: us-west-1
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: test-pxc-cluster
 spec:
   engine:
-    type: psmdb
-    version: 4.4.10-11
+    type: pxc
+    version: 8.0.23-14.1
     config: |
-      operationProfiling:
-         mode: slowOp
-    userSecretsName: psmdb-sample-secrets
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    userSecretsName: pxc-sample-secrets
     replicas: 1
     resources:
-      cpu: 500m
+      cpu: 600m
       memory: 1G
     storage:
       size: 15G
   proxy:
-    type: mongos
+    type: haproxy
     replicas: 1
   backup:
     enabled: true
@@ -37,18 +47,22 @@ spec:
         retentionCopies: 5
         objectStorageName: aws
 ---
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDB
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
 metadata:
-  name: test-psmdb-cluster
+  name: test-pxc-cluster
 spec:
-  crVersion: 1.14.0
-  image: percona/percona-server-mongodb:4.4.10-11
-  secrets:
-    users:  psmdb-sample-secrets
-  backup:
+  crVersion: 1.12.0
+  haproxy:
     enabled: true
-    image: percona/percona-backup-mongodb:2.0.5
+    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+  backup:
+    image: percona/percona-xtradb-cluster-operator:1.12.0-pxc8.0.31-backup
     storages:
       aws:
         type: s3
@@ -56,14 +70,12 @@ spec:
           bucket: test
           credentialsSecret: test-pxc-cluster-backup-s3
           region: us-west-1
-    tasks:
+    schedule:
       - name: daily-backup
         schedule: "0 0 * * *"
         keep: 5
         storageName: aws
-        enabled: true
       - name: monthly-backup
         schedule: "0 0 1 * *"
         keep: 5
         storageName: aws
-        enabled: true

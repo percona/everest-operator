@@ -1156,6 +1156,9 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
 			Global: map[string]string{},
 			Image:  pgbackrestVersion.ImagePath,
+			Manual: &crunchyv1beta1.PGBackRestManualBackup{
+				RepoName: "repo1",
+			},
 		},
 	}
 	if len(database.Spec.Backup.Schedules) > 4 {
@@ -1463,6 +1466,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 							},
 						},
 					},
+				},
+				Manual: &crunchyv1beta1.PGBackRestManualBackup{
+					RepoName: "repo1",
 				},
 			},
 		}
