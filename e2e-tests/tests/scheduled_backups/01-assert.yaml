@@ -77,7 +77,7 @@ spec:
         schedule: "0 0 * * *"
         keep: 5
         storageName: aws
-      - name: montly-backup
+      - name: monthly-backup
         schedule: "0 0 1 * *"
         keep: 5
         storageName: aws
