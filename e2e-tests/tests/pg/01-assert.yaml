@@ -24,7 +24,7 @@ status:
   size: 6
   status: ready
 ---
-apiVersion: pg.percona.com/v2
+apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: test-pg-cluster
