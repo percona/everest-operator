@@ -5,7 +5,7 @@ timeout: 120
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-pg-cluster
+  name: test-single-node
 spec:
   engine:
     type: postgresql
@@ -27,7 +27,7 @@ status:
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
-  name: test-pg-cluster
+  name: test-single-node
 spec:
   backups:
     pgbackrest:
