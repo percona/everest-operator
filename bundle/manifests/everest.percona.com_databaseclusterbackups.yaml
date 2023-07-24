@@ -144,10 +144,6 @@ spec:
                 type: string
               engineType:
                 description: EngineType is the type of the engine
-                enum:
-                - pxc
-                - psmdb
-                - pg
                 type: string
               name:
                 description: Name is the backup name.
