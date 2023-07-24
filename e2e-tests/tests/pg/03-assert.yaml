@@ -24,14 +24,14 @@ status:
   size: 6
   status: ready
 ---
-apiVersion: pg.percona.com/v2beta1
+apiVersion: pg.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: test-pg-cluster
 spec:
   backups:
     pgbackrest:
-      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbackrest
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbackrest
       repos:
       - name: repo1
         volume:
@@ -41,7 +41,7 @@ spec:
             resources:
               requests:
                 storage: 15G
-  image: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
+  image: percona/percona-postgresql-operator:2.2.0-ppg14-postgres
   instances:
   - dataVolumeClaimSpec:
       accessModes:
@@ -66,7 +66,7 @@ spec:
   postgresVersion: 14
   proxy:
     pgBouncer:
-      image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbouncer
       port: 5432
       replicas: 3
       expose:
