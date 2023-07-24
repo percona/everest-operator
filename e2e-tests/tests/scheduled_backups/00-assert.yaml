@@ -70,21 +70,3 @@ status:
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
-metadata:
-  name: percona-xtradb-cluster-operator
-spec:
-  type: pxc
-status:
-  status: installed
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
-metadata:
-  name: percona-server-mongodb-operator
-spec:
-  type: psmdb
-status:
-  status: installed

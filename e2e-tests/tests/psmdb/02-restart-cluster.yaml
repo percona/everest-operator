@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pvc
   annotations:
     everest.percona.com/restart: "true"
 spec:

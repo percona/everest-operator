@@ -1,6 +1,5 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
-timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: ObjectStorage
@@ -16,23 +15,23 @@ spec:
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: test-pxc-cluster
 spec:
   engine:
-    type: psmdb
-    version: 4.4.10-11
+    type: pxc
+    version: 8.0.23-14.1
     config: |
-      operationProfiling:
-         mode: slowOp
-    userSecretsName: psmdb-sample-secrets
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    userSecretsName: pxc-sample-secrets
     replicas: 1
     resources:
-      cpu: 500m
+      cpu: 600m
       memory: 1G
     storage:
       size: 15G
   proxy:
-    type: mongos
+    type: haproxy
     replicas: 1
   backup:
     enabled: true

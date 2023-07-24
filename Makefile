@@ -298,7 +298,7 @@ catalog-push: ## Push a catalog image.
 # Create a local minikube cluster
 .PHONY: local-env-up
 local-env-up: ## Create a local minikube cluster
-	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal --kubernetes-version=v1.23.6
+	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal
 	minikube addons disable storage-provisioner
 	kubectl delete storageclass standard
 	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml

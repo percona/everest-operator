@@ -31,8 +31,6 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
 spec:
   allowUnsafeConfigurations: true
   crVersion: 1.12.0
