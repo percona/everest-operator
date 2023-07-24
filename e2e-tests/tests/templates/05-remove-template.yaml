@@ -5,6 +5,7 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
+  annotations: null
   finalizers:
     - delete-pxc-pvc
 spec:

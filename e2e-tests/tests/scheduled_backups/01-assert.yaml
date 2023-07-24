@@ -64,7 +64,7 @@ spec:
     apply: never
     schedule: 0 4 * * *
   backup:
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.12.0-pxc8.0.31-backup
     storages:
       aws:
         type: s3
@@ -72,14 +72,12 @@ spec:
           bucket: test
           credentialsSecret: test-pxc-cluster-backup-s3
           region: us-west-1
-      azure:
-        type: azure
     schedule:
       - name: daily-backup
         schedule: "0 0 * * *"
         keep: 5
         storageName: aws
       - name: montly-backup
-        schedule: "0 0 * * *"
+        schedule: "0 0 1 * *"
         keep: 5
-        storageName: s3
+        storageName: aws
