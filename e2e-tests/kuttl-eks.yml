@@ -3,5 +3,6 @@ kind: TestSuite
 crdDir: config/crd/bases
 artifactsDir: /tmp/
 parallel: 1
+timeout: 180
 testDirs:
 - e2e-tests/tests
