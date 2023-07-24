@@ -6,8 +6,6 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   annotations: null
-  finalizers:
-    - delete-pxc-pvc
 spec:
   engine:
     type: pxc

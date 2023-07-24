@@ -6,8 +6,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
   annotations:
     everest.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
     everest.percona.com/dbtemplate-name: test-pxc-template
