@@ -108,7 +108,7 @@ jobs:
 
       - name: Scale up cluster
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=3 "$NODEPOOL_NAME"
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=3 "$NODEPOOL_NAME" --wait
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
