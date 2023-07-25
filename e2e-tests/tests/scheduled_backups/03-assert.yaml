@@ -61,7 +61,7 @@ spec:
     apply: never
     schedule: 0 4 * * *
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.13.0-pxc8.0.31-backup
+    image: percona/percona-xtradb-cluster-operator:1.13.0-pxc8.0-backup-pxb8.0.32
     storages:
       aws:
         type: s3
