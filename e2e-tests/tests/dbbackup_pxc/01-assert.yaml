@@ -1,29 +1,43 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
+timeout: 500
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
+kind: DatabaseCluster
 metadata:
-  name: percona-xtradb-cluster-operator
+  name: test-pxc-cluster
 spec:
-  type: pxc
+  engine:
+    replicas: 1
+    storage:
+      size: 1G
+    type: pxc
+  proxy:
+    expose:
+      type: internal
+    replicas: 1
+    type: haproxy
+  backup:
+    enabled: true
+    schedules:
+      - enabled: true
+        name: daily-backup
+        objectStorageName: test-storage
+        retentionCopies: 1
+        schedule: 0 0 * * *
 status:
-  status: installed
+  status: ready
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
 metadata:
-  name: databaseclusters.everest.percona.com
+  name: test-pxc-cluster
 spec:
-  group: everest.percona.com
-  names:
-    kind: DatabaseCluster
-    listKind: DatabaseClusterList
-    plural: databaseclusters
-    shortNames:
-      - db
-      - dbc
-    singular: databasecluster
-  scope: Namespaced
-
+  haproxy:
+    enabled: true
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+status:
+  state: ready

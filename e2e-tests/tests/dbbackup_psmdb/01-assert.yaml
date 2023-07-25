@@ -1,29 +1,47 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
+timeout: 400
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
+kind: DatabaseCluster
 metadata:
-  name: percona-server-mongodb-operator
+  name: test-psmdb-cluster
 spec:
-  type: psmdb
+  engine:
+    replicas: 1
+    storage:
+      size: 1G
+    type: psmdb
+  proxy:
+    expose:
+      type: internal
+    replicas: 1
+    type: haproxy
+  backup:
+    enabled: true
+    schedules:
+      - enabled: true
+        name: daily-backup
+        objectStorageName: test-storage
+        retentionCopies: 1
+        schedule: 0 0 * * *
 status:
-  status: installed
+  ready: 1
+  size: 1
+  status: ready
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
 metadata:
-  name: databaseclusters.everest.percona.com
+  name: test-psmdb-cluster
 spec:
-  group: everest.percona.com
-  names:
-    kind: DatabaseCluster
-    listKind: DatabaseClusterList
-    plural: databaseclusters
-    shortNames:
-      - db
-      - dbc
-    singular: databasecluster
-  scope: Namespaced
-
+  multiCluster:
+    enabled: false
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready

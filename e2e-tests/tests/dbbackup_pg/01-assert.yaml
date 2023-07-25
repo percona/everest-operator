@@ -1,29 +1,53 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
+timeout: 400
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
+kind: DatabaseCluster
 metadata:
-  name: percona-postgresql-operator
+  name: test-pg-cluster
 spec:
-  type: postgresql
+  engine:
+    replicas: 1
+    storage:
+      size: 1G
+    type: postgresql
+  proxy:
+    expose:
+      type: internal
+    replicas: 1
+    type: haproxy
+  backup:
+    enabled: false
+    schedules:
+      - enabled: false
+        name: daily-backup
+        objectStorageName: test-storage
+        retentionCopies: 1
+        schedule: 0 0 * * *
 status:
-  status: installed
+  status: ready
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
 metadata:
-  name: databaseclusters.everest.percona.com
+  name: test-pg-cluster
 spec:
-  group: everest.percona.com
-  names:
-    kind: DatabaseCluster
-    listKind: DatabaseClusterList
-    plural: databaseclusters
-    shortNames:
-      - db
-      - dbc
-    singular: databasecluster
-  scope: Namespaced
-
+  instances:
+    - dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1G
+      name: instance1
+      replicas: 1
+  port: 5432
+  proxy:
+    pgBouncer:
+      port: 5432
+      replicas: 1
+      expose:
+        type: ClusterIP
+status:
+  state: ready

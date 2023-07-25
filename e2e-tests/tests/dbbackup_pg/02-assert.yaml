@@ -1,55 +1,26 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 400
+timeout: 100
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
+kind: DatabaseClusterBackup
 metadata:
-  name: test-pg-cluster
+  name: test-db-backup
 spec:
-  engine:
-    replicas: 1
-    storage:
-      size: 1G
-    type: postgresql
-  proxy:
-    expose:
-      type: internal
-    replicas: 1
-    type: haproxy
-  backup:
-    enabled: false
-    schedules:
-      - enabled: false
-        name: daily-backup
-        objectStorageName: test-storage
-        retentionCopies: 1
-        schedule: 0 0 * * *
-status:
-  status: ready
+  engineType: postgresql
+  backupSource:
+    storageName: test-storage
+    storage_type: "s3"
+    s3:
+      bucket: test-backup-bucket
+      credentialsSecret: test-pg-cluster-backup-s3
+  dbClusterName: test-pg-cluster
+  name: dbbtest
 ---
 apiVersion: pgv2.percona.com/v2
-kind: PerconaPGCluster
+kind: PerconaPGBackup
 metadata:
-  name: test-pg-cluster
-  finalizers:
-    - percona.com/delete-pvc
+  name: test-db-backup
 spec:
-  instances:
-    - dataVolumeClaimSpec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1G
-      name: instance1
-      replicas: 1
-  port: 5432
-  proxy:
-    pgBouncer:
-      port: 5432
-      replicas: 1
-      expose:
-        type: ClusterIP
-status:
-  state: ready
+  repoName: repo1
+  pgCluster: test-pg-cluster

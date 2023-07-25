@@ -6,7 +6,7 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
 spec:
-  engineType: pg
+  engineType: postgresql
   backupSource:
     storageName: test-storage
     storage_type: "s3"

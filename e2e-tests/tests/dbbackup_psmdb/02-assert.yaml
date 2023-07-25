@@ -1,47 +1,26 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 400
+timeout: 100
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
+kind: DatabaseClusterBackup
 metadata:
-  name: test-psmdb-cluster
+  name: test-db-backup
 spec:
-  engine:
-    replicas: 1
-    storage:
-      size: 1G
-    type: psmdb
-  proxy:
-    expose:
-      type: internal
-    replicas: 1
-    type: haproxy
-  backup:
-    enabled: true
-    schedules:
-      - enabled: true
-        name: daily-backup
-        objectStorageName: test-storage
-        retentionCopies: 1
-        schedule: 0 0 * * *
-status:
-  ready: 1
-  size: 1
-  status: ready
+  engineType: psmdb
+  backupSource:
+    storageName: test-storage
+    storage_type: "s3"
+    s3:
+      bucket: test-backup-bucket
+      credentialsSecret: test-psmdb-cluster-backup-s3
+  dbClusterName: test-psmdb-cluster
+  name: dbbtest
 ---
 apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDB
+kind: PerconaServerMongoDBBackup
 metadata:
-  name: test-psmdb-cluster
+  name: test-db-backup
 spec:
-  multiCluster:
-    enabled: false
-status:
-  replsets:
-    rs0:
-      initialized: true
-      ready: 1
-      size: 1
-      status: ready
-  state: ready
+  storageName: test-storage
+  psmdbCluster: test-psmdb-cluster
