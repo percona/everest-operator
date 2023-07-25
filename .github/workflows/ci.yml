@@ -95,7 +95,8 @@ jobs:
           tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
           chmod +x "$TOOLS_PATH"/eksctl
           # Configure CLI access
-          echo "[default]" >> /.aws/credentials
+          mkdir "$HOME"/.aws
+          echo "[default]" >> "$HOME"/.aws/credentials
           echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
           echo "aws_access_key_id="$EKSKEY"" >> "${HOME}"/.aws/credentials
           echo "[profile default]" >> "${HOME}"/.aws/config
