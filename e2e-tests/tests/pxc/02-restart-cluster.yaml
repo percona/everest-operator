@@ -11,7 +11,7 @@ metadata:
 spec:
   engine:
     type: pxc
-    version: 8.0.27-18.1
+    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     config: |
       [mysqld]
