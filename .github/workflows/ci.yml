@@ -99,8 +99,8 @@ jobs:
           echo "[default]" >> "$HOME"/.aws/credentials
           echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
           echo "aws_access_key_id="$EKSKEY"" >> "${HOME}"/.aws/credentials
-          echo "[profile default]" >> "${HOME}"/.aws/config
-          echo "region="$EKSREG"" >> "${HOME}"/.aws/config
+          echo "[default]" >> "${HOME}"/.aws/config
+          echo "region = "$EKSREG"" >> "${HOME}"/.aws/config
         env:
           KUBECTL_VERSION: 1.25.1
           EKSUID: ${{ secrets.EKSU }}
