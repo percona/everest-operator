@@ -47,10 +47,9 @@ metadata:
   labels:
     everest.percona.com/engine: pxc
 spec:
-  crVersion: 1.12.0
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
     serviceType: ClusterIP
     size: 1
   pxc:
