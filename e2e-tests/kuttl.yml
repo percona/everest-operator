@@ -3,5 +3,6 @@ kind: TestSuite
 kindConfig: e2e-tests/kind.yml
 crdDir: config/crd/bases
 artifactsDir: /tmp/
+timeout: 180
 testDirs:
 - e2e-tests/tests

@@ -6,21 +6,18 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
-  finalizers:
-    - percona.com/delete-pvc
   annotations:
     everest.percona.com/restart: "true"
 spec:
-  databaseType: postgresql
-  databaseImage: percona/percona-postgresql-operator:2.1.0-ppg14-postgres
-  databaseConfig: ""
-  clusterSize: 3
-  loadBalancer:
+  engine:
+    type: postgresql
+    version: "14.7"
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
     type: pgbouncer
-    exposeType: ClusterIP
-    size: 3
-    image: percona/percona-postgresql-operator:2.1.0-ppg14-pgbouncer
-  dbInstance:
-    cpu: "1"
-    memory: 1G
-    diskSize: 15G
+    replicas: 3

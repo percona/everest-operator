@@ -1,30 +1,24 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
-timeout: 10
-commands:
-  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager
-    background: true
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
 spec:
-  databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-  secretsName: pxc-sample-secrets
-  clusterSize: 3
-  loadBalancer:
+  engine:
+    type: pxc
+    version: 8.0.23-14.1
+    userSecretsName: pxc-sample-secrets
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 600m
+      memory: 1G
+  proxy:
     type: haproxy
-    exposeType: ClusterIP
-    size: 3
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
-  dbInstance:
-    cpu: 600m
-    memory: 1G
-    diskSize: 15G
+    replicas: 3

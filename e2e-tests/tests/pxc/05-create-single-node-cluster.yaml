@@ -11,12 +11,18 @@ spec:
     type: pxc
     version: 8.0.27-18.1
     userSecretsName: pxc-sample-secrets
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
     replicas: 1
+    storage:
+      size: 15G
     resources:
       cpu: 600m
       memory: 1G
-    storage:
-      size: 15G
   proxy:
-    type: haproxy
     replicas: 1
+    type: haproxy

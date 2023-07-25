@@ -7,29 +7,27 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  databaseType: pxc
-  databaseImage: percona/percona-xtradb-cluster:8.0.23-14.1
-  databaseConfig: |
-    [mysqld]
-    wsrep_provider_options="debug=1;gcache.size=1G"
-  secretsName: pxc-sample-secrets
-  clusterSize: 3
-  loadBalancer:
+  engine:
+    type: pxc
+    version: 8.0.23-14.1
+    userSecretsName: pxc-sample-secrets
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 600m
+      memory: 1G
+  proxy:
     type: haproxy
-    exposeType: ClusterIP
-    size: 3
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
-  dbInstance:
-    cpu: 600m
-    memory: 1G
-    diskSize: 15G
+    replicas: 3
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pvc
 spec:
   crVersion: 1.12.0
   haproxy:
