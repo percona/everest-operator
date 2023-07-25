@@ -88,28 +88,23 @@ jobs:
           curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
-          # EKSCTL
+          # Install EKSCTL
           ARCH=amd64
           PLATFORM=$(uname -s)_$ARCH
           curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
-          tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
-          mv /tmp/eksctl "$TOOLS_PATH"
-          # Configure CLI
-          touch ~/.aws/credentials
-          cat <<EOF > ~/.aws/credentials
-          [default]
-          aws_access_key_id="$EKSUID"
-          aws_secret_access_key="$EKSKEY"
-          EOF
-          touch ~/.aws/config
-          cat <<EOF > ~/.aws/config
-          [profile default]
-          region=us-east-2
-          EOF
+          tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
+          chmod +x "$TOOLS_PATH"/eksctl
+          # Configure CLI access
+          echo "[default]" >> /.aws/credentials
+          echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
+          echo "aws_access_key_id="$EKSKEY"" >> "${HOME}"/.aws/credentials
+          echo "[profile default]" >> "${HOME}"/.aws/config
+          echo "region="$EKSREG"" >> "${HOME}"/.aws/config
         env:
           KUBECTL_VERSION: 1.25.1
           EKSUID: ${{ secrets.EKSU }}
           EKSKEY: ${{ secrets.EKSSAK }}
+          EKSREG: ${{ secrets.EKSREG }}
 
       - name: Scale up cluster
         run: |
@@ -137,6 +132,12 @@ jobs:
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+
+      - name: Clean up credentials
+        run: |
+          rm -f "$HOME"/.aws/config
+          rm -f "$HOME"/.aws/credentials
+
   make-bundle:
     name: Make Bundle
     strategy:
