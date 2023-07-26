@@ -24,32 +24,33 @@ type BackupState string
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
 type DatabaseClusterBackupSpec struct {
-	// Name is the backup name.
-	Name string `json:"name"`
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
-	// Destination is the full path to the backup.
-	Destination string `json:"destination"`
-	// BackupSource is the object with the storage location info.
-	BackupSource BackupSource `json:"backupSource"`
+	// ObjectStorageName is the name of the ObjectStorage used for backups.
+	ObjectStorageName string `json:"objectStorageName"`
 }
 
 // DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
 type DatabaseClusterBackupStatus struct {
+	// Created is the timestamp of the upstream backup's creation.
+	CreatedAt *metav1.Time `json:"created,omitempty"`
 	// Completed is the time when the job was completed.
-	Completed *metav1.Time `json:"completed"`
+	CompletedAt *metav1.Time `json:"completed,omitempty"`
 	// State is the DatabaseBackup state.
-	State BackupState `json:"state"`
+	State BackupState `json:"state,omitempty"`
+	// Destination is the full path to the backup.
+	Destination *string `json:"destination,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dbbackup;dbb
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.dbClusterName",description="The original database cluster name"
-// +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".spec.destination",description="Backup destination"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.engineType",description="The original database cluster type"
+// +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Time the job was completed"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age of the resource"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".status.created",description="Age of the resource"
 
 // DatabaseClusterBackup is the Schema for the databaseclusterbackups API.
 type DatabaseClusterBackup struct {

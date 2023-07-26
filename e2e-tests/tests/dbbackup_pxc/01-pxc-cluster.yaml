@@ -1,0 +1,44 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-pxc-cluster-backup-s3
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
+  AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: test-storage
+spec:
+  type: s3
+  bucket: test-backup-bucket
+  credentialsSecretName: test-pxc-cluster-backup-s3
+  region: us-east-2
+  endpointURL: s3.someprovider.com
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    replicas: 1
+    storage:
+      size: 1G
+  proxy:
+    type: haproxy
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 1
+        objectStorageName: test-storage

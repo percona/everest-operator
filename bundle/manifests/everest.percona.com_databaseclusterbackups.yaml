@@ -22,8 +22,12 @@ spec:
       jsonPath: .spec.dbClusterName
       name: Cluster
       type: string
+    - description: The original database cluster type
+      jsonPath: .spec.engineType
+      name: Type
+      type: string
     - description: Backup destination
-      jsonPath: .spec.destination
+      jsonPath: .status.destination
       name: Destination
       type: string
     - description: Job status
@@ -35,7 +39,7 @@ spec:
       name: Completed
       type: date
     - description: Age of the resource
-      jsonPath: .metadata.creationTimestamp
+      jsonPath: .status.created
       name: Age
       type: date
     name: v1alpha1
@@ -59,96 +63,16 @@ spec:
           spec:
             description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
-              backupSource:
-                description: BackupSource is the object with the storage location
-                  info.
-                properties:
-                  azure:
-                    description: BackupStorageProviderSpec represents set of settings
-                      to configure cloud provider.
-                    properties:
-                      bucket:
-                        type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms
-                          to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
-                          Hot (Frequently accessed or modified data), Cool (Infrequently
-                          accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure.
-                        type: string
-                    required:
-                    - credentialsSecret
-                    type: object
-                  destination:
-                    type: string
-                  image:
-                    type: string
-                  s3:
-                    description: BackupStorageProviderSpec represents set of settings
-                      to configure cloud provider.
-                    properties:
-                      bucket:
-                        type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms
-                          to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
-                          Hot (Frequently accessed or modified data), Cool (Infrequently
-                          accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure.
-                        type: string
-                    required:
-                    - credentialsSecret
-                    type: object
-                  sslInternalSecretName:
-                    type: string
-                  sslSecretName:
-                    type: string
-                  storage_type:
-                    description: BackupStorageType represents backup storage type.
-                    type: string
-                  storageName:
-                    type: string
-                  vaultSecretName:
-                    type: string
-                required:
-                - storage_type
-                type: object
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
-              destination:
-                description: Destination is the full path to the backup.
-                type: string
-              name:
-                description: Name is the backup name.
+              objectStorageName:
+                description: ObjectStorageName is the name of the ObjectStorage used
+                  for backups.
                 type: string
             required:
-            - backupSource
             - dbClusterName
-            - destination
-            - name
+            - objectStorageName
             type: object
           status:
             description: DatabaseClusterBackupStatus defines the observed state of
@@ -158,12 +82,16 @@ spec:
                 description: Completed is the time when the job was completed.
                 format: date-time
                 type: string
+              created:
+                description: Created is the timestamp of the upstream backup's creation.
+                format: date-time
+                type: string
+              destination:
+                description: Destination is the full path to the backup.
+                type: string
               state:
                 description: State is the DatabaseBackup state.
                 type: string
-            required:
-            - completed
-            - state
             type: object
         type: object
     served: true
