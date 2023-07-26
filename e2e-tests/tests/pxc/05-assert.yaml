@@ -9,7 +9,7 @@ metadata:
 spec:
   engine:
     type: pxc
-    version: 8.0.27-18.1
+    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     config: |
       [mysqld]
@@ -33,10 +33,9 @@ metadata:
   name: test-pxc-cluster
 spec:
   allowUnsafeConfigurations: true
-  crVersion: 1.12.0
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
     serviceType: ClusterIP
     size: 1
   pxc:
@@ -47,7 +46,7 @@ spec:
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
     livenessProbes: {}
     readinessProbes: {}
     resources:
@@ -73,11 +72,11 @@ status:
     size: 1
     status: ready
   pxc:
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
     ready: 1
     size: 1
     status: ready
-    version: 8.0.27-18.1
+    version: 8.0.32-24.2
   ready: 2
   size: 2
   state: ready

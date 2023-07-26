@@ -12,7 +12,7 @@ metadata:
 spec:
   engine:
     type: pxc
-    version: 8.0.27-18.1
+    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     replicas: 1
     resources:
@@ -47,10 +47,9 @@ metadata:
   labels:
     everest.percona.com/engine: pxc
 spec:
-  crVersion: 1.12.0
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
     serviceType: ClusterIP
     size: 1
   pxc:
@@ -58,7 +57,7 @@ spec:
       [mysqld]
       max_connections = 789
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
     livenessProbes: {}
     readinessProbes: {}
     resources:
@@ -84,11 +83,11 @@ status:
     size: 1
     status: ready
   pxc:
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
     ready: 1
     size: 1
     status: ready
-    version: 8.0.27-18.1
+    version: 8.0.32-24.2
   ready: 2
   size: 2
   state: ready
