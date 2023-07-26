@@ -64,96 +64,16 @@ spec:
           spec:
             description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
-              backupSource:
-                description: BackupSource is the object with the storage location
-                  info.
-                properties:
-                  azure:
-                    description: BackupStorageProviderSpec represents set of settings
-                      to configure cloud provider.
-                    properties:
-                      bucket:
-                        type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms
-                          to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
-                          Hot (Frequently accessed or modified data), Cool (Infrequently
-                          accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure.
-                        type: string
-                    required:
-                    - credentialsSecret
-                    type: object
-                  destination:
-                    type: string
-                  image:
-                    type: string
-                  s3:
-                    description: BackupStorageProviderSpec represents set of settings
-                      to configure cloud provider.
-                    properties:
-                      bucket:
-                        type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms
-                          to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP
-                          Hot (Frequently accessed or modified data), Cool (Infrequently
-                          accessed or modified data), Archive (Rarely accessed or
-                          modified data) for Azure.
-                        type: string
-                    required:
-                    - credentialsSecret
-                    type: object
-                  sslInternalSecretName:
-                    type: string
-                  sslSecretName:
-                    type: string
-                  storage_type:
-                    description: BackupStorageType represents backup storage type.
-                    type: string
-                  storageName:
-                    type: string
-                  vaultSecretName:
-                    type: string
-                required:
-                - storage_type
-                type: object
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
-              engineType:
-                description: EngineType is the type of the engine
-                type: string
-              name:
-                description: Name is the backup name.
+              objectStorageName:
+                description: ObjectStorageName is the name of the ObjectStorage used
+                  for backups.
                 type: string
             required:
-            - backupSource
             - dbClusterName
-            - engineType
-            - name
+            - objectStorageName
             type: object
           status:
             description: DatabaseClusterBackupStatus defines the observed state of

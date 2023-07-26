@@ -79,27 +79,42 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	err := r.Get(ctx, req.NamespacedName, backup)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch DatabaseClusterBackup")
+		}
+		return reconcile.Result{}, err
+	}
+
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, cluster)
+	if err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch DatabaseCluster")
 		}
 		return reconcile.Result{}, err
 	}
 
-	if backup.Spec.EngineType == everestv1alpha1.DatabaseEnginePXC {
+	storage := &everestv1alpha1.ObjectStorage{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.ObjectStorageName, Namespace: backup.Namespace}, storage)
+	if err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch ObjectStorage")
+		}
+		return reconcile.Result{}, err
+	}
+
+	switch cluster.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
 		if err = r.reconcilePXC(ctx, backup); err != nil {
 			logger.Error(err, "failed to reconcile PXC backup")
 			return reconcile.Result{}, err
 		}
-	}
-
-	if backup.Spec.EngineType == everestv1alpha1.DatabaseEnginePSMDB {
+	case everestv1alpha1.DatabaseEnginePSMDB:
 		if err = r.reconcilePSMDB(ctx, backup); err != nil {
 			logger.Error(err, "failed to reconcile PSMDB backup")
 			return reconcile.Result{}, err
 		}
-	}
-
-	if backup.Spec.EngineType == everestv1alpha1.DatabaseEnginePostgresql {
-		if err = r.reconcilePG(ctx, backup); err != nil {
+	case everestv1alpha1.DatabaseEnginePostgresql:
+		if err = r.reconcilePG(ctx, backup, cluster); err != nil {
 			logger.Error(err, "failed to reconcile PG backup")
 			return reconcile.Result{}, err
 		}
@@ -203,7 +218,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 			Kind:       pxcBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
-		pxcCR.Spec.StorageName = backup.Spec.BackupSource.StorageName
+		pxcCR.Spec.StorageName = backup.Spec.ObjectStorageName
 
 		return nil
 	})
@@ -239,7 +254,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Kind:       psmdbBackupKind,
 		}
 		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
-		psmdbCR.Spec.StorageName = backup.Spec.BackupSource.StorageName
+		psmdbCR.Spec.StorageName = backup.Spec.ObjectStorageName
 
 		return nil
 	})
@@ -258,7 +273,11 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	return r.Status().Update(ctx, backup)
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backup *everestv1alpha1.DatabaseClusterBackup) error {
+func (r *DatabaseClusterBackupReconciler) reconcilePG(
+	ctx context.Context,
+	backup *everestv1alpha1.DatabaseClusterBackup,
+	dbcluster *everestv1alpha1.DatabaseCluster,
+) error {
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -275,7 +294,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backu
 		}
 		pgCR.Spec.PGCluster = backup.Spec.DBClusterName
 
-		repoName, err := r.pgRepoName(ctx, backup)
+		repoName, err := r.pgRepoName(backup, dbcluster)
 		if err != nil {
 			return err
 		}
@@ -293,27 +312,23 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(ctx context.Context, backu
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
+	//nolint:godox
+	// TODO: add backup.Status.Destination once https://jira.percona.com/browse/K8SPG-411 is done
 	return r.Status().Update(ctx, backup)
 }
 
 // pgRepoName returns the pg cluster's RepoName (which is like "repo1", "repo2" etc)
 // that corresponds the database cluster's ObjectStorageName.
-func (r *DatabaseClusterBackupReconciler) pgRepoName(ctx context.Context, everestBackup *everestv1alpha1.DatabaseClusterBackup) (string, error) {
-	cluster := &everestv1alpha1.DatabaseCluster{}
-	err := r.Get(ctx, types.NamespacedName{Name: everestBackup.Spec.DBClusterName, Namespace: everestBackup.Namespace}, cluster)
-	if err != nil {
-		return "", err
-	}
-
+func (r *DatabaseClusterBackupReconciler) pgRepoName(everestBackup *everestv1alpha1.DatabaseClusterBackup, dbcluster *everestv1alpha1.DatabaseCluster) (string, error) {
 	//nolint:godox
 	// TODO: decouple PG backups from the schedules list
 	// currently the PG on-demand backups require at least one schedule to be set,
 	// here is an idea how to fix it https://github.com/percona/everest-operator/pull/7#discussion_r1263497633
-	for idx, schedule := range cluster.Spec.Backup.Schedules {
-		if schedule.ObjectStorageName == everestBackup.Spec.BackupSource.StorageName {
+	for idx, schedule := range dbcluster.Spec.Backup.Schedules {
+		if schedule.ObjectStorageName == everestBackup.Spec.ObjectStorageName {
 			return fmt.Sprintf("repo%d", idx+1), nil
 		}
 	}
 
-	return "", errors.Errorf("no PG repo found")
+	return "", errors.Errorf("can't perform the backup because the requested backup location isn't set in the DatabaseCluster")
 }

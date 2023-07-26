@@ -24,14 +24,10 @@ type BackupState string
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
 type DatabaseClusterBackupSpec struct {
-	// Name is the backup name.
-	Name string `json:"name"`
-	// EngineType is the type of the engine
-	EngineType EngineType `json:"engineType"`
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
-	// BackupSource is the object with the storage location info.
-	BackupSource BackupSource `json:"backupSource"`
+	// ObjectStorageName is the name of the ObjectStorage used for backups.
+	ObjectStorageName string `json:"objectStorageName"`
 }
 
 // DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
