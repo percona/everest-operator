@@ -88,8 +88,32 @@ jobs:
           curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
+          # Install EKSCTL
+          ARCH=amd64
+          PLATFORM=$(uname -s)_$ARCH
+          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+          tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
+          chmod +x "$TOOLS_PATH"/eksctl
+          # Configure CLI access
+          mkdir "$HOME"/.aws
+          echo "[default]" >> "$HOME"/.aws/credentials
+          echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
+          echo "aws_secret_access_key="$EKSKEY"" >> "${HOME}"/.aws/credentials
+          echo "[default]" >> "${HOME}"/.aws/config
+          echo "region = "$EKSREG"" >> "${HOME}"/.aws/config
         env:
           KUBECTL_VERSION: 1.25.1
+          EKSUID: ${{ secrets.EKSU }}
+          EKSKEY: ${{ secrets.EKSSAK }}
+          EKSREG: ${{ secrets.EKSREG }}
+
+      - name: Scale up cluster
+        run: |
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=3 "$NODEPOOL_NAME" --wait
+        env:
+          CLUSTER_NAME: "dbaas-ci-20221005"
+          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+
       - name: Run tests
         run: |
           export KUBECONFIG="${HOME}/.kube/config"
@@ -102,6 +126,18 @@ jobs:
           PG_OPERATOR_VERSION: 2.2.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
+      - name: Scale down cluster
+        run: |
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+        env:
+          CLUSTER_NAME: "dbaas-ci-20221005"
+          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+
+      - name: Clean up credentials
+        run: |
+          rm -f "$HOME"/.aws/config
+          rm -f "$HOME"/.aws/credentials
 
   make-bundle:
     name: Make Bundle
