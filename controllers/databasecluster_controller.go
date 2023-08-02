@@ -349,6 +349,10 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return reconcile.Result{}, err
 		}
 	}
+	if database.Spec.Engine.UserSecretsName == "" {
+		database.Spec.Engine.UserSecretsName = fmt.Sprintf("dbaas-secrets-%s", database.Name)
+	}
+
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
@@ -1334,10 +1338,6 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	if err != nil {
 		return errors.Wrapf(err, "failed to get database engine %s", pgDeploymentName)
 	}
-	if database.Spec.Engine.UserSecretsName == "" {
-		database.Spec.Engine.UserSecretsName = database.Name + "-pguser-" + database.Name
-	}
-
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -1438,7 +1438,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		pg.Spec.Users = []crunchyv1beta1.PostgresUserSpec{
 			{
 				Name:       "postgres",
-				SecretName: database.Spec.Engine.UserSecretsName,
+				SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 			},
 		}
 
