@@ -350,7 +350,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 	if database.Spec.Engine.UserSecretsName == "" {
-		database.Spec.Engine.UserSecretsName = fmt.Sprintf("dbaas-secrets-%s", database.Name)
+		database.Spec.Engine.UserSecretsName = fmt.Sprintf("everest-secrets-%s", database.Name)
 	}
 
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
