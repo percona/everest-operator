@@ -111,6 +111,7 @@ timeout server 28800s
 `
 	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+	monitoringConfigNameField  = ".spec.monitoringConfigName"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -677,10 +678,37 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
 
-		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			image := monitoring.Spec.PMM.Image
+			if image == "" {
+				image = "percona/pmm-client:latest"
+			}
+			psmdb.Spec.PMM.Image = image
+
+			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			if err != nil {
+				return err
+			}
+
+			_, err = r.createOrUpdateSecret(ctx, database, psmdb.Spec.Secrets.Users, "", map[string][]byte{
+				"PMM_SERVER_API_KEY": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if database.Spec.Backup.Enabled {
@@ -713,6 +741,58 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	}
 	database.Status.Message = message
 	return r.Status().Update(ctx, database)
+}
+
+// getSecretFromMonitoringConfig retrieves the credentials secret from
+// the provided MonitoringConfig.
+// For convenience, you can provide a secretKey which allows you to return
+// data from the secret identified by the secretKey.
+func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+	monitoring *everestv1alpha1.MonitoringConfig, secretKey string,
+) (*corev1.Secret, string, error) {
+	var secret *corev1.Secret
+	secretData := ""
+
+	if monitoring.Spec.CredentialsSecretName != "" {
+		secret = &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      monitoring.Spec.CredentialsSecretName,
+			Namespace: database.Namespace,
+		}, secret)
+		if err != nil {
+			return nil, "", err
+		}
+
+		if key, ok := secret.Data[secretKey]; ok {
+			secretData = string(key)
+		}
+	}
+
+	return secret, secretData, nil
+}
+
+// createOrUpdateSecret creates or updates a secret by its name.
+// If a secret is created and secretName is empty, generateName is used
+// to generate a unique name.
+func (r *DatabaseClusterReconciler) createOrUpdateSecret(
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+	secretName, generateName string, data map[string][]byte,
+) (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: database.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: data,
+	}
+
+	if secretName == "" {
+		secret.ObjectMeta.GenerateName = generateName
+	}
+
+	return secret, r.createOrUpdate(ctx, secret)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1073,11 +1153,37 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return errors.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
 		}
 
-		if database.Spec.Monitoring.PMM != nil {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
-			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			image := monitoring.Spec.PMM.Image
+			if image == "" {
+				image = "percona/pmm-client:latest"
+			}
+			pxc.Spec.PMM.Image = image
+
+			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			if err != nil {
+				return err
+			}
+
+			_, err = r.createOrUpdateSecret(ctx, database, pxc.Spec.SecretsName, "", map[string][]byte{
+				"pmmserverkey": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if database.Spec.Backup.Enabled {
@@ -1325,6 +1431,15 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		},
 		Spec: pgSpec,
 	}
+
+	if pg.Spec.PMM == nil {
+		pg.Spec.PMM = &pgv2.PMMSpec{}
+	}
+
+	if pg.Spec.PMM.Secret == "" {
+		pg.Spec.PMM.Secret = database.Spec.Engine.UserSecretsName
+	}
+
 	if len(database.Finalizers) != 0 {
 		pg.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
@@ -1442,10 +1557,37 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			},
 		}
 
-		if database.Spec.Monitoring.PMM != nil {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			image := monitoring.Spec.PMM.Image
+			if image == "" {
+				image = "percona/pmm-client:latest"
+			}
+			pg.Spec.PMM.Image = image
+
+			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			if err != nil {
+				return err
+			}
+
+			_, err = r.createOrUpdateSecret(ctx, database, pg.Spec.PMM.Secret, "", map[string][]byte{
+				"PMM_SERVER_KEY": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		// If no backup is specified we need to define a repo regardless.
@@ -1597,39 +1739,7 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Index the ObjectStorage's CredentialsSecretName field so that it can be
-	// used by the databaseClustersThatReferenceCredentialsSecret function to
-	// find all DatabaseClusters that reference a specific secret through the
-	// ObjectStorage's CredentialsSecretName field
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.ObjectStorage{}, credentialsSecretNameField, func(o client.Object) []string {
-		var res []string
-		objectStorage, ok := o.(*everestv1alpha1.ObjectStorage)
-		if !ok {
-			return res
-		}
-		res = append(res, objectStorage.Spec.CredentialsSecretName)
-		return res
-	})
-	if err != nil {
-		return err
-	}
-
-	// Index the ObjectStorageName so that it can be used by the
-	// databaseClustersThatReferenceObjectStorage function to find all
-	// DatabaseClusters that reference a specific ObjectStorage through the
-	// ObjectStorageName field
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, objectStorageNameField, func(o client.Object) []string {
-		var res []string
-		database, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok || !database.Spec.Backup.Enabled {
-			return res
-		}
-		for _, storage := range database.Spec.Backup.Schedules {
-			res = append(res, storage.ObjectStorageName)
-		}
-		return res
-	})
-	if err != nil {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
 
@@ -1641,7 +1751,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseCluster{})
-	err = r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
+	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
@@ -1659,6 +1769,67 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			controller.Owns(&pgv2.PerconaPGCluster{})
 		}
 	}
+
+	r.initWatchers(controller)
+
+	return controller.Complete(r)
+}
+
+func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the ObjectStorage's CredentialsSecretName field so that it can be
+	// used by the databaseClustersThatReferenceCredentialsSecret function to
+	// find all DatabaseClusters that reference a specific secret through the
+	// ObjectStorage's CredentialsSecretName field
+	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.ObjectStorage{}, credentialsSecretNameField, func(o client.Object) []string {
+		var res []string
+		objectStorage, ok := o.(*everestv1alpha1.ObjectStorage)
+		if !ok {
+			return res
+		}
+		res = append(res, objectStorage.Spec.CredentialsSecretName)
+		return res
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index the ObjectStorageName so that it can be used by the
+	// databaseClustersThatReferenceObjectStorage function to find all
+	// DatabaseClusters that reference a specific ObjectStorage through the
+	// ObjectStorageName field
+	err = mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.DatabaseCluster{}, objectStorageNameField, func(o client.Object) []string {
+		var res []string
+		database, ok := o.(*everestv1alpha1.DatabaseCluster)
+		if !ok || !database.Spec.Backup.Enabled {
+			return res
+		}
+		for _, storage := range database.Spec.Backup.Schedules {
+			res = append(res, storage.ObjectStorageName)
+		}
+		return res
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index the MonitoringConfigName field so that it can be
+	// used by the databaseClustersThatReferenceCredentialsSecret function to
+	// find all DatabaseClusters that reference a specific secret through the
+	// ObjectStorage's CredentialsSecretName field
+	err = mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField, func(o client.Object) []string {
+		var res []string
+		mc, ok := o.(*everestv1alpha1.DatabaseCluster)
+		if !ok {
+			return res
+		}
+		res = append(res, mc.Spec.MonitoringConfigName)
+		return res
+	})
+
+	return err
+}
+
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	// In PG reconciliation we create a backup credentials secret because the
 	// PG operator requires this secret to be encoded differently from the
 	// generic one used in PXC and PSMDB. Therefore, we need to watch for
@@ -1668,25 +1839,36 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller.Owns(&everestv1alpha1.ObjectStorage{})
 	controller.Watches(
 		&everestv1alpha1.ObjectStorage{},
-		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceObjectStorage),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return r.databaseClustersThatReferenceObjectStorage(ctx, objectStorageNameField, obj)
+		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+
+	controller.Owns(&everestv1alpha1.MonitoringConfig{})
+	controller.Watches(
+		&everestv1alpha1.MonitoringConfig{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return r.databaseClustersThatReferenceObjectStorage(ctx, monitoringConfigNameField, obj)
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceCredentialsSecret),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
-	return controller.Complete(r)
 }
 
 // databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
-// requests for all DatabaseClusters that reference the given ObjectStorage.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(ctx context.Context, objectStorage client.Object) []reconcile.Request {
+// requests for all DatabaseClusters that reference the given object by the provided keyPath.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(ctx context.Context, keyPath string, obj client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(objectStorageNameField, objectStorage.GetName()),
-		Namespace:     objectStorage.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(keyPath, obj.GetName()),
+		Namespace:     obj.GetNamespace(),
 	}
 	err := r.List(ctx, attachedDatabaseClusters, listOps)
 	if err != nil {
@@ -1874,6 +2056,10 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 	oldObject, ok := reflect.New(val.Type()).Interface().(client.Object)
 	if !ok {
 		return errors.Errorf("failed type conversion")
+	}
+
+	if obj.GetName() == "" && obj.GetGenerateName() != "" {
+		return r.Create(ctx, obj)
 	}
 
 	err = r.Get(ctx, types.NamespacedName{

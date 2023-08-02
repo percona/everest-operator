@@ -16,7 +16,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -187,22 +186,6 @@ type PMMSpec struct {
 	Password      string `json:"password,omitempty"`
 }
 
-// Monitoring contains monitoring settings.
-type Monitoring struct {
-	// Enabled is a flag to enable monitoring
-	Enabled   bool                        `json:"enabled"`
-	PMM       *PMMSpec                    `json:"pmm,omitempty"`
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	//nolint:godox,dupword,gocritic
-	// TODO migrate to the MonitoringConfig CR approach.
-	//// MonitoringConfigName is the name of the MonitoringConfig CR that defines
-	//// the monitoring configuration
-	//MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
-	//// Resources are the resource requirements for the monitoring container.
-	//// If not set, resource limits are not imposed
-	//Resources Resources `json:"resources,omitempty"`
-}
-
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
@@ -218,8 +201,8 @@ type DatabaseClusterSpec struct {
 	DataSource *DataSource `json:"dataSource,omitempty"`
 	// Backup is the backup specification
 	Backup Backup `json:"backup,omitempty"`
-	// Monitoring is the monitoring specification
-	Monitoring Monitoring `json:"monitoring,omitempty"`
+	// MonitoringConfigName is the name of a monitoringConfig CR.
+	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
 }
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
