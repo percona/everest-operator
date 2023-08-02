@@ -99,6 +99,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Backup: matrix.Backup,
 		}
 		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
+			for key := range matrix.PXC {
+				// We do not need supporting mysql 5
+				if strings.HasPrefix(key, "5") {
+					delete(matrix.PXC, key)
+				}
+			}
 			versions.Engine = matrix.PXC
 			versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
 				everestv1alpha1.ProxyTypeHAProxy:  matrix.HAProxy,
