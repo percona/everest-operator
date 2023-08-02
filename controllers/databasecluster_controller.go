@@ -349,6 +349,10 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return reconcile.Result{}, err
 		}
 	}
+	if database.Spec.Engine.UserSecretsName == "" {
+		database.Spec.Engine.UserSecretsName = fmt.Sprintf("everest-secrets-%s", database.Name)
+	}
+
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
@@ -1334,7 +1338,6 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	if err != nil {
 		return errors.Wrapf(err, "failed to get database engine %s", pgDeploymentName)
 	}
-
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -1430,6 +1433,13 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		}
 		if !database.Spec.Proxy.Resources.Memory.IsZero() {
 			pg.Spec.Proxy.PGBouncer.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
+		}
+		pg.Spec.Proxy.PGBouncer.ExposeSuperusers = true
+		pg.Spec.Users = []crunchyv1beta1.PostgresUserSpec{
+			{
+				Name:       "postgres",
+				SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
+			},
 		}
 
 		if database.Spec.Monitoring.PMM != nil {
