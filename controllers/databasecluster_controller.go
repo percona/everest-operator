@@ -109,9 +109,10 @@ timeout server 28800s
       operationProfiling:
         mode: slowOp
 `
-	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
-	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
-	monitoringConfigNameField  = ".spec.monitoringConfigName"
+	objectStorageNameField          = ".spec.backup.schedules.objectStorageName"
+	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
+	monitoringConfigNameField       = ".spec.monitoringConfigName"
+	monitoringConfigSecretNameField = ".spec.credentialsSecretName"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -1797,34 +1798,54 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	// databaseClustersThatReferenceObjectStorage function to find all
 	// DatabaseClusters that reference a specific ObjectStorage through the
 	// ObjectStorageName field
-	err = mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.DatabaseCluster{}, objectStorageNameField, func(o client.Object) []string {
-		var res []string
-		database, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok || !database.Spec.Backup.Enabled {
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, objectStorageNameField,
+		func(o client.Object) []string {
+			var res []string
+			database, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok || !database.Spec.Backup.Enabled {
+				return res
+			}
+			for _, storage := range database.Spec.Backup.Schedules {
+				res = append(res, storage.ObjectStorageName)
+			}
 			return res
-		}
-		for _, storage := range database.Spec.Backup.Schedules {
-			res = append(res, storage.ObjectStorageName)
-		}
-		return res
-	})
+		},
+	)
 	if err != nil {
 		return err
 	}
 
-	// Index the MonitoringConfigName field so that it can be
-	// used by the databaseClustersThatReferenceCredentialsSecret function to
-	// find all DatabaseClusters that reference a specific secret through the
-	// ObjectStorage's CredentialsSecretName field
-	err = mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField, func(o client.Object) []string {
-		var res []string
-		mc, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok {
+	// Index the monitoringConfigName field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			dc, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+			res = append(res, dc.Spec.MonitoringConfigName)
 			return res
-		}
-		res = append(res, mc.Spec.MonitoringConfigName)
-		return res
-	})
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Index the credentialsSecretName field in MonitoringConfig.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return res
+			}
+			res = append(res, mc.Spec.CredentialsSecretName)
+			return res
+		},
+	)
 
 	return err
 }
@@ -1840,7 +1861,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&everestv1alpha1.ObjectStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.databaseClustersThatReferenceObjectStorage(ctx, objectStorageNameField, obj)
+			return r.databaseClustersThatReferenceObject(ctx, objectStorageNameField, obj)
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
@@ -1849,7 +1870,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.databaseClustersThatReferenceObjectStorage(ctx, monitoringConfigNameField, obj)
+			return r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
@@ -1857,14 +1878,14 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&corev1.Secret{},
-		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceCredentialsSecret),
+		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 }
 
-// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// databaseClustersThatReferenceObject returns a list of reconcile
 // requests for all DatabaseClusters that reference the given object by the provided keyPath.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(ctx context.Context, keyPath string, obj client.Object) []reconcile.Request {
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(ctx context.Context, keyPath string, obj client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(keyPath, obj.GetName()),
@@ -1888,28 +1909,50 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObjectStorage(c
 	return requests
 }
 
-// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// databaseClustersThatReferenceSecret returns a list of reconcile
 // requests for all DatabaseClusters that reference the given secret.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceCredentialsSecret(ctx context.Context, secret client.Object) []reconcile.Request {
-	attachedObjectStorage := &everestv1alpha1.ObjectStorageList{}
-	listOps1 := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(credentialsSecretNameField, secret.GetName()),
-		Namespace:     secret.GetNamespace(),
-	}
-	err := r.List(ctx, attachedObjectStorage, listOps1)
-	if err != nil {
-		return []reconcile.Request{}
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	// ObjectStorage
+	var res []reconcile.Request
+	osList := &everestv1alpha1.ObjectStorageList{}
+	if err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, osList); err != nil {
+		var items []client.Object
+		for _, i := range osList.Items {
+			items = append(items, &i)
+		}
+		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, objectStorageNameField)...)
 	}
 
+	// MonitoringConfig
+	mcList := &everestv1alpha1.MonitoringConfigList{}
+	if err := r.findObjectsBySecretName(ctx, secret, monitoringConfigSecretNameField, mcList); err != nil {
+		var items []client.Object
+		for _, i := range mcList.Items {
+			items = append(items, &i)
+		}
+		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, monitoringConfigNameField)...)
+	}
+
+	return res
+}
+
+func (r *DatabaseClusterReconciler) findObjectsBySecretName(ctx context.Context, secret client.Object, fieldPath string, obj client.ObjectList) error {
+	listOpts := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(fieldPath, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+	return r.List(ctx, obj, listOpts)
+}
+
+func (r *DatabaseClusterReconciler) getDBClustersReconcileRequestsByRelatedObjectName(ctx context.Context, items []client.Object, fieldPath string) []reconcile.Request {
 	var requests []reconcile.Request
-	for _, objectStorage := range attachedObjectStorage.Items {
+	for _, i := range items {
 		attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(objectStorageNameField, objectStorage.GetName()),
-			Namespace:     secret.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector(fieldPath, i.GetName()),
+			Namespace:     i.GetNamespace(),
 		}
-		err = r.List(ctx, attachedDatabaseClusters, listOps)
-		if err != nil {
+		if err := r.List(ctx, attachedDatabaseClusters, listOps); err != nil {
 			return []reconcile.Request{}
 		}
 
