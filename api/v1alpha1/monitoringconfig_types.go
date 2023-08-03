@@ -27,7 +27,7 @@ const (
 	PMM MonitoringType = "pmm"
 )
 
-// MonitoringConfigSpec defines the desired state of MonitoringConfig
+// MonitoringConfigSpec defines the desired state of MonitoringConfig.
 type MonitoringConfigSpec struct {
 	// Type is type of monitoring.
 	// +kubebuilder:validation:Enum=pmm
@@ -38,20 +38,21 @@ type MonitoringConfigSpec struct {
 	PMM PMMConfig `json:"pmm,omitempty"`
 }
 
+// PMMConfig is configuration of the PMM monitoring type.
 type PMMConfig struct {
-	// Url is url to the monitoring instance.
-	Url string `json:"url,omitempty"`
+	// URL is url to the monitoring instance.
+	URL string `json:"url,omitempty"`
 	// Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version.
 	Image string `json:"image,omitempty"`
 }
 
-// MonitoringConfigStatus defines the observed state of MonitoringConfig
+// MonitoringConfigStatus defines the observed state of MonitoringConfig.
 type MonitoringConfigStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// MonitoringConfig is the Schema for the monitoringconfigs API
+// MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -62,7 +63,7 @@ type MonitoringConfig struct {
 
 //+kubebuilder:object:root=true
 
-// MonitoringConfigList contains a list of MonitoringConfig
+// MonitoringConfigList contains a list of MonitoringConfig.
 type MonitoringConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

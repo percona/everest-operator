@@ -112,7 +112,9 @@ timeout server 28800s
 	objectStorageNameField          = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	monitoringConfigNameField       = ".spec.monitoringConfigName"
-	monitoringConfigSecretNameField = ".spec.credentialsSecretName"
+	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+
+	pmmClientLatestImageName = "percona/pmm-client:latest"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -692,19 +694,19 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 
 		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
 			if image == "" {
-				image = "percona/pmm-client:latest"
+				image = pmmClientLatestImageName
 			}
 			psmdb.Spec.PMM.Image = image
 
-			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
 				return err
 			}
 
-			_, err = r.createOrUpdateSecret(ctx, database, psmdb.Spec.Secrets.Users, "", map[string][]byte{
+			err = r.createOrUpdateSecret(ctx, database, psmdb.Spec.Secrets.Users, "", map[string][]byte{
 				"PMM_SERVER_API_KEY": []byte(apiKey),
 			})
 			if err != nil {
@@ -745,13 +747,11 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 }
 
 // getSecretFromMonitoringConfig retrieves the credentials secret from
-// the provided MonitoringConfig.
-// For convenience, you can provide a secretKey which allows you to return
-// data from the secret identified by the secretKey.
+// the provided MonitoringConfig by secretKey field name.
 func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
 	monitoring *everestv1alpha1.MonitoringConfig, secretKey string,
-) (*corev1.Secret, string, error) {
+) (string, error) {
 	var secret *corev1.Secret
 	secretData := ""
 
@@ -762,7 +762,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 			Namespace: database.Namespace,
 		}, secret)
 		if err != nil {
-			return nil, "", err
+			return "", err
 		}
 
 		if key, ok := secret.Data[secretKey]; ok {
@@ -770,7 +770,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 		}
 	}
 
-	return secret, secretData, nil
+	return secretData, nil
 }
 
 // createOrUpdateSecret creates or updates a secret by its name.
@@ -779,7 +779,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
 	secretName, generateName string, data map[string][]byte,
-) (*corev1.Secret, error) {
+) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -793,7 +793,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 		secret.ObjectMeta.GenerateName = generateName
 	}
 
-	return secret, r.createOrUpdate(ctx, secret)
+	return r.createOrUpdate(ctx, secret)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1167,19 +1167,19 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
 			if image == "" {
-				image = "percona/pmm-client:latest"
+				image = pmmClientLatestImageName
 			}
 			pxc.Spec.PMM.Image = image
 
-			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
 				return err
 			}
 
-			_, err = r.createOrUpdateSecret(ctx, database, pxc.Spec.SecretsName, "", map[string][]byte{
+			err = r.createOrUpdateSecret(ctx, database, pxc.Spec.SecretsName, "", map[string][]byte{
 				"pmmserverkey": []byte(apiKey),
 			})
 			if err != nil {
@@ -1571,19 +1571,19 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 
 		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
 			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.Url
+			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
 			if image == "" {
-				image = "percona/pmm-client:latest"
+				image = pmmClientLatestImageName
 			}
 			pg.Spec.PMM.Image = image
 
-			_, apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
 				return err
 			}
 
-			_, err = r.createOrUpdateSecret(ctx, database, pg.Spec.PMM.Secret, "", map[string][]byte{
+			err = r.createOrUpdateSecret(ctx, database, pg.Spec.PMM.Secret, "", map[string][]byte{
 				"PMM_SERVER_KEY": []byte(apiKey),
 			})
 			if err != nil {
@@ -1924,6 +1924,7 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	if err == nil {
 		var items []client.Object
 		for _, i := range osList.Items {
+			i := i
 			items = append(items, &i)
 		}
 		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, objectStorageNameField)...)
@@ -1938,6 +1939,7 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	if err == nil {
 		var items []client.Object
 		for _, i := range mcList.Items {
+			i := i
 			items = append(items, &i)
 		}
 		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, monitoringConfigNameField)...)
