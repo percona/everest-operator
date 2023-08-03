@@ -81,10 +81,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-08-02T09:49:44Z"
+    createdAt: "2023-08-03T11:03:20Z"
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: everest-operator.v0.0.5
+  name: everest-operator.v0.0.7
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -273,7 +273,43 @@ spec:
         - apiGroups:
           - pgv2.percona.com
           resources:
+          - perconapgbackups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pgv2.percona.com
+          resources:
           - perconapgclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pgv2.percona.com
+          resources:
+          - perconapgrestores
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - psmdb.percona.com
+          resources:
+          - perconaservermongodbbackups
           verbs:
           - create
           - delete
@@ -298,6 +334,18 @@ spec:
           - psmdb.percona.com
           resources:
           - perconaservermongodbs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusterbackups
           verbs:
           - create
           - delete
@@ -425,7 +473,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/everest-operator:0.0.5
+                image: docker.io/percona/everest-operator:0.0.7
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -519,4 +567,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.5
+  version: 0.0.7
