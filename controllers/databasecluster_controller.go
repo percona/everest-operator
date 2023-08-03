@@ -1835,7 +1835,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 
 	// Index the credentialsSecretName field in MonitoringConfig.
 	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigNameField,
+		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
 		func(o client.Object) []string {
 			var res []string
 			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
@@ -1912,10 +1912,16 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(ctx cont
 // databaseClustersThatReferenceSecret returns a list of reconcile
 // requests for all DatabaseClusters that reference the given secret.
 func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
 	// ObjectStorage
 	var res []reconcile.Request
 	osList := &everestv1alpha1.ObjectStorageList{}
-	if err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, osList); err != nil {
+	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, osList)
+	if err != nil {
+		logger.Error(err, "could not find ObjectStorage by secret name")
+	}
+	if err == nil {
 		var items []client.Object
 		for _, i := range osList.Items {
 			items = append(items, &i)
@@ -1925,7 +1931,11 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 
 	// MonitoringConfig
 	mcList := &everestv1alpha1.MonitoringConfigList{}
-	if err := r.findObjectsBySecretName(ctx, secret, monitoringConfigSecretNameField, mcList); err != nil {
+	err = r.findObjectsBySecretName(ctx, secret, monitoringConfigSecretNameField, mcList)
+	if err != nil {
+		logger.Error(err, "could not find MonitoringConfig by secret name")
+	}
+	if err == nil {
 		var items []client.Object
 		for _, i := range mcList.Items {
 			items = append(items, &i)
