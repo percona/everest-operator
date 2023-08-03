@@ -1,0 +1,38 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc
+spec:
+  type: pmm
+  credentialsSecretName: mc-secret
+  pmm:
+    url: http://localhost
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-secret
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-mc
+spec:
+  monitoringConfigName: test-mc
+  engine:
+    type: postgresql
+    version: "14.7"
+    replicas: 1
+    storage:
+      size: 4G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
+    type: pgbouncer
+    replicas: 1

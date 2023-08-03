@@ -1,0 +1,27 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: mongo-mc
+spec:
+  monitoringConfigName: test-mc
+status:
+  status: ready
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-mongo-mc
+data:
+  PMM_SERVER_API_KEY: YWJjZGVm
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: mongo-mc
+spec:
+  secrets:
+    users: everest-secrets-mongo-mc

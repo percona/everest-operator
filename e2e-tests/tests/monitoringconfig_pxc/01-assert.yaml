@@ -1,0 +1,27 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pxc-mc
+spec:
+  monitoringConfigName: test-mc
+status:
+  status: ready
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-pxc-mc
+data:
+  pmmserverkey: YWJjZGVm
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: pxc-mc
+spec:
+  secrets:
+    users: everest-secrets-pxc-mc
