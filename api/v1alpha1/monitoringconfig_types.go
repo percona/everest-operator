@@ -31,9 +31,9 @@ const (
 type MonitoringConfigSpec struct {
 	// Type is type of monitoring.
 	// +kubebuilder:validation:Enum=pmm
-	Type MonitoringType `json:"type,omitempty"`
+	Type MonitoringType `json:"type"`
 	// CredentialsSecretName is the name of the secret with credentials.
-	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
+	CredentialsSecretName string `json:"credentialsSecretName"`
 	// PMM is configuration for the PMM monitoring type.
 	PMM PMMConfig `json:"pmm,omitempty"`
 }
