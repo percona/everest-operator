@@ -9,4 +9,9 @@ metadata:
     app.kubernetes.io/created-by: everest-operator
   name: monitoringconfig-sample
 spec:
-  # TODO(user): Add fields here
+  type: pmm
+  credentialsSecretName: my-secret-name
+  PMM:
+    url: http://localhost
+    image: percona/pmm-client:latest
+
