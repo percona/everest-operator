@@ -51,6 +51,7 @@ type MonitoringConfigStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="Monitoring instance type"
 
 // MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
