@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,6 +35,8 @@ type MonitoringConfigSpec struct {
 	Type MonitoringType `json:"type"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
+	// Resources defines resource limitations for the monitoring.
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// PMM is configuration for the PMM monitoring type.
 	PMM PMMConfig `json:"pmm,omitempty"`
 }

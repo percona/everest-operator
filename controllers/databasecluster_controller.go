@@ -700,6 +700,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 				image = pmmClientLatestImageName
 			}
 			psmdb.Spec.PMM.Image = image
+			psmdb.Spec.PMM.Resources = monitoring.Spec.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
@@ -1173,6 +1174,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				image = pmmClientLatestImageName
 			}
 			pxc.Spec.PMM.Image = image
+			pxc.Spec.PMM.Resources = monitoring.Spec.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
@@ -1577,6 +1579,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 				image = pmmClientLatestImageName
 			}
 			pg.Spec.PMM.Image = image
+			pg.Spec.PMM.Resources = monitoring.Spec.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
