@@ -41,7 +41,7 @@ type MonitoringConfigSpec struct {
 // PMMConfig is configuration of the PMM monitoring type.
 type PMMConfig struct {
 	// URL is url to the monitoring instance.
-	URL string `json:"url,omitempty"`
+	URL string `json:"url"`
 	// Image is a Docker image name to use for deploying PMM client. Defaults to using the latest version.
 	Image string `json:"image,omitempty"`
 }
