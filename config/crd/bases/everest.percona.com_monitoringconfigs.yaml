@@ -55,6 +55,7 @@ spec:
                     description: URL is url to the monitoring instance.
                     type: string
                 required:
+                - image
                 - url
                 type: object
               type:

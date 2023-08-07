@@ -113,8 +113,6 @@ timeout server 28800s
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
-
-	pmmClientLatestImageName = "percona/pmm-client:latest"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -695,11 +693,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			image := monitoring.Spec.PMM.Image
-			if image == "" {
-				image = pmmClientLatestImageName
-			}
-			psmdb.Spec.PMM.Image = image
+			psmdb.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
@@ -1169,11 +1163,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			image := monitoring.Spec.PMM.Image
-			if image == "" {
-				image = pmmClientLatestImageName
-			}
-			pxc.Spec.PMM.Image = image
+			pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
@@ -1574,11 +1564,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			pg.Spec.PMM.Enabled = true
 			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			image := monitoring.Spec.PMM.Image
-			if image == "" {
-				image = pmmClientLatestImageName
-			}
-			pg.Spec.PMM.Image = image
+			pg.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")

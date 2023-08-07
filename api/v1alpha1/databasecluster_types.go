@@ -185,16 +185,6 @@ type Monitoring struct {
 	Resources v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// PMMSpec contains PMM settings.
-type PMMSpec struct {
-	Image         string `json:"image,omitempty"`
-	ServerHost    string `json:"serverHost,omitempty"`
-	ServerUser    string `json:"serverUser,omitempty"`
-	PublicAddress string `json:"publicAddress,omitempty"`
-	Login         string `json:"login,omitempty"`
-	Password      string `json:"password,omitempty"`
-}
-
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
