@@ -128,6 +128,7 @@ jobs:
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Scale down cluster
+        if: always()
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
         env:
@@ -135,6 +136,7 @@ jobs:
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
 
       - name: Clean up CRDs
+        if: always()
         run:
           kubectl delete crd databaseclusterbackups.everest.percona.com databaseclusterrestores.everest.percona.com databaseclusters.everest.percona.com databaseengines.everest.percona.com monitoringconfigs.everest.percona.com objectstorages.everest.percona.com perconapgbackups.pgv2.percona.com perconapgclusters.pgv2.percona.com perconapgrestores.pgv2.percona.com perconaservermongodbbackups.psmdb.percona.com perconaservermongodbrestores.psmdb.percona.com perconaservermongodbs.psmdb.percona.com perconaxtradbclusterbackups.pxc.percona.com perconaxtradbclusterrestores.pxc.percona.com perconaxtradbclusters.pxc.percona.com postgresclusters.postgres-operator.crunchydata.com
 
