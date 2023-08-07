@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -176,6 +177,14 @@ type Backup struct {
 	Schedules []BackupSchedule `json:"schedules,omitempty"`
 }
 
+// Monitoring is the monitoring configuration.
+type Monitoring struct {
+	// ConfigName is the name of a monitoringConfig CR.
+	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
+	// Resources defines resource limitations for the monitoring.
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
 // PMMSpec contains PMM settings.
 type PMMSpec struct {
 	Image         string `json:"image,omitempty"`
@@ -201,8 +210,8 @@ type DatabaseClusterSpec struct {
 	DataSource *DataSource `json:"dataSource,omitempty"`
 	// Backup is the backup specification
 	Backup Backup `json:"backup,omitempty"`
-	// MonitoringConfigName is the name of a monitoringConfig CR.
-	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
+	// Monitoring is the monitoring configuration
+	Monitoring *Monitoring `json:"monitoring,omitempty"`
 }
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.

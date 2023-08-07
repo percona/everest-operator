@@ -111,7 +111,7 @@ timeout server 28800s
 `
 	objectStorageNameField          = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
-	monitoringConfigNameField       = ".spec.monitoringConfigName"
+	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 
 	pmmClientLatestImageName = "percona/pmm-client:latest"
@@ -682,17 +682,17 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
-		if database.Spec.MonitoringConfigName != "" {
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
 				Namespace: req.NamespacedName.Namespace,
-				Name:      database.Spec.MonitoringConfigName,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
 				return err
 			}
 		}
 
-		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
@@ -700,7 +700,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 				image = pmmClientLatestImageName
 			}
 			psmdb.Spec.PMM.Image = image
-			psmdb.Spec.PMM.Resources = monitoring.Spec.Resources
+			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
@@ -1156,17 +1156,17 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
-		if database.Spec.MonitoringConfigName != "" {
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
 				Namespace: req.NamespacedName.Namespace,
-				Name:      database.Spec.MonitoringConfigName,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
 				return err
 			}
 		}
 
-		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
@@ -1174,7 +1174,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				image = pmmClientLatestImageName
 			}
 			pxc.Spec.PMM.Image = image
-			pxc.Spec.PMM.Resources = monitoring.Spec.Resources
+			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
@@ -1561,17 +1561,17 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
-		if database.Spec.MonitoringConfigName != "" {
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
 				Namespace: req.NamespacedName.Namespace,
-				Name:      database.Spec.MonitoringConfigName,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
 				return err
 			}
 		}
 
-		if monitoring != nil && monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMM {
 			pg.Spec.PMM.Enabled = true
 			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			image := monitoring.Spec.PMM.Image
@@ -1579,7 +1579,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 				image = pmmClientLatestImageName
 			}
 			pg.Spec.PMM.Image = image
-			pg.Spec.PMM.Resources = monitoring.Spec.Resources
+			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
 			if err != nil {
@@ -1828,7 +1828,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			if !ok {
 				return res
 			}
-			res = append(res, dc.Spec.MonitoringConfigName)
+			res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
 			return res
 		},
 	)
