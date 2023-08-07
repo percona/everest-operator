@@ -690,7 +690,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			psmdb.Spec.PMM.Image = monitoring.Spec.PMM.Image
@@ -1160,7 +1160,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
@@ -1561,7 +1561,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMM {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			pg.Spec.PMM.Enabled = true
 			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
 			pg.Spec.PMM.Image = monitoring.Spec.PMM.Image

@@ -23,8 +23,8 @@ import (
 type MonitoringType string
 
 const (
-	// PMM represents monitoring via PMM.
-	PMM MonitoringType = "pmm"
+	// PMMMonitoringType represents monitoring via PMM.
+	PMMMonitoringType MonitoringType = "pmm"
 )
 
 // MonitoringConfigSpec defines the desired state of MonitoringConfig.
