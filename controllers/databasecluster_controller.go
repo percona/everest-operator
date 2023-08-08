@@ -696,7 +696,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
-			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
 			if err != nil {
 				return err
 			}
@@ -741,11 +741,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	return r.Status().Update(ctx, database)
 }
 
-// getSecretFromMonitoringConfig retrieves the credentials secret from
-// the provided MonitoringConfig by secretKey field name.
+// getSecretFromMonitoringConfig retrieves the credentials secret from the provided MonitoringConfig.
 func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
-	monitoring *everestv1alpha1.MonitoringConfig, secretKey string,
+	monitoring *everestv1alpha1.MonitoringConfig,
 ) (string, error) {
 	var secret *corev1.Secret
 	secretData := ""
@@ -760,7 +759,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 			return "", err
 		}
 
-		if key, ok := secret.Data[secretKey]; ok {
+		if key, ok := secret.Data["apiKey"]; ok {
 			secretData = string(key)
 		}
 	}
@@ -1166,7 +1165,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
-			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
 			if err != nil {
 				return err
 			}
@@ -1567,7 +1566,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			pg.Spec.PMM.Image = monitoring.Spec.PMM.Image
 			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
-			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring, "apiKey")
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
 			if err != nil {
 				return err
 			}
