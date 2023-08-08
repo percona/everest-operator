@@ -738,6 +738,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		message = conditions[len(conditions)-1].Message
 	}
 	database.Status.Message = message
+	database.Status.Port = 27017
 	return r.Status().Update(ctx, database)
 }
 
@@ -1202,6 +1203,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
+	database.Status.Port = 3306
 	return r.Status().Update(ctx, database)
 }
 
@@ -1638,6 +1640,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	database.Status.Status = everestv1alpha1.AppState(pg.Status.State)
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
+	database.Status.Port = 5432
 	return r.Status().Update(ctx, database)
 }
 
