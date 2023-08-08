@@ -81,10 +81,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-08-03T11:13:19Z"
+    createdAt: "2023-08-08T12:39:58Z"
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: everest-operator.v0.0.6
+  name: everest-operator.v0.0.7
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -473,7 +473,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/everest-operator:0.0.6
+                image: docker.io/percona/everest-operator:0.0.7
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -567,4 +567,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.6
+  version: 0.0.7
