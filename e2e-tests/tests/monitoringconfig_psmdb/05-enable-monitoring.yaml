@@ -1,0 +1,31 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: mongo-mc
+spec:
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    monitoringConfigName: test-mc
+    image: percona/pmm-client:latest
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+     operationProfiling:
+        mode: slowOp
+    replicas: 1
+    storage:
+      size: 4G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
+    type: mongos
+    replicas: 1
+
