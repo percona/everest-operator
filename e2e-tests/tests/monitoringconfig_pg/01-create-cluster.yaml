@@ -23,7 +23,13 @@ kind: DatabaseCluster
 metadata:
   name: pg-mc
 spec:
-  monitoringConfigName: test-mc
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    monitoringConfigName: test-mc
+    image: percona/pmm-client:latest
   engine:
     type: postgresql
     version: "14.7"

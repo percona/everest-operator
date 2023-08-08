@@ -23,7 +23,13 @@ kind: DatabaseCluster
 metadata:
   name: pxc-mc
 spec:
-  monitoringConfigName: test-mc
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    monitoringConfigName: test-mc
+    image: percona/pmm-client:latest
   engine:
     type: pxc
     version: 8.0.32-24.2

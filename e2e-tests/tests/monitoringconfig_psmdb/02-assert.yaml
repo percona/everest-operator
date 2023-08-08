@@ -24,13 +24,5 @@ metadata:
   name: mongo-mc
 spec:
   pmm:
-    enabled: true
-    serverHost: http://localhost
-    image: percona/pmm-client:latest
-    resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
-
-  secrets:
-    users: everest-secrets-mongo-mc
+    serverHost: http://localhost2
+    image: percona/pmm-client:2

@@ -23,5 +23,12 @@ kind: PerconaPGCluster
 metadata:
   name: pg-mc
 spec:
-  secrets:
-    users: everest-secrets-pg-mc
+  pmm:
+    enabled: true
+    serverHost: http://localhost
+    image: percona/pmm-client:latest
+    secret: everest-secrets-pg-mc
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"

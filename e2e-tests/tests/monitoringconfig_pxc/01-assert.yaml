@@ -23,5 +23,13 @@ kind: PerconaXtraDBCluster
 metadata:
   name: pxc-mc
 spec:
-  secrets:
-    users: everest-secrets-pxc-mc
+  pmm:
+    enabled: true
+    serverHost: http://localhost
+    image: percona/pmm-client:latest
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+
+  secretsName: everest-secrets-pxc-mc
