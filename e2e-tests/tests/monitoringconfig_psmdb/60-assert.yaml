@@ -8,4 +8,5 @@ metadata:
   name: mongo-mc
 spec:
   pmm:
-    enabled: false
+    # We check for an empty image because enabled is not set
+    image: 
