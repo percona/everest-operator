@@ -10,6 +10,7 @@ spec:
   credentialsSecretName: mc-secret
   pmm:
     url: http://localhost
+    image: percona/pmm-client:latest
 ---
 apiVersion: v1
 kind: Secret
@@ -29,7 +30,6 @@ spec:
         memory: "128Mi"
         cpu: "500m"
     monitoringConfigName: test-mc
-    image: percona/pmm-client:latest
   engine:
     type: psmdb
     version: 4.4.10-11
