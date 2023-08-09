@@ -17,7 +17,7 @@ metadata:
   name: everest-secrets-pxc-mc
 data:
   randomData: YWJjZGVm
-  PMM_SERVER_API_KEY: YWJjZGVm
+  pmmserverkey: YWJjZGVm
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaXtraDBCluster
