@@ -18,6 +18,7 @@ kind: Secret
 metadata:
   name: everest-secrets-mongo-mc
 data:
+  randomData: YWJjZGVm
   PMM_SERVER_API_KEY: YWJjZGVm
 ---
 apiVersion: psmdb.percona.com/v1

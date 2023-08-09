@@ -1816,7 +1816,9 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			if !ok {
 				return res
 			}
-			res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
+			if dc.Spec.Monitoring != nil {
+				res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
+			}
 			return res
 		},
 	)
