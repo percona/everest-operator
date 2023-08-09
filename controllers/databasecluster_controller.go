@@ -1160,6 +1160,17 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
+		// This is required because the defaultPXCSpec is assigned too early.
+		// Need to figure out why it's assigned in other places than for the other engines.
+		pxc.Spec.PMM = &pxcv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		}
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
