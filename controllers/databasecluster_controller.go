@@ -788,7 +788,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 		secret.ObjectMeta.GenerateName = generateName
 	}
 
-	return r.createOrUpdate(ctx, secret, true)
+	return r.createOrUpdate(ctx, secret)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1238,7 +1238,7 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	if err != nil {
 		return nil, err
 	}
-	err = r.createOrUpdate(ctx, pgBackrestSecret, false)
+	err = r.createOrUpdate(ctx, pgBackrestSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -2091,7 +2091,9 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
 }
 
-func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object, preferPatch bool) error {
+// createOrUpdate creates or updates a resource.
+// Updating secrets - the new Data field is applied on top of the original secret's Data.
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
@@ -2132,22 +2134,25 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 		case *corev1.Service:
 			oldObjectService, ok := oldObject.(*corev1.Service)
 			if !ok {
-				return errors.Errorf("failed type conversion")
+				return errors.Errorf("failed type conversion to service")
 			}
 			object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
 			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
 				object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
 			}
+		case *corev1.Secret:
+			s, ok := oldObject.(*corev1.Secret)
+			if !ok {
+				return errors.Errorf("failed type conversion to secret")
+			}
+			for k, v := range object.Data {
+				s.Data[k] = v
+			}
+			object.Data = s.Data
 		default:
 		}
 
-		var err error
-		if preferPatch {
-			err = r.Patch(ctx, obj, client.MergeFrom(oldObject))
-		} else {
-			err = r.Update(ctx, obj)
-		}
-		return err
+		return r.Update(ctx, obj)
 	}
 
 	return nil
