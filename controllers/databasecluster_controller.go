@@ -2141,14 +2141,16 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 				object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
 			}
 		case *corev1.Secret:
-			s, ok := oldObject.(*corev1.Secret)
-			if !ok {
-				return errors.Errorf("failed type conversion to secret")
+			if patchSecretData {
+				s, ok := oldObject.(*corev1.Secret)
+				if !ok {
+					return errors.Errorf("failed type conversion to secret")
+				}
+				for k, v := range object.Data {
+					s.Data[k] = v
+				}
+				object.Data = s.Data
 			}
-			for k, v := range object.Data {
-				s.Data[k] = v
-			}
-			object.Data = s.Data
 		default:
 		}
 
