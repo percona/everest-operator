@@ -19,7 +19,7 @@ data:
   randomData: YWJjZGVm
   pmmserverkey: YWJjZGVm
 ---
-apiVersion: psmdb.percona.com/v1
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: pxc-mc

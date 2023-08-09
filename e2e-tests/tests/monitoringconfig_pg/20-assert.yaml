@@ -19,7 +19,7 @@ data:
   randomData: YWJjZGVm
   PMM_SERVER_API_KEY: YWJjZGVm
 ---
-apiVersion: psmdb.percona.com/v1
+apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: pg-mc
