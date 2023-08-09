@@ -10,6 +10,7 @@ spec:
   credentialsSecretName: mc-secret
   pmm:
     url: http://localhost
+    image: percona/pmm-client:latest
 ---
 apiVersion: v1
 kind: Secret
