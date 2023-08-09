@@ -179,7 +179,7 @@ type Backup struct {
 
 // Monitoring is the monitoring configuration.
 type Monitoring struct {
-	// ConfigName is the name of a monitoringConfig CR.
+	// MonitoringConfigName is the name of a monitoringConfig CR.
 	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
 	// Resources defines resource limitations for the monitoring.
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

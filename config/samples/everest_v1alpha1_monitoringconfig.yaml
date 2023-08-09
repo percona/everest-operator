@@ -11,10 +11,6 @@ metadata:
 spec:
   type: pmm
   credentialsSecretName: my-secret-name
-  resources:
-    limits:
-      cpu: "300m"
-      memory: "0.5G"
   pmm:
     url: http://localhost
     image: percona/pmm-client:latest

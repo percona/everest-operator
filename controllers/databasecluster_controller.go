@@ -2140,33 +2140,37 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 	}
 
 	if oldHash != hash || !isObjectMetaEqual(obj, oldObject) {
-		obj.SetResourceVersion(oldObject.GetResourceVersion())
-		switch object := obj.(type) {
-		case *corev1.Service:
-			oldObjectService, ok := oldObject.(*corev1.Service)
-			if !ok {
-				return errors.Errorf("failed type conversion to service")
-			}
-			object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
-			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
-				object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
-			}
-		case *corev1.Secret:
-			if patchSecretData {
-				s, ok := oldObject.(*corev1.Secret)
-				if !ok {
-					return errors.Errorf("failed type conversion to secret")
-				}
-				for k, v := range object.Data {
-					s.Data[k] = v
-				}
-				object.Data = s.Data
-			}
-		default:
-		}
-
-		return r.Update(ctx, obj)
+		return r.updateObject(ctx, obj, oldObject, patchSecretData)
 	}
 
 	return nil
+}
+
+func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldObject client.Object, patchSecretData bool) error {
+	obj.SetResourceVersion(oldObject.GetResourceVersion())
+	switch object := obj.(type) {
+	case *corev1.Service:
+		oldObjectService, ok := oldObject.(*corev1.Service)
+		if !ok {
+			return errors.Errorf("failed type conversion to service")
+		}
+		object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
+		if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
+			object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
+		}
+	case *corev1.Secret:
+		if patchSecretData {
+			s, ok := oldObject.(*corev1.Secret)
+			if !ok {
+				return errors.Errorf("failed type conversion to secret")
+			}
+			for k, v := range object.Data {
+				s.Data[k] = v
+			}
+			object.Data = s.Data
+		}
+	default:
+	}
+
+	return r.Update(ctx, obj)
 }

@@ -2,15 +2,6 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 120
 ---
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBCluster
-metadata:
-  name: pxc-mc
-spec:
-  pmm:
-    # We check for an empty image because enabled is not set
-    image: ""
----
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
