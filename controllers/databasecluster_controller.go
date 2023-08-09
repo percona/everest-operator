@@ -788,7 +788,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 		secret.ObjectMeta.GenerateName = generateName
 	}
 
-	return r.createOrUpdate(ctx, secret)
+	return r.createOrUpdate(ctx, secret, true)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1238,7 +1238,7 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	if err != nil {
 		return nil, err
 	}
-	err = r.createOrUpdate(ctx, pgBackrestSecret)
+	err = r.createOrUpdate(ctx, pgBackrestSecret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2091,7 +2091,7 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
 }
 
-func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object, preferPatch bool) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
@@ -2126,8 +2126,7 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 		return errors.Wrap(err, "calculate old object hash")
 	}
 
-	if oldHash != hash ||
-		!isObjectMetaEqual(obj, oldObject) {
+	if oldHash != hash || !isObjectMetaEqual(obj, oldObject) {
 		obj.SetResourceVersion(oldObject.GetResourceVersion())
 		switch object := obj.(type) {
 		case *corev1.Service:
@@ -2142,7 +2141,13 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 		default:
 		}
 
-		return r.Update(ctx, obj)
+		var err error
+		if preferPatch {
+			err = r.Patch(ctx, obj, client.MergeFrom(oldObject))
+		} else {
+			err = r.Update(ctx, obj)
+		}
+		return err
 	}
 
 	return nil
