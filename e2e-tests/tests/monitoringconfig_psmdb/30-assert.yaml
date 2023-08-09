@@ -13,5 +13,5 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: mongo-mc
-  generation: 3
+  generation: 2
   
