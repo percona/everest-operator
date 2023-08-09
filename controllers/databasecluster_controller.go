@@ -788,7 +788,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 		secret.ObjectMeta.GenerateName = generateName
 	}
 
-	return r.createOrUpdate(ctx, secret)
+	return r.createOrUpdate(ctx, secret, true)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1238,7 +1238,7 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	if err != nil {
 		return nil, err
 	}
-	err = r.createOrUpdate(ctx, pgBackrestSecret)
+	err = r.createOrUpdate(ctx, pgBackrestSecret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2092,8 +2092,8 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 }
 
 // createOrUpdate creates or updates a resource.
-// Updating secrets - the new Data field is applied on top of the original secret's Data.
-func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+// With patchSecretData the new secret Data is applied on top of the original secret's Data.
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object, patchSecretData bool) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
