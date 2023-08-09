@@ -8,4 +8,10 @@ metadata:
   name: everest-secrets-mongo-mc
 data:
   PMM_SERVER_API_KEY: YXNkZmcxMjM=
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: mongo-mc
+  generation: 3
   
