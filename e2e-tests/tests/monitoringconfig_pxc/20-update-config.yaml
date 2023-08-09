@@ -6,8 +6,6 @@ kind: MonitoringConfig
 metadata:
   name: test-mc
 spec:
-  type: pmm
-  credentialsSecretName: mc-secret
   pmm:
     url: http://localhost2
     image: percona/pmm-client:2

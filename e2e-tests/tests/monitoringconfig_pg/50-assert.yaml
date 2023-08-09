@@ -9,3 +9,9 @@ metadata:
 spec:
   pmm:
     enabled: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-mc
+  generation: 4

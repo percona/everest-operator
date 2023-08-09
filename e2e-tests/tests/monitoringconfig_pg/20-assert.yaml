@@ -6,16 +6,17 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pg-mc
+  generation: 2
 spec:
-  monitoringConfigName: test-mc
-status:
-  status: ready
+  monitoring:
+    monitoringConfigName: test-mc
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: everest-secrets-pg-mc
 data:
+  randomData: YWJjZGVm
   PMM_SERVER_API_KEY: YWJjZGVm
 ---
 apiVersion: psmdb.percona.com/v1
