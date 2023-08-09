@@ -3,4 +3,4 @@ kind: TestAssert
 timeout: 120
 commands:
   - script: >
-      test "$(kubectl get PerconaPGCluster -n $NAMESPACE pg-mc -o jsonpath='{.spec.pmm.enabled}')" = ""
+      test "$(kubectl get PerconaPGCluster -n $NAMESPACE pg-mc -o jsonpath='{.spec.pmm.enabled}')" = "true"
