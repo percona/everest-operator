@@ -9,4 +9,4 @@ metadata:
 spec:
   pmm:
     # We check for an empty image because enabled is not set
-    image: 
+    image: ""
