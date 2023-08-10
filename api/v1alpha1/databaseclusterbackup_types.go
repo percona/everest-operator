@@ -26,8 +26,8 @@ type BackupState string
 type DatabaseClusterBackupSpec struct {
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
-	// ObjectStorageName is the name of the ObjectStorage used for backups.
-	ObjectStorageName string `json:"objectStorageName"`
+	// BackupStorageName is the name of the ObjectStorage used for backups.
+	BackupStorageName string `json:"backupStorageName"`
 }
 
 // DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.

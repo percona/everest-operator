@@ -20,18 +20,18 @@ import (
 )
 
 const (
-	// ObjectStorageTypeS3 is a type of S3 object storage.
-	ObjectStorageTypeS3 ObjectStorageType = "s3"
+	// BackupStorageTypeS3 is a type of S3 object storage.
+	BackupStorageTypeS3 BackupStorageType = "s3"
 )
 
-// ObjectStorageType is a type of object storage.
-type ObjectStorageType string
+// BackupStorageType is a type of object storage.
+type BackupStorageType string
 
-// ObjectStorageSpec defines the desired state of ObjectStorage.
-type ObjectStorageSpec struct {
+// BackupStorageSpec defines the desired state of BackupStorage.
+type BackupStorageSpec struct {
 	// Type is a type of object storage. Currently only S3 is supported.
 	// +kubebuilder:validation:Enum=s3
-	Type ObjectStorageType `json:"type"`
+	Type BackupStorageType `json:"type"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
 	// Region is a region where the bucket is located.
@@ -42,30 +42,30 @@ type ObjectStorageSpec struct {
 	CredentialsSecretName string `json:"credentialsSecretName"`
 }
 
-// ObjectStorageStatus defines the observed state of ObjectStorage.
-type ObjectStorageStatus struct{}
+// BackupStorageStatus defines the observed state of BackupStorage.
+type BackupStorageStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// ObjectStorage is the Schema for the objectstorages API.
-type ObjectStorage struct {
+// BackupStorage is the Schema for the backupstorages API.
+type BackupStorage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ObjectStorageSpec   `json:"spec,omitempty"`
-	Status ObjectStorageStatus `json:"status,omitempty"`
+	Spec   BackupStorageSpec   `json:"spec,omitempty"`
+	Status BackupStorageStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// ObjectStorageList contains a list of ObjectStorage.
-type ObjectStorageList struct {
+// BackupStorageList contains a list of BackupStorage.
+type BackupStorageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ObjectStorage `json:"items"`
+	Items           []BackupStorage `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ObjectStorage{}, &ObjectStorageList{})
+	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
 }

@@ -149,9 +149,9 @@ type Proxy struct {
 type DataSource struct {
 	// BackupName is the name of the backup from backup location to use
 	BackupName string `json:"backupName"`
-	// ObjectStorageName is the name of the ObjectStorage CR that defines the
+	// BackupStorageName is the name of the BackupStorage CR that defines the
 	// storage location
-	ObjectStorageName string `json:"objectStorageName"`
+	BackupStorageName string `json:"backupStorageName"`
 }
 
 // BackupSchedule is the backup schedule configuration.
@@ -164,9 +164,9 @@ type BackupSchedule struct {
 	RetentionCopies int32 `json:"retentionCopies,omitempty"`
 	// Schedule is the cron schedule
 	Schedule string `json:"schedule"`
-	// ObjectStorageName is the name of the ObjectStorage CR that defines the
+	// BackupStorageName is the name of the BackupStorage CR that defines the
 	// storage location
-	ObjectStorageName string `json:"objectStorageName"`
+	BackupStorageName string `json:"backupStorageName"`
 }
 
 // Backup is the backup configuration.

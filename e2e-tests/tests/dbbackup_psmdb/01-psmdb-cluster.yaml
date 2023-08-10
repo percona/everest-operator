@@ -11,7 +11,7 @@ data:
   AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: ObjectStorage
+kind: BackupStorage
 metadata:
   name: test-storage
 spec:
@@ -41,4 +41,4 @@ spec:
         enabled: true
         schedule: "0 0 * * *"
         retentionCopies: 1
-        objectStorageName: test-storage
+        backupStorageName: test-storage
