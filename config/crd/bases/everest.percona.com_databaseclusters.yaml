@@ -173,7 +173,8 @@ spec:
                 description: Monitoring is the monitoring configuration
                 properties:
                   monitoringConfigName:
-                    description: ConfigName is the name of a monitoringConfig CR.
+                    description: MonitoringConfigName is the name of a monitoringConfig
+                      CR.
                     type: string
                   resources:
                     description: Resources defines resource limitations for the monitoring.

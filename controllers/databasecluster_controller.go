@@ -121,184 +121,7 @@ var operatorDeployment = map[everestv1alpha1.EngineType]string{
 	everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
 }
 
-var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
-	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
-	UpgradeOptions: pxcv1.UpgradeOptions{
-		Apply:    "never",
-		Schedule: "0 4 * * *",
-	},
-	PXC: &pxcv1.PXCSpec{
-		PodSpec: &pxcv1.PodSpec{
-			ServiceType: corev1.ServiceTypeClusterIP,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
-				MaxUnavailable: &maxUnavailable,
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	PMM: &pxcv1.PMMSpec{
-		Enabled: false,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
-		},
-	},
-	HAProxy: &pxcv1.HAProxySpec{
-		PodSpec: pxcv1.PodSpec{
-			Enabled: false,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	ProxySQL: &pxcv1.PodSpec{
-		Enabled: false,
-		Affinity: &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{},
-		},
-	},
-}
-
-var (
-	maxUnavailable   = intstr.FromInt(1)
-	defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
-		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
-		UpgradeOptions: psmdbv1.UpgradeOptions{
-			Apply:    "disabled",
-			Schedule: "0 4 * * *",
-		},
-		PMM: psmdbv1.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		},
-		Mongod: &psmdbv1.MongodSpec{
-			Net: &psmdbv1.MongodSpecNet{
-				Port: 27017,
-			},
-			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
-				Mode:              psmdbv1.OperationProfilingModeSlowOp,
-				SlowOpThresholdMs: 100,
-				RateLimit:         100,
-			},
-			Security: &psmdbv1.MongodSpecSecurity{
-				RedactClientLogData:  false,
-				EnableEncryption:     pointer.ToBool(true),
-				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
-			},
-			SetParameter: &psmdbv1.MongodSpecSetParameter{
-				TTLMonitorSleepSecs: 60,
-			},
-			Storage: &psmdbv1.MongodSpecStorage{
-				Engine: psmdbv1.StorageEngineWiredTiger,
-				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
-					NsSize:     16,
-					Smallfiles: false,
-				},
-				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
-					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
-						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
-						DirectoryForIndexes: false,
-						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
-						PrefixCompression: true,
-					},
-				},
-			},
-		},
-		Replsets: []*psmdbv1.ReplsetSpec{
-			{
-				Name: "rs0",
-				MultiAZ: psmdbv1.MultiAZ{
-					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: &maxUnavailable,
-					},
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{},
-					},
-				},
-			},
-		},
-		Sharding: psmdbv1.Sharding{
-			Enabled: true,
-			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-				},
-				Arbiter: psmdbv1.Arbiter{
-					Enabled: false,
-					MultiAZ: psmdbv1.MultiAZ{
-						Affinity: &psmdbv1.PodAffinity{
-							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-						},
-					},
-				},
-			},
-			Mongos: &psmdbv1.MongosSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{},
-					},
-				},
-			},
-		},
-	}
-)
-
-var defaultPGSpec = pgv2.PerconaPGClusterSpec{
-	InstanceSets: pgv2.PGInstanceSets{
-		{
-			Name: "instance1",
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	PMM: &pgv2.PMMSpec{
-		Enabled: false,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
-		},
-	},
-	Proxy: &pgv2.PGProxySpec{
-		PGBouncer: &pgv2.PGBouncerSpec{
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-}
+var maxUnavailable = intstr.FromInt(1)
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
@@ -513,7 +336,6 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: defaultPSMDBSpec,
 	}
 	if len(database.Finalizers) != 0 {
 		psmdb.Finalizers = database.Finalizers
@@ -542,7 +364,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			return err
 		}
 
-		psmdb.Spec = defaultPSMDBSpec
+		psmdb.Spec = *r.defaultPSMDBSpec()
 		if clusterType == ClusterTypeEKS {
 			affinity := &psmdbv1.PodAffinity{
 				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
@@ -792,7 +614,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecret(
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
-	haProxy := defaultPXCSpec.HAProxy
+	haProxy := r.defaultPXCSpec().HAProxy
 
 	haProxy.PodSpec.Enabled = true
 
@@ -841,7 +663,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 }
 
 func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.PodSpec, error) {
-	proxySQL := defaultPXCSpec.ProxySQL
+	proxySQL := r.defaultPXCSpec().ProxySQL
 
 	proxySQL.Enabled = true
 
@@ -1005,7 +827,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: defaultPXCSpec,
 	}
 
 	if len(database.Finalizers) != 0 {
@@ -1043,7 +864,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return err
 		}
 
-		pxc.Spec = defaultPXCSpec
+		pxc.Spec = *r.defaultPXCSpec()
 		if clusterType == ClusterTypeEKS {
 			affinity := &pxcv1.PodAffinity{
 				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
@@ -1160,17 +981,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		// This is required because the defaultPXCSpec is assigned too early.
-		// Need to figure out why it's assigned in other places than for the other engines.
-		pxc.Spec.PMM = &pxcv1.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		}
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
@@ -1401,19 +1211,12 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 
 //nolint:gocognit,maintidx
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
-	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
-		Namespace: req.NamespacedName.Namespace,
-		Name:      pgDeploymentName,
-	})
-	if err != nil {
-		return err
-	}
 	clusterType, err := r.getClusterType(ctx)
 	if err != nil {
 		return err
 	}
 
-	pgSpec := defaultPGSpec
+	pgSpec := r.defaultPGSpec()
 	if clusterType == ClusterTypeEKS {
 		affinity := &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -1434,7 +1237,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: pgSpec,
+		Spec: *pgSpec,
 	}
 
 	if pg.Spec.PMM == nil {
@@ -1463,7 +1266,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
 		pg.TypeMeta = metav1.TypeMeta{
-			APIVersion: version.ToAPIVersion(pgAPIGroup),
+			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
 			Kind:       PerconaPGClusterKind,
 		}
 
@@ -1573,6 +1376,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			}
 		}
 
+		// We have to assign the default spec here explicitly becase PG reconciliation
+		// does not assign the default spec in this CreateOrUpdate mutate function.
+		pg.Spec.PMM = pgSpec.PMM
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			pg.Spec.PMM.Enabled = true
 			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
@@ -2173,4 +1979,186 @@ func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldOb
 	}
 
 	return r.Update(ctx, obj)
+}
+
+func (r *DatabaseClusterReconciler) defaultPGSpec() *pgv2.PerconaPGClusterSpec {
+	return &pgv2.PerconaPGClusterSpec{
+		InstanceSets: pgv2.PGInstanceSets{
+			{
+				Name: "instance1",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		PMM: &pgv2.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		Proxy: &pgv2.PGProxySpec{
+			PGBouncer: &pgv2.PGBouncerSpec{
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+	}
+}
+
+func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBClusterSpec {
+	return &pxcv1.PerconaXtraDBClusterSpec{
+		UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
+		UpgradeOptions: pxcv1.UpgradeOptions{
+			Apply:    "never",
+			Schedule: "0 4 * * *",
+		},
+		PXC: &pxcv1.PXCSpec{
+			PodSpec: &pxcv1.PodSpec{
+				ServiceType: corev1.ServiceTypeClusterIP,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable,
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		PMM: &pxcv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		HAProxy: &pxcv1.HAProxySpec{
+			PodSpec: pxcv1.PodSpec{
+				Enabled: false,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		ProxySQL: &pxcv1.PodSpec{
+			Enabled: false,
+			Affinity: &pxcv1.PodAffinity{
+				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
+		},
+	}
+}
+
+func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMongoDBSpec {
+	return &psmdbv1.PerconaServerMongoDBSpec{
+		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
+		UpgradeOptions: psmdbv1.UpgradeOptions{
+			Apply:    "disabled",
+			Schedule: "0 4 * * *",
+		},
+		PMM: psmdbv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		Mongod: &psmdbv1.MongodSpec{
+			Net: &psmdbv1.MongodSpecNet{
+				Port: 27017,
+			},
+			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
+				Mode:              psmdbv1.OperationProfilingModeSlowOp,
+				SlowOpThresholdMs: 100,
+				RateLimit:         100,
+			},
+			Security: &psmdbv1.MongodSpecSecurity{
+				RedactClientLogData:  false,
+				EnableEncryption:     pointer.ToBool(true),
+				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
+			},
+			SetParameter: &psmdbv1.MongodSpecSetParameter{
+				TTLMonitorSleepSecs: 60,
+			},
+			Storage: &psmdbv1.MongodSpecStorage{
+				Engine: psmdbv1.StorageEngineWiredTiger,
+				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
+					NsSize:     16,
+					Smallfiles: false,
+				},
+				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
+					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
+						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
+						DirectoryForIndexes: false,
+						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
+						PrefixCompression: true,
+					},
+				},
+			},
+		},
+		Replsets: []*psmdbv1.ReplsetSpec{
+			{
+				Name: "rs0",
+				MultiAZ: psmdbv1.MultiAZ{
+					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
+						MaxUnavailable: &maxUnavailable,
+					},
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
+				},
+			},
+		},
+		Sharding: psmdbv1.Sharding{
+			Enabled: true,
+			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+				},
+				Arbiter: psmdbv1.Arbiter{
+					Enabled: false,
+					MultiAZ: psmdbv1.MultiAZ{
+						Affinity: &psmdbv1.PodAffinity{
+							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+						},
+					},
+				},
+			},
+			Mongos: &psmdbv1.MongosSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
+				},
+			},
+		},
+	}
 }

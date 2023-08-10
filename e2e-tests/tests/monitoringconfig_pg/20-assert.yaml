@@ -17,7 +17,7 @@ metadata:
   name: everest-secrets-pg-mc
 data:
   randomData: YWJjZGVm
-  PMM_SERVER_API_KEY: YWJjZGVm
+  PMM_SERVER_KEY: YWJjZGVm
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
