@@ -86,6 +86,10 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		}
 		return reconcile.Result{}, err
 	}
+	backup.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel: backup.Spec.DBClusterName,
+		backupStorageNameLabel:   backup.Spec.ObjectStorageName,
+	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, cluster)
