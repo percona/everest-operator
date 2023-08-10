@@ -1209,7 +1209,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	return pgDataSource, nil
 }
 
-//nolint:gocognit,maintidx
+//nolint:gocognit,maintidx,gocyclo,cyclop
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
 	clusterType, err := r.getClusterType(ctx)
 	if err != nil {
