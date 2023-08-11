@@ -168,8 +168,13 @@ func (c ComponentsMap) GetAllowedVersionsSorted() []string {
 }
 
 // BestVersion returns the best version for the components map.
+// In case no versions are found, it returns an empty string.
 func (c ComponentsMap) BestVersion() string {
 	allowedVersions := c.GetAllowedVersionsSorted()
+	if len(allowedVersions) == 0 {
+		return ""
+	}
+
 	return allowedVersions[0]
 }
 
