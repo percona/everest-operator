@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/BurntSushi/go-sumtype v0.0.0-20221020234012-480526a59796
 	github.com/apache/skywalking-eyes v0.4.0
-	github.com/daixiang0/gci v0.10.1
+	github.com/daixiang0/gci v0.11.0
 	github.com/golangci/golangci-lint v1.53.3
 	github.com/reviewdog/reviewdog v0.14.2
 	golang.org/x/tools v0.11.0
