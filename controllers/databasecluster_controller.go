@@ -412,7 +412,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.BackupStorageName)
+			return errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
 		}
 
 		dbRestore.Spec.DatabaseCluster = database.Name
@@ -431,7 +431,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		default:
-			return errors.Errorf("unsupported object storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 		return nil
 	})
@@ -464,7 +464,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get object storage %s", schedule.BackupStorageName)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
 		switch backupStorage.Spec.Type {
@@ -479,7 +479,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported object storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		tasks = append(tasks, psmdbv1.BackupTaskSpec{
@@ -839,7 +839,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get object storage %s", schedule.BackupStorageName)
+			return nil, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
 		storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
@@ -854,7 +854,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		default:
-			return nil, errors.Errorf("unsupported object storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
@@ -1180,7 +1180,7 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get object storage %s", schedule.BackupStorageName)
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
 		repos[idx] = crunchyv1beta1.PGBackRestRepo{
@@ -1220,7 +1220,7 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 				},
 			}
 		default:
-			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported object storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 	backups.PGBackRest.Repos = repos
@@ -1251,7 +1251,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.BackupStorageName)
+		return nil, errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
 	}
 
 	switch backupStorage.Spec.Type {
@@ -1285,7 +1285,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			},
 		}
 	default:
-		return nil, errors.Errorf("unsupported object storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 	}
 	return pgDataSource, nil
 }
