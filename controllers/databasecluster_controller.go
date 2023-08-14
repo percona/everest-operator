@@ -420,7 +420,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
 			Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
 			StorageName: database.Spec.DataSource.BackupStorageName,
-			StorageType: everestv1alpha1.BackupStorageType(backupStorage.Spec.Type),
+			StorageType: backupStorage.Spec.Type,
 		}
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:

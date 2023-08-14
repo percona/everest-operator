@@ -131,7 +131,7 @@ spec:
                   sslSecretName:
                     type: string
                   storage_type:
-                    description: BackupStorageType is a type of object storage.
+                    description: BackupStorageType is a type of backup storage.
                     type: string
                   storageName:
                     type: string

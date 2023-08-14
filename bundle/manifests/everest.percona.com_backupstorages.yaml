@@ -42,13 +42,13 @@ spec:
                   credentials.
                 type: string
               endpointURL:
-                description: EndpointURL is an endpoint URL of object storage.
+                description: EndpointURL is an endpoint URL of backup storage.
                 type: string
               region:
                 description: Region is a region where the bucket is located.
                 type: string
               type:
-                description: Type is a type of object storage. Currently only S3 is
+                description: Type is a type of backup storage. Currently only S3 is
                   supported.
                 enum:
                 - s3

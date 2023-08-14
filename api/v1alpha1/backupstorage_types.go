@@ -24,19 +24,19 @@ const (
 	BackupStorageTypeS3 BackupStorageType = "s3"
 )
 
-// BackupStorageType is a type of object storage.
+// BackupStorageType is a type of backup storage.
 type BackupStorageType string
 
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {
-	// Type is a type of object storage. Currently only S3 is supported.
+	// Type is a type of backup storage. Currently only S3 is supported.
 	// +kubebuilder:validation:Enum=s3
 	Type BackupStorageType `json:"type"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
 	// Region is a region where the bucket is located.
 	Region string `json:"region"`
-	// EndpointURL is an endpoint URL of object storage.
+	// EndpointURL is an endpoint URL of backup storage.
 	EndpointURL string `json:"endpointURL"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
