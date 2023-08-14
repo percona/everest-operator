@@ -36,6 +36,18 @@ rules:
 - apiGroups:
   - everest.percona.com
   resources:
+  - backupstorages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - everest.percona.com
+  resources:
   - databaseclusterbackups
   verbs:
   - create
@@ -137,18 +149,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - everest.percona.com
-  resources:
-  - objectstorages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - pgv2.percona.com
   resources:

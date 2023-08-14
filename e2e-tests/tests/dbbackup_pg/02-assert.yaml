@@ -7,7 +7,7 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
 spec:
-  objectStorageName: test-storage
+  backupStorageName: test-storage
   dbClusterName: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2

@@ -65,15 +65,15 @@ spec:
                     items:
                       description: BackupSchedule is the backup schedule configuration.
                       properties:
+                        backupStorageName:
+                          description: BackupStorageName is the name of the BackupStorage
+                            CR that defines the storage location
+                          type: string
                         enabled:
                           description: Enabled is a flag to enable the schedule
                           type: boolean
                         name:
                           description: Name is the name of the schedule
-                          type: string
-                        objectStorageName:
-                          description: ObjectStorageName is the name of the ObjectStorage
-                            CR that defines the storage location
                           type: string
                         retentionCopies:
                           description: RetentionCopies is the number of backup copies
@@ -84,9 +84,9 @@ spec:
                           description: Schedule is the cron schedule
                           type: string
                       required:
+                      - backupStorageName
                       - enabled
                       - name
-                      - objectStorageName
                       - schedule
                       type: object
                     type: array
@@ -101,13 +101,13 @@ spec:
                     description: BackupName is the name of the backup from backup
                       location to use
                     type: string
-                  objectStorageName:
-                    description: ObjectStorageName is the name of the ObjectStorage
+                  backupStorageName:
+                    description: BackupStorageName is the name of the BackupStorage
                       CR that defines the storage location
                     type: string
                 required:
                 - backupName
-                - objectStorageName
+                - backupStorageName
                 type: object
               engine:
                 description: Engine is the database engine specification

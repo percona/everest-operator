@@ -33,8 +33,6 @@ const (
 type (
 	// RestoreState represents state of restoration.
 	RestoreState string
-	// BackupStorageType represents backup storage type.
-	BackupStorageType string
 
 	// DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
 	DatabaseClusterRestoreSpec struct {

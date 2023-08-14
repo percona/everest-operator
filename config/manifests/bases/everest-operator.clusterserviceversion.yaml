@@ -10,6 +10,11 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: BackupStorage is the Schema for the backupstorages API.
+      displayName: Backup Storage
+      kind: BackupStorage
+      name: backupstorages.everest.percona.com
+      version: v1alpha1
     - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
         API.
       displayName: Database Cluster Backup
@@ -31,11 +36,6 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
-      version: v1alpha1
-    - description: ObjectStorage is the Schema for the objectstorages API.
-      displayName: Object Storage
-      kind: ObjectStorage
-      name: objectstorages.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator

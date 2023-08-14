@@ -142,7 +142,7 @@ jobs:
             databaseclusterrestores.everest.percona.com \
             databaseclusters.everest.percona.com \
             databaseengines.everest.percona.com  \
-            objectstorages.everest.percona.com \
+            backupstorages.everest.percona.com \
             perconapgbackups.pgv2.percona.com \
             perconapgclusters.pgv2.percona.com \
             perconapgrestores.pgv2.percona.com \
