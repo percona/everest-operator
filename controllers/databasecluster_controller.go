@@ -112,8 +112,8 @@ timeout server 28800s
 	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 
-	databaseClusterNameLabel = "clusterName"
-	backupStorageNameLabel   = "backupStorageName"
+	databaseClusterNameLabel   = "clusterName"
+	backupStorageNameLabelTmpl = "backupStorage-%s"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -341,6 +341,15 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	logger.Info("Reconciled", "request", req)
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
+	database.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel: database.Name,
+	}
+	if database.Spec.DataSource != nil {
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.ObjectStorageName)] = "used"
+	}
+	for _, schedule := range database.Spec.Backup.Schedules {
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName)] = "used"
+	}
 
 	if ok && !database.Spec.Paused {
 		database.Spec.Paused = true
