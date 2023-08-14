@@ -24,4 +24,5 @@ webhooks:
     - UPDATE
     resources:
     - databaseclusters
+    scope: "Namespaced"
   sideEffects: None
