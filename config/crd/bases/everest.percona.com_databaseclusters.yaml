@@ -170,30 +170,14 @@ spec:
                 - type
                 type: object
               monitoring:
-                description: Monitoring is the monitoring specification
+                description: Monitoring is the monitoring configuration
                 properties:
-                  enabled:
-                    description: Enabled is a flag to enable monitoring
-                    type: boolean
-                  pmm:
-                    description: PMMSpec contains PMM settings.
-                    properties:
-                      image:
-                        type: string
-                      login:
-                        type: string
-                      password:
-                        type: string
-                      publicAddress:
-                        type: string
-                      serverHost:
-                        type: string
-                      serverUser:
-                        type: string
-                    type: object
+                  monitoringConfigName:
+                    description: MonitoringConfigName is the name of a monitoringConfig
+                      CR.
+                    type: string
                   resources:
-                    description: ResourceRequirements describes the compute resource
-                      requirements.
+                    description: Resources defines resource limitations for the monitoring.
                     properties:
                       claims:
                         description: "Claims lists the names of resources, defined
@@ -241,8 +225,6 @@ spec:
                           Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
-                required:
-                - enabled
                 type: object
               paused:
                 description: Paused is a flag to stop the cluster

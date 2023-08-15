@@ -177,30 +177,12 @@ type Backup struct {
 	Schedules []BackupSchedule `json:"schedules,omitempty"`
 }
 
-// PMMSpec contains PMM settings.
-type PMMSpec struct {
-	Image         string `json:"image,omitempty"`
-	ServerHost    string `json:"serverHost,omitempty"`
-	ServerUser    string `json:"serverUser,omitempty"`
-	PublicAddress string `json:"publicAddress,omitempty"`
-	Login         string `json:"login,omitempty"`
-	Password      string `json:"password,omitempty"`
-}
-
-// Monitoring contains monitoring settings.
+// Monitoring is the monitoring configuration.
 type Monitoring struct {
-	// Enabled is a flag to enable monitoring
-	Enabled   bool                        `json:"enabled"`
-	PMM       *PMMSpec                    `json:"pmm,omitempty"`
+	// MonitoringConfigName is the name of a monitoringConfig CR.
+	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
+	// Resources defines resource limitations for the monitoring.
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	//nolint:godox,dupword,gocritic
-	// TODO migrate to the MonitoringConfig CR approach.
-	//// MonitoringConfigName is the name of the MonitoringConfig CR that defines
-	//// the monitoring configuration
-	//MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
-	//// Resources are the resource requirements for the monitoring container.
-	//// If not set, resource limits are not imposed
-	//Resources Resources `json:"resources,omitempty"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
@@ -218,8 +200,8 @@ type DatabaseClusterSpec struct {
 	DataSource *DataSource `json:"dataSource,omitempty"`
 	// Backup is the backup specification
 	Backup Backup `json:"backup,omitempty"`
-	// Monitoring is the monitoring specification
-	Monitoring Monitoring `json:"monitoring,omitempty"`
+	// Monitoring is the monitoring configuration
+	Monitoring *Monitoring `json:"monitoring,omitempty"`
 }
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.

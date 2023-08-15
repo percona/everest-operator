@@ -74,6 +74,8 @@ const (
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pgDeploymentName    = "percona-postgresql-operator"
 
+	defaultPMMClientImage = "percona/pmm-client:2"
+
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
 	pgCRDName                   = "perconapgclusters.pgv2.percona.com"
@@ -109,8 +111,10 @@ timeout server 28800s
       operationProfiling:
         mode: slowOp
 `
-	backupStorageNameField     = ".spec.backup.schedules.backupStorageName"
-	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
+	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
+	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
 	databaseClusterNameLabel   = "clusterName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
@@ -123,184 +127,7 @@ var operatorDeployment = map[everestv1alpha1.EngineType]string{
 	everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
 }
 
-var defaultPXCSpec = pxcv1.PerconaXtraDBClusterSpec{
-	UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
-	UpgradeOptions: pxcv1.UpgradeOptions{
-		Apply:    "never",
-		Schedule: "0 4 * * *",
-	},
-	PXC: &pxcv1.PXCSpec{
-		PodSpec: &pxcv1.PodSpec{
-			ServiceType: corev1.ServiceTypeClusterIP,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
-				MaxUnavailable: &maxUnavailable,
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	PMM: &pxcv1.PMMSpec{
-		Enabled: false,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
-		},
-	},
-	HAProxy: &pxcv1.HAProxySpec{
-		PodSpec: pxcv1.PodSpec{
-			Enabled: false,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	ProxySQL: &pxcv1.PodSpec{
-		Enabled: false,
-		Affinity: &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{},
-		},
-	},
-}
-
-var (
-	maxUnavailable   = intstr.FromInt(1)
-	defaultPSMDBSpec = psmdbv1.PerconaServerMongoDBSpec{
-		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
-		UpgradeOptions: psmdbv1.UpgradeOptions{
-			Apply:    "disabled",
-			Schedule: "0 4 * * *",
-		},
-		PMM: psmdbv1.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		},
-		Mongod: &psmdbv1.MongodSpec{
-			Net: &psmdbv1.MongodSpecNet{
-				Port: 27017,
-			},
-			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
-				Mode:              psmdbv1.OperationProfilingModeSlowOp,
-				SlowOpThresholdMs: 100,
-				RateLimit:         100,
-			},
-			Security: &psmdbv1.MongodSpecSecurity{
-				RedactClientLogData:  false,
-				EnableEncryption:     pointer.ToBool(true),
-				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
-			},
-			SetParameter: &psmdbv1.MongodSpecSetParameter{
-				TTLMonitorSleepSecs: 60,
-			},
-			Storage: &psmdbv1.MongodSpecStorage{
-				Engine: psmdbv1.StorageEngineWiredTiger,
-				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
-					NsSize:     16,
-					Smallfiles: false,
-				},
-				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
-					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
-						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
-						DirectoryForIndexes: false,
-						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
-						PrefixCompression: true,
-					},
-				},
-			},
-		},
-		Replsets: []*psmdbv1.ReplsetSpec{
-			{
-				Name: "rs0",
-				MultiAZ: psmdbv1.MultiAZ{
-					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: &maxUnavailable,
-					},
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{},
-					},
-				},
-			},
-		},
-		Sharding: psmdbv1.Sharding{
-			Enabled: true,
-			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-				},
-				Arbiter: psmdbv1.Arbiter{
-					Enabled: false,
-					MultiAZ: psmdbv1.MultiAZ{
-						Affinity: &psmdbv1.PodAffinity{
-							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-						},
-					},
-				},
-			},
-			Mongos: &psmdbv1.MongosSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{},
-					},
-				},
-			},
-		},
-	}
-)
-
-var defaultPGSpec = pgv2.PerconaPGClusterSpec{
-	InstanceSets: pgv2.PGInstanceSets{
-		{
-			Name: "instance1",
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-	PMM: &pgv2.PMMSpec{
-		Enabled: false,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
-		},
-	},
-	Proxy: &pgv2.PGProxySpec{
-		PGBouncer: &pgv2.PGBouncerSpec{
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
-			},
-		},
-	},
-}
+var maxUnavailable = intstr.FromInt(1)
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
@@ -318,6 +145,7 @@ type DatabaseClusterReconciler struct {
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -517,7 +345,6 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: defaultPSMDBSpec,
 	}
 	if len(database.Finalizers) != 0 {
 		psmdb.Finalizers = database.Finalizers
@@ -546,7 +373,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			return err
 		}
 
-		psmdb.Spec = defaultPSMDBSpec
+		psmdb.Spec = *r.defaultPSMDBSpec()
 		if clusterType == ClusterTypeEKS {
 			affinity := &psmdbv1.PodAffinity{
 				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
@@ -683,10 +510,39 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
 
-		if database.Spec.Monitoring.PMM != nil && database.Spec.Monitoring.PMM.Image != "" {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			psmdb.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			psmdb.Spec.PMM.Image = image
+			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
+
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
+			if err != nil {
+				return err
+			}
+
+			err = r.createOrUpdateSecret(ctx, database, psmdb.Spec.Secrets.Users, "", map[string][]byte{
+				"PMM_SERVER_API_KEY": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if database.Spec.Backup.Enabled {
@@ -722,8 +578,57 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	return r.Status().Update(ctx, database)
 }
 
+// getSecretFromMonitoringConfig retrieves the credentials secret from the provided MonitoringConfig.
+func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+	monitoring *everestv1alpha1.MonitoringConfig,
+) (string, error) {
+	var secret *corev1.Secret
+	secretData := ""
+
+	if monitoring.Spec.CredentialsSecretName != "" {
+		secret = &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      monitoring.Spec.CredentialsSecretName,
+			Namespace: database.Namespace,
+		}, secret)
+		if err != nil {
+			return "", err
+		}
+
+		if key, ok := secret.Data["apiKey"]; ok {
+			secretData = string(key)
+		}
+	}
+
+	return secretData, nil
+}
+
+// createOrUpdateSecret creates or updates a secret by its name.
+// If a secret is created and secretName is empty, generateName is used
+// to generate a unique name.
+func (r *DatabaseClusterReconciler) createOrUpdateSecret(
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+	secretName, generateName string, data map[string][]byte,
+) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: database.Namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: data,
+	}
+
+	if secretName == "" {
+		secret.ObjectMeta.GenerateName = generateName
+	}
+
+	return r.createOrUpdate(ctx, secret, true)
+}
+
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
-	haProxy := defaultPXCSpec.HAProxy
+	haProxy := r.defaultPXCSpec().HAProxy
 
 	haProxy.PodSpec.Enabled = true
 
@@ -772,7 +677,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 }
 
 func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.PodSpec, error) {
-	proxySQL := defaultPXCSpec.ProxySQL
+	proxySQL := r.defaultPXCSpec().ProxySQL
 
 	proxySQL.Enabled = true
 
@@ -936,7 +841,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: defaultPXCSpec,
 	}
 
 	if len(database.Finalizers) != 0 {
@@ -974,7 +878,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return err
 		}
 
-		pxc.Spec = defaultPXCSpec
+		pxc.Spec = *r.defaultPXCSpec()
 		if clusterType == ClusterTypeEKS {
 			affinity := &pxcv1.PodAffinity{
 				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
@@ -1080,11 +984,39 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return errors.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
 		}
 
-		if database.Spec.Monitoring.PMM != nil {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pxc.Spec.PMM.ServerUser = database.Spec.Monitoring.PMM.Login
-			pxc.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pxc.Spec.PMM.Image = image
+			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
+
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
+			if err != nil {
+				return err
+			}
+
+			err = r.createOrUpdateSecret(ctx, database, pxc.Spec.SecretsName, "", map[string][]byte{
+				"pmmserverkey": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if database.Spec.Backup.Enabled {
@@ -1146,7 +1078,7 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	if err != nil {
 		return nil, err
 	}
-	err = r.createOrUpdate(ctx, pgBackrestSecret)
+	err = r.createOrUpdate(ctx, pgBackrestSecret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1296,21 +1228,14 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	return pgDataSource, nil
 }
 
-//nolint:gocognit,maintidx
+//nolint:gocognit,maintidx,gocyclo,cyclop
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
-	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
-		Namespace: req.NamespacedName.Namespace,
-		Name:      pgDeploymentName,
-	})
-	if err != nil {
-		return err
-	}
 	clusterType, err := r.getClusterType(ctx)
 	if err != nil {
 		return err
 	}
 
-	pgSpec := defaultPGSpec
+	pgSpec := r.defaultPGSpec()
 	if clusterType == ClusterTypeEKS {
 		affinity := &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
@@ -1331,8 +1256,17 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			Namespace:   database.Namespace,
 			Annotations: database.Annotations,
 		},
-		Spec: pgSpec,
+		Spec: *pgSpec,
 	}
+
+	if pg.Spec.PMM == nil {
+		pg.Spec.PMM = &pgv2.PMMSpec{}
+	}
+
+	if pg.Spec.PMM.Secret == "" {
+		pg.Spec.PMM.Secret = database.Spec.Engine.UserSecretsName
+	}
+
 	if len(database.Finalizers) != 0 {
 		pg.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
@@ -1351,7 +1285,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
 		pg.TypeMeta = metav1.TypeMeta{
-			APIVersion: version.ToAPIVersion(pgAPIGroup),
+			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
 			Kind:       PerconaPGClusterKind,
 		}
 
@@ -1450,10 +1384,42 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			},
 		}
 
-		if database.Spec.Monitoring.PMM != nil {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
+		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: req.NamespacedName.Namespace,
+				Name:      database.Spec.Monitoring.MonitoringConfigName,
+			}, monitoring)
+			if err != nil {
+				return err
+			}
+		}
+
+		// We have to assign the default spec here explicitly becase PG reconciliation
+		// does not assign the default spec in this CreateOrUpdate mutate function.
+		pg.Spec.PMM = pgSpec.PMM
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = database.Spec.Monitoring.PMM.PublicAddress
-			pg.Spec.PMM.Image = database.Spec.Monitoring.PMM.Image
+			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pg.Spec.PMM.Image = image
+			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
+
+			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
+			if err != nil {
+				return err
+			}
+
+			err = r.createOrUpdateSecret(ctx, database, pg.Spec.PMM.Secret, "", map[string][]byte{
+				"PMM_SERVER_KEY": []byte(apiKey),
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		// If no backup is specified we need to define a repo regardless.
@@ -1633,39 +1599,7 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Index the BackupStorage's CredentialsSecretName field so that it can be
-	// used by the databaseClustersThatReferenceCredentialsSecret function to
-	// find all DatabaseClusters that reference a specific secret through the
-	// BackupStorage's CredentialsSecretName field
-	err := mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.BackupStorage{}, credentialsSecretNameField, func(o client.Object) []string {
-		var res []string
-		backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
-		if !ok {
-			return res
-		}
-		res = append(res, backupStorage.Spec.CredentialsSecretName)
-		return res
-	})
-	if err != nil {
-		return err
-	}
-
-	// Index the BackupStorageName so that it can be used by the
-	// databaseClustersThatReferenceBackupStorage function to find all
-	// DatabaseClusters that reference a specific BackupStorage through the
-	// BackupStorageName field
-	err = mgr.GetFieldIndexer().IndexField(context.Background(), &everestv1alpha1.DatabaseCluster{}, backupStorageNameField, func(o client.Object) []string {
-		var res []string
-		database, ok := o.(*everestv1alpha1.DatabaseCluster)
-		if !ok || !database.Spec.Backup.Enabled {
-			return res
-		}
-		for _, storage := range database.Spec.Backup.Schedules {
-			res = append(res, storage.BackupStorageName)
-		}
-		return res
-	})
-	if err != nil {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
 
@@ -1677,7 +1611,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseCluster{})
-	err = r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
+	err := r.Get(context.Background(), types.NamespacedName{Name: pxcCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
@@ -1695,6 +1629,89 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			controller.Owns(&pgv2.PerconaPGCluster{})
 		}
 	}
+
+	r.initWatchers(controller)
+
+	return controller.Complete(r)
+}
+
+func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the BackupStorage's CredentialsSecretName field so that it can be
+	// used by the databaseClustersThatReferenceCredentialsSecret function to
+	// find all DatabaseClusters that reference a specific secret through the
+	// BackupStorage's CredentialsSecretName field
+	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField, func(o client.Object) []string {
+		var res []string
+		backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
+		if !ok {
+			return res
+		}
+		res = append(res, backupStorage.Spec.CredentialsSecretName)
+		return res
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index the BackupStorageName so that it can be used by the
+	// databaseClustersThatReferenceBackupStorage function to find all
+	// DatabaseClusters that reference a specific BackupStorage through the
+	// BackupStorageName field
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, backupStorageNameField,
+		func(o client.Object) []string {
+			var res []string
+			database, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok || !database.Spec.Backup.Enabled {
+				return res
+			}
+			for _, storage := range database.Spec.Backup.Schedules {
+				res = append(res, storage.BackupStorageName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Index the monitoringConfigName field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			dc, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+			if dc.Spec.Monitoring != nil {
+				res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Index the credentialsSecretName field in MonitoringConfig.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
+		func(o client.Object) []string {
+			var res []string
+			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return res
+			}
+			res = append(res, mc.Spec.CredentialsSecretName)
+			return res
+		},
+	)
+
+	return err
+}
+
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	// In PG reconciliation we create a backup credentials secret because the
 	// PG operator requires this secret to be encoded differently from the
 	// generic one used in PXC and PSMDB. Therefore, we need to watch for
@@ -1704,25 +1721,36 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller.Owns(&everestv1alpha1.BackupStorage{})
 	controller.Watches(
 		&everestv1alpha1.BackupStorage{},
-		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceBackupStorage),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
+		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+
+	controller.Owns(&everestv1alpha1.MonitoringConfig{})
+	controller.Watches(
+		&everestv1alpha1.MonitoringConfig{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&corev1.Secret{},
-		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceCredentialsSecret),
+		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
-	return controller.Complete(r)
 }
 
-// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
-// requests for all DatabaseClusters that reference the given BackupStorage.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceBackupStorage(ctx context.Context, backupStorage client.Object) []reconcile.Request {
+// databaseClustersThatReferenceObject returns a list of reconcile
+// requests for all DatabaseClusters that reference the given object by the provided keyPath.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(ctx context.Context, keyPath string, obj client.Object) []reconcile.Request {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(backupStorageNameField, backupStorage.GetName()),
-		Namespace:     backupStorage.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(keyPath, obj.GetName()),
+		Namespace:     obj.GetNamespace(),
 	}
 	err := r.List(ctx, attachedDatabaseClusters, listOps)
 	if err != nil {
@@ -1742,28 +1770,62 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceBackupStorage(c
 	return requests
 }
 
-// databaseClustersThatReferenceCredentialsSecret returns a list of reconcile
+// databaseClustersThatReferenceSecret returns a list of reconcile
 // requests for all DatabaseClusters that reference the given secret.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceCredentialsSecret(ctx context.Context, secret client.Object) []reconcile.Request {
-	attachedBackupStorage := &everestv1alpha1.BackupStorageList{}
-	listOps1 := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(credentialsSecretNameField, secret.GetName()),
-		Namespace:     secret.GetNamespace(),
-	}
-	err := r.List(ctx, attachedBackupStorage, listOps1)
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx context.Context, secret client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
+	// BackupStorage
+	var res []reconcile.Request
+	bsList := &everestv1alpha1.BackupStorageList{}
+	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, bsList)
 	if err != nil {
-		return []reconcile.Request{}
+		logger.Error(err, "could not find BackupStorage by secret name")
+	}
+	if err == nil {
+		var items []client.Object
+		for _, i := range bsList.Items {
+			i := i
+			items = append(items, &i)
+		}
+		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, backupStorageNameField)...)
 	}
 
+	// MonitoringConfig
+	mcList := &everestv1alpha1.MonitoringConfigList{}
+	err = r.findObjectsBySecretName(ctx, secret, monitoringConfigSecretNameField, mcList)
+	if err != nil {
+		logger.Error(err, "could not find MonitoringConfig by secret name")
+	}
+	if err == nil {
+		var items []client.Object
+		for _, i := range mcList.Items {
+			i := i
+			items = append(items, &i)
+		}
+		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, monitoringConfigNameField)...)
+	}
+
+	return res
+}
+
+func (r *DatabaseClusterReconciler) findObjectsBySecretName(ctx context.Context, secret client.Object, fieldPath string, obj client.ObjectList) error {
+	listOpts := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(fieldPath, secret.GetName()),
+		Namespace:     secret.GetNamespace(),
+	}
+	return r.List(ctx, obj, listOpts)
+}
+
+func (r *DatabaseClusterReconciler) getDBClustersReconcileRequestsByRelatedObjectName(ctx context.Context, items []client.Object, fieldPath string) []reconcile.Request {
 	var requests []reconcile.Request
-	for _, backupStorage := range attachedBackupStorage.Items {
+	for _, i := range items {
 		attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(backupStorageNameField, backupStorage.GetName()),
-			Namespace:     secret.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector(fieldPath, i.GetName()),
+			Namespace:     i.GetNamespace(),
 		}
-		err = r.List(ctx, attachedDatabaseClusters, listOps)
-		if err != nil {
+		if err := r.List(ctx, attachedDatabaseClusters, listOps); err != nil {
 			return []reconcile.Request{}
 		}
 
@@ -1897,7 +1959,9 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 		reflect.DeepEqual(oldObj.GetLabels(), newObj.GetLabels())
 }
 
-func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+// createOrUpdate creates or updates a resource.
+// With patchSecretData the new secret Data is applied on top of the original secret's Data.
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object, patchSecretData bool) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
@@ -1910,6 +1974,10 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 	oldObject, ok := reflect.New(val.Type()).Interface().(client.Object)
 	if !ok {
 		return errors.Errorf("failed type conversion")
+	}
+
+	if obj.GetName() == "" && obj.GetGenerateName() != "" {
+		return r.Create(ctx, obj)
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
@@ -1928,24 +1996,220 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 		return errors.Wrap(err, "calculate old object hash")
 	}
 
-	if oldHash != hash ||
-		!isObjectMetaEqual(obj, oldObject) {
-		obj.SetResourceVersion(oldObject.GetResourceVersion())
-		switch object := obj.(type) {
-		case *corev1.Service:
-			oldObjectService, ok := oldObject.(*corev1.Service)
-			if !ok {
-				return errors.Errorf("failed type conversion")
-			}
-			object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
-			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
-				object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
-			}
-		default:
-		}
-
-		return r.Update(ctx, obj)
+	if oldHash != hash || !isObjectMetaEqual(obj, oldObject) {
+		return r.updateObject(ctx, obj, oldObject, patchSecretData)
 	}
 
 	return nil
+}
+
+func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldObject client.Object, patchSecretData bool) error {
+	obj.SetResourceVersion(oldObject.GetResourceVersion())
+	switch object := obj.(type) {
+	case *corev1.Service:
+		oldObjectService, ok := oldObject.(*corev1.Service)
+		if !ok {
+			return errors.Errorf("failed type conversion to service")
+		}
+		object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
+		if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
+			object.Spec.HealthCheckNodePort = oldObjectService.Spec.HealthCheckNodePort
+		}
+	case *corev1.Secret:
+		if patchSecretData {
+			s, ok := oldObject.(*corev1.Secret)
+			if !ok {
+				return errors.Errorf("failed type conversion to secret")
+			}
+			for k, v := range object.Data {
+				s.Data[k] = v
+			}
+			object.Data = s.Data
+		}
+	default:
+	}
+
+	return r.Update(ctx, obj)
+}
+
+func (r *DatabaseClusterReconciler) defaultPGSpec() *pgv2.PerconaPGClusterSpec {
+	return &pgv2.PerconaPGClusterSpec{
+		InstanceSets: pgv2.PGInstanceSets{
+			{
+				Name: "instance1",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		PMM: &pgv2.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		Proxy: &pgv2.PGProxySpec{
+			PGBouncer: &pgv2.PGBouncerSpec{
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+	}
+}
+
+func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBClusterSpec {
+	return &pxcv1.PerconaXtraDBClusterSpec{
+		UpdateStrategy: pxcv1.SmartUpdateStatefulSetStrategyType,
+		UpgradeOptions: pxcv1.UpgradeOptions{
+			Apply:    "never",
+			Schedule: "0 4 * * *",
+		},
+		PXC: &pxcv1.PXCSpec{
+			PodSpec: &pxcv1.PodSpec{
+				ServiceType: corev1.ServiceTypeClusterIP,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable,
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		PMM: &pxcv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		HAProxy: &pxcv1.HAProxySpec{
+			PodSpec: pxcv1.PodSpec{
+				Enabled: false,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
+			},
+		},
+		ProxySQL: &pxcv1.PodSpec{
+			Enabled: false,
+			Affinity: &pxcv1.PodAffinity{
+				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{},
+			},
+		},
+	}
+}
+
+func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMongoDBSpec {
+	return &psmdbv1.PerconaServerMongoDBSpec{
+		UpdateStrategy: psmdbv1.SmartUpdateStatefulSetStrategyType,
+		UpgradeOptions: psmdbv1.UpgradeOptions{
+			Apply:    "disabled",
+			Schedule: "0 4 * * *",
+		},
+		PMM: psmdbv1.PMMSpec{
+			Enabled: false,
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300M"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+		},
+		Mongod: &psmdbv1.MongodSpec{
+			Net: &psmdbv1.MongodSpecNet{
+				Port: 27017,
+			},
+			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
+				Mode:              psmdbv1.OperationProfilingModeSlowOp,
+				SlowOpThresholdMs: 100,
+				RateLimit:         100,
+			},
+			Security: &psmdbv1.MongodSpecSecurity{
+				RedactClientLogData:  false,
+				EnableEncryption:     pointer.ToBool(true),
+				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
+			},
+			SetParameter: &psmdbv1.MongodSpecSetParameter{
+				TTLMonitorSleepSecs: 60,
+			},
+			Storage: &psmdbv1.MongodSpecStorage{
+				Engine: psmdbv1.StorageEngineWiredTiger,
+				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
+					NsSize:     16,
+					Smallfiles: false,
+				},
+				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
+					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
+						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
+						DirectoryForIndexes: false,
+						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
+					},
+					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
+						PrefixCompression: true,
+					},
+				},
+			},
+		},
+		Replsets: []*psmdbv1.ReplsetSpec{
+			{
+				Name: "rs0",
+				MultiAZ: psmdbv1.MultiAZ{
+					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
+						MaxUnavailable: &maxUnavailable,
+					},
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
+				},
+			},
+		},
+		Sharding: psmdbv1.Sharding{
+			Enabled: true,
+			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+				},
+				Arbiter: psmdbv1.Arbiter{
+					Enabled: false,
+					MultiAZ: psmdbv1.MultiAZ{
+						Affinity: &psmdbv1.PodAffinity{
+							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+						},
+					},
+				},
+			},
+			Mongos: &psmdbv1.MongosSpec{
+				MultiAZ: psmdbv1.MultiAZ{
+					Affinity: &psmdbv1.PodAffinity{
+						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{},
+					},
+				},
+			},
+		},
+	}
 }

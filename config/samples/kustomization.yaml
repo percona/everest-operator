@@ -4,5 +4,6 @@ resources:
 - everest_v1alpha1_databaseclusterbackup.yaml
 - everest_v1alpha1_databaseclusterrestore.yaml
 - everest_v1alpha1_databaseengine.yaml
+- everest_v1alpha1_monitoringconfig.yaml
 - everest_v1alpha1_backupstorage.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

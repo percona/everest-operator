@@ -150,6 +150,18 @@ rules:
   - patch
   - update
 - apiGroups:
+  - everest.percona.com
+  resources:
+  - monitoringconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - pgv2.percona.com
   resources:
   - perconapgbackups

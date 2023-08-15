@@ -138,21 +138,8 @@ jobs:
       - name: Clean up CRDs
         if: always()
         run:
-          kubectl delete crd databaseclusterbackups.everest.percona.com \
-            databaseclusterrestores.everest.percona.com \
-            databaseclusters.everest.percona.com \
-            databaseengines.everest.percona.com  \
-            backupstorages.everest.percona.com \
-            perconapgbackups.pgv2.percona.com \
-            perconapgclusters.pgv2.percona.com \
-            perconapgrestores.pgv2.percona.com \
-            perconaservermongodbbackups.psmdb.percona.com \
-            perconaservermongodbrestores.psmdb.percona.com \
-            perconaservermongodbs.psmdb.percona.com \
-            perconaxtradbclusterbackups.pxc.percona.com \
-            perconaxtradbclusterrestores.pxc.percona.com \
-            perconaxtradbclusters.pxc.percona.com \
-            postgresclusters.postgres-operator.crunchydata.com
+          kubectl get crd -o name | grep .percona.com$ | xargs --no-run-if-empty kubectl delete crd
+          kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
 
       - name: Clean up credentials
         run: |

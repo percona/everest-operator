@@ -55,4 +55,12 @@ resources:
   kind: BackupStorage
   path: github.com/percona/everest-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: percona.com
+  group: everest
+  kind: MonitoringConfig
+  path: github.com/percona/everest-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
