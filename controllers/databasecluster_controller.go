@@ -109,10 +109,13 @@ timeout server 28800s
       operationProfiling:
         mode: slowOp
 `
-	objectStorageNameField          = ".spec.backup.schedules.objectStorageName"
-	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
+	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
+	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
+
+	databaseClusterNameLabel = "clusterName"
+	backupStorageNameLabel   = "backupStorageName"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -139,8 +142,8 @@ type DatabaseClusterReconciler struct {
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=objectstorages,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -235,29 +238,29 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		return err
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
-		objectStorage := &everestv1alpha1.ObjectStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
+			return errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
 		}
 
 		dbRestore.Spec.DatabaseCluster = database.Name
 		dbRestore.Spec.DatabaseType = database.Spec.Engine.Type
 		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
-			Destination: fmt.Sprintf("s3://%s/%s", objectStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
-			StorageName: database.Spec.DataSource.ObjectStorageName,
-			StorageType: everestv1alpha1.BackupStorageType(objectStorage.Spec.Type),
+			Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
+			StorageName: database.Spec.DataSource.BackupStorageName,
+			StorageType: backupStorage.Spec.Type,
 		}
-		switch objectStorage.Spec.Type {
-		case everestv1alpha1.ObjectStorageTypeS3:
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
 			dbRestore.Spec.BackupSource.S3 = &everestv1alpha1.BackupStorageProviderSpec{
-				Bucket:            objectStorage.Spec.Bucket,
-				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
-				Region:            objectStorage.Spec.Region,
-				EndpointURL:       objectStorage.Spec.EndpointURL,
+				Bucket:            backupStorage.Spec.Bucket,
+				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				Region:            backupStorage.Spec.Region,
+				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		default:
-			return errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+			return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 		return nil
 	})
@@ -287,25 +290,25 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 			continue
 		}
 
-		objectStorage := &everestv1alpha1.ObjectStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
-		switch objectStorage.Spec.Type {
-		case everestv1alpha1.ObjectStorageTypeS3:
-			storages[schedule.ObjectStorageName] = psmdbv1.BackupStorageSpec{
-				Type: psmdbv1.BackupStorageType(objectStorage.Spec.Type),
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            objectStorage.Spec.Bucket,
-					CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
-					Region:            objectStorage.Spec.Region,
-					EndpointURL:       objectStorage.Spec.EndpointURL,
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		tasks = append(tasks, psmdbv1.BackupTaskSpec{
@@ -313,7 +316,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 			Enabled:     true,
 			Schedule:    schedule.Schedule,
 			Keep:        int(schedule.RetentionCopies),
-			StorageName: schedule.ObjectStorageName,
+			StorageName: schedule.BackupStorageName,
 		})
 	}
 	psmdbBackupSpec.Storages = storages
@@ -734,32 +737,32 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 			continue
 		}
 
-		objectStorage := &everestv1alpha1.ObjectStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+			return nil, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
-		storages[schedule.ObjectStorageName] = &pxcv1.BackupStorageSpec{
-			Type: pxcv1.BackupStorageType(objectStorage.Spec.Type),
+		storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
+			Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
 		}
-		switch objectStorage.Spec.Type {
-		case everestv1alpha1.ObjectStorageTypeS3:
-			storages[schedule.ObjectStorageName].S3 = &pxcv1.BackupStorageS3Spec{
-				Bucket:            objectStorage.Spec.Bucket,
-				CredentialsSecret: objectStorage.Spec.CredentialsSecretName,
-				Region:            objectStorage.Spec.Region,
-				EndpointURL:       objectStorage.Spec.EndpointURL,
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			storages[schedule.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
+				Bucket:            backupStorage.Spec.Bucket,
+				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				Region:            backupStorage.Spec.Region,
+				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		default:
-			return nil, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+			return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
 			Name:        schedule.Name,
 			Schedule:    schedule.Schedule,
 			Keep:        int(schedule.RetentionCopies),
-			StorageName: schedule.ObjectStorageName,
+			StorageName: schedule.BackupStorageName,
 		})
 	}
 
@@ -1097,10 +1100,10 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 			continue
 		}
 
-		objectStorage := &everestv1alpha1.ObjectStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get object storage %s", schedule.ObjectStorageName)
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
 		}
 
 		repos[idx] = crunchyv1beta1.PGBackRestRepo{
@@ -1111,18 +1114,18 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 		}
 		backups.PGBackRest.Global[repos[idx].Name+"-retention-full"] = fmt.Sprintf("%d", database.Spec.Backup.Schedules[idx].RetentionCopies)
 
-		switch objectStorage.Spec.Type {
-		case everestv1alpha1.ObjectStorageTypeS3:
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
 			repos[idx].S3 = &crunchyv1beta1.RepoS3{
-				Bucket:   objectStorage.Spec.Bucket,
-				Region:   objectStorage.Spec.Region,
-				Endpoint: objectStorage.Spec.EndpointURL,
+				Bucket:   backupStorage.Spec.Bucket,
+				Region:   backupStorage.Spec.Region,
+				Endpoint: backupStorage.Spec.EndpointURL,
 			}
 
 			pgBackrestSecret, err := r.createPGBackrestSecret(
 				ctx,
 				database,
-				objectStorage.Spec.CredentialsSecretName,
+				backupStorage.Spec.CredentialsSecretName,
 				repos[idx].Name,
 				database.Name+"-pgbackrest-secrets",
 			)
@@ -1140,7 +1143,7 @@ func (r *DatabaseClusterReconciler) genPGBackupsSpec(
 				},
 			}
 		default:
-			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+			return crunchyv1beta1.Backups{}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 	backups.PGBackRest.Repos = repos
@@ -1168,18 +1171,18 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		},
 	}
 
-	objectStorage := &everestv1alpha1.ObjectStorage{}
-	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.ObjectStorageName, Namespace: database.Namespace}, objectStorage)
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get object storage %s", database.Spec.DataSource.ObjectStorageName)
+		return nil, errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
 	}
 
-	switch objectStorage.Spec.Type {
-	case everestv1alpha1.ObjectStorageTypeS3:
+	switch backupStorage.Spec.Type {
+	case everestv1alpha1.BackupStorageTypeS3:
 		pgBackrestSecret, err := r.createPGBackrestSecret(
 			ctx,
 			database,
-			objectStorage.Spec.CredentialsSecretName,
+			backupStorage.Spec.CredentialsSecretName,
 			repoName,
 			database.Name+"-pgbackrest-datasource-secrets",
 		)
@@ -1199,13 +1202,13 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
 			Name: repoName,
 			S3: &crunchyv1beta1.RepoS3{
-				Bucket:   objectStorage.Spec.Bucket,
-				Endpoint: objectStorage.Spec.EndpointURL,
-				Region:   objectStorage.Spec.Region,
+				Bucket:   backupStorage.Spec.Bucket,
+				Endpoint: backupStorage.Spec.EndpointURL,
+				Region:   backupStorage.Spec.Region,
 			},
 		}
 	default:
-		return nil, errors.Errorf("unsupported object storage type %s for %s", objectStorage.Spec.Type, objectStorage.Name)
+		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 	}
 	return pgDataSource, nil
 }
@@ -1586,29 +1589,29 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
-	// Index the ObjectStorage's CredentialsSecretName field so that it can be
+	// Index the BackupStorage's CredentialsSecretName field so that it can be
 	// used by the databaseClustersThatReferenceCredentialsSecret function to
 	// find all DatabaseClusters that reference a specific secret through the
-	// ObjectStorage's CredentialsSecretName field
-	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.ObjectStorage{}, credentialsSecretNameField, func(o client.Object) []string {
+	// BackupStorage's CredentialsSecretName field
+	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField, func(o client.Object) []string {
 		var res []string
-		objectStorage, ok := o.(*everestv1alpha1.ObjectStorage)
+		backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
 		if !ok {
 			return res
 		}
-		res = append(res, objectStorage.Spec.CredentialsSecretName)
+		res = append(res, backupStorage.Spec.CredentialsSecretName)
 		return res
 	})
 	if err != nil {
 		return err
 	}
 
-	// Index the ObjectStorageName so that it can be used by the
-	// databaseClustersThatReferenceObjectStorage function to find all
-	// DatabaseClusters that reference a specific ObjectStorage through the
-	// ObjectStorageName field
+	// Index the BackupStorageName so that it can be used by the
+	// databaseClustersThatReferenceBackupStorage function to find all
+	// DatabaseClusters that reference a specific BackupStorage through the
+	// BackupStorageName field
 	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.DatabaseCluster{}, objectStorageNameField,
+		ctx, &everestv1alpha1.DatabaseCluster{}, backupStorageNameField,
 		func(o client.Object) []string {
 			var res []string
 			database, ok := o.(*everestv1alpha1.DatabaseCluster)
@@ -1616,7 +1619,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 				return res
 			}
 			for _, storage := range database.Spec.Backup.Schedules {
-				res = append(res, storage.ObjectStorageName)
+				res = append(res, storage.BackupStorageName)
 			}
 			return res
 		},
@@ -1668,11 +1671,11 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	// secrets, specifically the ones that are referenced in DatabaseCluster
 	// CRs, and trigger a reconciliation if these change so that we can
 	// reenconde the secret required by PG.
-	controller.Owns(&everestv1alpha1.ObjectStorage{})
+	controller.Owns(&everestv1alpha1.BackupStorage{})
 	controller.Watches(
-		&everestv1alpha1.ObjectStorage{},
+		&everestv1alpha1.BackupStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.databaseClustersThatReferenceObject(ctx, objectStorageNameField, obj)
+			return r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
@@ -1725,20 +1728,20 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(ctx cont
 func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx context.Context, secret client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
 
-	// ObjectStorage
+	// BackupStorage
 	var res []reconcile.Request
-	osList := &everestv1alpha1.ObjectStorageList{}
-	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, osList)
+	bsList := &everestv1alpha1.BackupStorageList{}
+	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, bsList)
 	if err != nil {
 		logger.Error(err, "could not find ObjectStorage by secret name")
 	}
 	if err == nil {
 		var items []client.Object
-		for _, i := range osList.Items {
+		for _, i := range bsList.Items {
 			i := i
 			items = append(items, &i)
 		}
-		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, objectStorageNameField)...)
+		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, backupStorageNameField)...)
 	}
 
 	// MonitoringConfig

@@ -74,12 +74,12 @@ spec:
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
-              objectStorageName:
-                description: ObjectStorageName is the name of the ObjectStorage used for backups.
+              backupStorageName:
+                description: BackupStorageName is the name of the ObjectStorage used for backups.
                 type: string
             required:
             - dbClusterName
-            - objectStorageName
+            - backupStorageName
             type: object
           status:
             description: DatabaseClusterBackupStatus defines the observed state of DatabaseClusterBackup.
@@ -376,8 +376,8 @@ spec:
                         name:
                           description: Name is the name of the schedule
                           type: string
-                        objectStorageName:
-                          description: ObjectStorageName is the name of the ObjectStorage CR that defines the storage location
+                        backupStorageName:
+                          description: BackupStorageName is the name of the ObjectStorage CR that defines the storage location
                           type: string
                         retentionCopies:
                           description: RetentionCopies is the number of backup copies to retain
@@ -389,7 +389,7 @@ spec:
                       required:
                       - enabled
                       - name
-                      - objectStorageName
+                      - backupStorageName
                       - schedule
                       type: object
                     type: array
@@ -402,12 +402,12 @@ spec:
                   backupName:
                     description: BackupName is the name of the backup from backup location to use
                     type: string
-                  objectStorageName:
-                    description: ObjectStorageName is the name of the ObjectStorage CR that defines the storage location
+                  backupStorageName:
+                    description: BackupStorageName is the name of the ObjectStorage CR that defines the storage location
                     type: string
                 required:
                 - backupName
-                - objectStorageName
+                - backupStorageName
                 type: object
               engine:
                 description: Engine is the database engine specification
@@ -769,8 +769,8 @@ metadata:
 spec:
   group: everest.percona.com
   names:
-    kind: ObjectStorage
-    listKind: ObjectStorageList
+    kind: BackupStorage
+    listKind: BackupStorageList
     plural: objectstorages
     singular: objectstorage
   scope: Namespaced
@@ -778,7 +778,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ObjectStorage is the Schema for the objectstorages API.
+        description: BackupStorage is the Schema for the objectstorages API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -789,7 +789,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ObjectStorageSpec defines the desired state of ObjectStorage.
+            description: BackupStorageSpec defines the desired state of ObjectStorage.
             properties:
               bucket:
                 description: Bucket is a name of bucket.
@@ -816,7 +816,7 @@ spec:
             - type
             type: object
           status:
-            description: ObjectStorageStatus defines the observed state of ObjectStorage.
+            description: BackupStorageStatus defines the observed state of ObjectStorage.
             type: object
         type: object
     served: true

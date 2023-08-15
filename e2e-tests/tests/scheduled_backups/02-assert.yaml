@@ -30,12 +30,12 @@ spec:
         enabled: true
         schedule: "0 0 * * *"
         retentionCopies: 5
-        objectStorageName: aws
+        backupStorageName: aws
       - name: monthly-backup
         enabled: true
         schedule: "0 0 1 * *"
         retentionCopies: 5
-        objectStorageName: aws
+        backupStorageName: aws
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
