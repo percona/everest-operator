@@ -22,7 +22,7 @@ spec:
     schedules:
       - enabled: false
         name: daily-backup
-        objectStorageName: test-storage
+        backupStorageName: test-storage
         retentionCopies: 1
         schedule: 0 0 * * *
 status:

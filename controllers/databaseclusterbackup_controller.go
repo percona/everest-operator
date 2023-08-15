@@ -88,7 +88,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	backup.ObjectMeta.Labels = map[string]string{
 		databaseClusterNameLabel: backup.Spec.DBClusterName,
-		fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.ObjectStorageName): backupStorageLabelValue,
+		fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
@@ -100,11 +100,11 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
-	storage := &everestv1alpha1.ObjectStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.ObjectStorageName, Namespace: backup.Namespace}, storage)
+	storage := &everestv1alpha1.BackupStorage{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, storage)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch ObjectStorage")
+			logger.Error(err, "unable to fetch BackupStorage")
 		}
 		return reconcile.Result{}, err
 	}
@@ -225,7 +225,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 			Kind:       pxcBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
-		pxcCR.Spec.StorageName = backup.Spec.ObjectStorageName
+		pxcCR.Spec.StorageName = backup.Spec.BackupStorageName
 
 		return nil
 	})
@@ -261,7 +261,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Kind:       psmdbBackupKind,
 		}
 		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
-		psmdbCR.Spec.StorageName = backup.Spec.ObjectStorageName
+		psmdbCR.Spec.StorageName = backup.Spec.BackupStorageName
 
 		return nil
 	})
@@ -325,14 +325,14 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 }
 
 // pgRepoName returns the pg cluster's RepoName (which is like "repo1", "repo2" etc)
-// that corresponds the database cluster's ObjectStorageName.
+// that corresponds the database cluster's BackupStorageName.
 func (r *DatabaseClusterBackupReconciler) pgRepoName(everestBackup *everestv1alpha1.DatabaseClusterBackup, dbcluster *everestv1alpha1.DatabaseCluster) (string, error) {
 	//nolint:godox
 	// TODO: decouple PG backups from the schedules list
 	// currently the PG on-demand backups require at least one schedule to be set,
 	// here is an idea how to fix it https://github.com/percona/everest-operator/pull/7#discussion_r1263497633
 	for idx, schedule := range dbcluster.Spec.Backup.Schedules {
-		if schedule.ObjectStorageName == everestBackup.Spec.ObjectStorageName {
+		if schedule.BackupStorageName == everestBackup.Spec.BackupStorageName {
 			return fmt.Sprintf("repo%d", idx+1), nil
 		}
 	}

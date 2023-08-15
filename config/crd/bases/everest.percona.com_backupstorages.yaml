@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: objectstorages.everest.percona.com
+  name: backupstorages.everest.percona.com
 spec:
   group: everest.percona.com
   names:
-    kind: ObjectStorage
-    listKind: ObjectStorageList
-    plural: objectstorages
-    singular: objectstorage
+    kind: BackupStorage
+    listKind: BackupStorageList
+    plural: backupstorages
+    singular: backupstorage
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ObjectStorage is the Schema for the objectstorages API.
+        description: BackupStorage is the Schema for the backupstorages API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ObjectStorageSpec defines the desired state of ObjectStorage.
+            description: BackupStorageSpec defines the desired state of BackupStorage.
             properties:
               bucket:
                 description: Bucket is a name of bucket.
@@ -43,13 +43,13 @@ spec:
                   credentials.
                 type: string
               endpointURL:
-                description: EndpointURL is an endpoint URL of object storage.
+                description: EndpointURL is an endpoint URL of backup storage.
                 type: string
               region:
                 description: Region is a region where the bucket is located.
                 type: string
               type:
-                description: Type is a type of object storage. Currently only S3 is
+                description: Type is a type of backup storage. Currently only S3 is
                   supported.
                 enum:
                 - s3
@@ -62,7 +62,7 @@ spec:
             - type
             type: object
           status:
-            description: ObjectStorageStatus defines the observed state of ObjectStorage.
+            description: BackupStorageStatus defines the observed state of BackupStorage.
             type: object
         type: object
     served: true

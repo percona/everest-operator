@@ -6,6 +6,21 @@ metadata:
       [
         {
           "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "BackupStorage",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "backupstorage-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "backupstorage",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "backupstorage-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
           "kind": "DatabaseCluster",
           "metadata": {
             "labels": {
@@ -63,25 +78,10 @@ metadata:
             "name": "databaseengine-sample"
           },
           "spec": null
-        },
-        {
-          "apiVersion": "everest.percona.com/v1alpha1",
-          "kind": "ObjectStorage",
-          "metadata": {
-            "labels": {
-              "app.kubernetes.io/created-by": "everest-operator",
-              "app.kubernetes.io/instance": "objectstorage-sample",
-              "app.kubernetes.io/managed-by": "kustomize",
-              "app.kubernetes.io/name": "objectstorage",
-              "app.kubernetes.io/part-of": "everest-operator"
-            },
-            "name": "objectstorage-sample"
-          },
-          "spec": null
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-08-08T12:39:58Z"
+    createdAt: "2023-08-14T17:19:50Z"
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.7
@@ -90,6 +90,11 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: BackupStorage is the Schema for the backupstorages API.
+      displayName: Backup Storage
+      kind: BackupStorage
+      name: backupstorages.everest.percona.com
+      version: v1alpha1
     - description: DatabaseClusterBackup is the Schema for the databaseclusterbackups
         API.
       displayName: Database Cluster Backup
@@ -111,11 +116,6 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
-      version: v1alpha1
-    - description: ObjectStorage is the Schema for the objectstorages API.
-      displayName: Object Storage
-      kind: ObjectStorage
-      name: objectstorages.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator
@@ -146,6 +146,18 @@ spec:
           - ""
           resources:
           - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - backupstorages
           verbs:
           - create
           - delete
@@ -258,18 +270,6 @@ spec:
           - get
           - patch
           - update
-        - apiGroups:
-          - everest.percona.com
-          resources:
-          - objectstorages
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
         - apiGroups:
           - pgv2.percona.com
           resources:
