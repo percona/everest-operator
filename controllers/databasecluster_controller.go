@@ -74,6 +74,8 @@ const (
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pgDeploymentName    = "percona-postgresql-operator"
 
+	defaultPMMClientImage = "percona/pmm-client:2"
+
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName                  = "perconaxtradbclusters.pxc.percona.com"
 	pgCRDName                   = "perconapgclusters.pgv2.percona.com"
@@ -517,9 +519,14 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			psmdb.Spec.PMM.Enabled = true
 			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			psmdb.Spec.PMM.Image = monitoring.Spec.PMM.Image
+			psmdb.Spec.PMM.Image = image
 			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
@@ -986,9 +993,14 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			pxc.Spec.PMM.Enabled = true
 			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
+			pxc.Spec.PMM.Image = image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
@@ -1384,9 +1396,14 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		// does not assign the default spec in this CreateOrUpdate mutate function.
 		pg.Spec.PMM = pgSpec.PMM
 		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+			image := defaultPMMClientImage
+			if monitoring.Spec.PMM.Image != "" {
+				image = monitoring.Spec.PMM.Image
+			}
+
 			pg.Spec.PMM.Enabled = true
 			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
-			pg.Spec.PMM.Image = monitoring.Spec.PMM.Image
+			pg.Spec.PMM.Image = image
 			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, database, monitoring)
