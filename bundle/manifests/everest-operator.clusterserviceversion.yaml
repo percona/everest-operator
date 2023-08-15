@@ -78,13 +78,35 @@ metadata:
             "name": "databaseengine-sample"
           },
           "spec": null
+        },
+        {
+          "apiVersion": "everest.percona.com/v1alpha1",
+          "kind": "MonitoringConfig",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "everest-operator",
+              "app.kubernetes.io/instance": "monitoringconfig-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "monitoringconfig",
+              "app.kubernetes.io/part-of": "everest-operator"
+            },
+            "name": "monitoringconfig-sample"
+          },
+          "spec": {
+            "credentialsSecretName": "my-secret-name",
+            "pmm": {
+              "image": "percona/pmm-client:latest",
+              "url": "http://localhost"
+            },
+            "type": "pmm"
+          }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-08-14T17:19:50Z"
+    createdAt: "2023-08-15T09:45:02Z"
     operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: everest-operator.v0.0.7
+  name: everest-operator.v0.0.8
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -116,6 +138,11 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
+      version: v1alpha1
+    - description: MonitoringConfig is the Schema for the monitoringconfigs API.
+      displayName: Monitoring Config
+      kind: MonitoringConfig
+      name: monitoringconfigs.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator
@@ -270,6 +297,18 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - monitoringconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - pgv2.percona.com
           resources:
@@ -473,7 +512,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/percona/everest-operator:0.0.7
+                image: docker.io/percona/everest-operator:0.0.8
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -567,4 +606,4 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.7
+  version: 0.0.8
