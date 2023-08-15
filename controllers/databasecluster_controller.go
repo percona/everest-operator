@@ -341,32 +341,10 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 	logger.Info("Reconciled", "request", req)
-	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
-	database.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: database.Name,
-	}
-	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
-	}
-	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-	}
-	for key := range database.ObjectMeta.Labels {
-		if key == databaseClusterNameLabel {
-			continue
-		}
-		var found bool
-		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			delete(database.ObjectMeta.Labels, key)
-		}
-	}
 
+	r.reconcileLabels(database)
+
+	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
 		database.Spec.Paused = true
 	}
@@ -1539,6 +1517,33 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	database.Status.Port = 5432
 	return r.Status().Update(ctx, database)
+}
+
+func (r *DatabaseClusterReconciler) reconcileLabels(database *everestv1alpha1.DatabaseCluster) {
+	database.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel: database.Name,
+	}
+	if database.Spec.DataSource != nil {
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+	}
+	for _, schedule := range database.Spec.Backup.Schedules {
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+	}
+	for key := range database.ObjectMeta.Labels {
+		if key == databaseClusterNameLabel {
+			continue
+		}
+		var found bool
+		for _, schedule := range database.Spec.Backup.Schedules {
+			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(database.ObjectMeta.Labels, key)
+		}
+	}
 }
 
 func (r *DatabaseClusterReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
