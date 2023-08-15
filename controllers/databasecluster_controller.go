@@ -114,6 +114,7 @@ timeout server 28800s
 
 	databaseClusterNameLabel   = "clusterName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
+	backupStorageLabelValue    = "used"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -345,10 +346,25 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		databaseClusterNameLabel: database.Name,
 	}
 	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.ObjectStorageName)] = "used"
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.ObjectStorageName)] = backupStorageLabelValue
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName)] = "used"
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName)] = backupStorageLabelValue
+	}
+	for key, label := range database.ObjectMeta.Labels {
+		if key == databaseClusterNameLabel {
+			continue
+		}
+		var found bool
+		for _, schedule := range database.Spec.Backup.Schedules {
+			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(database.ObjectMeta.Labels, key)
+		}
 	}
 
 	if ok && !database.Spec.Paused {

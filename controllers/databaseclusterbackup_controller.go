@@ -88,7 +88,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	backup.ObjectMeta.Labels = map[string]string{
 		databaseClusterNameLabel: backup.Spec.DBClusterName,
-		fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.ObjectStorageName): "used",
+		fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.ObjectStorageName): backupStorageLabelValue,
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
