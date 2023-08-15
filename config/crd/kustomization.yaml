@@ -6,7 +6,6 @@ resources:
 - bases/everest.percona.com_databaseclusterbackups.yaml
 - bases/everest.percona.com_databaseclusterrestores.yaml
 - bases/everest.percona.com_databaseengines.yaml
-- bases/everest.percona.com_objectstorages.yaml
 - bases/everest.percona.com_monitoringconfigs.yaml
 - bases/everest.percona.com_backupstorages.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
@@ -18,7 +17,6 @@ patchesStrategicMerge:
 #- patches/webhook_in_databaseclusterbackups.yaml
 #- patches/webhook_in_databaseclusterrestores.yaml
 #- patches/webhook_in_databaseengines.yaml
-#- patches/webhook_in_objectstorages.yaml
 #- patches/webhook_in_monitoringconfigs.yaml
 #- patches/webhook_in_backupstorages.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
@@ -29,7 +27,6 @@ patchesStrategicMerge:
 #- patches/cainjection_in_databaseclusterbackups.yaml
 #- patches/cainjection_in_databaseclusterrestores.yaml
 #- patches/cainjection_in_databaseengines.yaml
-#- patches/cainjection_in_objectstorages.yaml
 #- patches/cainjection_in_monitoringconfigs.yaml
 #- patches/cainjection_in_backupstorages.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
