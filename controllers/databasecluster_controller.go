@@ -1733,7 +1733,7 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	bsList := &everestv1alpha1.BackupStorageList{}
 	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, bsList)
 	if err != nil {
-		logger.Error(err, "could not find ObjectStorage by secret name")
+		logger.Error(err, "could not find BackupStorage by secret name")
 	}
 	if err == nil {
 		var items []client.Object
