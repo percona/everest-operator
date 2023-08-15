@@ -346,18 +346,18 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		databaseClusterNameLabel: database.Name,
 	}
 	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.ObjectStorageName)] = backupStorageLabelValue
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName)] = backupStorageLabelValue
+		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
 	}
-	for key, label := range database.ObjectMeta.Labels {
+	for key := range database.ObjectMeta.Labels {
 		if key == databaseClusterNameLabel {
 			continue
 		}
 		var found bool
 		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.ObjectStorageName) {
+			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
 				found = true
 				break
 			}
