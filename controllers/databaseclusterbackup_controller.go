@@ -38,9 +38,13 @@ import (
 )
 
 const (
-	pxcBackupKind    = "PerconaXtraDBClusterBackup"
-	pxcBackupAPI     = "pxc.percona.com/v1"
-	pxcBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
+	DatabaseClusterBackupKind    = "DatabaseClusterBackup"
+	DatabaseClusterBackupAPI     = "everest.percona.com/v1alpha1"
+	DatabaseClusterBackupCRDName = "databaseclusterbackup.everest.percona.com"
+
+	PXCBackupKind    = "PerconaXtraDBClusterBackup"
+	PXCBackupAPI     = "pxc.percona.com/v1"
+	PXCBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
 
 	psmdbBackupKind    = "PerconaServerMongoDBBackup"
 	psmdbBackupAPI     = "psmdb.percona.com/v1"
@@ -87,8 +91,8 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: backup.Spec.DBClusterName,
-		backupStorageNameLabel:   backup.Spec.ObjectStorageName,
+		DatabaseClusterNameLabel: backup.Spec.DBClusterName,
+		BackupStorageNameLabel:   backup.Spec.ObjectStorageName,
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
@@ -144,7 +148,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	ctx := context.Background()
 
-	err := r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
+	err := r.Get(ctx, types.NamespacedName{Name: PXCBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBClusterBackup{})
@@ -221,8 +225,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: pxcBackupAPI,
-			Kind:       pxcBackupKind,
+			APIVersion: PXCBackupAPI,
+			Kind:       PXCBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
 		pxcCR.Spec.StorageName = backup.Spec.ObjectStorageName
