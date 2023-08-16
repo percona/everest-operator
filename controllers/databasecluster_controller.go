@@ -112,8 +112,10 @@ timeout server 28800s
 	objectStorageNameField     = ".spec.backup.schedules.objectStorageName"
 	credentialsSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 
+	// DatabaseClusterNameLabel is the label name for the DatabaseClusterName.
 	DatabaseClusterNameLabel = "clusterName"
-	BackupStorageNameLabel   = "backupStorageName"
+	// BackupStorageNameLabel is the label name for the BackupStorageName.
+	BackupStorageNameLabel = "backupStorageName"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{

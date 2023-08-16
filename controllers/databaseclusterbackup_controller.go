@@ -38,20 +38,24 @@ import (
 )
 
 const (
-	DatabaseClusterBackupKind    = "DatabaseClusterBackup"
-	DatabaseClusterBackupAPI     = "everest.percona.com/v1alpha1"
-	DatabaseClusterBackupCRDName = "databaseclusterbackup.everest.percona.com"
+	// DatabaseClusterBackupKind the kind for the DatabaseClusterBackup.
+	DatabaseClusterBackupKind = "DatabaseClusterBackup"
+	// EverestAPIVersion the APIVersion for the everest resources.
+	EverestAPIVersion = "everest.percona.com/v1alpha1"
 
-	PXCBackupKind    = "PerconaXtraDBClusterBackup"
-	PXCBackupAPI     = "pxc.percona.com/v1"
+	// PXCBackupKind the kind for the PXCBackup.
+	PXCBackupKind = "PerconaXtraDBClusterBackup"
+	// PXCAPIVersion the APIVersion for the pxc operator resources.
+	PXCAPIVersion = "pxc.percona.com/v1"
+	// PXCBackupCRDName the name of the pxc CRD for the pxc-backups.
 	PXCBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
 
 	psmdbBackupKind    = "PerconaServerMongoDBBackup"
-	psmdbBackupAPI     = "psmdb.percona.com/v1"
+	psmdbAPIVersion    = "psmdb.percona.com/v1"
 	psmdbBackupCRDName = "perconaservermongodbbackups.psmdb.percona.com"
 
 	pgBackupKind    = "PerconaPGBackup"
-	pgBackupAPI     = "pgv2.percona.com/v2"
+	pgAPIVersion    = "pgv2.percona.com/v2"
 	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
 )
 
@@ -225,7 +229,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: PXCBackupAPI,
+			APIVersion: PXCAPIVersion,
 			Kind:       PXCBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
@@ -261,7 +265,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 		psmdbCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: psmdbBackupAPI,
+			APIVersion: psmdbAPIVersion,
 			Kind:       psmdbBackupKind,
 		}
 		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
@@ -300,7 +304,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: pgBackupAPI,
+			APIVersion: pgAPIVersion,
 			Kind:       pgBackupKind,
 		}
 		pgCR.Spec.PGCluster = backup.Spec.DBClusterName

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package scheduledbackup contains controllers for scheduled backups
 package scheduledbackup
 
 import (
@@ -63,7 +64,7 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       controllers.DatabaseClusterBackupKind,
-			APIVersion: controllers.DatabaseClusterBackupAPI,
+			APIVersion: controllers.EverestAPIVersion,
 		},
 	}
 	err := r.Get(ctx, req.NamespacedName, backup)
@@ -100,13 +101,12 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 	// set the created backup CR as OwnerReference to the PXC backup
 	if result == controllerutil.OperationResultCreated {
-		refs := append(pxcCR.OwnerReferences, metav1.OwnerReference{
-			APIVersion: controllers.DatabaseClusterBackupAPI,
+		pxcCR.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: controllers.EverestAPIVersion,
 			Kind:       controllers.DatabaseClusterBackupKind,
 			Name:       backup.Name,
 			UID:        backup.UID,
-		})
-		pxcCR.OwnerReferences = refs
+		}}
 		err := r.Update(ctx, pxcCR)
 		if err != nil {
 			logger.Error(err, "Failed to set ownership for a PXC backup")
