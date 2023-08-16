@@ -57,6 +57,12 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 
+	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{}
+	err := r.Get(ctx, req.NamespacedName, pxcCR)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
@@ -67,17 +73,14 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 			APIVersion: controllers.EverestAPIVersion,
 		},
 	}
-	err := r.Get(ctx, req.NamespacedName, backup)
+
+	err = r.Get(ctx, req.NamespacedName, backup)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
+		// if there is no such DatabaseBackup, but the OwnerReference on the pxc backup is already set - do nothing
+		// to prevent recreating DatabaseBackup after it's been deleted.
+		if !k8serrors.IsNotFound(err) || len(pxcCR.OwnerReferences) > 0 {
 			return reconcile.Result{}, err
 		}
-	}
-
-	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{}
-	err = r.Get(ctx, req.NamespacedName, pxcCR)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, backup, func() error {
