@@ -1,20 +1,20 @@
-# permissions for end users to edit objectstorages.
+# permissions for end users to edit backupstorages.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: objectstorage-editor-role
+    app.kubernetes.io/instance: backupstorage-editor-role
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: everest-operator
     app.kubernetes.io/part-of: everest-operator
     app.kubernetes.io/managed-by: kustomize
-  name: objectstorage-editor-role
+  name: backupstorage-editor-role
 rules:
 - apiGroups:
   - everest.percona.com
   resources:
-  - objectstorages
+  - backupstorages
   verbs:
   - create
   - delete
@@ -26,6 +26,6 @@ rules:
 - apiGroups:
   - everest.percona.com
   resources:
-  - objectstorages/status
+  - backupstorages/status
   verbs:
   - get

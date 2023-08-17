@@ -63,16 +63,16 @@ spec:
           spec:
             description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
+              backupStorageName:
+                description: BackupStorageName is the name of the BackupStorage used
+                  for backups.
+                type: string
               dbClusterName:
                 description: DBClusterName is the original database cluster name.
                 type: string
-              objectStorageName:
-                description: ObjectStorageName is the name of the ObjectStorage used
-                  for backups.
-                type: string
             required:
+            - backupStorageName
             - dbClusterName
-            - objectStorageName
             type: object
           status:
             description: DatabaseClusterBackupStatus defines the observed state of

@@ -4,20 +4,25 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: objectstorages.everest.percona.com
+  name: monitoringconfigs.everest.percona.com
 spec:
   group: everest.percona.com
   names:
-    kind: ObjectStorage
-    listKind: ObjectStorageList
-    plural: objectstorages
-    singular: objectstorage
+    kind: MonitoringConfig
+    listKind: MonitoringConfigList
+    plural: monitoringconfigs
+    singular: monitoringconfig
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Monitoring instance type
+      jsonPath: .spec.type
+      name: Type
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ObjectStorage is the Schema for the objectstorages API.
+        description: MonitoringConfig is the Schema for the monitoringconfigs API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -32,36 +37,37 @@ spec:
           metadata:
             type: object
           spec:
-            description: ObjectStorageSpec defines the desired state of ObjectStorage.
+            description: MonitoringConfigSpec defines the desired state of MonitoringConfig.
             properties:
-              bucket:
-                description: Bucket is a name of bucket.
-                type: string
               credentialsSecretName:
                 description: CredentialsSecretName is the name of the secret with
                   credentials.
                 type: string
-              endpointURL:
-                description: EndpointURL is an endpoint URL of object storage.
-                type: string
-              region:
-                description: Region is a region where the bucket is located.
-                type: string
+              pmm:
+                description: PMM is configuration for the PMM monitoring type.
+                properties:
+                  image:
+                    description: Image is a Docker image name to use for deploying
+                      PMM client. Defaults to using the latest version.
+                    type: string
+                  url:
+                    description: URL is url to the monitoring instance.
+                    type: string
+                required:
+                - image
+                - url
+                type: object
               type:
-                description: Type is a type of object storage. Currently only S3 is
-                  supported.
+                description: Type is type of monitoring.
                 enum:
-                - s3
+                - pmm
                 type: string
             required:
-            - bucket
             - credentialsSecretName
-            - endpointURL
-            - region
             - type
             type: object
           status:
-            description: ObjectStorageStatus defines the observed state of ObjectStorage.
+            description: MonitoringConfigStatus defines the observed state of MonitoringConfig.
             type: object
         type: object
     served: true

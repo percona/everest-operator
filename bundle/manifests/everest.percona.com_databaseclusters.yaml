@@ -64,15 +64,15 @@ spec:
                     items:
                       description: BackupSchedule is the backup schedule configuration.
                       properties:
+                        backupStorageName:
+                          description: BackupStorageName is the name of the BackupStorage
+                            CR that defines the storage location
+                          type: string
                         enabled:
                           description: Enabled is a flag to enable the schedule
                           type: boolean
                         name:
                           description: Name is the name of the schedule
-                          type: string
-                        objectStorageName:
-                          description: ObjectStorageName is the name of the ObjectStorage
-                            CR that defines the storage location
                           type: string
                         retentionCopies:
                           description: RetentionCopies is the number of backup copies
@@ -83,9 +83,9 @@ spec:
                           description: Schedule is the cron schedule
                           type: string
                       required:
+                      - backupStorageName
                       - enabled
                       - name
-                      - objectStorageName
                       - schedule
                       type: object
                     type: array
@@ -100,13 +100,13 @@ spec:
                     description: BackupName is the name of the backup from backup
                       location to use
                     type: string
-                  objectStorageName:
-                    description: ObjectStorageName is the name of the ObjectStorage
+                  backupStorageName:
+                    description: BackupStorageName is the name of the BackupStorage
                       CR that defines the storage location
                     type: string
                 required:
                 - backupName
-                - objectStorageName
+                - backupStorageName
                 type: object
               engine:
                 description: Engine is the database engine specification
@@ -169,30 +169,14 @@ spec:
                 - type
                 type: object
               monitoring:
-                description: Monitoring is the monitoring specification
+                description: Monitoring is the monitoring configuration
                 properties:
-                  enabled:
-                    description: Enabled is a flag to enable monitoring
-                    type: boolean
-                  pmm:
-                    description: PMMSpec contains PMM settings.
-                    properties:
-                      image:
-                        type: string
-                      login:
-                        type: string
-                      password:
-                        type: string
-                      publicAddress:
-                        type: string
-                      serverHost:
-                        type: string
-                      serverUser:
-                        type: string
-                    type: object
+                  monitoringConfigName:
+                    description: MonitoringConfigName is the name of a monitoringConfig
+                      CR.
+                    type: string
                   resources:
-                    description: ResourceRequirements describes the compute resource
-                      requirements.
+                    description: Resources defines resource limitations for the monitoring.
                     properties:
                       claims:
                         description: "Claims lists the names of resources, defined
@@ -240,8 +224,6 @@ spec:
                           Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
-                required:
-                - enabled
                 type: object
               paused:
                 description: Paused is a flag to stop the cluster

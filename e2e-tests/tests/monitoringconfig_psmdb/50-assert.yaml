@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: mongo-mc
+spec:
+  pmm:
+    enabled: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: mongo-mc
+  generation: 4
