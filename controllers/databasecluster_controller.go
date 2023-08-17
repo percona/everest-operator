@@ -117,6 +117,7 @@ timeout server 28800s
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
 	databaseClusterNameLabel   = "clusterName"
+	monitoringConfigNameLabel  = "monitoringConfigName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
 	backupStorageLabelValue    = "used"
 )
@@ -170,7 +171,9 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	logger.Info("Reconciled", "request", req)
 
-	r.reconcileLabels(database)
+	if err := r.reconcileLabels(ctx, database); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
@@ -1485,15 +1488,31 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseClusterReconciler) reconcileLabels(database *everestv1alpha1.DatabaseCluster) {
-	database.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: database.Name,
+func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
+	needsUpdate := false
+	if len(database.ObjectMeta.Labels) == 0 {
+		database.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: database.Name,
+		}
+		needsUpdate = true
 	}
 	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+		}
+		needsUpdate = true
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+			needsUpdate = true
+		}
+	}
+	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+		if _, ok := database.ObjectMeta.Labels[monitoringConfigNameLabel]; !ok {
+			database.ObjectMeta.Labels[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
+			needsUpdate = true
+		}
 	}
 	for key := range database.ObjectMeta.Labels {
 		if key == databaseClusterNameLabel {
@@ -1508,8 +1527,13 @@ func (r *DatabaseClusterReconciler) reconcileLabels(database *everestv1alpha1.Da
 		}
 		if !found {
 			delete(database.ObjectMeta.Labels, key)
+			needsUpdate = true
 		}
 	}
+	if needsUpdate {
+		return r.Update(ctx, database)
+	}
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {

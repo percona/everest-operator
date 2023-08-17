@@ -86,9 +86,14 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		}
 		return reconcile.Result{}, err
 	}
-	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: backup.Spec.DBClusterName,
-		fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
+	if len(backup.ObjectMeta.Labels) == 0 {
+		backup.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: backup.Spec.DBClusterName,
+			fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
+		}
+		if err := r.Update(ctx, backup); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
