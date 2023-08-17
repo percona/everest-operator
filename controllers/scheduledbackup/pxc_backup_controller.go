@@ -18,6 +18,7 @@ package scheduledbackup
 
 import (
 	"context"
+	"fmt"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -93,11 +94,11 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, backup, func() error {
 		backup.Spec.DBClusterName = pxcCR.Spec.PXCCluster
-		backup.Spec.ObjectStorageName = pxcCR.Spec.StorageName
+		backup.Spec.BackupStorageName = pxcCR.Spec.StorageName
 
 		backup.ObjectMeta.Labels = map[string]string{
-			controllers.DatabaseClusterNameLabel: pxcCR.Spec.PXCCluster,
-			controllers.BackupStorageNameLabel:   pxcCR.Spec.StorageName,
+			controllers.DatabaseClusterNameLabel:                                        pxcCR.Spec.PXCCluster,
+			fmt.Sprintf(controllers.BackupStorageNameLabelTmpl, pxcCR.Spec.StorageName): controllers.BackupStorageLabelValue,
 		}
 		return nil
 	})

@@ -116,9 +116,12 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
-	databaseClusterNameLabel   = "clusterName"
-	backupStorageNameLabelTmpl = "backupStorage-%s"
-	backupStorageLabelValue    = "used"
+	// DatabaseClusterNameLabel is the label key for the DatabaseClusterName.
+	DatabaseClusterNameLabel = "clusterName"
+	// BackupStorageNameLabelTmpl is the label key template for the DatabaseClusterName.
+	BackupStorageNameLabelTmpl = "backupStorage-%s"
+	// BackupStorageLabelValue is the value that is used for the labels.
+	BackupStorageLabelValue = "used"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -1487,21 +1490,21 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 
 func (r *DatabaseClusterReconciler) reconcileLabels(database *everestv1alpha1.DatabaseCluster) {
 	database.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: database.Name,
+		DatabaseClusterNameLabel: database.Name,
 	}
 	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+		database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = BackupStorageLabelValue
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+		database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName)] = BackupStorageLabelValue
 	}
 	for key := range database.ObjectMeta.Labels {
-		if key == databaseClusterNameLabel {
+		if key == DatabaseClusterNameLabel {
 			continue
 		}
 		var found bool
 		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
+			if key == fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName) {
 				found = true
 				break
 			}
