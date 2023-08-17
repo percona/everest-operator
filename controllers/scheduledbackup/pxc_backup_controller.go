@@ -23,6 +23,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -60,6 +61,9 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{}
 	err := r.Get(ctx, req.NamespacedName, pxcCR)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -76,10 +80,14 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 	err = r.Get(ctx, req.NamespacedName, backup)
 	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
 		// if there is no such DatabaseBackup, but the OwnerReference on the pxc backup is already set - do nothing
 		// to prevent recreating DatabaseBackup after it's been deleted.
-		if !k8serrors.IsNotFound(err) || len(pxcCR.OwnerReferences) > 0 {
-			return reconcile.Result{}, err
+		if len(pxcCR.OwnerReferences) > 0 {
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -91,11 +99,6 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 			controllers.DatabaseClusterNameLabel: pxcCR.Spec.PXCCluster,
 			controllers.BackupStorageNameLabel:   pxcCR.Spec.StorageName,
 		}
-		backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
-		backup.Status.CompletedAt = pxcCR.Status.CompletedAt
-		backup.Status.CreatedAt = &pxcCR.CreationTimestamp
-		backup.Status.Destination = &pxcCR.Status.Destination
-
 		return nil
 	})
 	if err != nil {
@@ -116,6 +119,11 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
+	err = r.updateStatus(ctx, req.NamespacedName, pxcCR)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	logger.Info("Reconciled", "request", req)
 	return ctrl.Result{}, nil
 }
@@ -124,4 +132,19 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 func (r *DatabaseClusterPXCBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pxcv1.PerconaXtraDBClusterBackup{}).Complete(r)
+}
+
+func (r *DatabaseClusterPXCBackupReconciler) updateStatus(ctx context.Context, namespacedName types.NamespacedName, pxcCR *pxcv1.PerconaXtraDBClusterBackup) error {
+	backup := &everestv1alpha1.DatabaseClusterBackup{}
+	err := r.Get(ctx, namespacedName, backup)
+	if err != nil {
+		return err
+	}
+
+	backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
+	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
+	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
+	backup.Status.Destination = &pxcCR.Status.Destination
+
+	return r.Status().Update(ctx, backup)
 }
