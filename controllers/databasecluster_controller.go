@@ -1317,6 +1317,10 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		}
 		pg.Spec.PostgresVersion = pgMajorVersion
 
+		if err := r.updatePGConfig(pg, database); err != nil {
+			return errors.Wrap(err, "could not update PG config")
+		}
+
 		if database.Spec.Engine.Replicas == 0 {
 			database.Spec.Engine.Replicas = 3
 		}
@@ -1486,6 +1490,58 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	database.Status.Port = 5432
 	return r.Status().Update(ctx, database)
+}
+
+func (r *DatabaseClusterReconciler) updatePGConfig(
+	pg *pgv2.PerconaPGCluster, db *everestv1alpha1.DatabaseCluster,
+) error {
+	if db.Spec.Engine.Config == "" {
+		if pg.Spec.Patroni == nil {
+			return nil
+		}
+		pg.Spec.Patroni.DynamicConfiguration = nil
+		return nil
+	}
+
+	parser := NewPGConfigParser(db.Spec.Engine.Config)
+	cfg, err := parser.ParsePGConfig()
+	if err != nil {
+		return err
+	}
+
+	if len(cfg) == 0 {
+		return nil
+	}
+
+	if pg.Spec.Patroni == nil {
+		pg.Spec.Patroni = &crunchyv1beta1.PatroniSpec{}
+	}
+
+	if pg.Spec.Patroni.DynamicConfiguration == nil {
+		pg.Spec.Patroni.DynamicConfiguration = make(crunchyv1beta1.SchemalessObject)
+	}
+
+	dc := pg.Spec.Patroni.DynamicConfiguration
+	if _, ok := dc["postgresql"]; !ok {
+		dc["postgresql"] = make(map[string]any)
+	}
+
+	dcPG, ok := dc["postgresql"].(map[string]any)
+	if !ok {
+		return errors.New("could not assert postgresql as map[string]any")
+	}
+
+	if _, ok := dcPG["parameters"]; !ok {
+		dcPG["parameters"] = make(map[string]any)
+	}
+
+	if _, ok := dcPG["parameters"].(map[string]any); !ok {
+		return errors.New("could not assert postgresql.parameters as map[string]any")
+	}
+
+	dcPG["parameters"] = cfg
+
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
