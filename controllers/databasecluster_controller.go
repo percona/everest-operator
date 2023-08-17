@@ -1499,7 +1499,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 	if database.Spec.DataSource != nil {
 		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
 			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
-    	                needsUpdate = true
+			needsUpdate = true
 		}
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
