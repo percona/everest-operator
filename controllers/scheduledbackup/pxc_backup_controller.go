@@ -14,7 +14,7 @@
 // limitations under the License.
 
 // Package scheduledbackup contains controllers for scheduled backups
-package scheduledbackup
+package scheduledbackup //nolint:dupl
 
 import (
 	"context"
@@ -59,8 +59,8 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 
-	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{}
-	err := r.Get(ctx, req.NamespacedName, pxcCR)
+	pxcBackup := &pxcv1.PerconaXtraDBClusterBackup{}
+	err := r.Get(ctx, req.NamespacedName, pxcBackup)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -87,18 +87,18 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 		// if there is no such DatabaseBackup, but the OwnerReference on the pxc backup is already set - do nothing
 		// to prevent recreating DatabaseBackup after it's been deleted.
-		if len(pxcCR.OwnerReferences) > 0 {
+		if len(pxcBackup.OwnerReferences) > 0 {
 			return ctrl.Result{}, nil
 		}
 	}
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, backup, func() error {
-		backup.Spec.DBClusterName = pxcCR.Spec.PXCCluster
-		backup.Spec.BackupStorageName = pxcCR.Spec.StorageName
+		backup.Spec.DBClusterName = pxcBackup.Spec.PXCCluster
+		backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
 
 		backup.ObjectMeta.Labels = map[string]string{
-			controllers.DatabaseClusterNameLabel:                                        pxcCR.Spec.PXCCluster,
-			fmt.Sprintf(controllers.BackupStorageNameLabelTmpl, pxcCR.Spec.StorageName): controllers.BackupStorageLabelValue,
+			controllers.DatabaseClusterNameLabel:                                            pxcBackup.Spec.PXCCluster,
+			fmt.Sprintf(controllers.BackupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): controllers.BackupStorageLabelValue,
 		}
 		return nil
 	})
@@ -108,19 +108,19 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 	// set the created backup CR as OwnerReference to the PXC backup
 	if result == controllerutil.OperationResultCreated {
-		pxcCR.OwnerReferences = []metav1.OwnerReference{{
+		pxcBackup.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion: controllers.EverestAPIVersion,
 			Kind:       controllers.DatabaseClusterBackupKind,
 			Name:       backup.Name,
 			UID:        backup.UID,
 		}}
-		err := r.Update(ctx, pxcCR)
+		err := r.Update(ctx, pxcBackup)
 		if err != nil {
 			logger.Error(err, "Failed to set ownership for a PXC backup")
 		}
 	}
 
-	err = r.updateStatus(ctx, req.NamespacedName, pxcCR)
+	err = r.updateStatus(ctx, req.NamespacedName, pxcBackup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -135,17 +135,17 @@ func (r *DatabaseClusterPXCBackupReconciler) SetupWithManager(mgr ctrl.Manager) 
 		For(&pxcv1.PerconaXtraDBClusterBackup{}).Complete(r)
 }
 
-func (r *DatabaseClusterPXCBackupReconciler) updateStatus(ctx context.Context, namespacedName types.NamespacedName, pxcCR *pxcv1.PerconaXtraDBClusterBackup) error {
+func (r *DatabaseClusterPXCBackupReconciler) updateStatus(ctx context.Context, namespacedName types.NamespacedName, pxcBackup *pxcv1.PerconaXtraDBClusterBackup) error {
 	backup := &everestv1alpha1.DatabaseClusterBackup{}
 	err := r.Get(ctx, namespacedName, backup)
 	if err != nil {
 		return err
 	}
 
-	backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
-	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
-	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
-	backup.Status.Destination = &pxcCR.Status.Destination
+	backup.Status.State = everestv1alpha1.BackupState(pxcBackup.Status.State)
+	backup.Status.CompletedAt = pxcBackup.Status.CompletedAt
+	backup.Status.CreatedAt = &pxcBackup.CreationTimestamp
+	backup.Status.Destination = &pxcBackup.Status.Destination
 
 	return r.Status().Update(ctx, backup)
 }

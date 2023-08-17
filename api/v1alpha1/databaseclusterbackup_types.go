@@ -46,7 +46,6 @@ type DatabaseClusterBackupStatus struct {
 //+kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dbbackup;dbb
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.dbClusterName",description="The original database cluster name"
-// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.engineType",description="The original database cluster type"
 // +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Time the job was completed"

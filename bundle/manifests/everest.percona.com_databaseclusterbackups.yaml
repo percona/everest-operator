@@ -22,10 +22,6 @@ spec:
       jsonPath: .spec.dbClusterName
       name: Cluster
       type: string
-    - description: The original database cluster type
-      jsonPath: .spec.engineType
-      name: Type
-      type: string
     - description: Backup destination
       jsonPath: .status.destination
       name: Destination
