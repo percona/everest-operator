@@ -50,13 +50,15 @@ const (
 	// PXCBackupCRDName the name of the pxc CRD for the pxc-backups.
 	PXCBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
 
-	psmdbBackupKind    = "PerconaServerMongoDBBackup"
-	psmdbAPIVersion    = "psmdb.percona.com/v1"
-	psmdbBackupCRDName = "perconaservermongodbbackups.psmdb.percona.com"
+	psmdbBackupKind = "PerconaServerMongoDBBackup"
+	psmdbAPIVersion = "psmdb.percona.com/v1"
+	// PSMDBBackupCRDName the name of the psmdb CRD for the psmdb-backups.
+	PSMDBBackupCRDName = "perconaservermongodbbackups.psmdb.percona.com"
 
-	pgBackupKind    = "PerconaPGBackup"
-	pgAPIVersion    = "pgv2.percona.com/v2"
-	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
+	pgBackupKind = "PerconaPGBackup"
+	pgAPIVersion = "pgv2.percona.com/v2"
+	// PGBackupCRDName the name of the pg CRD for the pg-backups.
+	PGBackupCRDName = "perconapgbackups.pgv2.percona.com"
 )
 
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
@@ -159,14 +161,14 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 		}
 	}
 
-	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: PSMDBBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Owns(&psmdbv1.PerconaServerMongoDBBackup{})
 		}
 	}
 
-	err = r.Get(ctx, types.NamespacedName{Name: pgBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: PGBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPGToScheme(r.Scheme); err == nil {
 			controller.Owns(&pgv2.PerconaPGBackup{})

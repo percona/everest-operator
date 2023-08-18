@@ -23,7 +23,9 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,8 +133,26 @@ func (r *DatabaseClusterPSMDBBackupReconciler) Reconcile(ctx context.Context, re
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterPSMDBBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&psmdbv1.PerconaServerMongoDBBackup{}).Complete(r)
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+
+	ctx := context.Background()
+
+	// the manager got set up only if the upstream backup CRD is available
+	err := r.Get(ctx, types.NamespacedName{Name: controllers.PSMDBBackupCRDName}, unstructuredResource)
+	if err == nil {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&psmdbv1.PerconaServerMongoDBBackup{}).Complete(r)
+	}
+
+	logger := log.FromContext(ctx)
+	logger.Info(fmt.Sprintf("DatabaseClusterPSMDBBackupReconciler is not set, no %s CRD found", controllers.PSMDBBackupCRDName))
+
+	return nil
 }
 
 func (r *DatabaseClusterPSMDBBackupReconciler) updateStatus(

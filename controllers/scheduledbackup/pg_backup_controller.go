@@ -26,7 +26,9 @@ import (
 	"github.com/pkg/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -148,8 +150,26 @@ func (r *DatabaseClusterPGBackupReconciler) Reconcile(ctx context.Context, req c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterPGBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&pgv2.PerconaPGBackup{}).Complete(r)
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+
+	ctx := context.Background()
+
+	// the manager got set up only if the upstream backup CRD is available
+	err := r.Get(ctx, types.NamespacedName{Name: controllers.PGBackupCRDName}, unstructuredResource)
+	if err == nil {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&pgv2.PerconaPGBackup{}).Complete(r)
+	}
+
+	logger := log.FromContext(ctx)
+	logger.Info(fmt.Sprintf("DatabaseClusterPGBackupReconciler is not set, no %s CRD found", controllers.PGBackupCRDName))
+
+	return nil
 }
 
 func (r *DatabaseClusterPGBackupReconciler) updateStatus(

@@ -23,7 +23,9 @@ import (
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -131,8 +133,26 @@ func (r *DatabaseClusterPXCBackupReconciler) Reconcile(ctx context.Context, req 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterPXCBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&pxcv1.PerconaXtraDBClusterBackup{}).Complete(r)
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+
+	ctx := context.Background()
+
+	// the manager got set up only if the upstream backup CRD is available
+	err := r.Get(ctx, types.NamespacedName{Name: controllers.PXCBackupCRDName}, unstructuredResource)
+	if err == nil {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&pxcv1.PerconaXtraDBClusterBackup{}).Complete(r)
+	}
+
+	logger := log.FromContext(ctx)
+	logger.Info(fmt.Sprintf("DatabaseClusterPXCBackupReconciler is not set, no %s CRD found", controllers.PXCBackupCRDName))
+
+	return nil
 }
 
 func (r *DatabaseClusterPXCBackupReconciler) updateStatus(ctx context.Context, namespacedName types.NamespacedName, pxcBackup *pxcv1.PerconaXtraDBClusterBackup) error {
