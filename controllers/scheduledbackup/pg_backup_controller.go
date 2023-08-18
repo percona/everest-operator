@@ -38,8 +38,8 @@ import (
 	"github.com/percona/everest-operator/controllers"
 )
 
-// DatabaseClusterPGackupReconciler reconciles a DatabaseClusterBackup object.
-type DatabaseClusterPGackupReconciler struct {
+// DatabaseClusterPGBackupReconciler reconciles a DatabaseClusterBackup object.
+type DatabaseClusterPGBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -58,7 +58,7 @@ type DatabaseClusterPGackupReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DatabaseClusterPGackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseClusterPGBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 
@@ -147,12 +147,12 @@ func (r *DatabaseClusterPGackupReconciler) Reconcile(ctx context.Context, req ct
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterPGackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseClusterPGBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pgv2.PerconaPGBackup{}).Complete(r)
 }
 
-func (r *DatabaseClusterPGackupReconciler) updateStatus(
+func (r *DatabaseClusterPGBackupReconciler) updateStatus(
 	ctx context.Context,
 	namespacedName types.NamespacedName,
 	pgBackup *pgv2.PerconaPGBackup,
