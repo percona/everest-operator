@@ -97,7 +97,7 @@ func (r *DatabaseClusterPSMDBBackupReconciler) Reconcile(ctx context.Context, re
 		backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
 
 		backup.ObjectMeta.Labels = map[string]string{
-			controllers.DatabaseClusterNameLabel:                                              psmdbBackup.Spec.PSMDBCluster,
+			controllers.DatabaseClusterNameLabel:                                              psmdbBackup.Spec.ClusterName,
 			fmt.Sprintf(controllers.BackupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): controllers.BackupStorageLabelValue,
 		}
 		return nil
