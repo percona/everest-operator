@@ -116,6 +116,8 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
+	monitoringConfigNameLabel  = "monitoringConfigName"
+
 	// DatabaseClusterNameLabel is the label key for the DatabaseClusterName.
 	DatabaseClusterNameLabel = "clusterName"
 	// BackupStorageNameLabelTmpl is the label key template for the DatabaseClusterName.
@@ -173,7 +175,9 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	logger.Info("Reconciled", "request", req)
 
-	r.reconcileLabels(database)
+	if err := r.reconcileLabels(ctx, database); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
@@ -1317,6 +1321,10 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		}
 		pg.Spec.PostgresVersion = pgMajorVersion
 
+		if err := r.updatePGConfig(pg, database); err != nil {
+			return errors.Wrap(err, "could not update PG config")
+		}
+
 		if database.Spec.Engine.Replicas == 0 {
 			database.Spec.Engine.Replicas = 3
 		}
@@ -1488,31 +1496,104 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	return r.Status().Update(ctx, database)
 }
 
-func (r *DatabaseClusterReconciler) reconcileLabels(database *everestv1alpha1.DatabaseCluster) {
-	database.ObjectMeta.Labels = map[string]string{
-		DatabaseClusterNameLabel: database.Name,
+func (r *DatabaseClusterReconciler) updatePGConfig(
+	pg *pgv2.PerconaPGCluster, db *everestv1alpha1.DatabaseCluster,
+) error {
+	if db.Spec.Engine.Config == "" {
+		if pg.Spec.Patroni == nil {
+			return nil
+		}
+		pg.Spec.Patroni.DynamicConfiguration = nil
+		return nil
+	}
+
+	parser := NewPGConfigParser(db.Spec.Engine.Config)
+	cfg, err := parser.ParsePGConfig()
+	if err != nil {
+		return err
+	}
+
+	if len(cfg) == 0 {
+		return nil
+	}
+
+	if pg.Spec.Patroni == nil {
+		pg.Spec.Patroni = &crunchyv1beta1.PatroniSpec{}
+	}
+
+	if pg.Spec.Patroni.DynamicConfiguration == nil {
+		pg.Spec.Patroni.DynamicConfiguration = make(crunchyv1beta1.SchemalessObject)
+	}
+
+	dc := pg.Spec.Patroni.DynamicConfiguration
+	if _, ok := dc["postgresql"]; !ok {
+		dc["postgresql"] = make(map[string]any)
+	}
+
+	dcPG, ok := dc["postgresql"].(map[string]any)
+	if !ok {
+		return errors.New("could not assert postgresql as map[string]any")
+	}
+
+	if _, ok := dcPG["parameters"]; !ok {
+		dcPG["parameters"] = make(map[string]any)
+	}
+
+	if _, ok := dcPG["parameters"].(map[string]any); !ok {
+		return errors.New("could not assert postgresql.parameters as map[string]any")
+	}
+
+	dcPG["parameters"] = cfg
+
+	return nil
+}
+
+func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
+	needsUpdate := false
+	if len(database.ObjectMeta.Labels) == 0 {
+		database.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: database.Name,
+		}
+		needsUpdate = true
 	}
 	if database.Spec.DataSource != nil {
-		database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = BackupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+			needsUpdate = true
+		}
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName)] = BackupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+			needsUpdate = true
+		}
+	}
+	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+		if _, ok := database.ObjectMeta.Labels[monitoringConfigNameLabel]; !ok {
+			database.ObjectMeta.Labels[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
+			needsUpdate = true
+		}
 	}
 	for key := range database.ObjectMeta.Labels {
-		if key == DatabaseClusterNameLabel {
+		if key == databaseClusterNameLabel {
 			continue
 		}
 		var found bool
 		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName) {
+			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
 				found = true
 				break
 			}
 		}
 		if !found {
 			delete(database.ObjectMeta.Labels, key)
+			needsUpdate = true
 		}
 	}
+	if needsUpdate {
+		return r.Update(ctx, database)
+	}
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) getOperatorVersion(ctx context.Context, name types.NamespacedName) (*Version, error) {
