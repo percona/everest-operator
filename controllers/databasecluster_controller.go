@@ -116,9 +116,8 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
-	monitoringConfigNameLabel = "monitoringConfigName"
-
 	databaseClusterNameLabel   = "clusterName"
+	monitoringConfigNameLabel  = "monitoringConfigName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
 	backupStorageLabelValue    = "used"
 )
