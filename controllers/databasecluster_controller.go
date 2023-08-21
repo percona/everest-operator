@@ -1768,15 +1768,18 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	// used by the databaseClustersThatReferenceSecret function to
 	// find all DatabaseClusters that reference a specific secret through the
 	// BackupStorage's CredentialsSecretName field
-	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField, func(o client.Object) []string {
-		var res []string
-		backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
-		if !ok {
+	err := mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField,
+		func(o client.Object) []string {
+			var res []string
+			backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
+			if !ok {
+				return res
+			}
+			res = append(res, backupStorage.Spec.CredentialsSecretName)
 			return res
-		}
-		res = append(res, backupStorage.Spec.CredentialsSecretName)
-		return res
-	})
+		},
+	)
 	if err != nil {
 		return err
 	}
