@@ -1765,7 +1765,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
 	// Index the BackupStorage's CredentialsSecretName field so that it can be
-	// used by the databaseClustersThatReferenceCredentialsSecret function to
+	// used by the databaseClustersThatReferenceSecret function to
 	// find all DatabaseClusters that reference a specific secret through the
 	// BackupStorage's CredentialsSecretName field
 	err := mgr.GetFieldIndexer().IndexField(ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField, func(o client.Object) []string {
@@ -1782,7 +1782,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	}
 
 	// Index the BackupStorageName so that it can be used by the
-	// databaseClustersThatReferenceBackupStorage function to find all
+	// databaseClustersThatReferenceObject function to find all
 	// DatabaseClusters that reference a specific BackupStorage through the
 	// BackupStorageName field
 	err = mgr.GetFieldIndexer().IndexField(
