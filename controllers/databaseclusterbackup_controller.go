@@ -18,11 +18,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,27 +42,20 @@ import (
 )
 
 const (
-	// DatabaseClusterBackupKind the kind for the DatabaseClusterBackup.
-	DatabaseClusterBackupKind = "DatabaseClusterBackup"
-	// EverestAPIVersion the APIVersion for the everest resources.
-	EverestAPIVersion = "everest.percona.com/v1alpha1"
+	databaseClusterBackupKind = "DatabaseClusterBackup"
+	everestAPIVersion         = "everest.percona.com/v1alpha1"
 
-	// PXCBackupKind the kind for the PXCBackup.
-	PXCBackupKind = "PerconaXtraDBClusterBackup"
-	// PXCAPIVersion the APIVersion for the pxc operator resources.
-	PXCAPIVersion = "pxc.percona.com/v1"
-	// PXCBackupCRDName the name of the pxc CRD for the pxc-backups.
-	PXCBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
+	pxcBackupKind    = "PerconaXtraDBClusterBackup"
+	pxcAPIVersion    = "pxc.percona.com/v1"
+	pxcBackupCRDName = "perconaxtradbclusterbackups.pxc.percona.com"
 
-	psmdbBackupKind = "PerconaServerMongoDBBackup"
-	psmdbAPIVersion = "psmdb.percona.com/v1"
-	// PSMDBBackupCRDName the name of the psmdb CRD for the psmdb-backups.
-	PSMDBBackupCRDName = "perconaservermongodbbackups.psmdb.percona.com"
+	psmdbBackupKind    = "PerconaServerMongoDBBackup"
+	psmdbAPIVersion    = "psmdb.percona.com/v1"
+	psmdbBackupCRDName = "perconaservermongodbbackups.psmdb.percona.com"
 
-	pgBackupKind = "PerconaPGBackup"
-	pgAPIVersion = "pgv2.percona.com/v2"
-	// PGBackupCRDName the name of the pg CRD for the pg-backups.
-	PGBackupCRDName = "perconapgbackups.pgv2.percona.com"
+	pgBackupKind    = "PerconaPGBackup"
+	pgAPIVersion    = "pgv2.percona.com/v2"
+	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
 )
 
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
@@ -159,27 +156,258 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	ctx := context.Background()
 
-	err := r.Get(ctx, types.NamespacedName{Name: PXCBackupCRDName}, unstructuredResource)
+	err := r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBClusterBackup{})
+			controller.Watches(
+				&pxcv1.PerconaXtraDBClusterBackup{},
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePXC)
+				}))
 		}
 	}
 
-	err = r.Get(ctx, types.NamespacedName{Name: PSMDBBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Owns(&psmdbv1.PerconaServerMongoDBBackup{})
+			controller.Watches(
+				&psmdbv1.PerconaServerMongoDBBackup{},
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePSMDB)
+				}))
 		}
 	}
 
-	err = r.Get(ctx, types.NamespacedName{Name: PGBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: pgBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPGToScheme(r.Scheme); err == nil {
 			controller.Owns(&pgv2.PerconaPGBackup{})
+			controller.Watches(
+				&pgv2.PerconaPGBackup{},
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePG)
+				}))
 		}
 	}
 	return controller.Complete(r)
+}
+
+func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
+	ctx context.Context,
+	obj client.Object,
+	createBackupFunc func(ctx context.Context, obj client.Object) error,
+) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	if len(obj.GetOwnerReferences()) == 0 {
+		err := createBackupFunc(ctx, obj)
+		if err != nil {
+			logger.Error(err, fmt.Sprintf("Failed to create DatabaseClusterBackup %s", obj.GetName()))
+		}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+			},
+		},
+	}
+}
+
+func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj client.Object) error {
+	pgBackup := &pgv2.PerconaPGBackup{}
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	err := r.Get(ctx, namespacedName, pgBackup)
+	if err != nil {
+		// if such upstream backup is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	backup := &everestv1alpha1.DatabaseClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      namespacedName.Name,
+			Namespace: namespacedName.Namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       databaseClusterBackupKind,
+			APIVersion: everestAPIVersion,
+		},
+	}
+
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: pgBackup.Spec.PGCluster, Namespace: pgBackup.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	err = r.Get(ctx, namespacedName, backup)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		backup.Spec.DBClusterName = pgBackup.Spec.PGCluster
+		name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
+		if nErr != nil {
+			return nErr
+		}
+
+		backup.Spec.BackupStorageName = name
+		backup.ObjectMeta.Labels = map[string]string{
+			DatabaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
+			fmt.Sprintf(BackupStorageNameLabelTmpl, name): BackupStorageLabelValue,
+		}
+
+		err = r.Create(ctx, backup)
+		if err != nil {
+			return err
+		}
+		pgBackup.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: everestAPIVersion,
+			Kind:       databaseClusterBackupKind,
+			Name:       backup.Name,
+			UID:        backup.UID,
+		}}
+
+		err = r.Update(ctx, pgBackup)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error {
+	pxcBackup := &pxcv1.PerconaXtraDBClusterBackup{}
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	logger := log.FromContext(ctx)
+	err := r.Get(ctx, namespacedName, pxcBackup)
+	if err != nil {
+		// if such upstream backup is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	backup := &everestv1alpha1.DatabaseClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      namespacedName.Name,
+			Namespace: namespacedName.Namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       databaseClusterBackupKind,
+			APIVersion: everestAPIVersion,
+		},
+	}
+
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	err = r.Get(ctx, namespacedName, backup)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		backup.Spec.DBClusterName = pxcBackup.Spec.PXCCluster
+		backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
+
+		backup.ObjectMeta.Labels = map[string]string{
+			DatabaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
+			fmt.Sprintf(BackupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): BackupStorageLabelValue,
+		}
+		logger.Info("!!!! 1")
+		err = r.Create(ctx, backup)
+		if err != nil {
+			return err
+		}
+		logger.Info("!!!! 2")
+	}
+
+	logger.Info("!!!! 5")
+	return nil
+}
+
+func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, obj client.Object) error {
+	psmdbBackup := &psmdbv1.PerconaServerMongoDBBackup{}
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	err := r.Get(ctx, namespacedName, psmdbBackup)
+	if err != nil {
+		// if such upstream backup is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	backup := &everestv1alpha1.DatabaseClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      namespacedName.Name,
+			Namespace: namespacedName.Namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       databaseClusterBackupKind,
+			APIVersion: everestAPIVersion,
+		},
+	}
+
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.PSMDBCluster, Namespace: psmdbBackup.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	err = r.Get(ctx, namespacedName, backup)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		backup.Spec.DBClusterName = psmdbBackup.Spec.PSMDBCluster
+		backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
+
+		backup.ObjectMeta.Labels = map[string]string{
+			DatabaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
+			fmt.Sprintf(BackupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): BackupStorageLabelValue,
+		}
+
+		err = r.Create(ctx, backup)
+		if err != nil {
+			return err
+		}
+		psmdbBackup.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: everestAPIVersion,
+			Kind:       databaseClusterBackupKind,
+			Name:       backup.Name,
+			UID:        backup.UID,
+		}}
+
+		err = r.Update(ctx, psmdbBackup)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *DatabaseClusterBackupReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
@@ -236,12 +464,18 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: PXCAPIVersion,
-			Kind:       PXCBackupKind,
+			APIVersion: pxcAPIVersion,
+			Kind:       pxcBackupKind,
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
 		pxcCR.Spec.StorageName = backup.Spec.BackupStorageName
 
+		pxcCR.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: everestAPIVersion,
+			Kind:       databaseClusterBackupKind,
+			Name:       backup.Name,
+			UID:        backup.UID,
+		}})
 		return nil
 	})
 	if err != nil {
@@ -278,6 +512,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
 		psmdbCR.Spec.StorageName = backup.Spec.BackupStorageName
 
+		psmdbCR.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: everestAPIVersion,
+			Kind:       databaseClusterBackupKind,
+			Name:       backup.Name,
+			UID:        backup.UID,
+		}})
 		return nil
 	})
 	if err != nil {
@@ -315,6 +555,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			Kind:       pgBackupKind,
 		}
 		pgCR.Spec.PGCluster = backup.Spec.DBClusterName
+		pgCR.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: everestAPIVersion,
+			Kind:       databaseClusterBackupKind,
+			Name:       backup.Name,
+			UID:        backup.UID,
+		}})
 
 		repoName, err := r.pgRepoName(backup, dbcluster)
 		if err != nil {
@@ -353,4 +599,18 @@ func (r *DatabaseClusterBackupReconciler) pgRepoName(everestBackup *everestv1alp
 	}
 
 	return "", errors.Errorf("can't perform the backup because the requested backup location isn't set in the DatabaseCluster")
+}
+
+func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {
+	// repoNames in a PG cluster are in form "repo1", "repo2" etc.
+	// which is mapped to the DatabaseCluster schedules list.
+	// So here we figure out the BackupStorageName of the corresponding schedule.
+	scheduleInd, err := strconv.Atoi(strings.TrimPrefix(repoName, "repo"))
+	if err != nil {
+		return "", errors.New("Unable to get the schedule index")
+	}
+	if len(cluster.Spec.Backup.Schedules) < scheduleInd {
+		return "", errors.New("Invalid schedule index")
+	}
+	return cluster.Spec.Backup.Schedules[scheduleInd-1].BackupStorageName, nil
 }

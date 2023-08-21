@@ -36,7 +36,6 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers"
-	"github.com/percona/everest-operator/controllers/scheduledbackup"
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
@@ -127,27 +126,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
-		os.Exit(1)
-	}
-	if err = (&scheduledbackup.DatabaseClusterPXCBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterPXCBackup")
-		os.Exit(1)
-	}
-	if err = (&scheduledbackup.DatabaseClusterPSMDBBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterPSMSBBackup")
-		os.Exit(1)
-	}
-	if err = (&scheduledbackup.DatabaseClusterPGBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterPGBackup")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
