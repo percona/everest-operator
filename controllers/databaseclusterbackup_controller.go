@@ -57,7 +57,13 @@ const (
 	pgBackupKind    = "PerconaPGBackup"
 	pgAPIVersion    = "pgv2.percona.com/v2"
 	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
+
+	dbClusterBackupDBClusterNameField = ".spec.dbClusterName"
 )
+
+// ErrBackupStorageUndefined is returned when a backup storage is not defined
+// in the corresponding upstream DB cluster CR.
+var ErrBackupStorageUndefined error = errors.New("backup storage is not defined in the upstream DB cluster CR")
 
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
@@ -124,20 +130,31 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 
 	switch cluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
-		if err = r.reconcilePXC(ctx, backup); err != nil {
-			logger.Error(err, "failed to reconcile PXC backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePXC(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		if err = r.reconcilePSMDB(ctx, backup); err != nil {
-			logger.Error(err, "failed to reconcile PSMDB backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePSMDB(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		if err = r.reconcilePG(ctx, backup, cluster); err != nil {
-			logger.Error(err, "failed to reconcile PG backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePG(ctx, backup)
+	}
+
+	// The DatabaseCluster controller is responsible for updating the
+	// upstream DB cluster with the necessary storage definition. If the
+	// storage is not defined in the upstream DB cluster CR, we requeue the
+	// backup to give the DatabaseCluster controller a chance to update the
+	// upstream DB cluster CR.
+	if errors.Is(err, ErrBackupStorageUndefined) {
+		logger.Info(
+			fmt.Sprintf("Backup storage %s is not defined in the %s cluster %s, requeuing",
+				backup.Spec.BackupStorageName,
+				cluster.Spec.Engine.Type,
+				backup.Spec.DBClusterName),
+		)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if err != nil {
+		logger.Error(err, fmt.Sprintf("failed to reconcile %s backup", cluster.Spec.Engine.Type))
+		return reconcile.Result{}, err
 	}
 
 	logger.Info("Reconciled", "request", req)
@@ -152,12 +169,30 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Kind:    "CustomResourceDefinition",
 		Version: "v1",
 	})
+
+	// Index the dbClusterName field in DatabaseClusterBackup.
+	err := mgr.GetFieldIndexer().IndexField(
+		context.Background(), &everestv1alpha1.DatabaseClusterBackup{}, dbClusterBackupDBClusterNameField,
+		func(o client.Object) []string {
+			var res []string
+			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
+			if !ok {
+				return res
+			}
+			res = append(res, dbb.Spec.DBClusterName)
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseClusterBackup{})
 
 	ctx := context.Background()
 
-	err := r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Watches(
@@ -428,6 +463,22 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+
+	pxcDBCR := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pxcDBCR)
+	if err != nil {
+		return err
+	}
+
+	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
+	// cannot proceed
+	if pxcDBCR.Spec.Backup.Storages == nil {
+		return ErrBackupStorageUndefined
+	}
+	if _, ok := pxcDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
+		return ErrBackupStorageUndefined
+	}
+
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pxcAPIVersion,

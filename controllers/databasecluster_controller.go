@@ -744,24 +744,36 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	}
 
 	storages := make(map[string]*pxcv1.BackupStorageSpec)
-	var pxcSchedules []pxcv1.PXCScheduledBackupSchedule //nolint:prealloc
-	for _, schedule := range database.Spec.Backup.Schedules {
-		if !schedule.Enabled {
+
+	// List DatabaseClusterBackup objects for this database
+	backupList := &everestv1alpha1.DatabaseClusterBackupList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterBackupDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err := r.List(ctx, backupList, listOps)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
+	}
+
+	// Add the storages used by the DatabaseClusterBackup objects
+	for _, backup := range backupList.Items {
+		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
 			continue
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
+			return nil, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
 		}
 
-		storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
+		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
 			Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
 		}
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
-			storages[schedule.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
+			storages[backup.Spec.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
 				Bucket:            backupStorage.Spec.Bucket,
 				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				Region:            backupStorage.Spec.Region,
@@ -769,6 +781,44 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 			}
 		default:
 			return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		}
+	}
+
+	// If scheduled backups are disabled, just return the storages used in
+	// DatabaseClusterBackup objects
+	if !database.Spec.Backup.Enabled {
+		pxcBackupSpec.Storages = storages
+		return pxcBackupSpec, nil
+	}
+
+	var pxcSchedules []pxcv1.PXCScheduledBackupSchedule //nolint:prealloc
+	for _, schedule := range database.Spec.Backup.Schedules {
+		if !schedule.Enabled {
+			continue
+		}
+
+		// Add the storages used by the schedule backups
+		if _, ok := storages[schedule.BackupStorageName]; !ok {
+			backupStorage := &everestv1alpha1.BackupStorage{}
+			err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
+			}
+
+			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
+				Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
+			}
+			switch backupStorage.Spec.Type {
+			case everestv1alpha1.BackupStorageTypeS3:
+				storages[schedule.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
+				}
+			default:
+				return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			}
 		}
 
 		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
@@ -1022,11 +1072,9 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		if database.Spec.Backup.Enabled {
-			pxc.Spec.Backup, err = r.genPXCBackupSpec(ctx, database, engine)
-			if err != nil {
-				return err
-			}
+		pxc.Spec.Backup, err = r.genPXCBackupSpec(ctx, database, engine)
+		if err != nil {
+			return err
 		}
 		return nil
 	})
@@ -1820,6 +1868,25 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	controller.Watches(
+		&everestv1alpha1.DatabaseClusterBackup{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			dbClusterBackup, ok := obj.(*everestv1alpha1.DatabaseClusterBackup)
+			if !ok {
+				return []reconcile.Request{}
+			}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      dbClusterBackup.Spec.DBClusterName,
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 }
