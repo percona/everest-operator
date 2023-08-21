@@ -95,8 +95,8 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if len(backup.ObjectMeta.Labels) == 0 {
 		backup.ObjectMeta.Labels = map[string]string{
-			DatabaseClusterNameLabel: backup.Spec.DBClusterName,
-			fmt.Sprintf(BackupStorageNameLabelTmpl, backup.Spec.BackupStorageName): BackupStorageLabelValue,
+			databaseClusterNameLabel: backup.Spec.DBClusterName,
+			fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
 		}
 		if err := r.Update(ctx, backup); err != nil {
 			return reconcile.Result{}, err
@@ -207,14 +207,12 @@ func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
 		}
 	}
 
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      obj.GetName(),
-				Namespace: obj.GetNamespace(),
-			},
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
 		},
-	}
+	}}
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj client.Object) error {
@@ -263,8 +261,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 
 		backup.Spec.BackupStorageName = name
 		backup.ObjectMeta.Labels = map[string]string{
-			DatabaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
-			fmt.Sprintf(BackupStorageNameLabelTmpl, name): BackupStorageLabelValue,
+			databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
+			fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
 		}
 
 		err = r.Create(ctx, backup)
@@ -330,8 +328,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
 
 		backup.ObjectMeta.Labels = map[string]string{
-			DatabaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
-			fmt.Sprintf(BackupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): BackupStorageLabelValue,
+			databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
+			fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
 		}
 		logger.Info("!!!! 1")
 		err = r.Create(ctx, backup)
@@ -387,8 +385,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
 
 		backup.ObjectMeta.Labels = map[string]string{
-			DatabaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
-			fmt.Sprintf(BackupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): BackupStorageLabelValue,
+			databaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
+			fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
 		}
 
 		err = r.Create(ctx, backup)

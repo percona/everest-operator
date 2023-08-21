@@ -118,12 +118,9 @@ timeout server 28800s
 
 	monitoringConfigNameLabel = "monitoringConfigName"
 
-	// DatabaseClusterNameLabel is the label key for the DatabaseClusterName.
-	DatabaseClusterNameLabel = "clusterName"
-	// BackupStorageNameLabelTmpl is the label key template for the DatabaseClusterName.
-	BackupStorageNameLabelTmpl = "backupStorage-%s"
-	// BackupStorageLabelValue is the value that is used for the labels.
-	BackupStorageLabelValue = "used"
+	databaseClusterNameLabel   = "clusterName"
+	backupStorageNameLabelTmpl = "backupStorage-%s"
+	backupStorageLabelValue    = "used"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -1552,19 +1549,19 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 	needsUpdate := false
 	if len(database.ObjectMeta.Labels) == 0 {
 		database.ObjectMeta.Labels = map[string]string{
-			DatabaseClusterNameLabel: database.Name,
+			databaseClusterNameLabel: database.Name,
 		}
 		needsUpdate = true
 	}
 	if database.Spec.DataSource != nil {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = BackupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
 			needsUpdate = true
 		}
 	}
 	for _, schedule := range database.Spec.Backup.Schedules {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName)] = BackupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
 			needsUpdate = true
 		}
 	}
@@ -1575,12 +1572,12 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 		}
 	}
 	for key := range database.ObjectMeta.Labels {
-		if key == DatabaseClusterNameLabel {
+		if key == databaseClusterNameLabel {
 			continue
 		}
 		var found bool
 		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(BackupStorageNameLabelTmpl, schedule.BackupStorageName) {
+			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
 				found = true
 				break
 			}
