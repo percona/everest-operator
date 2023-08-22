@@ -545,7 +545,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
-	dbcluster *everestv1alpha1.DatabaseCluster,
 ) error {
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -553,7 +552,27 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			Namespace: backup.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
+
+	pgDBCR := &pgv2.PerconaPGCluster{}
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pgDBCR)
+	if err != nil {
+		return err
+	}
+
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, backupStorage)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+	}
+
+	// If the backup storage is not defined in the PerconaPGCluster CR, we
+	// cannot proceed
+	repoIdx := getBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	if repoIdx == -1 {
+		return ErrBackupStorageUndefined
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pgAPIVersion,
 			Kind:       pgBackupKind,
@@ -567,11 +586,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
 
-		repoName, err := r.pgRepoName(backup, dbcluster)
-		if err != nil {
-			return err
-		}
-		pgCR.Spec.RepoName = repoName
+		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
 		return nil
 	})
 	if err != nil {
@@ -583,22 +598,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	//nolint:godox
 	// TODO: add backup.Status.Destination once https://jira.percona.com/browse/K8SPG-411 is done
 	return r.Status().Update(ctx, backup)
-}
-
-// pgRepoName returns the pg cluster's RepoName (which is like "repo1", "repo2" etc)
-// that corresponds the database cluster's BackupStorageName.
-func (r *DatabaseClusterBackupReconciler) pgRepoName(everestBackup *everestv1alpha1.DatabaseClusterBackup, dbcluster *everestv1alpha1.DatabaseCluster) (string, error) {
-	//nolint:godox
-	// TODO: decouple PG backups from the schedules list
-	// currently the PG on-demand backups require at least one schedule to be set,
-	// here is an idea how to fix it https://github.com/percona/everest-operator/pull/7#discussion_r1263497633
-	for idx, schedule := range dbcluster.Spec.Backup.Schedules {
-		if schedule.BackupStorageName == everestBackup.Spec.BackupStorageName {
-			return fmt.Sprintf("repo%d", idx+1), nil
-		}
-	}
-
-	return "", errors.Errorf("can't perform the backup because the requested backup location isn't set in the DatabaseCluster")
 }
 
 func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {

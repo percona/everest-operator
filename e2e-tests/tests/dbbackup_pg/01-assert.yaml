@@ -16,15 +16,9 @@ spec:
     expose:
       type: internal
     replicas: 1
-    type: haproxy
+    type: pgbouncer
   backup:
     enabled: false
-    schedules:
-      - enabled: false
-        name: daily-backup
-        backupStorageName: test-storage
-        retentionCopies: 1
-        schedule: 0 0 * * *
 status:
   status: ready
 ---
@@ -49,5 +43,21 @@ spec:
       replicas: 1
       expose:
         type: ClusterIP
+  backups:
+    pgbackrest:
+      configuration:
+      - secret:
+          name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1G
 status:
   state: ready
