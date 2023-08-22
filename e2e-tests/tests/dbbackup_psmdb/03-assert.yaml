@@ -8,7 +8,7 @@ metadata:
   name: a-scheduled-backup
   labels:
     backupStorage-test-storage: used
-    clusterName: test-pg-cluster
+    clusterName: test-psmdb-cluster
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
