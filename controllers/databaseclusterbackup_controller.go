@@ -292,7 +292,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		Name:      obj.GetName(),
 	}
 
-	logger := log.FromContext(ctx)
 	err := r.Get(ctx, namespacedName, pxcBackup)
 	if err != nil {
 		// if such upstream backup is not found - do nothing
@@ -331,15 +330,12 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 			databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
 			fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
 		}
-		logger.Info("!!!! 1")
 		err = r.Create(ctx, backup)
 		if err != nil {
 			return err
 		}
-		logger.Info("!!!! 2")
 	}
 
-	logger.Info("!!!! 5")
 	return nil
 }
 
