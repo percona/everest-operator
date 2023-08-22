@@ -6,6 +6,9 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
   name: a-scheduled-backup
+  labels:
+    backupStorage-test-storage: used
+    clusterName: test-pg-cluster
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pg-cluster
@@ -13,6 +16,10 @@ spec:
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGBackup
 metadata:
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: a-scheduled-backup
   name: a-scheduled-backup
 spec:
   pgCluster: test-pg-cluster

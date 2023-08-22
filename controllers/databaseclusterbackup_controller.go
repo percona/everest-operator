@@ -269,23 +269,12 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		if err != nil {
 			return err
 		}
-		pgBackup.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion: everestAPIVersion,
-			Kind:       databaseClusterBackupKind,
-			Name:       backup.Name,
-			UID:        backup.UID,
-		}}
-
-		err = r.Update(ctx, pgBackup)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error {
+func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error { //nolint:dupl
 	pxcBackup := &pxcv1.PerconaXtraDBClusterBackup{}
 	namespacedName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
@@ -339,7 +328,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, obj client.Object) error {
+func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, obj client.Object) error { //nolint:dupl
 	psmdbBackup := &psmdbv1.PerconaServerMongoDBBackup{}
 	namespacedName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
@@ -386,17 +375,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		}
 
 		err = r.Create(ctx, backup)
-		if err != nil {
-			return err
-		}
-		psmdbBackup.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion: everestAPIVersion,
-			Kind:       databaseClusterBackupKind,
-			Name:       backup.Name,
-			UID:        backup.UID,
-		}}
-
-		err = r.Update(ctx, psmdbBackup)
 		if err != nil {
 			return err
 		}
