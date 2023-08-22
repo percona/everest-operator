@@ -222,8 +222,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		Name:      obj.GetName(),
 	}
 
-	err := r.Get(ctx, namespacedName, pgBackup)
-	if err != nil {
+	if err := r.Get(ctx, namespacedName, pgBackup); err != nil {
 		// if such upstream backup is not found - do nothing
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -242,36 +241,30 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		},
 	}
 
+	err := r.Get(ctx, namespacedName, backup)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	backup.Spec.DBClusterName = pgBackup.Spec.PGCluster
+
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: pgBackup.Spec.PGCluster, Namespace: pgBackup.Namespace}, cluster)
 	if err != nil {
 		return err
 	}
-	err = r.Get(ctx, namespacedName, backup)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		backup.Spec.DBClusterName = pgBackup.Spec.PGCluster
-		name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
-		if nErr != nil {
-			return nErr
-		}
-
-		backup.Spec.BackupStorageName = name
-		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
-			fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
-		}
-
-		err = r.Create(ctx, backup)
-		if err != nil {
-			return err
-		}
+	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
+	if nErr != nil {
+		return nErr
 	}
 
-	return nil
+	backup.Spec.BackupStorageName = name
+	backup.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
+		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
+	}
+
+	return r.Create(ctx, backup)
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error { //nolint:dupl
@@ -281,8 +274,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		Name:      obj.GetName(),
 	}
 
-	err := r.Get(ctx, namespacedName, pxcBackup)
-	if err != nil {
+	if err := r.Get(ctx, namespacedName, pxcBackup); err != nil {
 		// if such upstream backup is not found - do nothing
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -302,30 +294,23 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
+	err := r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
 	if err != nil {
 		return err
 	}
 	err = r.Get(ctx, namespacedName, backup)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		backup.Spec.DBClusterName = pxcBackup.Spec.PXCCluster
-		backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
-
-		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
-			fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
-		}
-		err = r.Create(ctx, backup)
-		if err != nil {
-			return err
-		}
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 
-	return nil
+	backup.Spec.DBClusterName = pxcBackup.Spec.PXCCluster
+	backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
+
+	backup.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
+		fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
+	}
+	return r.Create(ctx, backup)
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, obj client.Object) error { //nolint:dupl
@@ -335,8 +320,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		Name:      obj.GetName(),
 	}
 
-	err := r.Get(ctx, namespacedName, psmdbBackup)
-	if err != nil {
+	if err := r.Get(ctx, namespacedName, psmdbBackup); err != nil {
 		// if such upstream backup is not found - do nothing
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -356,30 +340,24 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 	}
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.PSMDBCluster, Namespace: psmdbBackup.Namespace}, cluster)
+	err := r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.PSMDBCluster, Namespace: psmdbBackup.Namespace}, cluster)
 	if err != nil {
 		return err
 	}
 	err = r.Get(ctx, namespacedName, backup)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		backup.Spec.DBClusterName = psmdbBackup.Spec.PSMDBCluster
-		backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
-
-		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
-			fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
-		}
-
-		err = r.Create(ctx, backup)
-		if err != nil {
-			return err
-		}
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
-	return nil
+
+	backup.Spec.DBClusterName = psmdbBackup.Spec.PSMDBCluster
+	backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
+
+	backup.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
+		fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
+	}
+
+	return r.Create(ctx, backup)
 }
 
 func (r *DatabaseClusterBackupReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
