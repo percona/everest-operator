@@ -16,15 +16,9 @@ spec:
     expose:
       type: internal
     replicas: 1
-    type: haproxy
+    type: mongos
   backup:
-    enabled: true
-    schedules:
-      - enabled: true
-        name: daily-backup
-        backupStorageName: test-storage
-        retentionCopies: 1
-        schedule: 0 0 * * *
+    enabled: false
 status:
   ready: 1
   size: 1

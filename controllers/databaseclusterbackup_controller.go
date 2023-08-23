@@ -515,7 +515,23 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Namespace: backup.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
+
+	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
+	if err != nil {
+		return err
+	}
+
+	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
+	// cannot proceed
+	if psmdbDBCR.Spec.Backup.Storages == nil {
+		return ErrBackupStorageUndefined
+	}
+	if _, ok := psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
+		return ErrBackupStorageUndefined
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 		psmdbCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: psmdbAPIVersion,
 			Kind:       psmdbBackupKind,

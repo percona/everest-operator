@@ -2,29 +2,33 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 100
 ---
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterBackup
-metadata:
-  name: a-scheduled-backup
-  labels:
-    backupStorage-test-storage: used
-    clusterName: test-psmdb-cluster
-  ownerReferences:
-    - apiVersion: psmdb.percona.com/v1
-      kind: PerconaServerMongoDBBackup
-      name: a-scheduled-backup
-spec:
-  backupStorageName: test-storage
-  dbClusterName: test-psmdb-cluster
----
 apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDBBackup
+kind: PerconaServerMongoDB
 metadata:
-  name: a-scheduled-backup
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseClusterBackup
-      name: a-scheduled-backup
+  name: test-psmdb-cluster
 spec:
-  storageName: test-storage
-  psmdbCluster: test-psmdb-cluster
+  multiCluster:
+    enabled: false
+  backup:
+    tasks:
+    - enabled: true
+      keep: 1
+      name: daily-backup
+      schedule: "0 0 * * *"
+      storageName: test-storage-scheduled
+    storages:
+      test-storage-scheduled:
+        s3:
+          bucket: test-backup-bucket-scheduled
+          credentialsSecret: test-psmdb-cluster-backup-s3-scheduled
+          endpointUrl: s3.amazonaws.com
+          region: us-east-2
+        type: s3
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready

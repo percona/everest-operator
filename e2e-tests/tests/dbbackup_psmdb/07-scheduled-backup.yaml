@@ -7,5 +7,5 @@ kind: PerconaServerMongoDBBackup
 metadata:
   name: a-scheduled-backup
 spec:
-  storageName: test-storage
+  storageName: test-storage-scheduled
   psmdbCluster: test-psmdb-cluster

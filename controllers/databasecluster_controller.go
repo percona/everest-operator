@@ -294,7 +294,55 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		Enabled: true,
 		Image:   backupVersion.ImagePath,
 	}
+
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
+
+	// List DatabaseClusterBackup objects for this database
+	backupList := &everestv1alpha1.DatabaseClusterBackupList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterBackupDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err := r.List(ctx, backupList, listOps)
+	if err != nil {
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
+	}
+
+	// Add the storages used by the DatabaseClusterBackup objects
+	for _, backup := range backupList.Items {
+		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
+			continue
+		}
+
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+		}
+
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				S3: psmdbv1.BackupStorageS3Spec{
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		default:
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		}
+	}
+
+	// If scheduled backups are disabled, just return the storages used in
+	// DatabaseClusterBackup objects
+	if !database.Spec.Backup.Enabled {
+		psmdbBackupSpec.Storages = storages
+		return psmdbBackupSpec, nil
+	}
+
 	var tasks []psmdbv1.BackupTaskSpec //nolint:prealloc
 	for _, schedule := range database.Spec.Backup.Schedules {
 		if !schedule.Enabled {
@@ -551,11 +599,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 		}
 
-		if database.Spec.Backup.Enabled {
-			psmdb.Spec.Backup, err = r.genPSMDBBackupSpec(ctx, database, engine)
-			if err != nil {
-				return err
-			}
+		psmdb.Spec.Backup, err = r.genPSMDBBackupSpec(ctx, database, engine)
+		if err != nil {
+			return err
 		}
 		return nil
 	})

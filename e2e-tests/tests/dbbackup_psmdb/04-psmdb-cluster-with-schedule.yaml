@@ -4,7 +4,7 @@ kind: TestStep
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-psmdb-cluster-backup-s3
+  name: test-psmdb-cluster-backup-s3-scheduled
 type: Opaque
 data:
   AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
@@ -13,11 +13,11 @@ data:
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage
 metadata:
-  name: test-storage
+  name: test-storage-scheduled
 spec:
   type: s3
-  bucket: test-backup-bucket
-  credentialsSecretName: test-psmdb-cluster-backup-s3
+  bucket: test-backup-bucket-scheduled
+  credentialsSecretName: test-psmdb-cluster-backup-s3-scheduled
   region: us-east-2
   endpointURL: s3.amazonaws.com
 ---
@@ -41,4 +41,4 @@ spec:
         enabled: true
         schedule: "0 0 * * *"
         retentionCopies: 1
-        backupStorageName: test-storage
+        backupStorageName: test-storage-scheduled
