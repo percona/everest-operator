@@ -9,6 +9,10 @@ metadata:
   labels:
     backupStorage-test-storage: used
     clusterName: test-psmdb-cluster
+  ownerReferences:
+    - apiVersion: psmdb.percona.com/v1
+      kind: PerconaServerMongoDBBackup
+      name: a-scheduled-backup
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster

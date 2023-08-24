@@ -9,6 +9,10 @@ metadata:
   labels:
     backupStorage-test-storage: used
     clusterName: test-pg-cluster
+  ownerReferences:
+    - apiVersion: pgv2.percona.com/v2
+      kind: PerconaPGBackup
+      name: a-scheduled-backup
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pg-cluster
