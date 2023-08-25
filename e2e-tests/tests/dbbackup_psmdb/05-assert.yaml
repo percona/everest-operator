@@ -7,4 +7,3 @@ commands:
       test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" == "[]"
   - script: >
       test "$(kubectl get psmdb-backup -n $NAMESPACE -o jsonpath='{.items}')" == "[]"    
-

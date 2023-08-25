@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+delete:
+  - apiVersion: pxc.percona.com/v1
+    kind: PerconaXtraDBClusterBackup
+    name: a-scheduled-backup
+

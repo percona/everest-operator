@@ -1,30 +1,10 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterBackup
-metadata:
-  name: a-scheduled-backup
-  labels:
-    backupStorage-test-storage: used
-    clusterName: test-pxc-cluster
-  ownerReferences:
-    - apiVersion: pxc.percona.com/v1
-      kind: PerconaXtraDBClusterBackup
-      name: a-scheduled-backup
-spec:
-  backupStorageName: test-storage
-  dbClusterName: test-pxc-cluster
----
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBClusterBackup
-metadata:
-  name: a-scheduled-backup
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseClusterBackup
-      name: a-scheduled-backup
-spec:
-  storageName: test-storage
-  pxcCluster: test-pxc-cluster
+timeout: 20
+commands:
+  # check that there is no dbb/pxc-backup CRs left
+  - script: >
+      test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" == "[]"
+  - script: >
+      test "$(kubectl get pxc-backup -n $NAMESPACE -o jsonpath='{.items}')" == "[]"    
+
