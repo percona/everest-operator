@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -271,7 +271,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		Kind:               pgBackupKind,
 		Name:               pgBackup.Name,
 		UID:                pgBackup.UID,
-		BlockOwnerDeletion: pointer.Bool(true),
+		BlockOwnerDeletion: pointer.ToBool(true),
 	}})
 
 	return r.Create(ctx, backup)
@@ -320,7 +320,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		Kind:               pxcBackupKind,
 		Name:               pxcBackup.Name,
 		UID:                pxcBackup.UID,
-		BlockOwnerDeletion: pointer.Bool(true),
+		BlockOwnerDeletion: pointer.ToBool(true),
 	}})
 	return r.Create(ctx, backup)
 }
@@ -372,7 +372,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		Kind:               psmdbBackupKind,
 		Name:               psmdbBackup.Name,
 		UID:                psmdbBackup.UID,
-		BlockOwnerDeletion: pointer.Bool(true),
+		BlockOwnerDeletion: pointer.ToBool(true),
 	}})
 
 	return r.Create(ctx, backup)
@@ -444,7 +444,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 			Kind:               databaseClusterBackupKind,
 			Name:               backup.Name,
 			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.Bool(true),
+			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
 		return nil
 	})
@@ -480,7 +480,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Kind:               databaseClusterBackupKind,
 			Name:               backup.Name,
 			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.Bool(true),
+			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
 		return nil
 	})
@@ -516,7 +516,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			Kind:               databaseClusterBackupKind,
 			Name:               backup.Name,
 			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.Bool(true),
+			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
 
 		repoName, err := r.pgRepoName(backup, dbcluster)
