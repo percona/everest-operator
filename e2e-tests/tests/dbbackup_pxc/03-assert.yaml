@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 20
+commands:
+  # check that there is no dbb/pxc-backup CRs left
+  - script: >
+      test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" == "[]"
+  - script: >
+      test "$(kubectl get pxc-backup -n $NAMESPACE -o jsonpath='{.items}')" == "[]"    
+

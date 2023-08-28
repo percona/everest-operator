@@ -5,7 +5,14 @@ timeout: 100
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
-  name: test-db-backup
+  name: a-scheduled-backup
+  labels:
+    backupStorage-test-storage: used
+    clusterName: test-psmdb-cluster
+  ownerReferences:
+    - apiVersion: psmdb.percona.com/v1
+      kind: PerconaServerMongoDBBackup
+      name: a-scheduled-backup
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
@@ -13,11 +20,11 @@ spec:
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
 metadata:
-  name: test-db-backup
+  name: a-scheduled-backup
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
-      name: test-db-backup
+      name: a-scheduled-backup
 spec:
   storageName: test-storage
   psmdbCluster: test-psmdb-cluster
