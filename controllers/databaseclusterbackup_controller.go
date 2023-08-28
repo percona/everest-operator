@@ -160,7 +160,6 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
-			controller.Owns(&pxcv1.PerconaXtraDBClusterBackup{})
 			controller.Watches(
 				&pxcv1.PerconaXtraDBClusterBackup{},
 				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -172,7 +171,6 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
-			controller.Owns(&psmdbv1.PerconaServerMongoDBBackup{})
 			controller.Watches(
 				&psmdbv1.PerconaServerMongoDBBackup{},
 				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -184,7 +182,6 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err = r.Get(ctx, types.NamespacedName{Name: pgBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPGToScheme(r.Scheme); err == nil {
-			controller.Owns(&pgv2.PerconaPGBackup{})
 			controller.Watches(
 				&pgv2.PerconaPGBackup{},
 				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
