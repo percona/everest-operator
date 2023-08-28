@@ -96,6 +96,7 @@ type Resources struct {
 // Engine is the engine configuration.
 type Engine struct {
 	// Type is the engine type
+	// +kubebuilder:validation:Enum:=pxc;postgresql;psmdb
 	Type EngineType `json:"type"`
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
@@ -115,6 +116,9 @@ type Engine struct {
 // ExposeType is the expose type.
 type ExposeType string
 
+// +kubebuilder:validation:Pattern="((^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))$)|(^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$))"
+type IPSourceRange string
+
 // Expose is the expose configuration.
 type Expose struct {
 	// Type is the expose type, can be internal or external
@@ -123,7 +127,7 @@ type Expose struct {
 	Type ExposeType `json:"type,omitempty"`
 	// IPSourceRanges is the list of IP source ranges (CIDR notation)
 	// to allow access from. If not set, there is no limitations
-	IPSourceRanges []string `json:"ipSourceRanges,omitempty"`
+	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
 // ProxyType is the proxy type.
@@ -133,6 +137,9 @@ type ProxyType string
 type Proxy struct {
 	// Type is the proxy type
 	// +kubebuilder:validation:Enum:=mongos;haproxy;proxysql;pgbouncer
+	// +kubebuilder:validation:XValidation:message="You can use only Mongos as a proxy type for MongoDB clusters", rule="self.engine.type=='psmdb' ? self.proxy.type == 'mongos' : true"
+	// +kubebuilder:validation:XValidation:message="You can use only PGBouncer as a proxy type for Postgres clusters", rule="self.engine.type=='postgresql' ? self.proxy.type == 'pgbouncer' : true"
+	// +kubebuilder:validation:XValidation:message="You can use only either HAProxy or Proxy SQL for PXC clusters", rule="self.engine.type=='pxc' ? self.proxy.type == 'haproxy' || self.proxy.type == 'proxysql' : true"
 	Type ProxyType `json:"type,omitempty"`
 	// Replicas is the number of proxy replicas
 	Replicas *int32 `json:"replicas,omitempty"`
