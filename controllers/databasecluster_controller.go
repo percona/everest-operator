@@ -910,7 +910,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 		restores := &everestv1alpha1.DatabaseClusterRestoreList{}
 
-		if err := r.List(ctx, restores, client.MatchingFields{"spec.databaseCluster": database.Name}); err != nil {
+		if err := r.List(ctx, restores, client.MatchingFields{"spec.dbClusterName": database.Name}); err != nil {
 			return err
 		}
 		jobRunning := false

@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
@@ -37,8 +38,6 @@ import (
 )
 
 const (
-	pxcRestoreKind      = "PerconaXtraDBClusterRestore"
-	pxcRestoreAPI       = "pxc.percona.com/v1"
 	psmdbRestoreKind    = "PerconaServerMongoDBRestore"
 	psmdbRestoreAPI     = "psmdb.percona.com/v1"
 	psmdbRestoreCRDName = "perconaservermongodbrestores.psmdb.percona.com"
@@ -78,8 +77,26 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePXC {
-		if err := r.restorePXC(cr); err != nil { //nolint:contextcheck
+	if (cr.Spec.DataSource.DBClusterBackupName == "" && cr.Spec.DataSource.BackupSource == nil) ||
+		(cr.Spec.DataSource.DBClusterBackupName != "" && cr.Spec.DataSource.BackupSource != nil) {
+		return reconcile.Result{}, errors.New("specify either dbClusterBackupName or backupSource")
+	}
+
+	dbCRNamespacedName := types.NamespacedName{
+		Name:      cr.Spec.DBClusterName,
+		Namespace: cr.Namespace,
+	}
+	dbCR := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, dbCRNamespacedName, dbCR)
+	if err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch DatabaseCluster")
+		}
+		return reconcile.Result{}, err
+	}
+
+	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
+		if err := r.restorePXC(ctx, cr); err != nil {
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
@@ -177,48 +194,44 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *everestv1alpha1
 	return r.Status().Update(context.Background(), restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *everestv1alpha1.DatabaseClusterRestore) error {
+//nolint:dupl
+func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restore.Name,
 			Namespace: restore.Namespace,
 		},
 	}
+
 	if err := controllerutil.SetControllerReference(restore, pxcCR, r.Client.Scheme()); err != nil {
 		return err
 	}
-	_, err := controllerutil.CreateOrUpdate(context.Background(), r.Client, pxcCR, func() error {
-		pxcCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: pxcRestoreAPI,
-			Kind:       pxcRestoreKind,
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
+		pxcCR.Spec.PXCCluster = restore.Spec.DBClusterName
+		if restore.Spec.DataSource.DBClusterBackupName != "" {
+			pxcCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
 		}
-		pxcCR.Spec.PXCCluster = restore.Spec.DatabaseCluster
-		if restore.Spec.BackupName == "" && restore.Spec.BackupSource == nil {
-			return errors.New("specify either backupName or backupSource")
-		}
-		if restore.Spec.BackupName != "" {
-			pxcCR.Spec.BackupName = restore.Spec.BackupName
-		}
-		if restore.Spec.BackupSource != nil {
-			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
-				Destination: restore.Spec.BackupSource.Destination,
-				StorageName: restore.Spec.BackupSource.StorageName,
+
+		if restore.Spec.DataSource.BackupSource != nil {
+			backupStorage := &everestv1alpha1.BackupStorage{}
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
 			}
-			switch restore.Spec.BackupSource.StorageType {
-			case everestv1alpha1.BackupStorageS3:
+
+			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
+				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, restore.Spec.DataSource.BackupSource.Path),
+			}
+			switch backupStorage.Spec.Type {
+			case everestv1alpha1.BackupStorageTypeS3:
 				pxcCR.Spec.BackupSource.S3 = &pxcv1.BackupStorageS3Spec{
-					Bucket:            restore.Spec.BackupSource.S3.Bucket,
-					CredentialsSecret: restore.Spec.BackupSource.S3.CredentialsSecret,
-					Region:            restore.Spec.BackupSource.S3.Region,
-					EndpointURL:       restore.Spec.BackupSource.S3.EndpointURL,
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
-			case everestv1alpha1.BackupStorageAzure:
-				pxcCR.Spec.BackupSource.Azure = &pxcv1.BackupStorageAzureSpec{
-					CredentialsSecret: restore.Spec.BackupSource.Azure.CredentialsSecret,
-					ContainerPath:     restore.Spec.BackupSource.Azure.ContainerName,
-					Endpoint:          restore.Spec.BackupSource.Azure.EndpointURL,
-					StorageClass:      restore.Spec.BackupSource.Azure.StorageClass,
-				}
+			default:
+				return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
 		return nil
@@ -226,16 +239,18 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(restore *everestv1alpha1.D
 	if err != nil {
 		return err
 	}
+
 	pxcCR = &pxcv1.PerconaXtraDBClusterRestore{}
-	err = r.Get(context.Background(), types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, pxcCR)
+	err = r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, pxcCR)
 	if err != nil {
 		return err
 	}
+
 	restore.Status.State = everestv1alpha1.RestoreState(pxcCR.Status.State)
 	restore.Status.CompletedAt = pxcCR.Status.CompletedAt
-	restore.Status.LastScheduled = pxcCR.Status.LastScheduled
 	restore.Status.Message = pxcCR.Status.Comments
-	return r.Status().Update(context.Background(), restore)
+
+	return r.Status().Update(ctx, restore)
 }
 
 func (r *DatabaseClusterRestoreReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
@@ -291,10 +306,16 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	if err := r.addPSMDBToScheme(r.Scheme); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &everestv1alpha1.DatabaseClusterRestore{}, "spec.databaseCluster", func(rawObj client.Object) []string {
-		res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
-		return []string{res.Spec.DatabaseCluster}
-	}); err != nil {
+	err = mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&everestv1alpha1.DatabaseClusterRestore{},
+		"spec.dbClusterName",
+		func(rawObj client.Object) []string {
+			res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
+			return []string{res.Spec.DBClusterName}
+		},
+	)
+	if err != nil {
 		return err
 	}
 	return controller.Complete(r)
