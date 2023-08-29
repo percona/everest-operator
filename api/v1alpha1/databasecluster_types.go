@@ -101,6 +101,7 @@ type Engine struct {
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
 	// Replicas is the number of engine replicas
+	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas,omitempty"`
 	// Storage is the engine storage configuration
 	Storage Storage `json:"storage"`
@@ -130,6 +131,14 @@ type Expose struct {
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
+func (e Expose) IPSourceRangesStringArray() []string {
+	sourceRanges := make([]string, len(e.IPSourceRanges))
+	for i := range e.IPSourceRanges {
+		sourceRanges[i] = string(e.IPSourceRanges[i])
+	}
+	return sourceRanges
+}
+
 // ProxyType is the proxy type.
 type ProxyType string
 
@@ -142,6 +151,7 @@ type Proxy struct {
 	// +kubebuilder:validation:XValidation:message="You can use only either HAProxy or Proxy SQL for PXC clusters", rule="self.engine.type=='pxc' ? self.proxy.type == 'haproxy' || self.proxy.type == 'proxysql' : true"
 	Type ProxyType `json:"type,omitempty"`
 	// Replicas is the number of proxy replicas
+	// +kubebuilder:validation:Minimum:=1
 	Replicas *int32 `json:"replicas,omitempty"`
 	// Config is the proxy configuration
 	Config string `json:"config,omitempty"`

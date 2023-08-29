@@ -484,7 +484,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
 				Expose: psmdbv1.Expose{
 					ExposeType:               corev1.ServiceTypeLoadBalancer,
-					LoadBalancerSourceRanges: database.Spec.Proxy.Expose.IPSourceRanges,
+					LoadBalancerSourceRanges: database.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 				},
 			}
 		default:
@@ -649,7 +649,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 	case everestv1alpha1.ExposeTypeExternal:
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 	default:
 		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -698,7 +698,7 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 	case everestv1alpha1.ExposeTypeExternal:
 		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 	default:
 		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}

@@ -117,6 +117,7 @@ spec:
                   replicas:
                     description: Replicas is the number of engine replicas
                     format: int32
+                    minimum: 1
                     type: integer
                   resources:
                     description: Resources are the resource limits for each engine
@@ -263,6 +264,7 @@ spec:
                   replicas:
                     description: Replicas is the number of proxy replicas
                     format: int32
+                    minimum: 1
                     type: integer
                   resources:
                     description: Resources are the resource limits for each proxy
