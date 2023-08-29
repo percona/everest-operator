@@ -101,9 +101,9 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 			return reconcile.Result{}, err
 		}
 	}
-	if cr.Spec.DatabaseType == everestv1alpha1.DatabaseEnginePSMDB {
-		if err := r.restorePSMDB(cr); err != nil { //nolint:contextcheck
-			logger.Error(err, "unable to restore PXC Cluster")
+	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
+		if err := r.restorePSMDB(ctx, cr); err != nil {
+			logger.Error(err, "unable to restore PSMDB Cluster")
 			return reconcile.Result{}, err
 		}
 	}
@@ -111,8 +111,8 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everestv1alpha1.DatabaseClusterRestore) error {
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 	for {
 		select {
@@ -120,7 +120,7 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everest
 			return errors.New("wait timeout exceeded")
 		default:
 			cluster := &everestv1alpha1.DatabaseCluster{}
-			err := r.Get(context.Background(), types.NamespacedName{Name: restore.Spec.DatabaseCluster, Namespace: restore.Namespace}, cluster)
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DBClusterName, Namespace: restore.Namespace}, cluster)
 			if err != nil {
 				return err
 			}
@@ -131,8 +131,9 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(restore *everest
 	}
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *everestv1alpha1.DatabaseClusterRestore) error {
-	if err := r.ensureClusterIsReady(restore); err != nil {
+//nolint:dupl
+func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
 		return err
 	}
 
@@ -145,37 +146,35 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *everestv1alpha1
 	if err := controllerutil.SetControllerReference(restore, psmdbCR, r.Client.Scheme()); err != nil {
 		return err
 	}
-	_, err := controllerutil.CreateOrUpdate(context.Background(), r.Client, psmdbCR, func() error {
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 		psmdbCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: psmdbRestoreAPI,
 			Kind:       psmdbRestoreKind,
 		}
-		psmdbCR.Spec.ClusterName = restore.Spec.DatabaseCluster
-		if restore.Spec.BackupName == "" && restore.Spec.BackupSource == nil {
-			return errors.New("specify either backupName or backupSource")
+		psmdbCR.Spec.ClusterName = restore.Spec.DBClusterName
+		if restore.Spec.DataSource.DBClusterBackupName != "" {
+			psmdbCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
 		}
-		if restore.Spec.BackupName != "" {
-			psmdbCR.Spec.BackupName = restore.Spec.BackupName
-		}
-		if restore.Spec.BackupSource != nil {
-			psmdbCR.Spec.BackupSource = &psmdbv1.PerconaServerMongoDBBackupStatus{
-				Destination: restore.Spec.BackupSource.Destination,
-				StorageName: restore.Spec.BackupSource.StorageName,
+		if restore.Spec.DataSource.BackupSource != nil {
+			backupStorage := &everestv1alpha1.BackupStorage{}
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
 			}
-			switch restore.Spec.BackupSource.StorageType {
-			case everestv1alpha1.BackupStorageS3:
+
+			psmdbCR.Spec.BackupSource = &psmdbv1.PerconaServerMongoDBBackupStatus{
+				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, restore.Spec.DataSource.BackupSource.Path),
+			}
+			switch backupStorage.Spec.Type {
+			case everestv1alpha1.BackupStorageTypeS3:
 				psmdbCR.Spec.BackupSource.S3 = &psmdbv1.BackupStorageS3Spec{
-					Bucket:            restore.Spec.BackupSource.S3.Bucket,
-					CredentialsSecret: restore.Spec.BackupSource.S3.CredentialsSecret,
-					Region:            restore.Spec.BackupSource.S3.Region,
-					EndpointURL:       restore.Spec.BackupSource.S3.EndpointURL,
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
-			case everestv1alpha1.BackupStorageAzure:
-				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
-					CredentialsSecret: restore.Spec.BackupSource.Azure.CredentialsSecret,
-					Container:         restore.Spec.BackupSource.Azure.ContainerName,
-					Prefix:            restore.Spec.BackupSource.Azure.Prefix,
-				}
+			default:
+				return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
 		return nil
@@ -183,15 +182,18 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(restore *everestv1alpha1
 	if err != nil {
 		return err
 	}
+
 	psmdbCR = &psmdbv1.PerconaServerMongoDBRestore{}
-	err = r.Get(context.Background(), types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, psmdbCR)
+	err = r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, psmdbCR)
 	if err != nil {
 		return err
 	}
+
 	restore.Status.State = everestv1alpha1.RestoreState(psmdbCR.Status.State)
 	restore.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	restore.Status.Message = psmdbCR.Status.Error
-	return r.Status().Update(context.Background(), restore)
+
+	return r.Status().Update(ctx, restore)
 }
 
 //nolint:dupl
