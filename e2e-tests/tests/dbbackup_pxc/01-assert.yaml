@@ -18,13 +18,7 @@ spec:
     replicas: 1
     type: haproxy
   backup:
-    enabled: true
-    schedules:
-      - enabled: true
-        name: daily-backup
-        backupStorageName: test-storage
-        retentionCopies: 1
-        schedule: 0 0 * * *
+    enabled: false
 status:
   status: ready
 ---

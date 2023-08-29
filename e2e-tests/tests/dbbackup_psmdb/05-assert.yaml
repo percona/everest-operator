@@ -1,9 +1,61 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 20
-commands:
-  # check that there is no dbb/psmdb-backup CRs left
-  - script: >
-      test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" == "[]"
-  - script: >
-      test "$(kubectl get psmdb-backup -n $NAMESPACE -o jsonpath='{.items}')" == "[]"    
+timeout: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup
+spec:
+  backupStorageName: test-storage
+  dbClusterName: test-psmdb-cluster
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBBackup
+metadata:
+  name: test-db-backup
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup
+spec:
+  storageName: test-storage
+  psmdbCluster: test-psmdb-cluster
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  multiCluster:
+    enabled: false
+  backup:
+    tasks:
+    - enabled: true
+      keep: 1
+      name: daily-backup
+      schedule: "0 0 * * *"
+      storageName: test-storage-scheduled
+    storages:
+      test-storage:
+        s3:
+          bucket: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-s3
+          endpointUrl: s3.amazonaws.com
+          region: us-east-2
+        type: s3
+      test-storage-scheduled:
+        s3:
+          bucket: test-backup-bucket-scheduled
+          credentialsSecret: test-psmdb-cluster-backup-s3-scheduled
+          endpointUrl: s3.amazonaws.com
+          region: us-east-2
+        type: s3
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready

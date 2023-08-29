@@ -21,3 +21,28 @@ metadata:
 spec:
   storageName: test-storage
   psmdbCluster: test-psmdb-cluster
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  multiCluster:
+    enabled: false
+  backup:
+    storages:
+      test-storage:
+        s3:
+          bucket: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-s3
+          endpointUrl: s3.amazonaws.com
+          region: us-east-2
+        type: s3
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready
