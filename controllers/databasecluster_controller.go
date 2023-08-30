@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -1639,71 +1640,109 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	return newBackups, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGDataSourceSpec(_ context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
-	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.BackupName)
-	if len(destMatch) < 3 {
-		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.BackupName)
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
+		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
+		return nil, errors.Errorf("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
 	}
-	repoName := destMatch[1]
-	backupName := destMatch[2]
 
+	var backupBaseName string
+	var backupStorageName string
+	if database.Spec.DataSource.DBClusterBackupName != "" {
+		dbClusterBackup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, dbClusterBackup)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get DBClusterBackup %s", database.Spec.DataSource.DBClusterBackupName)
+		}
+
+		if dbClusterBackup.Status.Destination == nil {
+			return nil, errors.Errorf("DBClusterBackup %s has no destination", database.Spec.DataSource.DBClusterBackupName)
+		}
+
+		backupBaseName = filepath.Base(*dbClusterBackup.Status.Destination)
+		backupStorageName = dbClusterBackup.Spec.BackupStorageName
+	}
+
+	if database.Spec.DataSource.BackupSource != nil {
+		backupBaseName = filepath.Base(database.Spec.DataSource.BackupSource.Path)
+		backupStorageName = database.Spec.DataSource.BackupSource.BackupStorageName
+	}
+
+	repoName := "repo1"
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				repoName + "-path": "/pgbackrest/" + repoName,
+				repoName + "-path": "/",
 			},
 			Stanza: "db",
 			Options: []string{
 				"--type=immediate",
-				"--set=" + backupName,
+				"--set=" + backupBaseName,
 			},
 		},
 	}
 
-	//nolint:godox
-	// FIXME this will be fixed in EVEREST-249
-	//	backupStorage := &everestv1alpha1.BackupStorage{}
-	//	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
-	//	if err != nil {
-	//		return nil, errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
-	//	}
-	//
-	//	switch backupStorage.Spec.Type {
-	//	case everestv1alpha1.BackupStorageTypeS3:
-	//		secretData, err := addBackupStorageCredentialsToPGBackrestSecret(ctx, r.Client, backupStorage, repoName, []byte{})
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret")
-	//		}
-	//		pgBackrestSecret, err := r.createPGBackrestSecret(
-	//			ctx,
-	//			database,
-	//			secretData,
-	//			database.Name+"-pgbackrest-datasource-secrets",
-	//		)
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "failed to create pgbackrest secret")
-	//		}
-	//
-	//		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
-	//			{
-	//				Secret: &corev1.SecretProjection{
-	//					LocalObjectReference: corev1.LocalObjectReference{
-	//						Name: pgBackrestSecret.Name,
-	//					},
-	//				},
-	//			},
-	//		}
-	//		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
-	//			Name: repoName,
-	//			S3: &crunchyv1beta1.RepoS3{
-	//				Bucket:   backupStorage.Spec.Bucket,
-	//				Endpoint: backupStorage.Spec.EndpointURL,
-	//				Region:   backupStorage.Spec.Region,
-	//			},
-	//		}
-	//	default:
-	//		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
-	//	}
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get backup storage %s", backupStorageName)
+	}
+
+	switch backupStorage.Spec.Type {
+	case everestv1alpha1.BackupStorageTypeS3:
+		pgBackRestSecretIni, err := ini.Load([]byte{})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to initialize PGBackrest secret data")
+		}
+
+		backupStorageSecret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+		}
+
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repoName, backupStorageSecret)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to add data source storage credentials to PGBackrest secret data")
+		}
+		pgBackrestSecretBuf := new(bytes.Buffer)
+		if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
+			return nil, errors.Wrapf(err, "failed to write PGBackrest secret data")
+		}
+
+		secretData := pgBackrestSecretBuf.Bytes()
+
+		pgBackrestSecret, err := r.createPGBackrestSecret(
+			ctx,
+			database,
+			secretData,
+			database.Name+"-pgbackrest-datasource-secrets",
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create pgbackrest secret")
+		}
+
+		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: pgBackrestSecret.Name,
+					},
+				},
+			},
+		}
+		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
+			Name: repoName,
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket:   backupStorage.Spec.Bucket,
+				Endpoint: backupStorage.Spec.EndpointURL,
+				Region:   backupStorage.Spec.Region,
+			},
+		}
+	default:
+		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+	}
+
 	return pgDataSource, nil
 }
 
