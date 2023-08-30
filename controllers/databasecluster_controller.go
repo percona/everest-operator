@@ -263,6 +263,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 	return err
 }
 
+//nolint:gocognit
 func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
@@ -294,12 +295,72 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 
 	// Add the storages used by the DatabaseClusterBackup objects
 	for _, backup := range backupList.Items {
+		// Check if we already fetched that backup storage
 		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
 			continue
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+		}
+
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				S3: psmdbv1.BackupStorageS3Spec{
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		default:
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		}
+	}
+
+	// List DatabaseClusterRestore objects for this database
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps = &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+
+	// Add used restore backup storages to the list
+	for _, restore := range restoreList.Items {
+		// If the restore has already completed, skip it.
+		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateReady) ||
+			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateError) ||
+			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRejected) {
+			continue
+		}
+		// Restores using the BackupSource field instead of the
+		// DBClusterBackupName don't need to have the storage defined, skip
+		// them.
+		if restore.Spec.DataSource.DBClusterBackupName == "" {
+			continue
+		}
+
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to get DatabaseClusterBackup")
+		}
+
+		// Check if we already fetched that backup storage
+		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
+			continue
+		}
+
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
 		}
@@ -894,7 +955,12 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 		restores := &everestv1alpha1.DatabaseClusterRestoreList{}
 
-		if err := r.List(ctx, restores, client.MatchingFields{"spec.dbClusterName": database.Name}); err != nil {
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+			Namespace:     database.Namespace,
+		}
+		err = r.List(ctx, restores, listOps)
+		if err != nil {
 			return err
 		}
 		jobRunning := false

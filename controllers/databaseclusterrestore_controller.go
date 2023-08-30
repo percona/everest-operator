@@ -43,6 +43,8 @@ const (
 	psmdbRestoreCRDName = "perconaservermongodbrestores.psmdb.percona.com"
 	pxcRestoreCRDName   = "perconaxtradbclusterrestores.pxc.percona.com"
 	clusterReadyTimeout = 10 * time.Minute
+
+	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
 )
 
 // DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
@@ -103,6 +105,15 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	}
 	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
 		if err := r.restorePSMDB(ctx, cr); err != nil {
+			// The DatabaseCluster controller is responsible for updating the
+			// upstream DB cluster with the necessary storage definition. If
+			// the storage is not defined in the upstream DB cluster CR, we
+			// requeue the backup to give the DatabaseCluster controller a
+			// chance to update the upstream DB cluster CR.
+			if errors.Is(err, ErrBackupStorageUndefined) {
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			logger.Error(err, "unable to restore PSMDB Cluster")
 			return reconcile.Result{}, err
 		}
@@ -133,8 +144,48 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 
 //nolint:dupl
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
 		return err
+	}
+
+	// We need to check if the storage used by the backup is defined in the
+	// PerconaServerMongoDB CR. If not, we requeue the restore to give the
+	// DatabaseCluster controller a chance to update the PSMDB cluster CR.
+	// Otherwise, the restore will fail.
+	if restore.Spec.DataSource.DBClusterBackupName != "" {
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
+		if err != nil {
+			logger.Error(err, "unable to fetch DatabaseClusterBackup")
+			return err
+		}
+
+		psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
+		err = r.Get(ctx, types.NamespacedName{Name: restore.Spec.DBClusterName, Namespace: restore.Namespace}, psmdbDBCR)
+		if err != nil {
+			logger.Error(err, "unable to fetch PerconaServerMongoDB")
+			return err
+		}
+
+		// If the backup storage is not defined in the PerconaServerMongoDB CR,
+		// we cannot proceed
+		if psmdbDBCR.Spec.Backup.Storages == nil {
+			logger.Info(
+				fmt.Sprintf("Backup storage %s is not defined in the psmdb cluster %s, requeuing",
+					backup.Spec.BackupStorageName,
+					restore.Spec.DBClusterName),
+			)
+			return ErrBackupStorageUndefined
+		}
+		if _, ok := psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
+			logger.Info(
+				fmt.Sprintf("Backup storage %s is not defined in the psmdb cluster %s, requeuing",
+					backup.Spec.BackupStorageName,
+					restore.Spec.DBClusterName),
+			)
+			return ErrBackupStorageUndefined
+		}
 	}
 
 	psmdbCR := &psmdbv1.PerconaServerMongoDBRestore{
@@ -311,7 +362,7 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	err = mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&everestv1alpha1.DatabaseClusterRestore{},
-		"spec.dbClusterName",
+		dbClusterRestoreDBClusterNameField,
 		func(rawObj client.Object) []string {
 			res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
 			return []string{res.Spec.DBClusterName}
