@@ -561,7 +561,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
-	backup.Status.Destination = &psmdbCR.Status.Destination
+	// For consistency with PXC, we use the same destination format
+	destination := fmt.Sprintf("s3://%s/%s",
+		psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName].S3.Bucket,
+		psmdbCR.Status.Destination,
+	)
+	backup.Status.Destination = &destination
 	return r.Status().Update(ctx, backup)
 }
 
