@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -239,6 +240,11 @@ func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (Cluster
 }
 
 func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
+	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
+		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
+		return errors.Errorf("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
+	}
+
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      database.Name + "-datasource",
@@ -249,36 +255,15 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 		return err
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
-		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
-		}
-
-		dbRestore.Spec.DatabaseCluster = database.Name
-		dbRestore.Spec.DatabaseType = database.Spec.Engine.Type
-		dbRestore.Spec.BackupSource = &everestv1alpha1.BackupSource{
-			Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, database.Spec.DataSource.BackupName),
-			StorageName: database.Spec.DataSource.BackupStorageName,
-			StorageType: backupStorage.Spec.Type,
-		}
-		switch backupStorage.Spec.Type {
-		case everestv1alpha1.BackupStorageTypeS3:
-			dbRestore.Spec.BackupSource.S3 = &everestv1alpha1.BackupStorageProviderSpec{
-				Bucket:            backupStorage.Spec.Bucket,
-				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-				Region:            backupStorage.Spec.Region,
-				EndpointURL:       backupStorage.Spec.EndpointURL,
-			}
-		default:
-			return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
-		}
+		dbRestore.Spec.DBClusterName = database.Name
+		dbRestore.Spec.DataSource = *database.Spec.DataSource
 		return nil
 	})
 
 	return err
 }
 
+//nolint:gocognit
 func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
@@ -310,12 +295,72 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 
 	// Add the storages used by the DatabaseClusterBackup objects
 	for _, backup := range backupList.Items {
+		// Check if we already fetched that backup storage
 		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
 			continue
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+		}
+
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				S3: psmdbv1.BackupStorageS3Spec{
+					Bucket:            backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+					Region:            backupStorage.Spec.Region,
+					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		default:
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		}
+	}
+
+	// List DatabaseClusterRestore objects for this database
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps = &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+
+	// Add used restore backup storages to the list
+	for _, restore := range restoreList.Items {
+		// If the restore has already completed, skip it.
+		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateReady) ||
+			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateError) ||
+			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRejected) {
+			continue
+		}
+		// Restores using the BackupSource field instead of the
+		// DBClusterBackupName don't need to have the storage defined, skip
+		// them.
+		if restore.Spec.DataSource.DBClusterBackupName == "" {
+			continue
+		}
+
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
+		if err != nil {
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to get DatabaseClusterBackup")
+		}
+
+		// Check if we already fetched that backup storage
+		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
+			continue
+		}
+
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
 		}
@@ -910,7 +955,12 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 		restores := &everestv1alpha1.DatabaseClusterRestoreList{}
 
-		if err := r.List(ctx, restores, client.MatchingFields{"spec.databaseCluster": database.Name}); err != nil {
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+			Namespace:     database.Namespace,
+		}
+		err = r.List(ctx, restores, listOps)
+		if err != nil {
 			return err
 		}
 		jobRunning := false
@@ -1656,71 +1706,109 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	return newBackups, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGDataSourceSpec(_ context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
-	destMatch := regexp.MustCompile(`/pgbackrest/(repo\d+)/backup/db/(.*)$`).FindStringSubmatch(database.Spec.DataSource.BackupName)
-	if len(destMatch) < 3 {
-		return nil, errors.Errorf("failed to extract the pgbackrest repo and backup names from %s", database.Spec.DataSource.BackupName)
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
+		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
+		return nil, errors.Errorf("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
 	}
-	repoName := destMatch[1]
-	backupName := destMatch[2]
 
+	var backupBaseName string
+	var backupStorageName string
+	if database.Spec.DataSource.DBClusterBackupName != "" {
+		dbClusterBackup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, dbClusterBackup)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get DBClusterBackup %s", database.Spec.DataSource.DBClusterBackupName)
+		}
+
+		if dbClusterBackup.Status.Destination == nil {
+			return nil, errors.Errorf("DBClusterBackup %s has no destination", database.Spec.DataSource.DBClusterBackupName)
+		}
+
+		backupBaseName = filepath.Base(*dbClusterBackup.Status.Destination)
+		backupStorageName = dbClusterBackup.Spec.BackupStorageName
+	}
+
+	if database.Spec.DataSource.BackupSource != nil {
+		backupBaseName = filepath.Base(database.Spec.DataSource.BackupSource.Path)
+		backupStorageName = database.Spec.DataSource.BackupSource.BackupStorageName
+	}
+
+	repoName := "repo1"
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				repoName + "-path": "/pgbackrest/" + repoName,
+				repoName + "-path": "/",
 			},
 			Stanza: "db",
 			Options: []string{
 				"--type=immediate",
-				"--set=" + backupName,
+				"--set=" + backupBaseName,
 			},
 		},
 	}
 
-	//nolint:godox
-	// FIXME this will be fixed in EVEREST-249
-	//	backupStorage := &everestv1alpha1.BackupStorage{}
-	//	err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.BackupStorageName, Namespace: database.Namespace}, backupStorage)
-	//	if err != nil {
-	//		return nil, errors.Wrapf(err, "failed to get backup storage %s", database.Spec.DataSource.BackupStorageName)
-	//	}
-	//
-	//	switch backupStorage.Spec.Type {
-	//	case everestv1alpha1.BackupStorageTypeS3:
-	//		secretData, err := addBackupStorageCredentialsToPGBackrestSecret(ctx, r.Client, backupStorage, repoName, []byte{})
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret")
-	//		}
-	//		pgBackrestSecret, err := r.createPGBackrestSecret(
-	//			ctx,
-	//			database,
-	//			secretData,
-	//			database.Name+"-pgbackrest-datasource-secrets",
-	//		)
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "failed to create pgbackrest secret")
-	//		}
-	//
-	//		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
-	//			{
-	//				Secret: &corev1.SecretProjection{
-	//					LocalObjectReference: corev1.LocalObjectReference{
-	//						Name: pgBackrestSecret.Name,
-	//					},
-	//				},
-	//			},
-	//		}
-	//		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
-	//			Name: repoName,
-	//			S3: &crunchyv1beta1.RepoS3{
-	//				Bucket:   backupStorage.Spec.Bucket,
-	//				Endpoint: backupStorage.Spec.EndpointURL,
-	//				Region:   backupStorage.Spec.Region,
-	//			},
-	//		}
-	//	default:
-	//		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
-	//	}
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get backup storage %s", backupStorageName)
+	}
+
+	switch backupStorage.Spec.Type {
+	case everestv1alpha1.BackupStorageTypeS3:
+		pgBackRestSecretIni, err := ini.Load([]byte{})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to initialize PGBackrest secret data")
+		}
+
+		backupStorageSecret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+		}
+
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repoName, backupStorageSecret)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to add data source storage credentials to PGBackrest secret data")
+		}
+		pgBackrestSecretBuf := new(bytes.Buffer)
+		if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
+			return nil, errors.Wrapf(err, "failed to write PGBackrest secret data")
+		}
+
+		secretData := pgBackrestSecretBuf.Bytes()
+
+		pgBackrestSecret, err := r.createPGBackrestSecret(
+			ctx,
+			database,
+			secretData,
+			database.Name+"-pgbackrest-datasource-secrets",
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create pgbackrest secret")
+		}
+
+		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: pgBackrestSecret.Name,
+					},
+				},
+			},
+		}
+		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
+			Name: repoName,
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket:   backupStorage.Spec.Bucket,
+				Endpoint: backupStorage.Spec.EndpointURL,
+				Region:   backupStorage.Spec.Region,
+			},
+		}
+	default:
+		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+	}
+
 	return pgDataSource, nil
 }
 
@@ -2009,8 +2097,8 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 		needsUpdate = true
 	}
 	if database.Spec.DataSource != nil {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupStorageName)] = backupStorageLabelValue
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)] = backupStorageLabelValue
 			needsUpdate = true
 		}
 	}

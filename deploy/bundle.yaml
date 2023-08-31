@@ -180,23 +180,27 @@ spec:
     listKind: DatabaseClusterRestoreList
     plural: databaseclusterrestores
     shortNames:
-    - dbc-restore
-    - dbc-restores
+    - dbrestore
+    - dbr
     singular: databaseclusterrestore
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - description: Cluster name
-      jsonPath: .spec.databaseCluster
+      jsonPath: .spec.dbClusterName
       name: Cluster
       type: string
-    - description: Storage name from pxc spec
-      jsonPath: .status.storageName
-      name: Storage
+    - description: DBClusterBackup name
+      jsonPath: .spec.dataSource.dbClusterBackupName
+      name: Backup
       type: string
-    - description: Backup destination
-      jsonPath: .status.destination
-      name: Destination
+    - description: Backup path
+      jsonPath: .spec.dataSource.backupSource.path
+      name: Path
+      type: string
+    - description: Storage name
+      jsonPath: .spec.dataSource.backupSource.backupStorageName
+      name: Storage
       type: string
     - description: Job status
       jsonPath: .status.state
@@ -225,81 +229,32 @@ spec:
           spec:
             description: DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
             properties:
-              backupName:
-                type: string
-              backupSource:
-                description: BackupSource represents settings of a source where to get a backup to run restoration.
+              dataSource:
+                description: DataSource defines a data source for restoration.
                 properties:
-                  azure:
-                    description: BackupStorageProviderSpec represents set of settings to configure cloud provider.
+                  backupSource:
+                    description: BackupSource is the backup source to restore from
                     properties:
-                      bucket:
+                      backupStorageName:
+                        description: BackupStorageName is the name of the BackupStorage used for backups.
                         type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP Hot (Frequently accessed or modified data), Cool (Infrequently accessed or modified data), Archive (Rarely accessed or modified data) for Azure.
+                      path:
+                        description: Path is the path to the backup file/directory.
                         type: string
                     required:
-                    - credentialsSecret
+                    - backupStorageName
+                    - path
                     type: object
-                  destination:
+                  dbClusterBackupName:
+                    description: DBClusterBackupName is the name of the DB cluster backup to restore from
                     type: string
-                  image:
-                    type: string
-                  s3:
-                    description: BackupStorageProviderSpec represents set of settings to configure cloud provider.
-                    properties:
-                      bucket:
-                        type: string
-                      containerName:
-                        description: A container name is a valid DNS name that conforms to the Azure naming rules.
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      prefix:
-                        type: string
-                      region:
-                        type: string
-                      storageClass:
-                        description: STANDARD, NEARLINE, COLDLINE, ARCHIVE for GCP Hot (Frequently accessed or modified data), Cool (Infrequently accessed or modified data), Archive (Rarely accessed or modified data) for Azure.
-                        type: string
-                    required:
-                    - credentialsSecret
-                    type: object
-                  sslInternalSecretName:
-                    type: string
-                  sslSecretName:
-                    type: string
-                  storage_type:
-                    description: BackupStorageType is a type of backup storage.
-                    type: string
-                  storageName:
-                    type: string
-                  vaultSecretName:
-                    type: string
-                required:
-                - storage_type
                 type: object
-              databaseCluster:
-                type: string
-              databaseType:
-                description: EngineType stands for the supported database engines. Right now it's only pxc and psmdb. However, it can be ps, pg and any other source.
+              dbClusterName:
+                description: DBClusterName defines the cluster name to restore.
                 type: string
             required:
-            - databaseCluster
-            - databaseType
+            - dataSource
+            - dbClusterName
             type: object
           status:
             description: DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore.
@@ -307,60 +262,10 @@ spec:
               completed:
                 format: date-time
                 type: string
-              conditions:
-                items:
-                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, \n type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
-                  properties:
-                    lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: message is a human readable message indicating details about the transition. This may be an empty string.
-                      maxLength: 32768
-                      type: string
-                    observedGeneration:
-                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
-                      format: int64
-                      minimum: 0
-                      type: integer
-                    reason:
-                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                      type: string
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                      type: string
-                    type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
-                  type: object
-                type: array
-              destination:
-                type: string
-              lastscheduled:
-                format: date-time
-                type: string
               message:
                 type: string
               state:
                 description: RestoreState represents state of restoration.
-                type: string
-              storageName:
                 type: string
             type: object
         type: object
@@ -385,6 +290,7 @@ spec:
     shortNames:
     - db
     - dbc
+    - dbcluster
     singular: databasecluster
   scope: Namespaced
   versions:
@@ -460,15 +366,22 @@ spec:
               dataSource:
                 description: DataSource defines a data source for bootstraping a new cluster
                 properties:
-                  backupName:
-                    description: BackupName is the name of the backup from backup location to use
+                  backupSource:
+                    description: BackupSource is the backup source to restore from
+                    properties:
+                      backupStorageName:
+                        description: BackupStorageName is the name of the BackupStorage used for backups.
+                        type: string
+                      path:
+                        description: Path is the path to the backup file/directory.
+                        type: string
+                    required:
+                    - backupStorageName
+                    - path
+                    type: object
+                  dbClusterBackupName:
+                    description: DBClusterBackupName is the name of the DB cluster backup to restore from
                     type: string
-                  backupStorageName:
-                    description: BackupStorageName is the name of the BackupStorage CR that defines the storage location
-                    type: string
-                required:
-                - backupName
-                - backupStorageName
                 type: object
               engine:
                 description: Engine is the database engine specification
@@ -1411,7 +1324,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: docker.io/percona/everest-operator:0.0.9
+        image: docker.io/percona/everest-operator:0.0.10
         livenessProbe:
           httpGet:
             path: /healthz

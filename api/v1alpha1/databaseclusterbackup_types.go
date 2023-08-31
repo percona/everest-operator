@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BackupState is used to represent cluster's state.
+// BackupState is used to represent the backup's state.
 type BackupState string
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
