@@ -6,7 +6,7 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pg-mc
-  generation: 3
+  generation: 4
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
