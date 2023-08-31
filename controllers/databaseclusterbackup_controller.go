@@ -584,7 +584,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("eu-west-3"),
+		config.WithRegion(backupStorage.Spec.Region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			string(backupStorageSecret.Data["AWS_ACCESS_KEY_ID"]),
 			string(backupStorageSecret.Data["AWS_SECRET_ACCESS_KEY"]),
