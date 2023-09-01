@@ -197,7 +197,7 @@ type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
 	Paused bool `json:"paused,omitempty"`
 	// AllowUnsafeConfiguration field used to ensure that the user can create configurations unfit for production use.
-	AllowUnsafeConfiguration bool `json:"unsafeConfiguration,omitempty"`
+	AllowUnsafeConfiguration bool `json:"allowUnsafeConfiguration,omitempty"`
 	// Engine is the database engine specification
 	Engine Engine `json:"engine"`
 	// Proxy is the proxy specification. If not set, an appropriate
