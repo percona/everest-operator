@@ -1206,8 +1206,26 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 	}
 
-	database.Status.Hostname = pxc.Status.Host
 	database.Status.Status = everestv1alpha1.AppState(pxc.Status.Status)
+	// If a restore is running for this database, set the database status to
+	// restoring
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+	for _, restore := range restoreList.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreRestore) {
+			database.Status.Status = everestv1alpha1.AppStateRestoring
+			break
+		}
+	}
+
+	database.Status.Hostname = pxc.Status.Host
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
