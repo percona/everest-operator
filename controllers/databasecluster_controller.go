@@ -193,6 +193,12 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if database.Spec.Engine.UserSecretsName == "" {
 		database.Spec.Engine.UserSecretsName = fmt.Sprintf("everest-secrets-%s", database.Name)
 	}
+	if database.Spec.Engine.Replicas == 0 {
+		database.Spec.Engine.Replicas = 3
+	}
+	if database.Spec.Engine.Replicas == 1 {
+		database.Spec.Engine.UnsafeConfiguration = true
+	}
 
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
@@ -478,9 +484,6 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 				TopologyKey: pointer.ToString("kubernetes.io/hostname"),
 			}
 			psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
-			psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = affinity
-			psmdb.Spec.Sharding.ConfigsvrReplSet.Arbiter.MultiAZ.Affinity = affinity
-			psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = affinity
 		}
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
@@ -502,7 +505,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		psmdb.Spec.CRVersion = version.ToCRVersion()
-		psmdb.Spec.UnsafeConf = database.Spec.Engine.Replicas == 1
+		psmdb.Spec.UnsafeConf = database.Spec.Engine.UnsafeConfiguration
 		psmdb.Spec.Pause = database.Spec.Paused
 
 		if database.Spec.Engine.Version == "" {
@@ -528,9 +531,6 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 		}
 
-		if database.Spec.Engine.Replicas == 0 {
-			database.Spec.Engine.Replicas = 3
-		}
 		psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
 		psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
@@ -550,63 +550,16 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		if !database.Spec.Engine.Resources.Memory.IsZero() {
 			psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.Engine.Replicas
-		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
-			PersistentVolumeClaim: psmdbv1.PVCSpec{
-				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: database.Spec.Engine.Storage.Class,
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
-						},
-					},
-				},
-			},
-		}
-		if database.Spec.Proxy.Replicas == nil {
-			// By default we set the same number of replicas as the engine
-			psmdb.Spec.Sharding.Mongos.Size = database.Spec.Engine.Replicas
-		} else {
-			psmdb.Spec.Sharding.Mongos.Size = *database.Spec.Proxy.Replicas
-		}
 		switch database.Spec.Proxy.Expose.Type {
 		case everestv1alpha1.ExposeTypeInternal:
-			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
-				Expose: psmdbv1.Expose{
-					ExposeType: corev1.ServiceTypeClusterIP,
-				},
-			}
+			psmdb.Spec.Replsets[0].Expose.Enabled = false
+			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
 		case everestv1alpha1.ExposeTypeExternal:
-			psmdb.Spec.Sharding.Mongos.Expose = psmdbv1.MongosExpose{
-				Expose: psmdbv1.Expose{
-					ExposeType:               corev1.ServiceTypeLoadBalancer,
-					LoadBalancerSourceRanges: database.Spec.Proxy.Expose.IPSourceRanges,
-				},
-			}
+			psmdb.Spec.Replsets[0].Expose.Enabled = true
+			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
+			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
 		default:
 			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
-		}
-
-		psmdb.Spec.Sharding.Mongos.Configuration = psmdbv1.MongoConfiguration(database.Spec.Proxy.Config)
-		if !database.Spec.Proxy.Resources.CPU.IsZero() {
-			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
-		}
-		if !database.Spec.Proxy.Resources.Memory.IsZero() {
-			psmdb.Spec.Sharding.Mongos.MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
-		}
-		if database.Spec.Engine.Replicas == 1 {
-			psmdb.Spec.Sharding.Enabled = false
-			psmdb.Spec.Replsets[0].Expose.Enabled = true
-			switch database.Spec.Proxy.Expose.Type {
-			case everestv1alpha1.ExposeTypeInternal:
-				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
-			case everestv1alpha1.ExposeTypeExternal:
-				psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
-			default:
-				return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
-			}
-			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
-			psmdb.Spec.Sharding.Mongos.Expose.ExposeType = corev1.ServiceTypeClusterIP
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
@@ -1077,7 +1030,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		pxc.Spec.CRVersion = version.ToCRVersion()
-		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.Replicas == 1
+		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.UnsafeConfiguration
 		pxc.Spec.Pause = database.Spec.Paused
 		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
 
@@ -1104,9 +1057,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		if database.Spec.Engine.Replicas == 0 {
-			database.Spec.Engine.Replicas = 3
-		}
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
 
 		if database.Spec.Engine.Version == "" {
@@ -2022,9 +1972,6 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			return errors.Wrap(err, "could not update PG config")
 		}
 
-		if database.Spec.Engine.Replicas == 0 {
-			database.Spec.Engine.Replicas = 3
-		}
 		pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
 		if !database.Spec.Engine.Resources.CPU.IsZero() {
 			pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
@@ -2987,32 +2934,7 @@ func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMon
 			},
 		},
 		Sharding: psmdbv1.Sharding{
-			Enabled: true,
-			ConfigsvrReplSet: &psmdbv1.ReplsetSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-				},
-				Arbiter: psmdbv1.Arbiter{
-					Enabled: false,
-					MultiAZ: psmdbv1.MultiAZ{
-						Affinity: &psmdbv1.PodAffinity{
-							TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-						},
-					},
-				},
-			},
-			Mongos: &psmdbv1.MongosSpec{
-				MultiAZ: psmdbv1.MultiAZ{
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{},
-					},
-				},
-			},
+			Enabled: false,
 		},
 	}
 }

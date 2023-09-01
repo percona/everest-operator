@@ -97,6 +97,8 @@ type Resources struct {
 type Engine struct {
 	// Type is the engine type
 	Type EngineType `json:"type"`
+	// UnsafeConfiguration field used to ensure bla bla bla
+	UnsafeConfiguration bool `json:"unsafeConfiguration,omitempty"`
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
 	// Replicas is the number of engine replicas
