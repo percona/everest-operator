@@ -309,3 +309,6 @@ DEPLOYDIR = ./deploy
 .PHONY: $(DEPLOYDIR)/bundle.yaml
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml
+
+.PHONY: release
+release:  generate manifests bundle format $(DEPLOYDIR)/bundle.yaml ## Prepare release
