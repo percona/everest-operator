@@ -97,8 +97,6 @@ type Resources struct {
 type Engine struct {
 	// Type is the engine type
 	Type EngineType `json:"type"`
-	// UnsafeConfiguration field used to ensure that the user can create configurations unfit for production use.
-	UnsafeConfiguration bool `json:"unsafeConfiguration,omitempty"`
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
 	// Replicas is the number of engine replicas
@@ -198,6 +196,8 @@ type Monitoring struct {
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
 	Paused bool `json:"paused,omitempty"`
+	// AllowUnsafeConfiguration field used to ensure that the user can create configurations unfit for production use.
+	AllowUnsafeConfiguration bool `json:"unsafeConfiguration,omitempty"`
 	// Engine is the database engine specification
 	Engine Engine `json:"engine"`
 	// Proxy is the proxy specification. If not set, an appropriate

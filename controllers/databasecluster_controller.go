@@ -197,7 +197,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		database.Spec.Engine.Replicas = 3
 	}
 	if database.Spec.Engine.Replicas == 1 {
-		database.Spec.Engine.UnsafeConfiguration = true
+		database.Spec.AllowUnsafeConfiguration = true
 	}
 
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
@@ -505,7 +505,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 
 		psmdb.Spec.CRVersion = version.ToCRVersion()
-		psmdb.Spec.UnsafeConf = database.Spec.Engine.UnsafeConfiguration
+		psmdb.Spec.UnsafeConf = database.Spec.AllowUnsafeConfiguration
 		psmdb.Spec.Pause = database.Spec.Paused
 
 		if database.Spec.Engine.Version == "" {
@@ -1030,7 +1030,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 
 		pxc.Spec.CRVersion = version.ToCRVersion()
-		pxc.Spec.AllowUnsafeConfig = database.Spec.Engine.UnsafeConfiguration
+		pxc.Spec.AllowUnsafeConfig = database.Spec.AllowUnsafeConfiguration
 		pxc.Spec.Pause = database.Spec.Paused
 		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
 
