@@ -165,10 +165,6 @@ spec:
                   type:
                     description: Type is the engine type
                     type: string
-                  unsafeConfiguration:
-                    description: UnsafeConfiguration field used to ensure bla bla
-                      bla
-                    type: boolean
                   userSecretsName:
                     description: UserSecretsName is the name of the secret containing
                       the user secrets
@@ -299,6 +295,10 @@ spec:
                     - pgbouncer
                     type: string
                 type: object
+              unsafeConfiguration:
+                description: AllowUnsafeConfiguration field used to ensure that the
+                  user can create configurations unfit for production use.
+                type: boolean
             required:
             - engine
             type: object
