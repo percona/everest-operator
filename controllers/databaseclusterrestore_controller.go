@@ -18,8 +18,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
@@ -42,6 +44,7 @@ const (
 	psmdbRestoreAPI     = "psmdb.percona.com/v1"
 	psmdbRestoreCRDName = "perconaservermongodbrestores.psmdb.percona.com"
 	pxcRestoreCRDName   = "perconaxtradbclusterrestores.pxc.percona.com"
+	pgRestoreCRDName    = "perconapgrestores.pgv2.percona.com"
 	clusterReadyTimeout = 10 * time.Minute
 
 	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
@@ -58,7 +61,7 @@ type DatabaseClusterRestoreReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbrestores,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgbackups,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgrestores,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -115,6 +118,21 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 			}
 
 			logger.Error(err, "unable to restore PSMDB Cluster")
+			return reconcile.Result{}, err
+		}
+	}
+	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePostgresql {
+		if err := r.restorePG(ctx, cr); err != nil {
+			// The DatabaseCluster controller is responsible for updating the
+			// upstream DB cluster with the necessary storage definition. If
+			// the storage is not defined in the upstream DB cluster CR, we
+			// requeue the backup to give the DatabaseCluster controller a
+			// chance to update the upstream DB cluster CR.
+			if errors.Is(err, ErrBackupStorageUndefined) {
+				return reconcile.Result{Requeue: true}, nil
+			}
+
+			logger.Error(err, "unable to restore PG Cluster")
 			return reconcile.Result{}, err
 		}
 	}
@@ -198,10 +216,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 		return err
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
-		psmdbCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: psmdbRestoreAPI,
-			Kind:       psmdbRestoreKind,
-		}
 		psmdbCR.Spec.ClusterName = restore.Spec.DBClusterName
 		if restore.Spec.DataSource.DBClusterBackupName != "" {
 			psmdbCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
@@ -306,6 +320,82 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 	return r.Status().Update(ctx, restore)
 }
 
+func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+	logger := log.FromContext(ctx)
+
+	var backupStorageName string
+	var backupBaseName string
+	if restore.Spec.DataSource.DBClusterBackupName != "" {
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
+		if err != nil {
+			logger.Error(err, "unable to fetch DatabaseClusterBackup")
+			return err
+		}
+
+		backupStorageName = backup.Spec.BackupStorageName
+		backupBaseName = filepath.Base(*backup.Status.Destination)
+	}
+	if restore.Spec.DataSource.BackupSource != nil {
+		backupStorageName = restore.Spec.DataSource.BackupSource.BackupStorageName
+		backupBaseName = filepath.Base(restore.Spec.DataSource.BackupSource.Path)
+	}
+
+	pgDBCR := &pgv2.PerconaPGCluster{}
+	err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DBClusterName, Namespace: restore.Namespace}, pgDBCR)
+	if err != nil {
+		logger.Error(err, "unable to fetch PerconaPGCluster")
+		return err
+	}
+
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err = r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: restore.Namespace}, backupStorage)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
+	}
+
+	// We need to check if the storage used by the backup is defined in the
+	// PerconaPGCluster CR. If not, we requeue the restore to give the
+	// DatabaseCluster controller a chance to update the PG cluster CR.
+	// Otherwise, the restore will fail.
+	repoIdx := getBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	if repoIdx == -1 {
+		logger.Info(
+			fmt.Sprintf("Backup storage %s is not defined in the pg cluster %s, requeuing",
+				backupStorageName,
+				restore.Spec.DBClusterName),
+		)
+		return ErrBackupStorageUndefined
+	}
+
+	pgCR := &pgv2.PerconaPGRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      restore.Name,
+			Namespace: restore.Namespace,
+		},
+	}
+	if err := controllerutil.SetControllerReference(restore, pgCR, r.Client.Scheme()); err != nil {
+		return err
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
+		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
+		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
+		pgCR.Spec.Options = []string{
+			"--type=immediate",
+			"--set=" + backupBaseName,
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	restore.Status.State = everestv1alpha1.RestoreState(pgCR.Status.State)
+	restore.Status.CompletedAt = pgCR.Status.CompletedAt
+
+	return r.Status().Update(ctx, restore)
+}
+
 func (r *DatabaseClusterRestoreReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
@@ -316,11 +406,20 @@ func (r *DatabaseClusterRestoreReconciler) addPXCKnownTypes(scheme *runtime.Sche
 }
 
 func (r *DatabaseClusterRestoreReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
-	scheme.AddKnownTypes(pxcSchemeGroupVersion,
+	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
+	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
 		&psmdbv1.PerconaServerMongoDBRestore{}, &psmdbv1.PerconaServerMongoDBRestoreList{})
 
-	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
+	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
+	return nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
+	pgSchemeGroupVersion := schema.GroupVersion{Group: "pgv2.percona.com", Version: "v2"}
+	scheme.AddKnownTypes(pgSchemeGroupVersion,
+		&pgv2.PerconaPGRestore{}, &pgv2.PerconaPGRestoreList{})
+
+	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
 	return nil
 }
 
@@ -331,6 +430,11 @@ func (r *DatabaseClusterRestoreReconciler) addPXCToScheme(scheme *runtime.Scheme
 
 func (r *DatabaseClusterRestoreReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
+	return builder.AddToScheme(scheme)
+}
+
+func (r *DatabaseClusterRestoreReconciler) addPGToScheme(scheme *runtime.Scheme) error {
+	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
 	return builder.AddToScheme(scheme)
 }
 
@@ -356,8 +460,11 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 			controller.Owns(&psmdbv1.PerconaServerMongoDBRestore{})
 		}
 	}
-	if err := r.addPSMDBToScheme(r.Scheme); err != nil {
-		return err
+	err = r.Get(context.Background(), types.NamespacedName{Name: pgRestoreCRDName}, unstructuredResource)
+	if err == nil {
+		if err := r.addPGToScheme(r.Scheme); err == nil {
+			controller.Owns(&pgv2.PerconaPGRestore{})
+		}
 	}
 	err = mgr.GetFieldIndexer().IndexField(
 		context.Background(),
