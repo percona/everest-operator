@@ -661,10 +661,28 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 	}
 
+	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
+	// If a restore is running for this database, set the database status to
+	// restoring
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+	for _, restore := range restoreList.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRunning) {
+			database.Status.Status = everestv1alpha1.AppStateRestoring
+			break
+		}
+	}
+
 	database.Status.Hostname = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
-	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
 	message := psmdb.Status.Message
 	conditions := psmdb.Status.Conditions
 	if message == "" && len(conditions) != 0 {
@@ -1188,8 +1206,26 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 	}
 
-	database.Status.Hostname = pxc.Status.Host
 	database.Status.Status = everestv1alpha1.AppState(pxc.Status.Status)
+	// If a restore is running for this database, set the database status to
+	// restoring
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+	for _, restore := range restoreList.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreRestore) {
+			database.Status.Status = everestv1alpha1.AppStateRestoring
+			break
+		}
+	}
+
+	database.Status.Hostname = pxc.Status.Host
 	database.Status.Ready = pxc.Status.Ready
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
@@ -1502,8 +1538,11 @@ func reconcilePGBackRestRepos(
 		}
 	}
 
-	// Add on-demand backups whose backup storage that doesn't have a schedule
+	// Add on-demand backups whose backup storage doesn't have a schedule
 	// defined
+	// XXX some of these backups might be fake, see the XXX comment in the
+	// reconcilePGBackupsSpec function for more context. Be very careful if you
+	// decide to use fields other that the Spec.BackupStorageName.
 	for _, backupRequest := range backupRequests {
 		// Backup storage already in repos, skip
 		if _, ok := backupStoragesInRepos[backupRequest.Spec.BackupStorageName]; ok {
@@ -1580,6 +1619,7 @@ func reconcilePGBackRestRepos(
 	return newRepos, pgBackRestGlobal, pgBackrestSecretBuf.Bytes(), nil
 }
 
+//nolint:gocognit
 func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	ctx context.Context,
 	oldBackups crunchyv1beta1.Backups,
@@ -1593,15 +1633,21 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 
 	newBackups := crunchyv1beta1.Backups{
 		PGBackRest: crunchyv1beta1.PGBackRestArchive{
-			Image: pgbackrestVersion.ImagePath,
-			// This field is required by the operator, but it doesn't impact
-			// our manual backup operation because we use the PerconaPGBackup
-			// CR to request on-demand backups instead of setting the
-			// postgres-operator.crunchydata.com/pgbackrest-backup annotation.
-			Manual: &crunchyv1beta1.PGBackRestManualBackup{
-				RepoName: "repo1",
-			},
+			Image:   pgbackrestVersion.ImagePath,
+			Manual:  oldBackups.PGBackRest.Manual,
+			Restore: oldBackups.PGBackRest.Restore,
 		},
+	}
+
+	if newBackups.PGBackRest.Manual == nil {
+		// This field is required by the operator, but it doesn't impact
+		// our manual backup operation because we use the PerconaPGBackup
+		// CR to request on-demand backups which then changes the Manual field
+		// internally and sets the
+		// postgres-operator.crunchydata.com/pgbackrest-backup annotation.
+		newBackups.PGBackRest.Manual = &crunchyv1beta1.PGBackRestManualBackup{
+			RepoName: "repo1",
+		}
 	}
 
 	// List DatabaseClusterBackup objects for this database
@@ -1615,9 +1661,9 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
 	}
 
-	// Add used backup storages to the list
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
 	backupStoragesSecrets := map[string]*corev1.Secret{}
+	// Add backup storages used by on-demand backups to the list
 	for _, backup := range backupList.Items {
 		// Check if we already fetched that backup storage
 		if _, ok := backupStorages[backup.Spec.BackupStorageName]; ok {
@@ -1640,13 +1686,87 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		backupStoragesSecrets[backupStorage.Name] = backupStorageSecret
 	}
 
+	// List DatabaseClusterRestore objects for this database
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps = &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+
+	// Add backup storages used by restores to the list
+	for _, restore := range restoreList.Items {
+		// If the restore has already completed, skip it.
+		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreSucceeded) ||
+			restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreFailed) {
+			continue
+		}
+
+		var backupStorageName string
+		if restore.Spec.DataSource.DBClusterBackupName != "" {
+			backup := &everestv1alpha1.DatabaseClusterBackup{}
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
+			if err != nil {
+				return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to get DatabaseClusterBackup")
+			}
+
+			backupStorageName = backup.Spec.BackupStorageName
+		}
+		if restore.Spec.DataSource.BackupSource != nil {
+			backupStorageName = restore.Spec.DataSource.BackupSource.BackupStorageName
+		}
+
+		// Check if we already fetched that backup storage
+		if _, ok := backupStorages[backupStorageName]; ok {
+			continue
+		}
+
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
+		if err != nil {
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", backupStorageName)
+		}
+
+		backupStorageSecret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+		if err != nil {
+			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+		}
+
+		backupStorages[backupStorage.Name] = backupStorage.Spec
+		backupStoragesSecrets[backupStorage.Name] = backupStorageSecret
+
+		// XXX We need to add this restore's backup storage to the list of
+		// repos.
+		// Passing the restoreList to the reconcilePGBackRestRepos function is
+		// not a good option because in that case the
+		// reconcilePGBackRestRepos function would no longer be purely
+		// functional, as it would then need to fetch the DatabaseClusterBackup
+		// object referenced by the restore from the API server.
+		// We could instead create a new restore type that would also include
+		// the backup storage and fetch it here, but that seems a bit overkill.
+		// We already pass on the backupList to the reconcilePGBackRestRepos
+		// function that only uses the DatabaseClusterBackup reference to the
+		// backup storage name which is exactly what we need here too. Let's
+		// just add a fake backup to the backupList so that the restore's
+		// backup storage is included in the repos.
+		backupList.Items = append(backupList.Items, everestv1alpha1.DatabaseClusterBackup{
+			Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+				BackupStorageName: backupStorageName,
+			},
+		})
+	}
+
 	// Only use the backup schedules if schedules are enabled in the DBC spec
 	backupSchedules := []everestv1alpha1.BackupSchedule{}
 	if database.Spec.Backup.Enabled {
 		backupSchedules = database.Spec.Backup.Schedules
 	}
 
-	// Add used backup storages to the list
+	// Add backup storages used by backup schedules to the list
 	for _, schedule := range backupSchedules {
 		// Check if we already fetched that backup storage
 		if _, ok := backupStorages[schedule.BackupStorageName]; ok {
@@ -2028,8 +2148,26 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return err
 	}
 
-	database.Status.Hostname = pg.Status.Host
 	database.Status.Status = everestv1alpha1.AppState(pg.Status.State)
+	// If a restore is running for this database, set the database status to
+	// restoring
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+	for _, restore := range restoreList.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreRunning) {
+			database.Status.Status = everestv1alpha1.AppStateRestoring
+			break
+		}
+	}
+
+	database.Status.Hostname = pg.Status.Host
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	database.Status.Port = 5432
@@ -2381,6 +2519,25 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 				{
 					NamespacedName: types.NamespacedName{
 						Name:      dbClusterBackup.Spec.DBClusterName,
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	controller.Watches(
+		&everestv1alpha1.DatabaseClusterRestore{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			dbClusterRestore, ok := obj.(*everestv1alpha1.DatabaseClusterRestore)
+			if !ok {
+				return []reconcile.Request{}
+			}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      dbClusterRestore.Spec.DBClusterName,
 						Namespace: obj.GetNamespace(),
 					},
 				},
