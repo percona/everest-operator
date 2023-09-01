@@ -661,10 +661,28 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 	}
 
+	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
+	// If a restore is running for this database, set the database status to
+	// restoring
+	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(dbClusterRestoreDBClusterNameField, database.Name),
+		Namespace:     database.Namespace,
+	}
+	err = r.List(ctx, restoreList, listOps)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+	}
+	for _, restore := range restoreList.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRunning) {
+			database.Status.Status = everestv1alpha1.AppStateRestoring
+			break
+		}
+	}
+
 	database.Status.Hostname = psmdb.Status.Host
 	database.Status.Ready = psmdb.Status.Ready
 	database.Status.Size = psmdb.Status.Size
-	database.Status.Status = everestv1alpha1.AppState(psmdb.Status.State)
 	message := psmdb.Status.Message
 	conditions := psmdb.Status.Conditions
 	if message == "" && len(conditions) != 0 {
