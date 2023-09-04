@@ -109,7 +109,10 @@ jobs:
 
       - name: Scale up cluster
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=4 "$NODEPOOL_NAME" --wait
+          if [[ -f /tmp/scale-up ]]; then
+            touch /tmp/scale-up
+            eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=4 "$NODEPOOL_NAME" --wait
+          fi
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
@@ -130,7 +133,10 @@ jobs:
       - name: Scale down cluster
         if: always()
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+          if [[ -f /tmp/scale-down ]]; then
+            touch /tmp/scale-down
+            eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+          fi
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
@@ -138,6 +144,7 @@ jobs:
       - name: Clean up CRDs
         if: always()
         run: |
+          rm /tmp/scale-up /tmp/scale-down
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
 
@@ -209,7 +216,10 @@ jobs:
 
       - name: Scale up cluster
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=4 "$NODEPOOL_NAME" --wait
+          if [[ -f /tmp/scale-up ]]; then
+            touch /tmp/scale-up
+            eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=4 "$NODEPOOL_NAME" --wait
+          fi
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
@@ -230,7 +240,10 @@ jobs:
       - name: Scale down cluster
         if: always()
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+          if [[ -f /tmp/scale-down ]]; then
+            touch /tmp/scale-down
+            eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+          fi
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
