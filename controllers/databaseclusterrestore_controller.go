@@ -87,6 +87,21 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, errors.New("specify either dbClusterBackupName or backupSource")
 	}
 
+	if len(cr.ObjectMeta.Labels) == 0 {
+		cr.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: cr.Spec.DBClusterName,
+		}
+
+		if cr.Spec.DataSource.BackupSource != nil {
+			key := fmt.Sprintf(backupStorageNameLabelTmpl, cr.Spec.DataSource.BackupSource.BackupStorageName)
+			cr.ObjectMeta.Labels[key] = backupStorageLabelValue
+		}
+
+		if err := r.Update(ctx, cr); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	dbCRNamespacedName := types.NamespacedName{
 		Name:      cr.Spec.DBClusterName,
 		Namespace: cr.Namespace,
