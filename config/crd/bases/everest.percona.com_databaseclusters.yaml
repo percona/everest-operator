@@ -55,6 +55,10 @@ spec:
           spec:
             description: DatabaseClusterSpec defines the desired state of DatabaseCluster.
             properties:
+              allowUnsafeConfiguration:
+                description: AllowUnsafeConfiguration field used to ensure that the
+                  user can create configurations unfit for production use.
+                type: boolean
               backup:
                 description: Backup is the backup specification
                 properties:
