@@ -14,13 +14,13 @@ spec:
           max_connections: "2840"
 status:
   pgbouncer:
-    ready: 3
-    size: 3
+    ready: 1
+    size: 1
   postgres:
     instances:
     - name: instance1
-      ready: 3
-      size: 3
-    ready: 3
-    size: 3
+      ready: 1
+      size: 1
+    ready: 1
+    size: 1
   state: ready
