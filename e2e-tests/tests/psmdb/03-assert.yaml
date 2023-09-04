@@ -28,8 +28,8 @@ spec:
     type: mongos
     replicas: 3
 status:
-  ready: 9
-  size: 9
+  ready: 3
+  size: 3
   status: ready
 ---
 apiVersion: psmdb.percona.com/v1
@@ -61,34 +61,14 @@ spec:
   secrets:
     users:  psmdb-sample-secrets
   sharding:
-    configsvrReplSet:
-      size: 3
-      volumeSpec:
-        persistentVolumeClaim:
-          resources:
-            requests:
-              storage: 15G
-    enabled: true
-    mongos:
-      expose:
-        exposeType: ClusterIP
-      size: 3
+    enabled: false
 status:
-  mongos:
-    ready: 3
-    size: 3
-    status: ready
   replsets:
-    cfg:
-      initialized: true
-      ready: 3
-      size: 3
-      status: ready
     rs0:
       initialized: true
       ready: 3
       size: 3
       status: ready
-  ready: 9
-  size: 9
+  ready: 3
+  size: 3
   state: ready
