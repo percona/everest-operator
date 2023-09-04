@@ -1,0 +1,43 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: pxctemplatepxcconfiguration.everest.percona.com
+  labels:
+    everest.percona.com/template: "yes"
+    everest.percona.com/engine: "pxc"
+spec:
+  group: everest.percona.com
+  names:
+    kind: PXCTemplatePXCConfiguration
+    listKind: PXCTemplatePXCConfigurationList
+    plural: pxctemplatepxcconfiguration
+    singular: pxctemplatepxcconfiguration
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              pxc:
+                properties:
+                  configuration:
+                    type: string
+                type: object
+            type: object
+          status:
+            type: object
+        type: object
+    served: true
+    storage: true

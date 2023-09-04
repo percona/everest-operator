@@ -1,0 +1,93 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+  annotations:
+    everest.percona.com/dbtemplate-kind: PXCTemplatePXCConfiguration
+    everest.percona.com/dbtemplate-name: test-pxc-template
+spec:
+  engine:
+    type: pxc
+    version: 8.0.32-24.2
+    userSecretsName: pxc-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 600m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
+    type: haproxy
+    replicas: 1
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PXCTemplatePXCConfiguration
+metadata:
+  name: test-pxc-template
+  annotations:
+    everest.percona.com/dbtemplate-origin: kuttl
+  labels:
+    everest.percona.com/engine: pxc
+spec:
+  pxc:
+    configuration: |
+      [mysqld]
+      max_connections = 789
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+  annotations:
+    everest.percona.com/dbtemplate-origin: kuttl
+  labels:
+    everest.percona.com/engine: pxc
+spec:
+  haproxy:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
+    serviceType: ClusterIP
+    size: 1
+  pxc:
+    configuration: |
+      [mysqld]
+      max_connections = 789
+    expose: {}
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
+    livenessProbes: {}
+    readinessProbes: {}
+    resources:
+      limits:
+        cpu: 600m
+        memory: 1G
+    serviceType: ClusterIP
+    sidecarResources: {}
+    size: 1
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 15G
+  secretsName: pxc-sample-secrets
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+status:
+  haproxy:
+    ready: 1
+    size: 1
+    status: ready
+  pxc:
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
+    ready: 1
+    size: 1
+    status: ready
+    version: 8.0.32-24.2
+  ready: 2
+  size: 2
+  state: ready

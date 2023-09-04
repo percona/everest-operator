@@ -1,0 +1,85 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-single-node
+spec:
+  engine:
+    type: postgresql
+    version: "14.7"
+    replicas: 1
+    storage:
+      size: 15G
+    resources:
+      cpu: "1"
+      memory: 1G
+  proxy:
+    type: pgbouncer
+    replicas: 1
+status:
+  ready: 2
+  size: 2
+  status: ready
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-single-node
+spec:
+  backups:
+    pgbackrest:
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbackrest
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 15G
+  image: percona/percona-postgresql-operator:2.2.0-ppg14-postgres
+  instances:
+  - dataVolumeClaimSpec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 15G
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1G
+    name: instance1
+    replicas: 1
+  pmm:
+    enabled: false
+    image: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 300M
+  port: 5432
+  postgresVersion: 14
+  proxy:
+    pgBouncer:
+      image: percona/percona-postgresql-operator:2.2.0-ppg14-pgbouncer
+      port: 5432
+      replicas: 1
+      expose:
+        type: ClusterIP
+status:
+  pgbouncer:
+    ready: 1
+    size: 1
+  postgres:
+    instances:
+    - name: instance1
+      ready: 1
+      size: 1
+    ready: 1
+    size: 1
+  state: ready

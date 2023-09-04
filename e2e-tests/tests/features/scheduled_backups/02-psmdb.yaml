@@ -1,0 +1,49 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  credentialsSecretName: test-pxc-cluster-backup-s3
+  endpointURL: https://s3.us-west-1.amazonaws.com
+  region: us-west-1
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+      operationProfiling:
+         mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 500m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
+    type: mongos
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 5
+        backupStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        backupStorageName: aws

@@ -1,0 +1,22 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+  annotations: null
+spec:
+  engine:
+    type: pxc
+    version: 8.0.32-24.2
+    userSecretsName: pxc-sample-secrets
+    replicas: 1
+    resources:
+      cpu: 600m
+      memory: 1G
+    storage:
+      size: 15G
+  proxy:
+    type: haproxy
+    replicas: 1

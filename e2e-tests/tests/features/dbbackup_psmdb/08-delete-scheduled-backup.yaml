@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+delete:
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDBBackup
+    name: a-scheduled-backup
+

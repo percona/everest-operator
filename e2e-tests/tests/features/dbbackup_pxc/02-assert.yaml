@@ -1,0 +1,46 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup
+spec:
+  backupStorageName: test-storage
+  dbClusterName: test-pxc-cluster
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: test-db-backup
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup
+spec:
+  storageName: test-storage
+  pxcCluster: test-pxc-cluster
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  haproxy:
+    enabled: true
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+  backup:
+    storages:
+      test-storage:
+        s3:
+          bucket: test-backup-bucket
+          credentialsSecret: test-pxc-cluster-backup-s3
+          endpointUrl: s3.someprovider.com
+          region: us-east-2
+        type: s3
+status:
+  state: ready
