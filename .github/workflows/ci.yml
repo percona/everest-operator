@@ -251,6 +251,7 @@ jobs:
       - name: Clean up CRDs
         if: always()
         run: |
+          rm /tmp/scale-up /tmp/scale-down
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
 
