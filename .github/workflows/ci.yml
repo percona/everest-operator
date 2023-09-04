@@ -46,8 +46,8 @@ jobs:
           PG_OPERATOR_VERSION: 2.2.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
-  eks-e2e-tests:
-    name: E2E tests (EKS)
+  eks-e2e-tests-core:
+    name: Core E2E tests (EKS)
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
@@ -119,7 +119,7 @@ jobs:
           export KUBECONFIG="${HOME}/.kube/config"
           mkdir -p "${KUBECONFIG%/*}"
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
-          kubectl kuttl test --config ./e2e-tests/kuttl-eks.yml
+          kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.14.0
@@ -146,6 +146,105 @@ jobs:
           rm -f "$HOME"/.aws/config
           rm -f "$HOME"/.aws/credentials
 
+  eks-e2e-tests-features:
+    name: Features E2E tests (EKS)
+    timeout-minutes: 80
+    concurrency: eks-e2e-tests
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Set up Go release
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.20'
+          check-latest: true
+
+      - name: Build operator
+        run:
+          make build
+
+      - name: Install tools
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          cp kubectl "$TOOLS_PATH"
+          rm kubectl
+          # Kind
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.17.0/kind-linux-amd64
+          chmod +x ./kind
+          mv ./kind "$TOOLS_PATH"
+          # Kuttl
+          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
+          chmod +x ./kubectl-kuttl
+          mv ./kubectl-kuttl "$TOOLS_PATH"
+          # Install EKSCTL
+          ARCH=amd64
+          PLATFORM=$(uname -s)_$ARCH
+          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+          tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
+          chmod +x "$TOOLS_PATH"/eksctl
+          # Configure CLI access
+          mkdir "$HOME"/.aws
+          echo "[default]" >> "$HOME"/.aws/credentials
+          echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
+          echo "aws_secret_access_key="$EKSKEY"" >> "${HOME}"/.aws/credentials
+          echo "[default]" >> "${HOME}"/.aws/config
+          echo "region = "$EKSREG"" >> "${HOME}"/.aws/config
+        env:
+          KUBECTL_VERSION: 1.25.1
+          EKSUID: ${{ secrets.EKSU }}
+          EKSKEY: ${{ secrets.EKSSAK }}
+          EKSREG: ${{ secrets.EKSREG }}
+
+      - name: Scale up cluster
+        run: |
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=4 "$NODEPOOL_NAME" --wait
+        env:
+          CLUSTER_NAME: "dbaas-ci-20221005"
+          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+
+      - name: Run tests
+        run: |
+          export KUBECONFIG="${HOME}/.kube/config"
+          mkdir -p "${KUBECONFIG%/*}"
+          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
+          kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
+        env:
+          PXC_OPERATOR_VERSION: 1.13.0
+          PSMDB_OPERATOR_VERSION: 1.14.0
+          PG_OPERATOR_VERSION: 2.2.0
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
+      - name: Scale down cluster
+        if: always()
+        run: |
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+        env:
+          CLUSTER_NAME: "dbaas-ci-20221005"
+          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+
+      - name: Clean up CRDs
+        if: always()
+        run: |
+          kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
+          kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
+
+      - name: Clean up credentials
+        run: |
+          rm -f "$HOME"/.aws/config
+          rm -f "$HOME"/.aws/credentials
   make-bundle:
     name: Make Bundle
     strategy:
