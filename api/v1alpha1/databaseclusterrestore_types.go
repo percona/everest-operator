@@ -30,49 +30,32 @@ const (
 	BackupStorageAzure BackupStorageType = "azure"
 )
 
-type (
-	// RestoreState represents state of restoration.
-	RestoreState string
+// RestoreState represents state of restoration.
+type RestoreState string
 
-	// DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
-	DatabaseClusterRestoreSpec struct {
-		DatabaseCluster string        `json:"databaseCluster"`
-		DatabaseType    EngineType    `json:"databaseType"`
-		BackupName      string        `json:"backupName,omitempty"`
-		BackupSource    *BackupSource `json:"backupSource,omitempty"`
-	}
-	// BackupSource represents settings of a source where to get a backup to run restoration.
-	BackupSource struct {
-		Destination           string                     `json:"destination,omitempty"`
-		StorageName           string                     `json:"storageName,omitempty"`
-		S3                    *BackupStorageProviderSpec `json:"s3,omitempty"`
-		Azure                 *BackupStorageProviderSpec `json:"azure,omitempty"`
-		StorageType           BackupStorageType          `json:"storage_type"`
-		Image                 string                     `json:"image,omitempty"`
-		SSLSecretName         string                     `json:"sslSecretName,omitempty"`
-		SSLInternalSecretName string                     `json:"sslInternalSecretName,omitempty"`
-		VaultSecretName       string                     `json:"vaultSecretName,omitempty"`
-	}
-)
+// DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
+type DatabaseClusterRestoreSpec struct {
+	// DBClusterName defines the cluster name to restore.
+	DBClusterName string `json:"dbClusterName"`
+	// DataSource defines a data source for restoration.
+	DataSource DataSource `json:"dataSource"`
+}
 
 // DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore.
 type DatabaseClusterRestoreStatus struct {
-	State         RestoreState       `json:"state,omitempty"`
-	CompletedAt   *metav1.Time       `json:"completed,omitempty"`
-	LastScheduled *metav1.Time       `json:"lastscheduled,omitempty"`
-	Conditions    []metav1.Condition `json:"conditions,omitempty"`
-	Message       string             `json:"message,omitempty"`
-	Destination   string             `json:"destination,omitempty"`
-	StorageName   string             `json:"storageName,omitempty"`
+	State       RestoreState `json:"state,omitempty"`
+	CompletedAt *metav1.Time `json:"completed,omitempty"`
+	Message     string       `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName="dbc-restore";"dbc-restores"
-// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.databaseCluster",description="Cluster name"
-// +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".status.storageName",description="Storage name from pxc spec"
-// +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
+// +kubebuilder:resource:shortName=dbrestore;dbr
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.dbClusterName",description="Cluster name"
+// +kubebuilder:printcolumn:name="Backup",type="string",JSONPath=".spec.dataSource.dbClusterBackupName",description="DBClusterBackup name"
+// +kubebuilder:printcolumn:name="Path",type="string",JSONPath=".spec.dataSource.backupSource.path",description="Backup path"
+// +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.dataSource.backupSource.backupStorageName",description="Storage name"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Completed time"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

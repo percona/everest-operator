@@ -145,13 +145,20 @@ type Proxy struct {
 	Resources Resources `json:"resources,omitempty"`
 }
 
+// BackupSource represents settings of a source where to get a backup to run restoration.
+type BackupSource struct {
+	// Path is the path to the backup file/directory.
+	Path string `json:"path"`
+	// BackupStorageName is the name of the BackupStorage used for backups.
+	BackupStorageName string `json:"backupStorageName"`
+}
+
 // DataSource is the data source configuration.
 type DataSource struct {
-	// BackupName is the name of the backup from backup location to use
-	BackupName string `json:"backupName"`
-	// BackupStorageName is the name of the BackupStorage CR that defines the
-	// storage location
-	BackupStorageName string `json:"backupStorageName"`
+	// DBClusterBackupName is the name of the DB cluster backup to restore from
+	DBClusterBackupName string `json:"dbClusterBackupName,omitempty"`
+	// BackupSource is the backup source to restore from
+	BackupSource *BackupSource `json:"backupSource,omitempty"`
 }
 
 // BackupSchedule is the backup schedule configuration.
@@ -189,6 +196,8 @@ type Monitoring struct {
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
 	Paused bool `json:"paused,omitempty"`
+	// AllowUnsafeConfiguration field used to ensure that the user can create configurations unfit for production use.
+	AllowUnsafeConfiguration bool `json:"allowUnsafeConfiguration,omitempty"`
 	// Engine is the database engine specification
 	Engine Engine `json:"engine"`
 	// Proxy is the proxy specification. If not set, an appropriate
@@ -222,7 +231,7 @@ type DatabaseClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=db;dbc
+// +kubebuilder:resource:shortName=db;dbc;dbcluster
 // +kubebuilder:printcolumn:name="Size",type="string",JSONPath=".status.size"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"

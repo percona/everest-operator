@@ -18,14 +18,21 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -76,7 +83,7 @@ type DatabaseClusterBackupReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbbackups,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgrestores,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgbackups,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -554,8 +561,69 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
-	backup.Status.Destination = &psmdbCR.Status.Destination
+	// For consistency with PXC, we use the same destination format
+	destination := fmt.Sprintf("s3://%s/%s",
+		psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName].S3.Bucket,
+		psmdbCR.Status.Destination,
+	)
+	backup.Status.Destination = &destination
 	return r.Status().Update(ctx, backup)
+}
+
+// Get the last performed PG backup directly from S3.
+func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
+	ctx context.Context,
+	backupStorage *everestv1alpha1.BackupStorage,
+) *string {
+	logger := log.FromContext(ctx)
+	backupStorageSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+	if err != nil {
+		logger.Error(err, "unable to get backup storage secret")
+		return nil
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(backupStorage.Spec.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			string(backupStorageSecret.Data["AWS_ACCESS_KEY_ID"]),
+			string(backupStorageSecret.Data["AWS_SECRET_ACCESS_KEY"]),
+			"",
+		)),
+	)
+	if err != nil {
+		logger.Error(err, "unable to load AWS configuration")
+		return nil
+	}
+
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(backupStorage.Spec.EndpointURL)
+	})
+	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(backupStorage.Spec.Bucket),
+		Prefix: aws.String("backup/db/backup.history/"),
+	})
+	if err != nil {
+		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	if len(result.Contents) == 0 {
+		logger.Error(err, "no backup found in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	var lastBackup string
+	var lastModified time.Time
+	for _, content := range result.Contents {
+		if lastModified.Before(*content.LastModified) {
+			lastModified = *content.LastModified
+			lastBackup = strings.Split(filepath.Base(*content.Key), ".")[0]
+		}
+	}
+
+	destination := fmt.Sprintf("s3://%s/backup/db/%s", backupStorage.Spec.Bucket, lastBackup)
+	return &destination
 }
 
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
@@ -611,8 +679,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
-	//nolint:godox
-	// TODO: add backup.Status.Destination once https://jira.percona.com/browse/K8SPG-411 is done
+	// XXX: Until https://jira.percona.com/browse/K8SPG-411 is done
+	// we work around not having the destination in the
+	// PerconaPGBackup CR by getting this info directly from S3
+	if backup.Status.State == everestv1alpha1.BackupState(pgv2.BackupSucceeded) && backup.Status.Destination == nil {
+		backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage)
+	}
 	return r.Status().Update(ctx, backup)
 }
 
