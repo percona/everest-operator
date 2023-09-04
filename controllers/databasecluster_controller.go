@@ -253,7 +253,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      database.Name + "-datasource",
+			Name:      database.Name,
 			Namespace: database.Namespace,
 		},
 	}
