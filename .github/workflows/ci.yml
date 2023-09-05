@@ -141,6 +141,9 @@ jobs:
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
+        env:
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+
       - name: Clean up credentials
         run: |
           rm -f "$HOME"/.aws/config
@@ -201,11 +204,6 @@ jobs:
           PG_OPERATOR_VERSION: 2.2.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
-
-      - name: Clean up credentials
-        run: |
-          rm -f "$HOME"/.aws/config
-          rm -f "$HOME"/.aws/credentials
 
   eks-e2e-tests-features:
     name: Features E2E tests (EKS)
