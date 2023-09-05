@@ -153,6 +153,7 @@ jobs:
     steps:
       - name: Run tests
         run: |
+          echo $TOOLS_PATH >> $GITHUB_PATH
           export KUBECONFIG="${HOME}/.kube/config"
           mkdir -p "${KUBECONFIG%/*}"
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
@@ -182,6 +183,7 @@ jobs:
     steps:
       - name: Run tests
         run: |
+          echo $TOOLS_PATH >> $GITHUB_PATH
           export KUBECONFIG="${HOME}/.kube/config"
           mkdir -p "${KUBECONFIG%/*}"
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
