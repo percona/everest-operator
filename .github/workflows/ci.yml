@@ -114,6 +114,7 @@ jobs:
     name: Scale down and clean-up
     timeout-minutes: 10
     needs: [eks-e2e-tests-core, eks-e2e-tests-features]
+    if: ${{ always() }}
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
