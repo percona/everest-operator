@@ -12,15 +12,3 @@ spec:
       postgresql:
         parameters:
           max_connections: "2840"
-status:
-  pgbouncer:
-    ready: 1
-    size: 1
-  postgres:
-    instances:
-    - name: instance1
-      ready: 1
-      size: 1
-    ready: 1
-    size: 1
-  state: ready
