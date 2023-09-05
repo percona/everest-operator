@@ -196,8 +196,11 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
 	}
-	if database.Spec.Engine.Replicas == 1 {
+	if database.Spec.Engine.Replicas == 1 && !database.Spec.AllowUnsafeConfiguration {
 		database.Spec.AllowUnsafeConfiguration = true
+		if err := r.Update(ctx, database); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
