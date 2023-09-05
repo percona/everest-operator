@@ -17,7 +17,7 @@ jobs:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v3
@@ -136,6 +136,9 @@ jobs:
       - name: Clean up CRDs
         if: always()
         run: |
+          export KUBECONFIG="${HOME}/.kube/config"
+          mkdir -p "${KUBECONFIG%/*}"
+          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
       - name: Clean up credentials
@@ -155,7 +158,7 @@ jobs:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v3
@@ -216,7 +219,7 @@ jobs:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v3
@@ -271,7 +274,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v3
