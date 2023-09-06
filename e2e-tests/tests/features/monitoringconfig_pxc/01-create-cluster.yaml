@@ -1,6 +1,19 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-pxc-mc
+data:
+  root: Y2hhbmdlbWU=
+  xtrabackup: Y2hhbmdlbWU=
+  monitor: Y2hhbmdlbWU=
+  clustercheck: Y2hhbmdlbWU=
+  proxyadmin: Y2hhbmdlbWU=
+  operator: Y2hhbmdlbWU=
+  replication: Y2hhbmdlbWU=
+---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
