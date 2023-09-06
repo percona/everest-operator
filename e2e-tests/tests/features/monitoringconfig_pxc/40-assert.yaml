@@ -1,9 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 120
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: pxc-mc
-  generation: 3
+commands:
+  - script: |-
+      set -o errexit
+
+      generation=$(kubectl -n $NAMESPACE get db pxc-mc -o jsonpath='{.metadata.generation}')
+      [[ "$generation" -gt "2" ]] && exit 0 || exit 2

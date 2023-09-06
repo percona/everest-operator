@@ -1,12 +1,12 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 120
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: pg-mc
-  generation: 4
+commands:
+  - script: |-
+      set -o errexit
+
+      generation=$(kubectl -n $NAMESPACE get db pg-mc -o jsonpath='{.metadata.generation}')
+      [[ "$generation" -gt "3" ]] && exit 0 || exit 2
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster

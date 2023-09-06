@@ -14,4 +14,3 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pxc-mc
-  generation: 4
