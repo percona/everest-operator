@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -583,7 +584,11 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 
 			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			psmdb.Spec.PMM.ServerHost = pmmURL.Hostname()
 			psmdb.Spec.PMM.Image = image
 			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
@@ -1125,7 +1130,11 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 
 			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pxc.Spec.PMM.Image = image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
@@ -2063,7 +2072,11 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			}
 
 			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			pg.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pg.Spec.PMM.Image = image
 			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
