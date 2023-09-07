@@ -6,7 +6,7 @@ commands:
       set -o errexit
 
       generation=$(kubectl -n $NAMESPACE get db pg-mc -o jsonpath='{.metadata.generation}')
-      [[ "$generation" -gt "1" ]] && exit 0 || exit 2
+      [ "$generation" -gt "1" ] && exit 0 || exit 2
 ---
 apiVersion: v1
 kind: Secret

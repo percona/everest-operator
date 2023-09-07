@@ -6,4 +6,4 @@ commands:
       set -o errexit
 
       generation=$(kubectl -n $NAMESPACE get db pxc-mc -o jsonpath='{.metadata.generation}')
-      [[ "$generation" -gt "2" ]] && exit 0 || exit 2
+      [ "$generation" -gt "2" ] && exit 0 || exit 2

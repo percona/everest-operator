@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+delete:
+- apiVersion: everest.percona.com/v1alpha1
+  kind: DatabaseCluster
