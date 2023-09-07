@@ -52,6 +52,7 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
+    concurrency: scaling
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
@@ -88,6 +89,7 @@ jobs:
     name: Scale down and clean-up
     timeout-minutes: 10
     needs: [eks-e2e-tests-core, eks-e2e-tests-features]
+    concurrency: scaling
     if: ${{ always() }}
     strategy:
       fail-fast: true
