@@ -30,6 +30,7 @@ spec:
     shortNames:
       - db
       - dbc
+      - dbcluster
     singular: databasecluster
   scope: Namespaced
 ---
