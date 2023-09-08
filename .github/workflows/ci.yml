@@ -48,13 +48,12 @@ jobs:
 
 
   eks-e2e-tests:
-    name: Core E2E tests (EKS)
+    name: E2E tests (EKS)
     timeout-minutes: 80
-    concurrency: eks-e2e-tests-core
+    concurrency: eks-e2e-tests
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    needs: [scale-up-cluster]
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
@@ -121,6 +120,7 @@ jobs:
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
+        if: always()
         run: |
           echo $TOOLS_PATH >> $GITHUB_PATH
           export KUBECONFIG="${HOME}/.kube/config"
