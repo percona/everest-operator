@@ -65,6 +65,8 @@ type DatabaseClusterRestoreReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+//
+//nolint:gocognit
 func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("reconciling", "request", req)
@@ -168,7 +170,8 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 			if err != nil {
 				return err
 			}
-			if cluster.Status.Status == everestv1alpha1.AppStateReady {
+			if cluster.Status.Status == everestv1alpha1.AppStateReady ||
+				cluster.Status.Status == everestv1alpha1.AppStateRestoring {
 				return nil
 			}
 		}
