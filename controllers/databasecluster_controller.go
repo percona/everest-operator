@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -196,8 +197,11 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
 	}
-	if database.Spec.Engine.Replicas == 1 {
+	if database.Spec.Engine.Replicas == 1 && !database.Spec.AllowUnsafeConfiguration {
 		database.Spec.AllowUnsafeConfiguration = true
+		if err := r.Update(ctx, database); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
@@ -253,7 +257,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      database.Name + "-datasource",
+			Name:      database.Name,
 			Namespace: database.Namespace,
 		},
 	}
@@ -573,14 +577,18 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType { //nolint:dupl
 			image := defaultPMMClientImage
 			if monitoring.Spec.PMM.Image != "" {
 				image = monitoring.Spec.PMM.Image
 			}
 
 			psmdb.Spec.PMM.Enabled = true
-			psmdb.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			psmdb.Spec.PMM.ServerHost = pmmURL.Hostname()
 			psmdb.Spec.PMM.Image = image
 			psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
@@ -589,9 +597,11 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 				return err
 			}
 
-			err = r.createOrUpdateSecret(ctx, database, psmdb.Spec.Secrets.Users, "", map[string][]byte{
-				"PMM_SERVER_API_KEY": []byte(apiKey),
-			})
+			err = r.createOrUpdateSecretData(ctx, database, psmdb.Spec.Secrets.Users,
+				map[string][]byte{
+					"PMM_SERVER_API_KEY": []byte(apiKey),
+				},
+			)
 			if err != nil {
 				return err
 			}
@@ -672,27 +682,63 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 	return secretData, nil
 }
 
-// createOrUpdateSecret creates or updates a secret by its name.
-// If a secret is created and secretName is empty, generateName is used
-// to generate a unique name.
-func (r *DatabaseClusterReconciler) createOrUpdateSecret(
+// updateSecretData updates the data of a secret.
+// It only changes the values of the keys specified in the data map.
+// All other keys are left untouched, so it's not possible to delete a key.
+func (r *DatabaseClusterReconciler) updateSecretData(
 	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
-	secretName, generateName string, data map[string][]byte,
+	secretName string, data map[string][]byte,
 ) error {
-	secret := &corev1.Secret{
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      secretName,
+		Namespace: database.Namespace,
+	}, secret)
+	if err != nil {
+		return err
+	}
+
+	var needsUpdate bool
+	for k, v := range data {
+		oldValue, ok := secret.Data[k]
+		if !ok || !bytes.Equal(oldValue, v) {
+			secret.Data[k] = v
+			needsUpdate = true
+		}
+	}
+	if !needsUpdate {
+		return nil
+	}
+
+	return r.Update(ctx, secret)
+}
+
+// createOrUpdateSecretData creates or updates the data of a secret.
+// When updating, it only changes the values of the keys specified in the data
+// map.
+// All other keys are left untouched, so it's not possible to delete a key.
+func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+	secretName string, data map[string][]byte,
+) error {
+	err := r.updateSecretData(ctx, database, secretName, data)
+	if err == nil {
+		return nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	// If the secret does not exist, create it
+	return r.Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: database.Namespace,
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: data,
-	}
-
-	if secretName == "" {
-		secret.ObjectMeta.GenerateName = generateName
-	}
-
-	return r.createOrUpdate(ctx, secret, true)
+	})
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
@@ -1122,7 +1168,11 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 
 			pxc.Spec.PMM.Enabled = true
-			pxc.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pxc.Spec.PMM.Image = image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
@@ -1131,10 +1181,14 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				return err
 			}
 
-			err = r.createOrUpdateSecret(ctx, database, pxc.Spec.SecretsName, "", map[string][]byte{
+			err = r.updateSecretData(ctx, database, pxc.Spec.SecretsName, map[string][]byte{
 				"pmmserverkey": []byte(apiKey),
 			})
-			if err != nil {
+			// If the secret does not exist, we need to wait for the PXC
+			// operator to create it. If the secret already exists when the
+			// cluster is initialized the PXC operator doesn't generate the
+			// missing fields.
+			if err != nil && !k8serrors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -1918,7 +1972,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	}
 
 	if pg.Spec.PMM.Secret == "" {
-		pg.Spec.PMM.Secret = database.Spec.Engine.UserSecretsName
+		pg.Spec.PMM.Secret = fmt.Sprintf("everest-secrets-%s-pmm", database.Name)
 	}
 
 	if len(database.Finalizers) != 0 {
@@ -2053,14 +2107,18 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		// We have to assign the default spec here explicitly becase PG reconciliation
 		// does not assign the default spec in this createOrUpdate mutate function.
 		pg.Spec.PMM = pgSpec.PMM
-		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType { //nolint:dupl
 			image := defaultPMMClientImage
 			if monitoring.Spec.PMM.Image != "" {
 				image = monitoring.Spec.PMM.Image
 			}
 
 			pg.Spec.PMM.Enabled = true
-			pg.Spec.PMM.ServerHost = monitoring.Spec.PMM.URL
+			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
+			if err != nil {
+				return errors.Wrap(err, "invalid monitoring URL")
+			}
+			pg.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pg.Spec.PMM.Image = image
 			pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
@@ -2069,9 +2127,11 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 				return err
 			}
 
-			err = r.createOrUpdateSecret(ctx, database, pg.Spec.PMM.Secret, "", map[string][]byte{
-				"PMM_SERVER_KEY": []byte(apiKey),
-			})
+			err = r.createOrUpdateSecretData(ctx, database, pg.Spec.PMM.Secret,
+				map[string][]byte{
+					"PMM_SERVER_KEY": []byte(apiKey),
+				},
+			)
 			if err != nil {
 				return err
 			}
