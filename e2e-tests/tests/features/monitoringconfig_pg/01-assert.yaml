@@ -15,7 +15,7 @@ status:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: everest-secrets-pg-mc
+  name: everest-secrets-pg-mc-pmm
 data:
   PMM_SERVER_KEY: YWJjZGVm
 ---
