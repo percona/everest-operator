@@ -183,6 +183,9 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
 		database.Spec.Paused = true
+		if err := r.Update(ctx, database); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	if ok && database.Status.Status == everestv1alpha1.AppStatePaused {
 		database.Spec.Paused = false
