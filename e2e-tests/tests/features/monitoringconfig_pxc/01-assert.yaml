@@ -26,7 +26,7 @@ metadata:
 spec:
   pmm:
     enabled: true
-    serverHost: http://localhost
+    serverHost: localhost
     image: percona/pmm-client:latest
     resources:
       limits:

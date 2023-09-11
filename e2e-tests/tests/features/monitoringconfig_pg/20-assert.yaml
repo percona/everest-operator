@@ -22,5 +22,5 @@ metadata:
   name: pg-mc
 spec:
   pmm:
-    serverHost: http://localhost2
+    serverHost: localhost2
     image: percona/pmm-client:2
