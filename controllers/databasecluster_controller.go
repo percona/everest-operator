@@ -30,7 +30,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
@@ -222,7 +221,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		err := r.reconcilePG(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
