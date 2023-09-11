@@ -2888,7 +2888,10 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 					MaxUnavailable: &maxUnavailable,
 				},
 				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1G"),
+						corev1.ResourceCPU:    resource.MustParse("600m"),
+					},
 				},
 			},
 		},
@@ -2908,7 +2911,10 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 				},
 				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1G"),
+						corev1.ResourceCPU:    resource.MustParse("600m"),
+					},
 				},
 			},
 		},
