@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.9
+VERSION ?= 0.0.18
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -121,9 +121,12 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-test-kind: build local-env-up ## Run integration tests against kind cluster
+test-features: build local-env-up ## Run integration tests against kind cluster
 	minikube kubectl -- config view --flatten --minify > ~/.kube/test-minikube
-	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl.yml
+	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
+test-core: build local-env-up ## Run integration tests against kind cluster
+	minikube kubectl -- config view --flatten --minify > ~/.kube/test-minikube
+	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
 ##@ Build
 
 .PHONY: build
@@ -309,3 +312,6 @@ DEPLOYDIR = ./deploy
 .PHONY: $(DEPLOYDIR)/bundle.yaml
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml
+
+.PHONY: release
+release:  generate manifests bundle format $(DEPLOYDIR)/bundle.yaml ## Prepare release

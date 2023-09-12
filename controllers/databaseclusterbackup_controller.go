@@ -18,14 +18,21 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,7 +64,13 @@ const (
 	pgBackupKind    = "PerconaPGBackup"
 	pgAPIVersion    = "pgv2.percona.com/v2"
 	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
+
+	dbClusterBackupDBClusterNameField = ".spec.dbClusterName"
 )
+
+// ErrBackupStorageUndefined is returned when a backup storage is not defined
+// in the corresponding upstream DB cluster CR.
+var ErrBackupStorageUndefined error = errors.New("backup storage is not defined in the upstream DB cluster CR")
 
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
@@ -70,7 +83,7 @@ type DatabaseClusterBackupReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterbackups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbbackups,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgrestores,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgbackups,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -124,20 +137,31 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 
 	switch cluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
-		if err = r.reconcilePXC(ctx, backup); err != nil {
-			logger.Error(err, "failed to reconcile PXC backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePXC(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		if err = r.reconcilePSMDB(ctx, backup); err != nil {
-			logger.Error(err, "failed to reconcile PSMDB backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePSMDB(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		if err = r.reconcilePG(ctx, backup, cluster); err != nil {
-			logger.Error(err, "failed to reconcile PG backup")
-			return reconcile.Result{}, err
-		}
+		err = r.reconcilePG(ctx, backup)
+	}
+
+	// The DatabaseCluster controller is responsible for updating the
+	// upstream DB cluster with the necessary storage definition. If the
+	// storage is not defined in the upstream DB cluster CR, we requeue the
+	// backup to give the DatabaseCluster controller a chance to update the
+	// upstream DB cluster CR.
+	if errors.Is(err, ErrBackupStorageUndefined) {
+		logger.Info(
+			fmt.Sprintf("Backup storage %s is not defined in the %s cluster %s, requeuing",
+				backup.Spec.BackupStorageName,
+				cluster.Spec.Engine.Type,
+				backup.Spec.DBClusterName),
+		)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if err != nil {
+		logger.Error(err, fmt.Sprintf("failed to reconcile %s backup", cluster.Spec.Engine.Type))
+		return reconcile.Result{}, err
 	}
 
 	logger.Info("Reconciled", "request", req)
@@ -152,12 +176,30 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Kind:    "CustomResourceDefinition",
 		Version: "v1",
 	})
+
+	// Index the dbClusterName field in DatabaseClusterBackup.
+	err := mgr.GetFieldIndexer().IndexField(
+		context.Background(), &everestv1alpha1.DatabaseClusterBackup{}, dbClusterBackupDBClusterNameField,
+		func(o client.Object) []string {
+			var res []string
+			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
+			if !ok {
+				return res
+			}
+			res = append(res, dbb.Spec.DBClusterName)
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseClusterBackup{})
 
 	ctx := context.Background()
 
-	err := r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
+	err = r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Watches(
@@ -428,6 +470,22 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+
+	pxcDBCR := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pxcDBCR)
+	if err != nil {
+		return err
+	}
+
+	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
+	// cannot proceed
+	if pxcDBCR.Spec.Backup.Storages == nil {
+		return ErrBackupStorageUndefined
+	}
+	if _, ok := pxcDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
+		return ErrBackupStorageUndefined
+	}
+
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pxcAPIVersion,
@@ -464,7 +522,23 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Namespace: backup.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
+
+	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
+	if err != nil {
+		return err
+	}
+
+	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
+	// cannot proceed
+	if psmdbDBCR.Spec.Backup.Storages == nil {
+		return ErrBackupStorageUndefined
+	}
+	if _, ok := psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
+		return ErrBackupStorageUndefined
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 		psmdbCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: psmdbAPIVersion,
 			Kind:       psmdbBackupKind,
@@ -487,14 +561,74 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
-	backup.Status.Destination = &psmdbCR.Status.Destination
+	// For consistency with PXC, we use the same destination format
+	destination := fmt.Sprintf("s3://%s/%s",
+		psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName].S3.Bucket,
+		psmdbCR.Status.Destination,
+	)
+	backup.Status.Destination = &destination
 	return r.Status().Update(ctx, backup)
+}
+
+// Get the last performed PG backup directly from S3.
+func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
+	ctx context.Context,
+	backupStorage *everestv1alpha1.BackupStorage,
+) *string {
+	logger := log.FromContext(ctx)
+	backupStorageSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+	if err != nil {
+		logger.Error(err, "unable to get backup storage secret")
+		return nil
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(backupStorage.Spec.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			string(backupStorageSecret.Data["AWS_ACCESS_KEY_ID"]),
+			string(backupStorageSecret.Data["AWS_SECRET_ACCESS_KEY"]),
+			"",
+		)),
+	)
+	if err != nil {
+		logger.Error(err, "unable to load AWS configuration")
+		return nil
+	}
+
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(backupStorage.Spec.EndpointURL)
+	})
+	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(backupStorage.Spec.Bucket),
+		Prefix: aws.String("backup/db/backup.history/"),
+	})
+	if err != nil {
+		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	if len(result.Contents) == 0 {
+		logger.Error(err, "no backup found in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	var lastBackup string
+	var lastModified time.Time
+	for _, content := range result.Contents {
+		if lastModified.Before(*content.LastModified) {
+			lastModified = *content.LastModified
+			lastBackup = strings.Split(filepath.Base(*content.Key), ".")[0]
+		}
+	}
+
+	destination := fmt.Sprintf("s3://%s/backup/db/%s", backupStorage.Spec.Bucket, lastBackup)
+	return &destination
 }
 
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
-	dbcluster *everestv1alpha1.DatabaseCluster,
 ) error {
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -502,7 +636,27 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			Namespace: backup.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
+
+	pgDBCR := &pgv2.PerconaPGCluster{}
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pgDBCR)
+	if err != nil {
+		return err
+	}
+
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, backupStorage)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+	}
+
+	// If the backup storage is not defined in the PerconaPGCluster CR, we
+	// cannot proceed
+	repoIdx := getBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	if repoIdx == -1 {
+		return ErrBackupStorageUndefined
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pgAPIVersion,
 			Kind:       pgBackupKind,
@@ -516,11 +670,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
 
-		repoName, err := r.pgRepoName(backup, dbcluster)
-		if err != nil {
-			return err
-		}
-		pgCR.Spec.RepoName = repoName
+		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
 		return nil
 	})
 	if err != nil {
@@ -529,25 +679,13 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
-	//nolint:godox
-	// TODO: add backup.Status.Destination once https://jira.percona.com/browse/K8SPG-411 is done
-	return r.Status().Update(ctx, backup)
-}
-
-// pgRepoName returns the pg cluster's RepoName (which is like "repo1", "repo2" etc)
-// that corresponds the database cluster's BackupStorageName.
-func (r *DatabaseClusterBackupReconciler) pgRepoName(everestBackup *everestv1alpha1.DatabaseClusterBackup, dbcluster *everestv1alpha1.DatabaseCluster) (string, error) {
-	//nolint:godox
-	// TODO: decouple PG backups from the schedules list
-	// currently the PG on-demand backups require at least one schedule to be set,
-	// here is an idea how to fix it https://github.com/percona/everest-operator/pull/7#discussion_r1263497633
-	for idx, schedule := range dbcluster.Spec.Backup.Schedules {
-		if schedule.BackupStorageName == everestBackup.Spec.BackupStorageName {
-			return fmt.Sprintf("repo%d", idx+1), nil
-		}
+	// XXX: Until https://jira.percona.com/browse/K8SPG-411 is done
+	// we work around not having the destination in the
+	// PerconaPGBackup CR by getting this info directly from S3
+	if backup.Status.State == everestv1alpha1.BackupState(pgv2.BackupSucceeded) && backup.Status.Destination == nil {
+		backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage)
 	}
-
-	return "", errors.Errorf("can't perform the backup because the requested backup location isn't set in the DatabaseCluster")
+	return r.Status().Update(ctx, backup)
 }
 
 func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {

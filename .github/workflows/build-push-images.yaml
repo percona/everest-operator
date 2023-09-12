@@ -10,14 +10,14 @@ on:
 
 jobs:
 
-  build: 
+  build:
     runs-on: ubuntu-latest
     env:
       TOOLS_PATH: "/opt/tools/bin"
-    
+
     steps:
       - name: Check out
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install operator-sdk
         run: |

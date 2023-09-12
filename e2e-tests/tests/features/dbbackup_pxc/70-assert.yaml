@@ -1,0 +1,30 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: a-scheduled-backup
+  labels:
+    backupStorage-test-storage-scheduled: used
+    clusterName: test-pxc-cluster
+  ownerReferences:
+    - apiVersion: pxc.percona.com/v1
+      kind: PerconaXtraDBClusterBackup
+      name: a-scheduled-backup
+spec:
+  backupStorageName: test-storage-scheduled
+  dbClusterName: test-pxc-cluster
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: a-scheduled-backup
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: a-scheduled-backup
+spec:
+  storageName: test-storage-scheduled
+  pxcCluster: test-pxc-cluster

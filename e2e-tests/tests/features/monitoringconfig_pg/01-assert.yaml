@@ -1,0 +1,35 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-mc
+spec:
+  monitoring:
+    monitoringConfigName: test-mc
+status:
+  status: ready
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-pg-mc-pmm
+data:
+  PMM_SERVER_KEY: YWJjZGVm
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: pg-mc
+spec:
+  pmm:
+    enabled: true
+    serverHost: localhost
+    image: percona/pmm-client:latest
+    secret: everest-secrets-pg-mc-pmm
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"

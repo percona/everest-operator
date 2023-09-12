@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-commands:
-  - command: kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/bundle.yaml -n "${NAMESPACE}"
-  - script: WATCH_NAMESPACE=$NAMESPACE ../../../bin/manager -metrics-bind-address :8061 -health-probe-bind-address :8062
-    background: true
