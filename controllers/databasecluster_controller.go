@@ -30,7 +30,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
@@ -183,6 +182,9 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
 		database.Spec.Paused = true
+		if err := r.Update(ctx, database); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	if ok && database.Status.Status == everestv1alpha1.AppStatePaused {
 		database.Spec.Paused = false
@@ -219,7 +221,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		err := r.reconcilePG(ctx, req, database)
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
