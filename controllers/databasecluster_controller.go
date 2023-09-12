@@ -1018,6 +1018,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		pxc.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
 	}
+	pxc.Finalizers = append(pxc.Finalizers, "delete-pxc-pods-in-order")
 
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
