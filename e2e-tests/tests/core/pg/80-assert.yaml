@@ -80,6 +80,6 @@ status:
     - name: instance1
       ready: 3
       size: 3
-    ready: 6
-    size: 6
+    ready: 3
+    size: 3
   state: ready
