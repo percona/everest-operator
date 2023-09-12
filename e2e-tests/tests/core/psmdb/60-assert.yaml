@@ -1,0 +1,72 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  allowUnsafeConfiguration: true
+  engine:
+    type: psmdb
+    version: 4.4.10-11
+    config: |
+     operationProfiling:
+        mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
+    type: mongos
+    replicas: 3
+status:
+  ready: 3
+  size: 3
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  crVersion: 1.14.0
+  allowUnsafeConfigurations: true
+  image: percona/percona-server-mongodb:4.4.10-11
+  multiCluster:
+    enabled: false
+  replsets:
+    - configuration: |
+       operationProfiling:
+          mode: slowOp
+      expose:
+        enabled: false
+      name: rs0
+      resources:
+        limits:
+          cpu: 300m
+          memory:  500M
+      size:        3
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 15G
+  secrets:
+    users:  psmdb-sample-secrets
+  sharding:
+    enabled: false
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 3
+      size: 3
+      status: ready
+  ready: 3
+  size: 3
+  state: ready
