@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2848,10 +2849,21 @@ func (r *DatabaseClusterReconciler) parseIPSourceRanges(ranges []string) []strin
 	ret := make([]string, 0, len(ranges))
 	ret = append(ret, ranges...)
 	for k, v := range ret {
-		if !strings.Contains(v, "/") {
-			// If it's just an IP, add /32 subnet not to fail
-			// in the upstream operators.
+		if _, _, err := net.ParseCIDR(v); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(v)
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
 			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
 		}
 	}
 

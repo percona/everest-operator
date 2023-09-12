@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -2050,4 +2051,41 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
+}
+
+func TestDatabaseClusterReconciler_parseIPSourceRanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		ranges []string
+		want   []string
+	}{
+		{
+			name:   "shall not make any changes",
+			ranges: []string{"1.1.1.1/32", "1.1.1.1/24", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
+			want:   []string{"1.1.1.1/32", "1.1.1.1/24", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
+		},
+		{
+			name:   "shall not fail with empty",
+			ranges: []string{},
+			want:   []string{},
+		},
+		{
+			name:   "shall fix ipv4 and ipv6",
+			ranges: []string{"1.1.1.1/32", "1.1.1.1", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0"},
+			want:   []string{"1.1.1.1/32", "1.1.1.1/32", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := &DatabaseClusterReconciler{}
+			if got := r.parseIPSourceRanges(tt.ranges); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DatabaseClusterReconciler.parseIPSourceRanges() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
