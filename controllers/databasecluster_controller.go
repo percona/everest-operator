@@ -120,10 +120,12 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
-	databaseClusterNameLabel   = "clusterName"
-	monitoringConfigNameLabel  = "monitoringConfigName"
-	backupStorageNameLabelTmpl = "backupStorage-%s"
-	backupStorageLabelValue    = "used"
+	databaseClusterNameLabel        = "clusterName"
+	monitoringConfigNameLabel       = "monitoringConfigName"
+	backupStorageNameLabelTmpl      = "backupStorage-%s"
+	backupStorageLabelValue         = "used"
+	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"
+	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -450,13 +452,14 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 
-	psmdb := &psmdbv1.PerconaServerMongoDB{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
+	psmdb := &psmdbv1.PerconaServerMongoDB{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, psmdb)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to get psmdb object %s", database.Name)
 	}
+	psmdb.Name = database.Name
+	psmdb.Namespace = database.Namespace
+	psmdb.Annotations = database.Annotations
 	if len(database.Finalizers) != 0 {
 		psmdb.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
@@ -474,7 +477,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
-		psmdb.Finalizers = append(psmdb.Finalizers, "delete-psmdb-pods-in-order")
+		if !controllerutil.ContainsFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder) {
+			controllerutil.AddFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder)
+		}
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
@@ -1007,13 +1012,14 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 	}
 
-	pxc := &pxcv1.PerconaXtraDBCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
+	pxc := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pxc)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to get pxc object %s", database.Name)
 	}
+	pxc.Name = database.Name
+	pxc.Namespace = database.Namespace
+	pxc.Annotations = database.Annotations
 
 	if len(database.Finalizers) != 0 {
 		pxc.Finalizers = database.Finalizers
@@ -1040,7 +1046,9 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
-		pxc.Finalizers = append(pxc.Finalizers, "delete-pxc-pods-in-order")
+		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPodsInOrder) {
+			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPodsInOrder)
+		}
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
