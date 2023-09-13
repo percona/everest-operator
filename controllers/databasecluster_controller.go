@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -563,7 +564,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		case everestv1alpha1.ExposeTypeExternal:
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
 			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
-			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = r.parseIPSourceRanges(database.Spec.Proxy.Expose.IPSourceRanges)
 		default:
 			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
@@ -762,7 +763,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 	case everestv1alpha1.ExposeTypeExternal:
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+		haProxy.PodSpec.LoadBalancerSourceRanges = r.parseIPSourceRanges(database.Spec.Proxy.Expose.IPSourceRanges)
 	default:
 		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -811,7 +812,7 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 	case everestv1alpha1.ExposeTypeExternal:
 		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+		proxySQL.LoadBalancerSourceRanges = r.parseIPSourceRanges(database.Spec.Proxy.Expose.IPSourceRanges)
 	default:
 		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -2842,6 +2843,31 @@ func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldOb
 	}
 
 	return r.Update(ctx, obj)
+}
+
+func (r *DatabaseClusterReconciler) parseIPSourceRanges(ranges []string) []string {
+	ret := make([]string, 0, len(ranges))
+	ret = append(ret, ranges...)
+	for k, v := range ret {
+		if _, _, err := net.ParseCIDR(v); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(v)
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
+			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
+		}
+	}
+
+	return ret
 }
 
 func (r *DatabaseClusterReconciler) defaultPGSpec() *pgv2.PerconaPGClusterSpec {
