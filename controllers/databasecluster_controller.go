@@ -124,8 +124,8 @@ timeout server 28800s
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
 	backupStorageLabelValue         = "used"
-	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"
-	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order"
+	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"   //nolint:gosec
+	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order" //nolint:gosec
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
