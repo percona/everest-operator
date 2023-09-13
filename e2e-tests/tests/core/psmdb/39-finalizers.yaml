@@ -2,9 +2,9 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBCluster
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
 metadata:
-  name: test-pxc-cluster
+  name: test-psmdb-cluster
   metadata:
     finalizers: []
