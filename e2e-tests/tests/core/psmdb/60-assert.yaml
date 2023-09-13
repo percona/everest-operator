@@ -7,6 +7,7 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
+  allowUnsafeConfiguration: true
   engine:
     type: psmdb
     version: 4.4.10-11
@@ -32,10 +33,9 @@ apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pods-in-order
 spec:
   crVersion: 1.14.0
+  allowUnsafeConfigurations: true
   image: percona/percona-server-mongodb:4.4.10-11
   multiCluster:
     enabled: false

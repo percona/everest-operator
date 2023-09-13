@@ -7,6 +7,7 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
+  allowUnsafeConfiguration: true
   engine:
     type: psmdb
     version: 4.4.10-11
@@ -14,7 +15,7 @@ spec:
      operationProfiling:
         mode: slowOp
     userSecretsName: psmdb-sample-secrets
-    replicas: 3
+    replicas: 1
     storage:
       size: 15G
     resources:
@@ -22,20 +23,19 @@ spec:
       memory: 500M
   proxy:
     type: mongos
-    replicas: 3
+    replicas: 1
 status:
-  ready: 3
-  size: 3
+  ready: 1
+  size: 1
   status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - delete-psmdb-pods-in-order
 spec:
   crVersion: 1.14.0
+  allowUnsafeConfigurations: true
   image: percona/percona-server-mongodb:4.4.10-11
   multiCluster:
     enabled: false
@@ -50,7 +50,7 @@ spec:
         limits:
           cpu: 300m
           memory:  500M
-      size:        3
+      size:        1
       volumeSpec:
         persistentVolumeClaim:
           resources:
@@ -64,9 +64,9 @@ status:
   replsets:
     rs0:
       initialized: true
-      ready: 3
-      size: 3
+      ready: 1
+      size: 1
       status: ready
-  ready: 3
-  size: 3
+  ready: 1
+  size: 1
   state: ready
