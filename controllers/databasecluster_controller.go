@@ -474,6 +474,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
+		psmdb.Finalizers = append(psmdb.Finalizers, "delete-psmdb-pods-in-order")
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
@@ -1018,7 +1019,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		pxc.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
 	}
-	pxc.Finalizers = append(pxc.Finalizers, "delete-pxc-pods-in-order")
 
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
@@ -1040,6 +1040,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
+		pxc.Finalizers = append(pxc.Finalizers, "delete-pxc-pods-in-order")
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,

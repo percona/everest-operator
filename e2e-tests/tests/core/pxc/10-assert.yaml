@@ -28,6 +28,8 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
+  finalizers:
+    - delete-pxc-pods-in-order
 spec:
   haproxy:
     enabled: true
