@@ -1,6 +1,5 @@
-apiVersion: postgres-operator.crunchydata.com/v1beta1
-kind: PostgresCluster
-metadata:
-  name: pg-mc
-  metadata:
-    finalizers: []
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  command: kubectl patch postgresclusters pg-mc -p '{"metadata":{"finalizers":null}}' --type=merge -n "${NAMESPACE}"

@@ -1,10 +1,5 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
----
-apiVersion: pxc.percona.com/v1
-kind: PerconaXtraDBCluster
-metadata:
-  name: test-pxc-cluster
-  metadata:
-    finalizers: []
+commands:
+  command: kubectl patch pxc test-pxc-cluster -p '{"metadata":{"finalizers":null}}' --type=merge -n "${NAMESPACE}"
