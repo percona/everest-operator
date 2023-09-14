@@ -970,14 +970,14 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 
-	current := &pxcv1.PerconaXtraDBCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, current)
+	pxc := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pxc)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			return err
 		}
 	}
-	if current.Spec.Pause != database.Spec.Paused {
+	if pxc.Spec.Pause != database.Spec.Paused {
 		// During the restoration of PXC clusters
 		// They need to be shutted down
 		//
@@ -1015,15 +1015,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 		if jobRunning {
-			database.Spec.Paused = current.Spec.Pause
+			database.Spec.Paused = pxc.Spec.Pause
 		}
 	}
 
-	pxc := &pxcv1.PerconaXtraDBCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pxc)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "failed to get pxc object %s", database.Name)
-	}
 	pxc.Name = database.Name
 	pxc.Namespace = database.Namespace
 	pxc.Annotations = database.Annotations
