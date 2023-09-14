@@ -2,4 +2,4 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 commands:
-  command: kubectl patch postgresclusters test-single-cluster -p '{"metadata":{"finalizers":null}}' --type=merge -n "${NAMESPACE}"
+  - command: kubectl patch postgresclusters test-single-cluster -p '{"metadata":{"finalizers":null}}' --type=merge -n "${NAMESPACE}"
