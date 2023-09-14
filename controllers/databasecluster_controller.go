@@ -127,6 +127,9 @@ timeout server 28800s
 	backupStorageLabelValue         = "used"
 	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"   //nolint:gosec
 	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order" //nolint:gosec
+	finalizerDeletePXCPVC           = "delete-pxc-pvc"
+	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
+	finalizerDeletePGPVC            = "percona.com/delete-pvc"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -480,6 +483,9 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
 		if !controllerutil.ContainsFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder) {
 			controllerutil.AddFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder)
+		}
+		if !controllerutil.ContainsFinalizer(psmdb, finalizerDeletePSMDBPVC) {
+			controllerutil.AddFinalizer(psmdb, finalizerDeletePSMDBPVC)
 		}
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
@@ -1049,6 +1055,9 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
 		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPodsInOrder) {
 			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPodsInOrder)
+		}
+		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPVC) {
+			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPVC)
 		}
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
@@ -1971,14 +1980,15 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		pgSpec.Proxy.PGBouncer.Affinity = affinity
 	}
 
-	pg := &pgv2.PerconaPGCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
-		Spec: *pgSpec,
+	pg := &pgv2.PerconaPGCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pg)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to get pg object %s", database.Name)
 	}
+	pg.Name = database.Name
+	pg.Namespace = database.Namespace
+	pg.Annotations = database.Annotations
+	pg.Spec = *pgSpec
 
 	if pg.Spec.PMM == nil {
 		pg.Spec.PMM = &pgv2.PMMSpec{}
@@ -2005,6 +2015,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
+		if !controllerutil.ContainsFinalizer(pg, finalizerDeletePGPVC) {
+			controllerutil.AddFinalizer(pg, finalizerDeletePGPVC)
+		}
 		pg.TypeMeta = metav1.TypeMeta{
 			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
 			Kind:       PerconaPGClusterKind,
