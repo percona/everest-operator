@@ -2,4 +2,4 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 commands:
-  - script: kubectl patch postgresclusters test-pg-cluster -p '{"metadata":{"finalizers":null}}' --type=merge -n $NAMESPACE
+  - script: kubectl patch postgresclusters test-pg-cluster -n $NAMESPACE --type json --patch='[ { "op": "remove", "path": "/metadata/finalizers" } ]'
