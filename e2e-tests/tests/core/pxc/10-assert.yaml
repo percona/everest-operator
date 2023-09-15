@@ -30,6 +30,7 @@ metadata:
   name: test-pxc-cluster
   finalizers:
     - delete-pxc-pods-in-order
+    - delete-pxc-pvc
 spec:
   haproxy:
     enabled: true

@@ -28,6 +28,8 @@ apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: test-pg-cluster
+  finalizers:
+    - percona.com/delete-pvc
 spec:
   backups:
     pgbackrest:
