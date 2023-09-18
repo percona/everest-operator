@@ -120,6 +120,8 @@ type Engine struct {
 type ExposeType string
 
 // +kubebuilder:validation:Pattern="((^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))$)|(^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$))"
+//
+//nolint:lll
 type IPSourceRange string
 
 // Expose is the expose configuration.
@@ -133,7 +135,7 @@ type Expose struct {
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
-func (e Expose) parseIPSourceRanges(ranges []IPSourceRange) []IPSourceRange {
+func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 	ret := make([]IPSourceRange, 0, len(ranges))
 	ret = append(ret, ranges...)
 	for k, v := range ret {
@@ -158,9 +160,10 @@ func (e Expose) parseIPSourceRanges(ranges []IPSourceRange) []IPSourceRange {
 	return ret
 }
 
+// IPSourceRangesStringArray returns []string of IPSource ranges. It also calls toCIDR function to convert IP addresses to the correct CIDR notation.
 func (e Expose) IPSourceRangesStringArray() []string {
 	sourceRanges := make([]string, len(e.IPSourceRanges))
-	ranges := e.parseIPSourceRanges(e.IPSourceRanges)
+	ranges := e.toCIDR(e.IPSourceRanges)
 	for i := range ranges {
 		sourceRanges[i] = string(e.IPSourceRanges[i])
 	}
@@ -174,9 +177,6 @@ type ProxyType string
 type Proxy struct {
 	// Type is the proxy type
 	// +kubebuilder:validation:Enum:=mongos;haproxy;proxysql;pgbouncer
-	// +kubebuilder:validation:XValidation:message="You can use only Mongos as a proxy type for MongoDB clusters", rule="self.engine.type=='psmdb' ? self.proxy.type == 'mongos' : true"
-	// +kubebuilder:validation:XValidation:message="You can use only PGBouncer as a proxy type for Postgres clusters", rule="self.engine.type=='postgresql' ? self.proxy.type == 'pgbouncer' : true"
-	// +kubebuilder:validation:XValidation:message="You can use only either HAProxy or Proxy SQL for PXC clusters", rule="self.engine.type=='pxc' ? self.proxy.type == 'haproxy' || self.proxy.type == 'proxysql' : true"
 	Type ProxyType `json:"type,omitempty"`
 	// Replicas is the number of proxy replicas
 	// +kubebuilder:validation:Minimum:=1

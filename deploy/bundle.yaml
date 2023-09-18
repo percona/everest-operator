@@ -549,13 +549,6 @@ spec:
                     - proxysql
                     - pgbouncer
                     type: string
-                    x-kubernetes-validations:
-                    - message: You can use only Mongos as a proxy type for MongoDB clusters
-                      rule: 'self.engine.type==''psmdb'' ? self.proxy.type == ''mongos'' : true'
-                    - message: You can use only PGBouncer as a proxy type for Postgres clusters
-                      rule: 'self.engine.type==''postgresql'' ? self.proxy.type == ''pgbouncer'' : true'
-                    - message: You can use only either HAProxy or Proxy SQL for PXC clusters
-                      rule: 'self.engine.type==''pxc'' ? self.proxy.type == ''haproxy'' || self.proxy.type == ''proxysql'' : true'
                 type: object
             required:
             - engine
