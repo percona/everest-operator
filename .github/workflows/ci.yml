@@ -176,6 +176,7 @@ jobs:
           do
             kubectl -n $namespace get psmdb -o name | xargs kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
+          kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
 
       - name: Clean up resources and CRDs
         if: always()
