@@ -16,17 +16,17 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 		{
 			name:   "shall not make any changes",
 			ranges: []IPSourceRange{"1.1.1.1/32", "1.1.1.1/24", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
-			want:   []string{"1.1.1.1/32", "1.1.1.1/24", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
+			want:   []IPSourceRange{"1.1.1.1/32", "1.1.1.1/24", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
 		},
 		{
 			name:   "shall not fail with empty",
 			ranges: []IPSourceRange{},
-			want:   []string{},
+			want:   []IPSourceRange{},
 		},
 		{
 			name:   "shall fix ipv4 and ipv6",
 			ranges: []IPSourceRange{"1.1.1.1/32", "1.1.1.1", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0"},
-			want:   []string{"1.1.1.1/32", "1.1.1.1/32", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
+			want:   []IPSourceRange{"1.1.1.1/32", "1.1.1.1/32", "2001:db8:abcd:0012::0/64", "2001:db8:abcd:0012::0/128"},
 		},
 	}
 	for _, tt := range tests {
