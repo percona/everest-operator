@@ -154,6 +154,28 @@ jobs:
         env:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+      - name: Clean up custom resources
+        if: always()
+        run: |
+          kubectl delete db --all-namespaces --all
+          kubectl delete pvc --all-namespaces --all
+          namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get pxc -o name | xargs kubectl patch pxc -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get psmdb -o name | xargs kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get psmdb -o name | xargs kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
 
       - name: Clean up resources and CRDs
         if: always()
@@ -161,8 +183,6 @@ jobs:
           export KUBECONFIG="${HOME}/.kube/config"
           mkdir -p "${KUBECONFIG%/*}"
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
-          kubectl delete db --all-namespaces --all
-          kubectl delete pvc --all-namespaces --all
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
         env:
