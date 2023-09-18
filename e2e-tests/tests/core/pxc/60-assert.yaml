@@ -7,6 +7,7 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
+  allowUnsafeConfiguration: true
   engine:
     type: pxc
     version: 8.0.32-24.2
@@ -14,6 +15,9 @@ spec:
     config: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
     replicas: 3
     storage:
       size: 15G
@@ -21,17 +25,15 @@ spec:
       cpu: 600m
       memory: 1G
   proxy:
-    type: haproxy
     replicas: 3
+    type: haproxy
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pods-in-order
-    - delete-pxc-pvc
 spec:
+  allowUnsafeConfigurations: true
   haproxy:
     enabled: true
     image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
@@ -41,6 +43,9 @@ spec:
     configuration: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
+      wsrep_debug=1
+      wsrep_trx_fragment_unit='bytes'
+      wsrep_trx_fragment_size=3670016
     expose: {}
     image: percona/percona-xtradb-cluster:8.0.32-24.2
     livenessProbes: {}

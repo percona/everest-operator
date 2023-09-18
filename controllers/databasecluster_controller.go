@@ -120,10 +120,15 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
-	databaseClusterNameLabel   = "clusterName"
-	monitoringConfigNameLabel  = "monitoringConfigName"
-	backupStorageNameLabelTmpl = "backupStorage-%s"
-	backupStorageLabelValue    = "used"
+	databaseClusterNameLabel        = "clusterName"
+	monitoringConfigNameLabel       = "monitoringConfigName"
+	backupStorageNameLabelTmpl      = "backupStorage-%s"
+	backupStorageLabelValue         = "used"
+	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"   //nolint:gosec
+	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order" //nolint:gosec
+	finalizerDeletePXCPVC           = "delete-pxc-pvc"
+	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
+	finalizerDeletePGPVC            = "percona.com/delete-pvc"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -450,13 +455,14 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 
-	psmdb := &psmdbv1.PerconaServerMongoDB{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
+	psmdb := &psmdbv1.PerconaServerMongoDB{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, psmdb)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to get psmdb object %s", database.Name)
 	}
+	psmdb.Name = database.Name
+	psmdb.Namespace = database.Namespace
+	psmdb.Annotations = database.Annotations
 	if len(database.Finalizers) != 0 {
 		psmdb.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
@@ -474,6 +480,12 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdb, func() error {
+		if !controllerutil.ContainsFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder) {
+			controllerutil.AddFinalizer(psmdb, finalizerDeletePSMDBPodsInOrder)
+		}
+		if !controllerutil.ContainsFinalizer(psmdb, finalizerDeletePSMDBPVC) {
+			controllerutil.AddFinalizer(psmdb, finalizerDeletePSMDBPVC)
+		}
 		psmdb.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
@@ -563,7 +575,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		case everestv1alpha1.ExposeTypeExternal:
 			psmdb.Spec.Replsets[0].Expose.Enabled = true
 			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
-			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRanges
+			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 		default:
 			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
@@ -957,14 +969,14 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 
-	current := &pxcv1.PerconaXtraDBCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, current)
+	pxc := &pxcv1.PerconaXtraDBCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pxc)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			return err
 		}
 	}
-	if current.Spec.Pause != database.Spec.Paused {
+	if pxc.Spec.Pause != database.Spec.Paused {
 		// During the restoration of PXC clusters
 		// They need to be shutted down
 		//
@@ -1002,17 +1014,13 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 		if jobRunning {
-			database.Spec.Paused = current.Spec.Pause
+			database.Spec.Paused = pxc.Spec.Pause
 		}
 	}
 
-	pxc := &pxcv1.PerconaXtraDBCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
-	}
+	pxc.Name = database.Name
+	pxc.Namespace = database.Namespace
+	pxc.Annotations = database.Annotations
 
 	if len(database.Finalizers) != 0 {
 		pxc.Finalizers = database.Finalizers
@@ -1039,6 +1047,12 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxc, func() error {
+		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPodsInOrder) {
+			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPodsInOrder)
+		}
+		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPVC) {
+			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPVC)
+		}
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
 			Kind:       PerconaXtraDBClusterKind,
@@ -1960,14 +1974,15 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		pgSpec.Proxy.PGBouncer.Affinity = affinity
 	}
 
-	pg := &pgv2.PerconaPGCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        database.Name,
-			Namespace:   database.Namespace,
-			Annotations: database.Annotations,
-		},
-		Spec: *pgSpec,
+	pg := &pgv2.PerconaPGCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pg)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to get pg object %s", database.Name)
 	}
+	pg.Name = database.Name
+	pg.Namespace = database.Namespace
+	pg.Annotations = database.Annotations
+	pg.Spec = *pgSpec
 
 	if pg.Spec.PMM == nil {
 		pg.Spec.PMM = &pgv2.PMMSpec{}
@@ -1994,6 +2009,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return err
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
+		if !controllerutil.ContainsFinalizer(pg, finalizerDeletePGPVC) {
+			controllerutil.AddFinalizer(pg, finalizerDeletePGPVC)
+		}
 		pg.TypeMeta = metav1.TypeMeta{
 			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
 			Kind:       PerconaPGClusterKind,

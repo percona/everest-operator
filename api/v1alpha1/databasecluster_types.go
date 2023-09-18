@@ -16,6 +16,8 @@
 package v1alpha1
 
 import (
+	"net"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,9 +133,35 @@ type Expose struct {
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
+func (e Expose) parseIPSourceRanges(ranges []IPSourceRange) []IPSourceRange {
+	ret := make([]IPSourceRange, 0, len(ranges))
+	ret = append(ret, ranges...)
+	for k, v := range ret {
+		if _, _, err := net.ParseCIDR(string(v)); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(string(v))
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
+			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
+		}
+	}
+
+	return ret
+}
+
 func (e Expose) IPSourceRangesStringArray() []string {
 	sourceRanges := make([]string, len(e.IPSourceRanges))
-	for i := range e.IPSourceRanges {
+	ranges := e.parseIPSourceRanges(e.IPSourceRanges)
+	for i := range ranges {
 		sourceRanges[i] = string(e.IPSourceRanges[i])
 	}
 	return sourceRanges
