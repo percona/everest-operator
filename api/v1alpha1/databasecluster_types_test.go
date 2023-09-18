@@ -11,7 +11,7 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 	tests := []struct {
 		name   string
 		ranges []IPSourceRange
-		want   []string
+		want   []IPSourceRange
 	}{
 		{
 			name:   "shall not make any changes",
