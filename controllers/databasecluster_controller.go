@@ -1403,7 +1403,8 @@ func reconcilePGBackRestRepos(
 	}
 
 	availableRepoNames := []string{
-		"repo1",
+		// repo1 is reserved for the PVC-based repo, see below for details on
+		// how it is handled
 		"repo2",
 		"repo3",
 		"repo4",
@@ -1600,20 +1601,14 @@ func reconcilePGBackRestRepos(
 		}
 	}
 
-	newRepos := []crunchyv1beta1.PGBackRestRepo{}
-	for e := reposReconciled.Front(); e != nil; e = e.Next() {
-		repo, ok := e.Value.(crunchyv1beta1.PGBackRestRepo)
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast repo %v", e.Value)
-		}
-		newRepos = append(newRepos, repo)
-	}
-
 	// The PG operator requires a repo to be set up in order to create
 	// replicas. Without any credentials we can't set a cloud-based repo so we
-	// define a PVC-backed repo instead.
-	if len(newRepos) == 0 {
-		newRepos = append(newRepos, crunchyv1beta1.PGBackRestRepo{
+	// define a PVC-backed repo in case the user doesn't define any cloud-based
+	// repos. Moreover, we need to keep this repo in the list even if the user
+	// defines a cloud-based repo because the PG operator will restart the
+	// cluster if the only repo in the list is changed.
+	newRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
 			Name: "repo1",
 			Volume: &crunchyv1beta1.RepoPVC{
 				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
@@ -1628,8 +1623,17 @@ func reconcilePGBackRestRepos(
 					},
 				},
 			},
-		})
-		pgBackRestGlobal["repo1-retention-full"] = "1"
+		},
+	}
+	pgBackRestGlobal["repo1-retention-full"] = "1"
+
+	// Add the reconciled repos to the list of repos
+	for e := reposReconciled.Front(); e != nil; e = e.Next() {
+		repo, ok := e.Value.(crunchyv1beta1.PGBackRestRepo)
+		if !ok {
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast repo %v", e.Value)
+		}
+		newRepos = append(newRepos, repo)
 	}
 
 	pgBackrestSecretBuf := new(bytes.Buffer)
