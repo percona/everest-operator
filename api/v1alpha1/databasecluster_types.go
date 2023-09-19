@@ -16,6 +16,8 @@
 package v1alpha1
 
 import (
+	"net"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,10 +98,12 @@ type Resources struct {
 // Engine is the engine configuration.
 type Engine struct {
 	// Type is the engine type
+	// +kubebuilder:validation:Enum:=pxc;postgresql;psmdb
 	Type EngineType `json:"type"`
 	// Version is the engine version
 	Version string `json:"version,omitempty"`
 	// Replicas is the number of engine replicas
+	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas,omitempty"`
 	// Storage is the engine storage configuration
 	Storage Storage `json:"storage"`
@@ -115,6 +119,13 @@ type Engine struct {
 // ExposeType is the expose type.
 type ExposeType string
 
+// IPSourceRange represents IP addresses in CIDR notation or without a netmask.
+//
+// +kubebuilder:validation:Pattern="((^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))$)|(^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$))"
+//
+//nolint:lll
+type IPSourceRange string
+
 // Expose is the expose configuration.
 type Expose struct {
 	// Type is the expose type, can be internal or external
@@ -123,7 +134,42 @@ type Expose struct {
 	Type ExposeType `json:"type,omitempty"`
 	// IPSourceRanges is the list of IP source ranges (CIDR notation)
 	// to allow access from. If not set, there is no limitations
-	IPSourceRanges []string `json:"ipSourceRanges,omitempty"`
+	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
+}
+
+func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
+	ret := make([]IPSourceRange, 0, len(ranges))
+	ret = append(ret, ranges...)
+	for k, v := range ret {
+		if _, _, err := net.ParseCIDR(string(v)); err == nil {
+			continue
+		}
+
+		ip := net.ParseIP(string(v))
+		if ip == nil {
+			continue
+		}
+
+		if ip.To4() != nil {
+			// IPv4 without a subnet. Add /32 subnet by default.
+			ret[k] = v + "/32"
+		} else {
+			// IPv6 without a subnet. Add /128 subnet by default.
+			ret[k] = v + "/128"
+		}
+	}
+
+	return ret
+}
+
+// IPSourceRangesStringArray returns []string of IPSource ranges. It also calls toCIDR function to convert IP addresses to the correct CIDR notation.
+func (e Expose) IPSourceRangesStringArray() []string {
+	sourceRanges := make([]string, len(e.IPSourceRanges))
+	ranges := e.toCIDR(e.IPSourceRanges)
+	for i := range ranges {
+		sourceRanges[i] = string(e.IPSourceRanges[i])
+	}
+	return sourceRanges
 }
 
 // ProxyType is the proxy type.
@@ -135,6 +181,7 @@ type Proxy struct {
 	// +kubebuilder:validation:Enum:=mongos;haproxy;proxysql;pgbouncer
 	Type ProxyType `json:"type,omitempty"`
 	// Replicas is the number of proxy replicas
+	// +kubebuilder:validation:Minimum:=1
 	Replicas *int32 `json:"replicas,omitempty"`
 	// Config is the proxy configuration
 	Config string `json:"config,omitempty"`

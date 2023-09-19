@@ -657,7 +657,7 @@ func (in *Expose) DeepCopyInto(out *Expose) {
 	*out = *in
 	if in.IPSourceRanges != nil {
 		in, out := &in.IPSourceRanges, &out.IPSourceRanges
-		*out = make([]string, len(*in))
+		*out = make([]IPSourceRange, len(*in))
 		copy(*out, *in)
 	}
 }

@@ -147,6 +147,30 @@ jobs:
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
+      - name: Clean up custom resources
+        if: always()
+        run: |
+          namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get pxc -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pxc -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+          kubectl delete db --all-namespaces --all
+          kubectl delete pvc --all-namespaces --all
+          kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+
       - name: Scale down cluster
         if: always()
         run: |
@@ -161,8 +185,6 @@ jobs:
           export KUBECONFIG="${HOME}/.kube/config"
           mkdir -p "${KUBECONFIG%/*}"
           echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
-          kubectl delete db --all-namespaces --all
-          kubectl delete pvc --all-namespaces --all
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
         env:
