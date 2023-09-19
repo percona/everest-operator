@@ -696,8 +696,13 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 	if err != nil {
 		return "", errors.Errorf("Unable to get the schedule index for the repo %s", repoName)
 	}
-	if len(cluster.Spec.Backup.Schedules) < scheduleInd {
+	// repo1 is hardcoded in the PerconaPGCluster CR as a PVC-based repo and
+	// there is never a schedule for it, so there is always one less schedule
+	// than repos, hence the +1. Also, the repoNames for the schedules start
+	// from repo2. So we need to subtract 2 from the scheduleInd to get the
+	// correct index in the schedules list.
+	if len(cluster.Spec.Backup.Schedules)+1 < scheduleInd {
 		return "", errors.Errorf("Invalid schedule index %v in the repo %s", scheduleInd, repoName)
 	}
-	return cluster.Spec.Backup.Schedules[scheduleInd-1].BackupStorageName, nil
+	return cluster.Spec.Backup.Schedules[scheduleInd-2].BackupStorageName, nil
 }

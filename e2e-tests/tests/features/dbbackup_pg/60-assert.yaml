@@ -35,10 +35,19 @@ spec:
       - secret:
           name: test-pg-cluster-pgbackrest-secrets
       global:
-        repo1-path: /
         repo1-retention-full: "1"
+        repo2-path: /
+        repo2-retention-full: "1"
       repos:
       - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1G
+      - name: repo2
         s3:
           bucket: test-backup-bucket-scheduled
           endpoint: s3.amazonaws.com
