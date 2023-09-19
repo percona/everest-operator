@@ -30,6 +30,7 @@ metadata:
   name: test-pg-cluster
   finalizers:
     - percona.com/delete-pvc
+    - percona.com/delete-ssl
 spec:
   backups:
     pgbackrest:

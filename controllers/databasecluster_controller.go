@@ -130,6 +130,8 @@ timeout server 28800s
 	finalizerDeletePXCPVC           = "delete-pxc-pvc"
 	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
 	finalizerDeletePGPVC            = "percona.com/delete-pvc"
+	finalizerDeletePXCSSL           = "delete-ssl"
+	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 )
 
 var operatorDeployment = map[everestv1alpha1.EngineType]string{
@@ -1053,6 +1055,9 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCPVC) {
 			controllerutil.AddFinalizer(pxc, finalizerDeletePXCPVC)
+		}
+		if !controllerutil.ContainsFinalizer(pxc, finalizerDeletePXCSSL) {
+			controllerutil.AddFinalizer(pxc, finalizerDeletePXCSSL)
 		}
 		pxc.TypeMeta = metav1.TypeMeta{
 			APIVersion: version.ToAPIVersion(pxcAPIGroup),
@@ -2012,6 +2017,9 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pg, func() error {
 		if !controllerutil.ContainsFinalizer(pg, finalizerDeletePGPVC) {
 			controllerutil.AddFinalizer(pg, finalizerDeletePGPVC)
+		}
+		if !controllerutil.ContainsFinalizer(pg, finalizerDeletePGSSL) {
+			controllerutil.AddFinalizer(pg, finalizerDeletePGSSL)
 		}
 		pg.TypeMeta = metav1.TypeMeta{
 			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
