@@ -50,7 +50,7 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 
 			e := Expose{}
 			if got := e.toCIDR(tt.ranges); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Expose.parseIPSourceRanges() = %v, want %v", got, tt.want)
+				t.Errorf("Expose.toCIDR() = %v, want %v", got, tt.want)
 			}
 		})
 	}

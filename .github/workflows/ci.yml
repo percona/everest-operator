@@ -147,13 +147,6 @@ jobs:
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
-      - name: Scale down cluster
-        if: always()
-        run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
-        env:
-          CLUSTER_NAME: "dbaas-ci-20221005"
-          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
       - name: Clean up custom resources
         if: always()
         run: |
@@ -177,6 +170,14 @@ jobs:
           kubectl delete db --all-namespaces --all
           kubectl delete pvc --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+
+      - name: Scale down cluster
+        if: always()
+        run: |
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
+        env:
+          CLUSTER_NAME: "dbaas-ci-20221005"
+          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
 
       - name: Clean up resources and CRDs
         if: always()
