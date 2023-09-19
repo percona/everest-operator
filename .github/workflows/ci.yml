@@ -157,8 +157,6 @@ jobs:
       - name: Clean up custom resources
         if: always()
         run: |
-          kubectl delete db --all-namespaces --all
-          kubectl delete pvc --all-namespaces --all
           namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
           for namespace in ${namespaces[@]}
           do
@@ -176,6 +174,8 @@ jobs:
           do
             kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
+          kubectl delete db --all-namespaces --all
+          kubectl delete pvc --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
 
       - name: Clean up resources and CRDs
