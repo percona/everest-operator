@@ -1,6 +1,5 @@
 # Everest Operator
 
-
 ## Status
 
 **This project is in the tech preview state right now. Don't use it on production.**
