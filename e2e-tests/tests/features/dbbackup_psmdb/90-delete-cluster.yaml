@@ -1,7 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
-timeout: 10
-delete:
-- apiVersion: everest.percona.com/v1alpha1
-  kind: DatabaseCluster
-  name: test-psmdb-cluster
+commands:
+  - command: kubectl -n $NAMESPACE delete db test-psmdb-cluster
+  - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
