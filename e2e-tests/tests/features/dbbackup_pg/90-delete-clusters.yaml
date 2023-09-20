@@ -3,3 +3,4 @@ kind: TestStep
 commands:
   - command: kubectl -n $NAMESPACE delete db test-pg-cluster
   - command: kubectl patch postgresclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true

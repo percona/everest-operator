@@ -3,3 +3,4 @@ kind: TestStep
 commands:
   - command: kubectl -n $NAMESPACE delete db test-pxc-cluster
   - command: kubectl patch pxc test-pxc-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
