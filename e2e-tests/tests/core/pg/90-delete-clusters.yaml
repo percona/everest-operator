@@ -4,3 +4,6 @@ commands:
   - command: kubectl -n $NAMESPACE delete db test-single-node
   - command: kubectl patch postgresclusters test-single-node -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
+  - command: kubectl -n $NAMESPACE delete db test-pg-cluster
+  - command: kubectl patch postgresclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
