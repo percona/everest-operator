@@ -4,7 +4,7 @@ kind: TestStep
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: single-node
 spec:
   engine:
     type: psmdb
