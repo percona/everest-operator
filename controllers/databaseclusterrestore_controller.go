@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -24,7 +25,6 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -240,7 +240,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 			backupStorage := &everestv1alpha1.BackupStorage{}
 			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
+				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
 
 			psmdbCR.Spec.BackupSource = &psmdbv1.PerconaServerMongoDBBackupStatus{
@@ -255,7 +255,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
 			default:
-				return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
 		return nil
@@ -299,7 +299,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 			backupStorage := &everestv1alpha1.BackupStorage{}
 			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
+				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
 
 			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
@@ -314,7 +314,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
 			default:
-				return errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
 		return nil
@@ -367,7 +367,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err = r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: restore.Namespace}, backupStorage)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName)
+		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 	}
 
 	// We need to check if the storage used by the backup is defined in the

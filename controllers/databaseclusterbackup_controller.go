@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -31,7 +32,6 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ const (
 
 // ErrBackupStorageUndefined is returned when a backup storage is not defined
 // in the corresponding upstream DB cluster CR.
-var ErrBackupStorageUndefined error = errors.New("backup storage is not defined in the upstream DB cluster CR")
+var ErrBackupStorageUndefined = errors.New("backup storage is not defined in the upstream DB cluster CR")
 
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
@@ -646,7 +646,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, backupStorage)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 	}
 
 	// If the backup storage is not defined in the PerconaPGCluster CR, we
@@ -694,7 +694,7 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 	// So here we figure out the BackupStorageName of the corresponding schedule.
 	scheduleInd, err := strconv.Atoi(strings.TrimPrefix(repoName, "repo"))
 	if err != nil {
-		return "", errors.Errorf("Unable to get the schedule index for the repo %s", repoName)
+		return "", fmt.Errorf("unable to get the schedule index for the repo %s", repoName)
 	}
 	// repo1 is hardcoded in the PerconaPGCluster CR as a PVC-based repo and
 	// there is never a schedule for it, so there is always one less schedule
@@ -702,7 +702,7 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 	// from repo2. So we need to subtract 2 from the scheduleInd to get the
 	// correct index in the schedules list.
 	if len(cluster.Spec.Backup.Schedules)+1 < scheduleInd {
-		return "", errors.Errorf("Invalid schedule index %v in the repo %s", scheduleInd, repoName)
+		return "", fmt.Errorf("invalid schedule index %v in the repo %s", scheduleInd, repoName)
 	}
 	return cluster.Spec.Backup.Schedules[scheduleInd-2].BackupStorageName, nil
 }

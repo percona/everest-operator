@@ -17,11 +17,10 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
-
-	"github.com/pkg/errors"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
