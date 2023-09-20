@@ -1,5 +1,5 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
-delete:
-- apiVersion: everest.percona.com/v1alpha1
-  kind: DatabaseCluster
+commands:
+  - command: kubectl -n $NAMESPACE delete db pg-mc
+  - command: kubectl patch postgresclusters pg-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
