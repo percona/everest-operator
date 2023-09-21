@@ -15,7 +15,6 @@ require (
 	github.com/percona/percona-postgresql-operator v0.0.0-20230629061704-21f8d7d89b98
 	github.com/percona/percona-server-mongodb-operator v1.14.0
 	github.com/percona/percona-xtradb-cluster-operator v1.13.0
-	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.28.2
@@ -87,6 +86,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20221024072933-3ec38a5fc670 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect

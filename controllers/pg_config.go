@@ -18,11 +18,12 @@ package controllers
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 
 	"github.com/go-ini/ini"
-	"github.com/pkg/errors"
 )
 
 // PGConfigParser represents a parser for PG config.
@@ -56,7 +57,7 @@ func (p *PGConfigParser) ParsePGConfig() (map[string]any, error) {
 		ks := parser.Section("").Keys()
 		if len(ks) > 0 {
 			if len(ks) > 1 {
-				return nil, errors.Errorf("too many keys in PG config line %q", l)
+				return nil, fmt.Errorf("too many keys in PG config line %q", l)
 			}
 
 			k := ks[0]

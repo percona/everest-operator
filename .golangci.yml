@@ -10,8 +10,8 @@ linters-settings:
     rules:
       main:
         deny:
-          - pkg: "errors"
-            desc: "use 'github.com/pkg/errors' instead"
+          - pkg: "github.com/pkg/errors"
+            desc: "use 'errors' instead"
           - pkg: "github.com/gogo/protobuf/proto"
             desc: "use 'github.com/golang/protobuf/proto' instead"
           - pkg: "github.com/percona/go-mysql/log/slow"
@@ -68,6 +68,7 @@ linters:
     - exhaustivestruct  # too annoying
     - funlen            # useless
     - gochecknoglobals  # mostly useless
+    - goerr113          # useless
     - gochecknoinits    # we use init functions
     - gomnd             # we are using numbers in many cases
     - gomoddirectives   # we use replace directives

@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -38,7 +39,6 @@ import (
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -261,7 +261,7 @@ func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (Cluster
 func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
-		return errors.Errorf("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
+		return errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
 	}
 
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{
@@ -291,7 +291,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
 	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
 	if !ok {
-		return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("backup version %s not available", bestBackupVersion)
+		return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
 	psmdbBackupSpec := psmdbv1.BackupSpec{
@@ -309,7 +309,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	}
 	err := r.List(ctx, backupList, listOps)
 	if err != nil {
-		return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
 	}
 
 	// Add the storages used by the DatabaseClusterBackup objects
@@ -322,7 +322,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 
 		switch backupStorage.Spec.Type {
@@ -337,7 +337,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 
@@ -349,7 +349,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+		return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 
 	// Add used restore backup storages to the list
@@ -370,7 +370,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		backup := &everestv1alpha1.DatabaseClusterBackup{}
 		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrap(err, "failed to get DatabaseClusterBackup")
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to get DatabaseClusterBackup"))
 		}
 
 		// Check if we already fetched that backup storage
@@ -381,7 +381,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 
 		switch backupStorage.Spec.Type {
@@ -396,7 +396,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 
@@ -416,7 +416,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
+			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
 		}
 
 		switch backupStorage.Spec.Type {
@@ -431,7 +431,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		tasks = append(tasks, psmdbv1.BackupTaskSpec{
@@ -460,7 +460,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	psmdb := &psmdbv1.PerconaServerMongoDB{}
 	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, psmdb)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "failed to get psmdb object %s", database.Name)
+		return errors.Join(err, fmt.Errorf("failed to get psmdb object %s", database.Name))
 	}
 	psmdb.Name = database.Name
 	psmdb.Namespace = database.Namespace
@@ -475,7 +475,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	engine := &everestv1alpha1.DatabaseEngine{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: database.Namespace, Name: operatorDeployment[database.Spec.Engine.Type]}, engine)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get database engine %s", operatorDeployment[database.Spec.Engine.Type])
+		return errors.Join(err, fmt.Errorf("failed to get database engine %s", operatorDeployment[database.Spec.Engine.Type]))
 	}
 
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
@@ -509,10 +509,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
 		if hasTemplateKind && !hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+			return fmt.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
 		}
 		if !hasTemplateKind && hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+			return fmt.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
 		}
 		if hasTemplateKind && hasTemplateName {
 			err := r.applyTemplate(ctx, psmdb, dbTemplateKind, types.NamespacedName{
@@ -533,7 +533,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		}
 		engineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {
-			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+			return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 		}
 
 		psmdb.Spec.Image = engineVersion.ImagePath
@@ -579,7 +579,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
 			psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 		default:
-			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+			return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
@@ -602,7 +602,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			psmdb.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 			if err != nil {
-				return errors.Wrap(err, "invalid monitoring URL")
+				return errors.Join(err, errors.New("invalid monitoring URL"))
 			}
 			psmdb.Spec.PMM.ServerHost = pmmURL.Hostname()
 			psmdb.Spec.PMM.Image = image
@@ -650,7 +650,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
 		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRunning) {
@@ -778,20 +778,20 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 	default:
-		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+		return nil, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
 
 	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
 
 	haProxyAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeHAProxy]
 	if !ok {
-		return nil, errors.Errorf("haproxy version not available")
+		return nil, errors.New("haproxy version not available")
 	}
 
 	bestHAProxyVersion := haProxyAvailVersions.BestVersion()
 	haProxyVersion, ok := haProxyAvailVersions[bestHAProxyVersion]
 	if !ok {
-		return nil, errors.Errorf("haproxy version %s not available", bestHAProxyVersion)
+		return nil, fmt.Errorf("haproxy version %s not available", bestHAProxyVersion)
 	}
 
 	haProxy.PodSpec.Image = haProxyVersion.ImagePath
@@ -827,20 +827,20 @@ func (r *DatabaseClusterReconciler) genPXCProxySQLSpec(database *everestv1alpha1
 		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 	default:
-		return nil, errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+		return nil, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
 
 	proxySQL.Configuration = database.Spec.Proxy.Config
 
 	proxySQLAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeProxySQL]
 	if !ok {
-		return nil, errors.Errorf("proxysql version not available")
+		return nil, errors.New("proxysql version not available")
 	}
 
 	bestProxySQLVersion := proxySQLAvailVersions.BestVersion()
 	proxySQLVersion, ok := proxySQLAvailVersions[bestProxySQLVersion]
 	if !ok {
-		return nil, errors.Errorf("proxysql version %s not available", bestProxySQLVersion)
+		return nil, fmt.Errorf("proxysql version %s not available", bestProxySQLVersion)
 	}
 
 	proxySQL.Image = proxySQLVersion.ImagePath
@@ -863,7 +863,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
 	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
 	if !ok {
-		return nil, errors.Errorf("backup version %s not available", bestBackupVersion)
+		return nil, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
@@ -880,7 +880,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	}
 	err := r.List(ctx, backupList, listOps)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
+		return nil, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
 	}
 
 	// Add the storages used by the DatabaseClusterBackup objects
@@ -892,7 +892,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 
 		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
@@ -907,7 +907,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		default:
-			return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 
@@ -929,7 +929,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 			backupStorage := &everestv1alpha1.BackupStorage{}
 			err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
+				return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
 			}
 
 			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
@@ -944,7 +944,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
 			default:
-				return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+				return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
 
@@ -1042,7 +1042,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	engine := &everestv1alpha1.DatabaseEngine{}
 	err = r.Get(ctx, types.NamespacedName{Name: pxcDeploymentName, Namespace: database.Namespace}, engine)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get database engine %s", pxcDeploymentName)
+		return errors.Join(err, fmt.Errorf("failed to get database engine %s", pxcDeploymentName))
 	}
 
 	if err := controllerutil.SetControllerReference(database, pxc, r.Client.Scheme()); err != nil {
@@ -1081,10 +1081,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
 		if hasTemplateKind && !hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
+			return fmt.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
 		}
 		if !hasTemplateKind && hasTemplateName {
-			return errors.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
+			return fmt.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
 		}
 		if hasTemplateKind && hasTemplateName {
 			err := r.applyTemplate(ctx, pxc, dbTemplateKind, types.NamespacedName{
@@ -1131,7 +1131,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		}
 		pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {
-			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+			return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 		}
 
 		pxc.Spec.PXC.PodSpec.Image = pxcEngineVersion.ImagePath
@@ -1168,7 +1168,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				return err
 			}
 		default:
-			return errors.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
+			return fmt.Errorf("invalid proxy type %s", database.Spec.Proxy.Type)
 		}
 
 		monitoring := &everestv1alpha1.MonitoringConfig{}
@@ -1191,7 +1191,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 			if err != nil {
-				return errors.Wrap(err, "invalid monitoring URL")
+				return errors.Join(err, errors.New("invalid monitoring URL"))
 			}
 			pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pxc.Spec.PMM.Image = image
@@ -1241,7 +1241,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
 		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreRestore) {
@@ -1329,7 +1329,7 @@ func genPGBackrestRepo(
 		}
 
 	default:
-		return crunchyv1beta1.PGBackRestRepo{}, errors.Errorf("unsupported backup storage type %s", backupStorage.Type)
+		return crunchyv1beta1.PGBackRestRepo{}, fmt.Errorf("unsupported backup storage type %s", backupStorage.Type)
 	}
 
 	return pgRepo, nil
@@ -1403,7 +1403,7 @@ func reconcilePGBackRestRepos(
 	pgBackRestGlobal := map[string]string{}
 	pgBackRestSecretIni, err := ini.Load([]byte{})
 	if err != nil {
-		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Wrapf(err, "failed to initialize PGBackrest secret data")
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Join(err, errors.New("failed to initialize PGBackrest secret data"))
 	}
 
 	availableRepoNames := []string{
@@ -1438,7 +1438,7 @@ func reconcilePGBackRestRepos(
 
 		backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
 		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast backup schedule %v", eb.Value)
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast backup schedule %v", eb.Value)
 		}
 		for er := reposToBeReconciled.Front(); er != nil; er = erNext {
 			// Save the next element because we might remove the current one
@@ -1446,7 +1446,7 @@ func reconcilePGBackRestRepos(
 
 			repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
 			if !ok {
-				return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast repo %v", er.Value)
+				return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast repo %v", er.Value)
 			}
 			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
 			if backupSchedule.BackupStorageName != repoBackupStorageName ||
@@ -1472,7 +1472,7 @@ func reconcilePGBackRestRepos(
 				return []crunchyv1beta1.PGBackRestRepo{},
 					map[string]string{},
 					[]byte{},
-					errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret data")
+					errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
 			}
 
 			break
@@ -1487,7 +1487,7 @@ func reconcilePGBackRestRepos(
 
 		repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
 		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast repo %v", er.Value)
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast repo %v", er.Value)
 		}
 		repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
 		for eb := backupSchedulesToBeReconciled.Front(); eb != nil; eb = ebNext {
@@ -1496,7 +1496,7 @@ func reconcilePGBackRestRepos(
 
 			backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
 			if !ok {
-				return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast backup schedule %v", eb.Value)
+				return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast backup schedule %v", eb.Value)
 			}
 			if backupSchedule.BackupStorageName == repoBackupStorageName {
 				repo.BackupSchedules = &crunchyv1beta1.PGBackRestBackupSchedules{
@@ -1519,7 +1519,7 @@ func reconcilePGBackRestRepos(
 					return []crunchyv1beta1.PGBackRestRepo{},
 						map[string]string{},
 						[]byte{},
-						errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret data")
+						errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
 				}
 
 				break
@@ -1531,7 +1531,7 @@ func reconcilePGBackRestRepos(
 	for eb := backupSchedulesToBeReconciled.Front(); eb != nil; eb = eb.Next() {
 		backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
 		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast backup schedule %v", eb.Value)
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast backup schedule %v", eb.Value)
 		}
 		backupStorage, ok := backupStorages[backupSchedule.BackupStorageName]
 		if !ok {
@@ -1539,7 +1539,7 @@ func reconcilePGBackRestRepos(
 		}
 
 		if len(availableRepoNames) == 0 {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("exceeded max number of repos")
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.New("exceeded max number of repos")
 		}
 
 		repoName := availableRepoNames[0]
@@ -1560,7 +1560,7 @@ func reconcilePGBackRestRepos(
 			return []crunchyv1beta1.PGBackRestRepo{},
 				map[string]string{},
 				[]byte{},
-				errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret data")
+				errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
 		}
 	}
 
@@ -1601,7 +1601,7 @@ func reconcilePGBackRestRepos(
 			return []crunchyv1beta1.PGBackRestRepo{},
 				map[string]string{},
 				[]byte{},
-				errors.Wrapf(err, "failed to add backup storage credentials to PGBackrest secret data")
+				errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
 		}
 	}
 
@@ -1635,14 +1635,14 @@ func reconcilePGBackRestRepos(
 	for e := reposReconciled.Front(); e != nil; e = e.Next() {
 		repo, ok := e.Value.(crunchyv1beta1.PGBackRestRepo)
 		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Errorf("failed to cast repo %v", e.Value)
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast repo %v", e.Value)
 		}
 		newRepos = append(newRepos, repo)
 	}
 
 	pgBackrestSecretBuf := new(bytes.Buffer)
 	if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
-		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Wrapf(err, "failed to write PGBackrest secret data")
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Join(err, errors.New("failed to write PGBackrest secret data"))
 	}
 
 	return newRepos, pgBackRestGlobal, pgBackrestSecretBuf.Bytes(), nil
@@ -1657,7 +1657,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 ) (crunchyv1beta1.Backups, error) {
 	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
 	if !ok {
-		return crunchyv1beta1.Backups{}, errors.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+		return crunchyv1beta1.Backups{}, fmt.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
 	}
 
 	newBackups := crunchyv1beta1.Backups{
@@ -1687,7 +1687,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	}
 	err := r.List(ctx, backupList, listOps)
 	if err != nil {
-		return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to list DatabaseClusterBackup objects")
+		return crunchyv1beta1.Backups{}, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
 	}
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
@@ -1702,13 +1702,13 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", backup.Spec.BackupStorageName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 
 		backupStorageSecret := &corev1.Secret{}
 		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
 		backupStorages[backupStorage.Name] = backupStorage.Spec
@@ -1723,7 +1723,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+		return crunchyv1beta1.Backups{}, errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 
 	// Add backup storages used by restores to the list
@@ -1739,7 +1739,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 			backup := &everestv1alpha1.DatabaseClusterBackup{}
 			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
 			if err != nil {
-				return crunchyv1beta1.Backups{}, errors.Wrap(err, "failed to get DatabaseClusterBackup")
+				return crunchyv1beta1.Backups{}, errors.Join(err, errors.New("failed to get DatabaseClusterBackup"))
 			}
 
 			backupStorageName = backup.Spec.BackupStorageName
@@ -1756,13 +1756,13 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", backupStorageName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
 		}
 
 		backupStorageSecret := &corev1.Secret{}
 		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
 		backupStorages[backupStorage.Name] = backupStorage.Spec
@@ -1805,13 +1805,13 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage %s", schedule.BackupStorageName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
 		}
 
 		backupStorageSecret := &corev1.Secret{}
 		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
 		if err != nil {
-			return crunchyv1beta1.Backups{}, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
 		backupStorages[backupStorage.Name] = backupStorage.Spec
@@ -1858,7 +1858,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
-		return nil, errors.Errorf("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
+		return nil, errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
 	}
 
 	var backupBaseName string
@@ -1867,11 +1867,11 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		dbClusterBackup := &everestv1alpha1.DatabaseClusterBackup{}
 		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, dbClusterBackup)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get DBClusterBackup %s", database.Spec.DataSource.DBClusterBackupName)
+			return nil, errors.Join(err, fmt.Errorf("failed to get DBClusterBackup %s", database.Spec.DataSource.DBClusterBackupName))
 		}
 
 		if dbClusterBackup.Status.Destination == nil {
-			return nil, errors.Errorf("DBClusterBackup %s has no destination", database.Spec.DataSource.DBClusterBackupName)
+			return nil, fmt.Errorf("DBClusterBackup %s has no destination", database.Spec.DataSource.DBClusterBackupName)
 		}
 
 		backupBaseName = filepath.Base(*dbClusterBackup.Status.Destination)
@@ -1900,29 +1900,29 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get backup storage %s", backupStorageName)
+		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
 	}
 
 	switch backupStorage.Spec.Type {
 	case everestv1alpha1.BackupStorageTypeS3:
 		pgBackRestSecretIni, err := ini.Load([]byte{})
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to initialize PGBackrest secret data")
+			return nil, errors.Join(err, errors.New("failed to initialize PGBackrest secret data"))
 		}
 
 		backupStorageSecret := &corev1.Secret{}
 		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName)
+			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
 		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repoName, backupStorageSecret)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to add data source storage credentials to PGBackrest secret data")
+			return nil, errors.Join(err, errors.New("failed to add data source storage credentials to PGBackrest secret data"))
 		}
 		pgBackrestSecretBuf := new(bytes.Buffer)
 		if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
-			return nil, errors.Wrapf(err, "failed to write PGBackrest secret data")
+			return nil, errors.Join(err, errors.New("failed to write PGBackrest secret data"))
 		}
 
 		secretData := pgBackrestSecretBuf.Bytes()
@@ -1934,7 +1934,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			database.Name+"-pgbackrest-datasource-secrets",
 		)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create pgbackrest secret")
+			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
 		}
 
 		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
@@ -1955,7 +1955,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			},
 		}
 	default:
-		return nil, errors.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+		return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 	}
 
 	return pgDataSource, nil
@@ -1986,7 +1986,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	pg := &pgv2.PerconaPGCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: database.Name, Namespace: database.Namespace}, pg)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrapf(err, "failed to get pg object %s", database.Name)
+		return errors.Join(err, fmt.Errorf("failed to get pg object %s", database.Name))
 	}
 	pg.Name = database.Name
 	pg.Namespace = database.Namespace
@@ -2012,7 +2012,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	engine := &everestv1alpha1.DatabaseEngine{}
 	err = r.Get(ctx, types.NamespacedName{Name: pgDeploymentName, Namespace: database.Namespace}, engine)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get database engine %s", pgDeploymentName)
+		return errors.Join(err, fmt.Errorf("failed to get database engine %s", pgDeploymentName))
 	}
 	if err := controllerutil.SetControllerReference(database, pg, r.Client.Scheme()); err != nil {
 		return err
@@ -2039,14 +2039,14 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		}
 		pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 		if !ok {
-			return errors.Errorf("engine version %s not available", database.Spec.Engine.Version)
+			return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 		}
 
 		pg.Spec.Image = pgEngineVersion.ImagePath
 
 		pgMajorVersionMatch := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(database.Spec.Engine.Version)
 		if len(pgMajorVersionMatch) < 2 {
-			return errors.Errorf("failed to extract the major version from %s", database.Spec.Engine.Version)
+			return fmt.Errorf("failed to extract the major version from %s", database.Spec.Engine.Version)
 		}
 		pgMajorVersion, err := strconv.Atoi(pgMajorVersionMatch[1])
 		if err != nil {
@@ -2055,7 +2055,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		pg.Spec.PostgresVersion = pgMajorVersion
 
 		if err := r.updatePGConfig(pg, database); err != nil {
-			return errors.Wrap(err, "could not update PG config")
+			return errors.Join(err, errors.New("could not update PG config"))
 		}
 
 		pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
@@ -2079,12 +2079,12 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 
 		pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
 		if !ok {
-			return errors.Errorf("pgbouncer version not available")
+			return errors.New("pgbouncer version not available")
 		}
 
 		pgbouncerVersion, ok := pgbouncerAvailVersions[database.Spec.Engine.Version]
 		if !ok {
-			return errors.Errorf("pgbouncer version %s not available", database.Spec.Engine.Version)
+			return fmt.Errorf("pgbouncer version %s not available", database.Spec.Engine.Version)
 		}
 
 		pg.Spec.Proxy.PGBouncer.Image = pgbouncerVersion.ImagePath
@@ -2108,7 +2108,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 				Type: string(corev1.ServiceTypeLoadBalancer),
 			}
 		default:
-			return errors.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+			return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 		}
 
 		if !database.Spec.Proxy.Resources.CPU.IsZero() {
@@ -2148,7 +2148,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			pg.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 			if err != nil {
-				return errors.Wrap(err, "invalid monitoring URL")
+				return errors.Join(err, errors.New("invalid monitoring URL"))
 			}
 			pg.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pg.Spec.PMM.Image = image
@@ -2197,7 +2197,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return errors.Wrap(err, "failed to list DatabaseClusterRestore objects")
+		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
 		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreRunning) {
@@ -2688,7 +2688,7 @@ func (r *DatabaseClusterReconciler) getDBClustersReconcileRequestsByRelatedObjec
 func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, parent string) error {
 	for k, v := range src {
 		if dst[k] != nil && reflect.TypeOf(dst[k]) != reflect.TypeOf(v) {
-			return errors.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
+			return fmt.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
 		}
 		switch v.(type) { //nolint:gocritic
 		case map[string]interface{}:
@@ -2702,7 +2702,7 @@ func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, pa
 					return err
 				}
 			default:
-				return errors.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
+				return fmt.Errorf("type mismatch for %s.%s, %T != %T", parent, k, dst[k], v)
 			}
 		default:
 			dst[k] = v
@@ -2806,7 +2806,7 @@ func isObjectMetaEqual(oldObj, newObj metav1.Object) bool {
 func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object, patchSecretData bool) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
-		return errors.Wrap(err, "calculate object hash")
+		return errors.Join(err, errors.New("calculate object hash"))
 	}
 
 	val := reflect.ValueOf(obj)
@@ -2815,7 +2815,7 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 	}
 	oldObject, ok := reflect.New(val.Type()).Interface().(client.Object)
 	if !ok {
-		return errors.Errorf("failed type conversion")
+		return errors.New("failed type conversion")
 	}
 
 	if obj.GetName() == "" && obj.GetGenerateName() != "" {
@@ -2830,12 +2830,12 @@ func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj clie
 		if k8serrors.IsNotFound(err) {
 			return r.Create(ctx, obj)
 		}
-		return errors.Wrap(err, "get object")
+		return errors.Join(err, errors.New("get object"))
 	}
 
 	oldHash, err := getObjectHash(oldObject)
 	if err != nil {
-		return errors.Wrap(err, "calculate old object hash")
+		return errors.Join(err, errors.New("calculate old object hash"))
 	}
 
 	if oldHash != hash || !isObjectMetaEqual(obj, oldObject) {
@@ -2851,7 +2851,7 @@ func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldOb
 	case *corev1.Service:
 		oldObjectService, ok := oldObject.(*corev1.Service)
 		if !ok {
-			return errors.Errorf("failed type conversion to service")
+			return errors.New("failed type conversion to service")
 		}
 		object.Spec.ClusterIP = oldObjectService.Spec.ClusterIP
 		if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
@@ -2861,7 +2861,7 @@ func (r *DatabaseClusterReconciler) updateObject(ctx context.Context, obj, oldOb
 		if patchSecretData {
 			s, ok := oldObject.(*corev1.Secret)
 			if !ok {
-				return errors.Errorf("failed type conversion to secret")
+				return errors.New("failed type conversion to secret")
 			}
 			for k, v := range object.Data {
 				s.Data[k] = v
