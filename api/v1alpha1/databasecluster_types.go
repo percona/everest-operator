@@ -120,8 +120,6 @@ type Engine struct {
 type ExposeType string
 
 // IPSourceRange represents IP addresses in CIDR notation or without a netmask.
-//
-//nolint:lll
 type IPSourceRange string
 
 // Expose is the expose configuration.
