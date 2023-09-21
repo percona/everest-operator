@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	calculator "github.com/Tusamarco/mysqloperatorcalculator/src/mysqloperatorcalculator"
 	"github.com/go-ini/ini"
 	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -1077,6 +1078,23 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.HAProxy.PodSpec.Affinity = affinity
 			pxc.Spec.ProxySQL.Affinity = affinity
 		}
+		var moc calculator.MysqlOperatorCalculator
+		var myRequest calculator.ConfigurationRequest
+
+		myRequest.LoadType = calculator.LoadType{Id: 2}
+		myRequest.Dimension = calculator.Dimension{Id: 999, Cpu: 4000, Memory: 2.5}
+		myRequest.DBType = "group_replication" //"pxc"
+		myRequest.Output = "human"             //"human"
+		myRequest.Connections = 70
+		myRequest.Mysqlversion = calculator.Version{8, 0, 33}
+
+		moc.Init(myRequest)
+		err, responseMessage, families := moc.GetCalculate()
+		if err != nil {
+			fmt.Println(err)
+		}
+		var b bytes.Buffer
+		b, err = moc.GetJSONOutput(responseMessage, myRequest, families)
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
