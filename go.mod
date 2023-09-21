@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.39
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.39
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.5
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.39.0
 	github.com/go-ini/ini v1.67.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/onsi/ginkgo/v2 v2.12.1
