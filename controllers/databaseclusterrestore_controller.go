@@ -254,6 +254,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
+			case everestv1alpha1.BackupStorageTypeAzure:
+				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
+					Container:         backupStorage.Spec.Bucket,
+					Prefix:            "everest",
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				}
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
@@ -312,6 +318,11 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				}
+			case everestv1alpha1.BackupStorageTypeAzure:
+				pxcCR.Spec.BackupSource.Azure = &pxcv1.BackupStorageAzureSpec{
+					ContainerPath:     backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)

@@ -19,17 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// BackupStorageFilesystem represents file system storage type.
-	BackupStorageFilesystem BackupStorageType = "filesystem"
-	// BackupStorageS3 represents s3 storage.
-	BackupStorageS3 BackupStorageType = "s3"
-	// BackupStorageGCS represents Google Cloud storage.
-	BackupStorageGCS BackupStorageType = "gcs"
-	// BackupStorageAzure represents azure storage.
-	BackupStorageAzure BackupStorageType = "azure"
-)
-
 // RestoreState represents state of restoration.
 type RestoreState string
 

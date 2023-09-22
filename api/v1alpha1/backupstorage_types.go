@@ -22,6 +22,10 @@ import (
 const (
 	// BackupStorageTypeS3 is a type of S3 object storage.
 	BackupStorageTypeS3 BackupStorageType = "s3"
+	// BackupStorageTypeAzure is a type of azure blob storage.
+	BackupStorageTypeAzure BackupStorageType = "azure"
+	// BackupStorageTypeGCS is a type of Google Cloud Storage object storage.
+	BackupStorageTypeGCS BackupStorageType = "gcs"
 )
 
 // BackupStorageType is a type of backup storage.
@@ -29,8 +33,8 @@ type BackupStorageType string
 
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {
-	// Type is a type of backup storage. Currently only S3 is supported.
-	// +kubebuilder:validation:Enum=s3
+	// Type is a type of backup storage.
+	// +kubebuilder:validation:Enum=s3,gcs,azure
 	Type BackupStorageType `json:"type"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
