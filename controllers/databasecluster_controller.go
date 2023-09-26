@@ -1299,9 +1299,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
-	pgbackrestFilename string,
+	pgbackrestKey string,
 	pgbackrestConf []byte,
 	pgBackrestSecretName string,
+	additionalSecrets map[string][]byte,
 ) (*corev1.Secret, error) {
 	pgBackrestSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1310,9 +1311,14 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			pgbackrestFilename: pgbackrestConf,
+			pgbackrestKey: pgbackrestConf,
 		},
 	}
+
+	for k, v := range additionalSecrets {
+		pgBackrestSecret.Data[k] = v
+	}
+
 	err := controllerutil.SetControllerReference(database, pgBackrestSecret, r.Scheme)
 	if err != nil {
 		return nil, err
@@ -1431,7 +1437,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 	case everestv1alpha1.BackupStorageTypeGCS:
 		_, err := cfg.Section("global").NewKey(
 			fmt.Sprintf("%s-gcs-key", repoName),
-			string(secret.Data["GCS_STORAGE_KEY"]),
+			"/etc/pgbackrest/conf.d/gcs-key.json",
 		)
 		if err != nil {
 			return err
@@ -1971,12 +1977,23 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 		return crunchyv1beta1.Backups{}, err
 	}
 
+	additionalSecrets := map[string][]byte{}
+	for _, s := range backupStoragesSecrets {
+		if _, ok := s.Data["GCS_KEY"]; ok {
+			// We support only a single GCS key per database.
+			// This is a limitation of the PG operator.
+			additionalSecrets["gcs-key.json"] = s.Data["GCS_KEY"]
+			break
+		}
+	}
+
 	pgBackrestSecret, err := r.createPGBackrestSecret(
 		ctx,
 		database,
 		"s3.conf",
 		pgBackrestSecretData,
 		database.Name+"-pgbackrest-secrets",
+		additionalSecrets,
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
@@ -2075,6 +2092,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			"s3.conf",
 			secretData,
 			database.Name+"-pgbackrest-datasource-secrets",
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
@@ -2128,6 +2146,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			"azure.conf",
 			secretData,
 			database.Name+"-pgbackrest-datasource-secrets",
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
@@ -2179,6 +2198,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			"gcs.conf",
 			secretData,
 			database.Name+"-pgbackrest-datasource-secrets",
+			map[string][]byte{"gcs-key.json": backupStorageSecret.Data["GCS_KEY"]},
 		)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))

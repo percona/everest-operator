@@ -10,6 +10,22 @@ spec:
   backupStorageName: test-storage
   dbClusterName: test-pg-cluster
 ---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-azure
+spec:
+  backupStorageName: test-storage-azure
+  dbClusterName: test-pg-cluster
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-gcs
+spec:
+  backupStorageName: test-storage-gcs
+  dbClusterName: test-pg-cluster
+---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGBackup
 metadata:
@@ -20,6 +36,30 @@ metadata:
       name: test-db-backup
 spec:
   repoName: repo2
+  pgCluster: test-pg-cluster
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGBackup
+metadata:
+  name: test-db-backup-azure
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup
+spec:
+  repoName: repo3
+  pgCluster: test-pg-cluster
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGBackup
+metadata:
+  name: test-db-backup-gcs
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup
+spec:
+  repoName: repo4
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -65,5 +105,11 @@ spec:
           bucket: test-backup-bucket
           endpoint: s3.amazonaws.com
           region: us-east-2
+      - name: repo3
+        azure:
+          container: test-backup-bucket
+      - name: repo4
+        gcs:
+          bucket: test-backup-bucket
 status:
   state: ready

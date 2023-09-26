@@ -34,14 +34,14 @@ type BackupStorageType string
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {
 	// Type is a type of backup storage.
-	// +kubebuilder:validation:Enum=s3,gcs,azure
+	// +kubebuilder:validation:Enum=s3;gcs;azure
 	Type BackupStorageType `json:"type"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
 	// Region is a region where the bucket is located.
-	Region string `json:"region"`
+	Region string `json:"region,omitempty"`
 	// EndpointURL is an endpoint URL of backup storage.
-	EndpointURL string `json:"endpointURL"`
+	EndpointURL string `json:"endpointURL,omitempty"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
 }

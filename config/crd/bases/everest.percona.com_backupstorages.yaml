@@ -49,16 +49,15 @@ spec:
                 description: Region is a region where the bucket is located.
                 type: string
               type:
-                description: Type is a type of backup storage. Currently only S3 is
-                  supported.
+                description: Type is a type of backup storage.
                 enum:
                 - s3
+                - gcs
+                - azure
                 type: string
             required:
             - bucket
             - credentialsSecretName
-            - endpointURL
-            - region
             - type
             type: object
           status:
