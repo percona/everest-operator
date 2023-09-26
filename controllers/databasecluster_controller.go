@@ -124,8 +124,8 @@ timeout server 28800s
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
 	backupStorageLabelValue         = "used"
-	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"   //nolint:gosec
-	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order" //nolint:gosec
+	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"
+	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order"
 	finalizerDeletePXCPVC           = "delete-pxc-pvc"
 	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
 	finalizerDeletePGPVC            = "percona.com/delete-pvc"
@@ -1796,7 +1796,7 @@ func reconcilePGBackRestRepos(
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
+func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	ctx context.Context,
 	oldBackups crunchyv1beta1.Backups,
 	database *everestv1alpha1.DatabaseCluster,
@@ -2014,7 +2014,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	return newBackups, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) { //nolint:gocognit,lll,maintidx
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
 		return nil, errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")

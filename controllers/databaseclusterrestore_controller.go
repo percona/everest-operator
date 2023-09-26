@@ -65,7 +65,7 @@ type DatabaseClusterRestoreReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:gocognit
 	logger := log.FromContext(ctx)
 	logger.Info("reconciling", "request", req)
 	time.Sleep(time.Second)
@@ -176,7 +176,6 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 	}
 }
 
-//nolint:dupl
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
@@ -283,7 +282,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 	return r.Status().Update(ctx, restore)
 }
 
-//nolint:dupl
 func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
