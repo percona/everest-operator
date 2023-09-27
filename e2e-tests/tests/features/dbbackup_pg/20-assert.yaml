@@ -45,7 +45,7 @@ metadata:
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
-      name: test-db-backup
+      name: test-db-backup-azure
 spec:
   repoName: repo3
   pgCluster: test-pg-cluster
@@ -57,7 +57,7 @@ metadata:
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
-      name: test-db-backup
+      name: test-db-backup-gcs
 spec:
   repoName: repo4
   pgCluster: test-pg-cluster
