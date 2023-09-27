@@ -47,7 +47,7 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup-azure
 spec:
-  repoName: repo3
+  repoName: repo4
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -59,7 +59,7 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup-gcs
 spec:
-  repoName: repo4
+  repoName: repo3
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -105,10 +105,10 @@ spec:
           bucket: test-backup-bucket
           endpoint: s3.amazonaws.com
           region: us-east-2
-      - name: repo3
+      - name: repo4
         azure:
           container: test-backup-bucket
-      - name: repo4
+      - name: repo3
         gcs:
           bucket: test-backup-bucket
 status:
