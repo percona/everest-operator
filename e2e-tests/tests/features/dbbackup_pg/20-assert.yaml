@@ -35,7 +35,6 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup
 spec:
-  repoName: repo2
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -47,7 +46,6 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup-azure
 spec:
-  repoName: repo4
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -59,7 +57,6 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup-gcs
 spec:
-  repoName: repo3
   pgCluster: test-pg-cluster
 ---
 apiVersion: pgv2.percona.com/v2
@@ -90,7 +87,6 @@ spec:
           name: test-pg-cluster-pgbackrest-secrets
       global:
         repo1-retention-full: "1"
-        repo2-path: /
       repos:
       - name: repo1
         volume:
@@ -100,16 +96,13 @@ spec:
             resources:
               requests:
                 storage: 1G
-      - name: repo2
-        s3:
+      - s3:
           bucket: test-backup-bucket
           endpoint: s3.amazonaws.com
           region: us-east-2
-      - name: repo4
-        azure:
+      - azure:
           container: test-backup-bucket
-      - name: repo3
-        gcs:
+      - gcs:
           bucket: test-backup-bucket
 status:
   state: ready
