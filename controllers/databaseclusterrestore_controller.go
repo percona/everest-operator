@@ -256,7 +256,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 			case everestv1alpha1.BackupStorageTypeAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            "everest",
+					Prefix:            azureStoragePrefix,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:

@@ -120,6 +120,7 @@ timeout server 28800s
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
+	azureStoragePrefix              = "everest"
 	databaseClusterNameLabel        = "clusterName"
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
@@ -341,7 +342,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            "everest",
+					Prefix:            azureStoragePrefix,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
@@ -409,7 +410,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            "everest",
+					Prefix:            azureStoragePrefix,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
@@ -453,7 +454,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            "everest",
+					Prefix:            azureStoragePrefix,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
