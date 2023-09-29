@@ -118,19 +118,19 @@ jobs:
           CLUSTER_NAME: "dbaas-ci-20221005"
           NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
 
-      # - name: Run core tests
-      #   run: |
-      #     echo $TOOLS_PATH >> $GITHUB_PATH
-      #     export KUBECONFIG="${HOME}/.kube/config"
-      #     mkdir -p "${KUBECONFIG%/*}"
-      #     echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
-      #     kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
-      #   env:
-      #     PXC_OPERATOR_VERSION: 1.13.0
-      #     PSMDB_OPERATOR_VERSION: 1.14.0
-      #     PG_OPERATOR_VERSION: 2.2.0
-      #     BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
-      #     PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+      - name: Run core tests
+        run: |
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          export KUBECONFIG="${HOME}/.kube/config"
+          mkdir -p "${KUBECONFIG%/*}"
+          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
+          kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
+        env:
+          PXC_OPERATOR_VERSION: 1.13.0
+          PSMDB_OPERATOR_VERSION: 1.14.0
+          PG_OPERATOR_VERSION: 2.2.0
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
         if: always()
