@@ -28,3 +28,56 @@ metadata:
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-psmdb-cluster-backup-azure
+type: Opaque
+stringData:
+  AZURE_STORAGE_ACCOUNT_NAME: account_name
+  AZURE_STORAGE_ACCOUNT_KEY: account_key
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-azure
+spec:
+  type: azure
+  bucket: test-backup-bucket
+  credentialsSecretName: test-psmdb-cluster-backup-azure
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-azure
+spec:
+  backupStorageName: test-storage-azure
+  dbClusterName: test-psmdb-cluster
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-psmdb-cluster-backup-gcs
+type: Opaque
+stringData:
+  GCS_KEY: gcs_key
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-gcs
+spec:
+  type: gcs
+  bucket: test-backup-bucket
+  credentialsSecretName: test-psmdb-cluster-backup-gcs
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-gcs
+spec:
+  backupStorageName: test-storage-gcs
+  dbClusterName: test-psmdb-cluster
