@@ -64,7 +64,7 @@ spec:
         type: s3
       test-storage-azure:
         azure:
-          bucket: test-backup-bucket
+          container: test-backup-bucket
           credentialsSecret: test-pxc-cluster-backup-azure
         type: azure
 status:

@@ -1981,7 +1981,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	return newBackups, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) { //nolint:gocognit,lll,maintidx
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) { //nolint:gocognit,lll
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
 		return nil, errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
