@@ -1348,10 +1348,6 @@ func getBackupStorageIndexInPGBackrestRepo(
 		if repo.Azure != nil && repo.Azure.Container == backupStorage.Spec.Bucket {
 			return idx
 		}
-
-		if repo.GCS != nil && repo.GCS.Bucket == backupStorage.Spec.Bucket {
-			return idx
-		}
 	}
 
 	return -1
@@ -1383,10 +1379,6 @@ func genPGBackrestRepo(
 	case everestv1alpha1.BackupStorageTypeAzure:
 		pgRepo.Azure = &crunchyv1beta1.RepoAzure{
 			Container: backupStorage.Bucket,
-		}
-	case everestv1alpha1.BackupStorageTypeGCS:
-		pgRepo.GCS = &crunchyv1beta1.RepoGCS{
-			Bucket: backupStorage.Bucket,
 		}
 	default:
 		return crunchyv1beta1.PGBackRestRepo{}, fmt.Errorf("unsupported backup storage type %s", backupStorage.Type)
@@ -1435,14 +1427,6 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 		if err != nil {
 			return err
 		}
-	case everestv1alpha1.BackupStorageTypeGCS:
-		_, err := cfg.Section("global").NewKey(
-			fmt.Sprintf("%s-gcs-key", repoName),
-			"/etc/pgbackrest/conf.d/gcs-key.json",
-		)
-		if err != nil {
-			return err
-		}
 	default:
 		return fmt.Errorf("backup storage type %s not supported", storageType)
 	}
@@ -1460,10 +1444,6 @@ func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupS
 		}
 
 		if repo.Azure != nil && repo.Azure.Container == spec.Bucket {
-			return name
-		}
-
-		if repo.GCS != nil && repo.GCS.Bucket == spec.Bucket {
 			return name
 		}
 	}
@@ -1491,10 +1471,6 @@ func backupStorageTypeFromBackrestRepo(repo crunchyv1beta1.PGBackRestRepo) (ever
 
 	if repo.Azure != nil {
 		return everestv1alpha1.BackupStorageTypeAzure, nil
-	}
-
-	if repo.GCS != nil {
-		return everestv1alpha1.BackupStorageTypeGCS, nil
 	}
 
 	return "", errors.New("could not determine backup storage type from repo")
@@ -1978,23 +1954,13 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 		return crunchyv1beta1.Backups{}, err
 	}
 
-	additionalSecrets := map[string][]byte{}
-	for _, s := range backupStoragesSecrets {
-		if _, ok := s.Data["GCS_KEY"]; ok {
-			// We support only a single GCS key per database.
-			// This is a limitation of the PG operator.
-			additionalSecrets["gcs-key.json"] = s.Data["GCS_KEY"]
-			break
-		}
-	}
-
 	pgBackrestSecret, err := r.createPGBackrestSecret(
 		ctx,
 		database,
 		"s3.conf",
 		pgBackrestSecretData,
 		database.Name+"-pgbackrest-secrets",
-		additionalSecrets,
+		nil,
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
@@ -2164,61 +2130,6 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		}
 		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
 			Name: repoName,
-			Azure: &crunchyv1beta1.RepoAzure{
-				Container: backupStorage.Spec.Bucket,
-			},
-		}
-	case everestv1alpha1.BackupStorageTypeGCS:
-		pgBackRestSecretIni, err := ini.Load([]byte{})
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to initialize PGBackrest secret data"))
-		}
-
-		backupStorageSecret := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
-		if err != nil {
-			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
-		}
-
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(
-			everestv1alpha1.BackupStorageTypeGCS, pgBackRestSecretIni, repoName, backupStorageSecret,
-		)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to add data source storage credentials to PGBackrest secret data"))
-		}
-		pgBackrestSecretBuf := new(bytes.Buffer)
-		if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
-			return nil, errors.Join(err, errors.New("failed to write PGBackrest secret data"))
-		}
-
-		secretData := pgBackrestSecretBuf.Bytes()
-
-		pgBackrestSecret, err := r.createPGBackrestSecret(
-			ctx,
-			database,
-			"gcs.conf",
-			secretData,
-			database.Name+"-pgbackrest-datasource-secrets",
-			map[string][]byte{"gcs-key.json": backupStorageSecret.Data["GCS_KEY"]},
-		)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
-		}
-
-		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
-			{
-				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: pgBackrestSecret.Name,
-					},
-				},
-			},
-		}
-		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
-			Name: repoName,
-			GCS: &crunchyv1beta1.RepoGCS{
-				Bucket: backupStorage.Spec.Bucket,
-			},
 			Azure: &crunchyv1beta1.RepoAzure{
 				Container: backupStorage.Spec.Bucket,
 			},

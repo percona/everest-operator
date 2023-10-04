@@ -52,12 +52,13 @@ spec:
                 description: Type is a type of backup storage.
                 enum:
                 - s3
-                - gcs
                 - azure
                 type: string
             required:
             - bucket
             - credentialsSecretName
+            - endpointURL
+            - region
             - type
             type: object
           status:
