@@ -57,8 +57,6 @@ spec:
             required:
             - bucket
             - credentialsSecretName
-            - endpointURL
-            - region
             - type
             type: object
           status:
