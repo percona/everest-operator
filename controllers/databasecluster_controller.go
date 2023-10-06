@@ -298,6 +298,14 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	psmdbBackupSpec := psmdbv1.BackupSpec{
 		Enabled: true,
 		Image:   backupVersion.ImagePath,
+
+		// XXX: Remove this once templates will be available
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("0.5G"),
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+			},
+		},
 	}
 
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
@@ -926,6 +934,14 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
 			Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
 		}
+		// XXX: Remove this once templates will be available
+		storages[backup.Spec.BackupStorageName].Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("1G"),
+				corev1.ResourceCPU:    resource.MustParse("600m"),
+			},
+		}
+
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[backup.Spec.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
@@ -2020,6 +2036,13 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 				"--type=immediate",
 				"--set=" + backupBaseName,
 			},
+			// XXX: Remove this once templates will be available
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
+					corev1.ResourceCPU:    resource.MustParse("200m"),
+				},
+			},
 		},
 	}
 
@@ -3076,7 +3099,11 @@ func (r *DatabaseClusterReconciler) defaultPGSpec() *pgv2.PerconaPGClusterSpec {
 		Proxy: &pgv2.PGProxySpec{
 			PGBouncer: &pgv2.PGBouncerSpec{
 				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{},
+					// XXX: Remove this once templates will be available
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("128Mi"),
+						corev1.ResourceCPU:    resource.MustParse("200m"),
+					},
 				},
 			},
 		},
@@ -3123,6 +3150,7 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 				},
 				Resources: corev1.ResourceRequirements{
+					// XXX: Remove this once templates will be available
 					Limits: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("1G"),
 						corev1.ResourceCPU:    resource.MustParse("600m"),
@@ -3136,7 +3164,10 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
 			},
 			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("1G"),
+					corev1.ResourceCPU:    resource.MustParse("600m"),
+				},
 			},
 		},
 	}
