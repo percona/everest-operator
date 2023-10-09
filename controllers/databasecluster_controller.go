@@ -107,10 +107,6 @@ wsrep_trx_fragment_size=3670016
 	pxcMinimalConfigurationTemplate = `[mysqld]
 wsrep_provider_options="gcache.size=%s"
 `
-	haProxyDefaultConfigurationTemplate = `timeout client 28800s
-timeout connect 100500
-timeout server 28800s
-`
 	psmdbDefaultConfigurationTemplate = `
       operationProfiling:
         mode: slowOp
@@ -1046,9 +1042,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
-	}
-	if database.Spec.Proxy.Type == everestv1alpha1.ProxyTypeHAProxy && database.Spec.Proxy.Config == "" {
-		database.Spec.Proxy.Config = haProxyDefaultConfigurationTemplate
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
