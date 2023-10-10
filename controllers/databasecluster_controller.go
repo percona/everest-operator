@@ -760,7 +760,11 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 	})
 }
 
-func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine, clusterType ClusterType) (*pxcv1.HAProxySpec, error) {
+func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
+	database *everestv1alpha1.DatabaseCluster,
+	engine *everestv1alpha1.DatabaseEngine,
+	clusterType ClusterType,
+) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
 
 	haProxy.PodSpec.Enabled = true
