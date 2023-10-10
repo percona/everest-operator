@@ -32,9 +32,6 @@ spec:
     serviceType: ClusterIP
     size: 1
   pxc:
-    configuration: |
-      [mysqld]
-      wsrep_provider_options="gcache.size=600M"
     expose: {}
     image: percona/percona-xtradb-cluster:8.0.32-24.2
     livenessProbes: {}
