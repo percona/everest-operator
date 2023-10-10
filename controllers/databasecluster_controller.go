@@ -33,7 +33,6 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
-	calculator "github.com/Tusamarco/mysqloperatorcalculator/src/mysqloperatorcalculator"
 	"github.com/go-ini/ini"
 	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -100,21 +99,6 @@ const (
 	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
 	memoryLargeSize  = int64(32) * 1000 * 1000 * 1000
 
-<<<<<<< Updated upstream
-	pxcDefaultConfigurationTemplate = `[mysqld]
-wsrep_provider_options="gcache.size=%s"
-wsrep_trx_fragment_unit='bytes'
-wsrep_trx_fragment_size=3670016
-`
-	pxcMinimalConfigurationTemplate = `[mysqld]
-wsrep_provider_options="gcache.size=%s"
-`
-	haProxyDefaultConfigurationTemplate = `timeout client 28800s
-timeout connect 100500
-timeout server 28800s
-`
-=======
->>>>>>> Stashed changes
 	psmdbDefaultConfigurationTemplate = `
       operationProfiling:
         mode: slowOp
@@ -1036,21 +1020,16 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
 	}
-<<<<<<< Updated upstream
-	if database.Spec.Proxy.Type == everestv1alpha1.ProxyTypeHAProxy && database.Spec.Proxy.Config == "" {
-		database.Spec.Proxy.Config = haProxyDefaultConfigurationTemplate
-=======
 	if database.Spec.Engine.Config == "" {
 		if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) < 0 {
-			database.Spec.Engine.Config = PXCConfigSizeSmall
+			database.Spec.Engine.Config = pxcConfigSizeSmall
 		}
 		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) < 0 {
-			database.Spec.Engine.Config = PXCConfigSizeMedium
+			database.Spec.Engine.Config = pxcConfigSizeMedium
 		}
 		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
-			database.Spec.Engine.Config = PXCConfigSizeLarge
+			database.Spec.Engine.Config = pxcConfigSizeLarge
 		}
->>>>>>> Stashed changes
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
@@ -1094,23 +1073,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.HAProxy.PodSpec.Affinity = affinity
 			pxc.Spec.ProxySQL.Affinity = affinity
 		}
-		var moc calculator.MysqlOperatorCalculator
-		var myRequest calculator.ConfigurationRequest
-
-		myRequest.LoadType = calculator.LoadType{Id: 2}
-		myRequest.Dimension = calculator.Dimension{Id: 999, Cpu: 4000, Memory: 2.5}
-		myRequest.DBType = "group_replication" //"pxc"
-		myRequest.Output = "human"             //"human"
-		myRequest.Connections = 70
-		myRequest.Mysqlversion = calculator.Version{8, 0, 33}
-
-		moc.Init(myRequest)
-		err, responseMessage, families := moc.GetCalculate()
-		if err != nil {
-			fmt.Println(err)
-		}
-		var b bytes.Buffer
-		b, err = moc.GetJSONOutput(responseMessage, myRequest, families)
 
 		dbTemplateKind, hasTemplateKind := database.ObjectMeta.Annotations[dbTemplateKindAnnotationKey]
 		dbTemplateName, hasTemplateName := database.ObjectMeta.Annotations[dbTemplateNameAnnotationKey]
