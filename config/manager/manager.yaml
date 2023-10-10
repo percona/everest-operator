@@ -34,6 +34,10 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
+        app.kubernetes.io/component: operator
+        app.kubernetes.io/instance: everest-operator
+        app.kubernetes.io/name: everest-operator
+        app.kubernetes.io/part-of: everest-operator
         control-plane: controller-manager
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
