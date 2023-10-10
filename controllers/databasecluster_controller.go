@@ -543,7 +543,8 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		psmdb.Spec.Image = engineVersion.ImagePath
 
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
-			Users: database.Spec.Engine.UserSecretsName,
+			Users:         database.Spec.Engine.UserSecretsName,
+			EncryptionKey: fmt.Sprintf("%s-mongodb-encryption-key", database.Name),
 		}
 
 		if database.Spec.Engine.Config != "" {
