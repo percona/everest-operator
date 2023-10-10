@@ -50,12 +50,12 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/everest-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            percona/everest-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'dev') }}
             perconalab/everest-operator
           tags: |
             type=match,pattern=v(.*),group=1
-            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'dev') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'dev') }}
             type=sha
 
       - name: Docker bundle meta
@@ -63,12 +63,12 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/everest-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
+            percona/everest-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'dev') }}
             perconalab/everest-operator-bundle
           tags: |
             type=match,pattern=v(.*),group=1
-            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'rc') }}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'dev') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'dev') }}
             type=sha
 
       - name: Login to GitHub Container Registry
