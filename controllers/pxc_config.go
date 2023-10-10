@@ -16,7 +16,7 @@
 package controllers
 
 const (
-	// pxcConfigSizeSmall is the configuration for PXC cluster with the dimension of 1 vCPU and 2GB RAM
+	// A pxcConfigSizeSmall is the configuration for PXC cluster with the dimension of 1 vCPU and 2GB RAM.
 	pxcConfigSizeSmall = `[mysqld]
 innodb_adaptive_hash_index = True
 innodb_log_files_in_group = 2
@@ -65,7 +65,7 @@ table_definition_cache = 4096
 table_open_cache = 4096
 binlog_format = ROW
     `
-	// pxcConfigSizeMedium is the configuration for PXC cluster with the dimension of 4 vCPU and 8GB RAM
+	// A pxcConfigSizeMedium is the configuration for PXC cluster with the dimension of 4 vCPU and 8GB RAM.
 	pxcConfigSizeMedium = `[mysqld]
 replica_parallel_type = LOGICAL_CLOCK
 replica_parallel_workers = 4
@@ -114,7 +114,7 @@ innodb_io_capacity_max = 1800
 innodb_parallel_read_threads = 3
 innodb_monitor_enable = ALL
 	`
-	// pxcConfigSizeLarge is the configuration for PXC cluster with the dimension of 8 vCPU and 32GB RAM
+	// A pxcConfigSizeLarge is the configuration for PXC cluster with the dimension of 8 vCPU and 32GB RAM.
 	pxcConfigSizeLarge = `[mysqld]
 replica_compressed_protocol = 1
 replica_exec_mode = STRICT
