@@ -545,7 +545,6 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 			Users: database.Spec.Engine.UserSecretsName,
 		}
-		psmdb.Spec.Mongod.Security.EncryptionKeySecret = fmt.Sprintf("%s-mongodb-encryption-key", database.Name)
 
 		if database.Spec.Engine.Config != "" {
 			psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.Engine.Config)
@@ -2998,43 +2997,6 @@ func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMon
 				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("300M"),
 					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		},
-		Mongod: &psmdbv1.MongodSpec{
-			Net: &psmdbv1.MongodSpecNet{
-				Port: 27017,
-			},
-			OperationProfiling: &psmdbv1.MongodSpecOperationProfiling{
-				Mode:              psmdbv1.OperationProfilingModeSlowOp,
-				SlowOpThresholdMs: 100,
-				RateLimit:         100,
-			},
-			Security: &psmdbv1.MongodSpecSecurity{
-				RedactClientLogData:  false,
-				EnableEncryption:     pointer.ToBool(true),
-				EncryptionCipherMode: psmdbv1.MongodChiperModeCBC,
-			},
-			SetParameter: &psmdbv1.MongodSpecSetParameter{
-				TTLMonitorSleepSecs: 60,
-			},
-			Storage: &psmdbv1.MongodSpecStorage{
-				Engine: psmdbv1.StorageEngineWiredTiger,
-				MMAPv1: &psmdbv1.MongodSpecMMAPv1{
-					NsSize:     16,
-					Smallfiles: false,
-				},
-				WiredTiger: &psmdbv1.MongodSpecWiredTiger{
-					CollectionConfig: &psmdbv1.MongodSpecWiredTigerCollectionConfig{
-						BlockCompressor: &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					EngineConfig: &psmdbv1.MongodSpecWiredTigerEngineConfig{
-						DirectoryForIndexes: false,
-						JournalCompressor:   &psmdbv1.WiredTigerCompressorSnappy,
-					},
-					IndexConfig: &psmdbv1.MongodSpecWiredTigerIndexConfig{
-						PrefixCompression: true,
-					},
 				},
 			},
 		},

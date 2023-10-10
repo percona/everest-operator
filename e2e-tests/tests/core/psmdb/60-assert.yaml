@@ -34,7 +34,6 @@ kind: PerconaServerMongoDB
 metadata:
   name: single-node
 spec:
-  crVersion: 1.14.0
   allowUnsafeConfigurations: true
   image: percona/percona-server-mongodb:4.4.10-11
   multiCluster:
