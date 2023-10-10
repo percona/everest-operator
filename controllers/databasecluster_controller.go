@@ -121,13 +121,20 @@ const (
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 )
 
-var operatorDeployment = map[everestv1alpha1.EngineType]string{
-	everestv1alpha1.DatabaseEnginePXC:        pxcDeploymentName,
-	everestv1alpha1.DatabaseEnginePSMDB:      psmdbDeploymentName,
-	everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
-}
+var (
+	operatorDeployment = map[everestv1alpha1.EngineType]string{
+		everestv1alpha1.DatabaseEnginePXC:        pxcDeploymentName,
+		everestv1alpha1.DatabaseEnginePSMDB:      psmdbDeploymentName,
+		everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
+	}
 
-var maxUnavailable = intstr.FromInt(1)
+	maxUnavailable       = intstr.FromInt(1)
+	exposeAnnotationsMap = map[ClusterType]map[string]string{
+		ClusterTypeEKS: {
+			"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "4000",
+		},
+	}
+)
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
@@ -753,7 +760,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 	})
 }
 
-func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
+func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine, clusterType ClusterType) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
 
 	haProxy.PodSpec.Enabled = true
@@ -773,6 +780,10 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		annotations, ok := exposeAnnotationsMap[clusterType]
+		if ok {
+			haProxy.PodSpec.ServiceAnnotations = annotations
+		}
 	default:
 		return nil, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -1149,7 +1160,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		switch database.Spec.Proxy.Type {
 		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
-			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine)
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine, clusterType)
 			if err != nil {
 				return err
 			}
