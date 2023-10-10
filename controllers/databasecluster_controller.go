@@ -100,6 +100,7 @@ const (
 	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
 	memoryLargeSize  = int64(32) * 1000 * 1000 * 1000
 
+<<<<<<< Updated upstream
 	pxcDefaultConfigurationTemplate = `[mysqld]
 wsrep_provider_options="gcache.size=%s"
 wsrep_trx_fragment_unit='bytes'
@@ -112,6 +113,8 @@ wsrep_provider_options="gcache.size=%s"
 timeout connect 100500
 timeout server 28800s
 `
+=======
+>>>>>>> Stashed changes
 	psmdbDefaultConfigurationTemplate = `
       operationProfiling:
         mode: slowOp
@@ -1033,8 +1036,21 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
 	}
+<<<<<<< Updated upstream
 	if database.Spec.Proxy.Type == everestv1alpha1.ProxyTypeHAProxy && database.Spec.Proxy.Config == "" {
 		database.Spec.Proxy.Config = haProxyDefaultConfigurationTemplate
+=======
+	if database.Spec.Engine.Config == "" {
+		if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) < 0 {
+			database.Spec.Engine.Config = PXCConfigSizeSmall
+		}
+		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) < 0 {
+			database.Spec.Engine.Config = PXCConfigSizeMedium
+		}
+		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
+			database.Spec.Engine.Config = PXCConfigSizeLarge
+		}
+>>>>>>> Stashed changes
 	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
@@ -1121,25 +1137,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 		if database.Spec.Engine.Config != "" {
 			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.Engine.Config
-		}
-		if pxc.Spec.PXC.PodSpec.Configuration == "" {
-			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
-			gCacheSize := "600M"
-
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) <= 0 {
-				gCacheSize = "2457M"
-			}
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) <= 0 {
-				gCacheSize = "9830M"
-			}
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
-				gCacheSize = "9830M"
-			}
-			ver, _ := goversion.NewVersion("v1.11.0")
-			pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcDefaultConfigurationTemplate, gCacheSize)
-			if version.version.GreaterThan(ver) {
-				pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
-			}
 		}
 
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
