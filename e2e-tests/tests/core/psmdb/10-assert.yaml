@@ -9,7 +9,7 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 4.4.10-11
+    version: 4.4.24-23
     config: |
      operationProfiling:
         mode: slowOp
@@ -36,7 +36,7 @@ metadata:
     - delete-psmdb-pods-in-order
     - delete-psmdb-pvc
 spec:
-  image: percona/percona-server-mongodb:4.4.10-11
+  image: percona/percona-server-mongodb:4.4.24-23
   multiCluster:
     enabled: false
   replsets:
