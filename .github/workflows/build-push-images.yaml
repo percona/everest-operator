@@ -95,11 +95,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - name: Install Trivy
-        run: |
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.41.0/trivy_0.41.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.41.0_Linux-64bit.deb
-
-      - name: Run Trivy vulnerability scanner on dev-latest
-        run: |
-          trivy image --exit-code 1 --severity HIGH,CRITICAL --no-progress percona/everest-operator:latest
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.12.0
+        with:
+          image-ref: 'docker.io/percona/everest-operator:latest'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
