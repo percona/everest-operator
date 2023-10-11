@@ -1,6 +1,8 @@
 module github.com/percona/everest-operator/tools
 
-go 1.19
+go 1.21
+
+toolchain go1.21.1
 
 require (
 	github.com/BurntSushi/go-sumtype v0.0.0-20221020234012-480526a59796
