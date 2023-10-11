@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
           check-latest: true
 
       - name: Install tools
@@ -42,7 +42,7 @@ jobs:
           make test
         env:
           PXC_OPERATOR_VERSION: 1.13.0
-          PSMDB_OPERATOR_VERSION: 1.14.0
+          PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
@@ -63,7 +63,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
           check-latest: true
 
       - name: Build operator
@@ -127,7 +127,7 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
-          PSMDB_OPERATOR_VERSION: 1.14.0
+          PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -142,7 +142,7 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
-          PSMDB_OPERATOR_VERSION: 1.14.0
+          PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -210,7 +210,7 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
           check-latest: true
 
       - name: Install operator-sdk
