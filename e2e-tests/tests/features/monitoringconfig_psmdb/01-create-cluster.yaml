@@ -32,7 +32,7 @@ spec:
     monitoringConfigName: test-mc
   engine:
     type: psmdb
-    version: 4.4.10-11
+    version: 4.4.24-23
     config: |
      operationProfiling:
         mode: slowOp
