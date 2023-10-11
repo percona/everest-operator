@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.40.1
 	github.com/go-ini/ini v1.67.0
 	github.com/hashicorp/go-version v1.6.0
-	github.com/onsi/ginkgo/v2 v2.12.1
+	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.28.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20230629061704-21f8d7d89b98
 	github.com/percona/percona-server-mongodb-operator v1.15.0
