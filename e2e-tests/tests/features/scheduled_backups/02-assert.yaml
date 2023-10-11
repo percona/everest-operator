@@ -47,7 +47,7 @@ spec:
     users:  psmdb-sample-secrets
   backup:
     enabled: true
-    image: percona/percona-backup-mongodb:2.0.5
+    image: percona/percona-backup-mongodb:2.3.0
     storages:
       aws:
         type: s3
