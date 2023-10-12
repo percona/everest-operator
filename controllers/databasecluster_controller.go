@@ -95,18 +95,6 @@ const (
 	// ClusterTypeMinikube represents minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
 
-	memorySmallSize  = int64(2) * 1000 * 1000 * 1000
-	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
-	memoryLargeSize  = int64(32) * 1000 * 1000 * 1000
-
-	pxcDefaultConfigurationTemplate = `[mysqld]
-wsrep_provider_options="gcache.size=%s"
-wsrep_trx_fragment_unit='bytes'
-wsrep_trx_fragment_size=3670016
-`
-	pxcMinimalConfigurationTemplate = `[mysqld]
-wsrep_provider_options="gcache.size=%s"
-`
 	psmdbDefaultConfigurationTemplate = `
       operationProfiling:
         mode: slowOp
@@ -129,13 +117,23 @@ wsrep_provider_options="gcache.size=%s"
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 )
 
-var operatorDeployment = map[everestv1alpha1.EngineType]string{
-	everestv1alpha1.DatabaseEnginePXC:        pxcDeploymentName,
-	everestv1alpha1.DatabaseEnginePSMDB:      psmdbDeploymentName,
-	everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
-}
+var (
+	operatorDeployment = map[everestv1alpha1.EngineType]string{
+		everestv1alpha1.DatabaseEnginePXC:        pxcDeploymentName,
+		everestv1alpha1.DatabaseEnginePSMDB:      psmdbDeploymentName,
+		everestv1alpha1.DatabaseEnginePostgresql: pgDeploymentName,
+	}
 
-var maxUnavailable = intstr.FromInt(1)
+	maxUnavailable       = intstr.FromInt(1)
+	exposeAnnotationsMap = map[ClusterType]map[string]string{
+		ClusterTypeEKS: {
+			"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "4000",
+		},
+	}
+	memorySmallSize  = resource.MustParse("2G")
+	memoryMediumSize = resource.MustParse("8G")
+	memoryLargeSize  = resource.MustParse("32G")
+)
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
@@ -761,7 +759,11 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 	})
 }
 
-func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.DatabaseCluster, engine *everestv1alpha1.DatabaseEngine) (*pxcv1.HAProxySpec, error) {
+func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
+	database *everestv1alpha1.DatabaseCluster,
+	engine *everestv1alpha1.DatabaseEngine,
+	clusterType ClusterType,
+) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
 
 	haProxy.PodSpec.Enabled = true
@@ -781,6 +783,10 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(database *everestv1alpha1.
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		haProxy.PodSpec.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		annotations, ok := exposeAnnotationsMap[clusterType]
+		if ok {
+			haProxy.PodSpec.ServiceAnnotations = annotations
+		}
 	default:
 		return nil, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -1043,6 +1049,17 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	if database.Spec.Proxy.Type == "" {
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
 	}
+	if database.Spec.Engine.Config == "" {
+		if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
+			database.Spec.Engine.Config = pxcConfigSizeSmall
+		}
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
+			database.Spec.Engine.Config = pxcConfigSizeMedium
+		}
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
+			database.Spec.Engine.Config = pxcConfigSizeLarge
+		}
+	}
 	if err := r.Update(ctx, database); err != nil {
 		return err
 	}
@@ -1112,25 +1129,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		if database.Spec.Engine.Config != "" {
 			pxc.Spec.PXC.PodSpec.Configuration = database.Spec.Engine.Config
 		}
-		if pxc.Spec.PXC.PodSpec.Configuration == "" {
-			// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
-			gCacheSize := "600M"
-
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) <= 0 {
-				gCacheSize = "2457M"
-			}
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) > 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) <= 0 {
-				gCacheSize = "9830M"
-			}
-			if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
-				gCacheSize = "9830M"
-			}
-			ver, _ := goversion.NewVersion("v1.11.0")
-			pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcDefaultConfigurationTemplate, gCacheSize)
-			if version.version.GreaterThan(ver) {
-				pxc.Spec.PXC.PodSpec.Configuration = fmt.Sprintf(pxcMinimalConfigurationTemplate, gCacheSize)
-			}
-		}
 
 		pxc.Spec.PXC.PodSpec.Size = database.Spec.Engine.Replicas
 
@@ -1165,7 +1163,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		switch database.Spec.Proxy.Type {
 		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
-			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine)
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine, clusterType)
 			if err != nil {
 				return err
 			}
