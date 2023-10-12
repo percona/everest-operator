@@ -95,10 +95,6 @@ const (
 	// ClusterTypeMinikube represents minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
 
-	memorySmallSize  = int64(2) * 1000 * 1000 * 1000
-	memoryMediumSize = int64(8) * 1000 * 1000 * 1000
-	memoryLargeSize  = int64(32) * 1000 * 1000 * 1000
-
 	psmdbDefaultConfigurationTemplate = `
       operationProfiling:
         mode: slowOp
@@ -134,6 +130,9 @@ var (
 			"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "4000",
 		},
 	}
+	memorySmallSize  = resource.MustParse("2G")
+	memoryMediumSize = resource.MustParse("8G")
+	memoryLargeSize  = resource.MustParse("32G")
 )
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
@@ -1051,13 +1050,13 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		database.Spec.Proxy.Type = everestv1alpha1.ProxyTypeHAProxy
 	}
 	if database.Spec.Engine.Config == "" {
-		if database.Spec.Engine.Resources.Memory.CmpInt64(memorySmallSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) < 0 {
+		if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
 			database.Spec.Engine.Config = pxcConfigSizeSmall
 		}
-		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryMediumSize) >= 0 && database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) < 0 {
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
 			database.Spec.Engine.Config = pxcConfigSizeMedium
 		}
-		if database.Spec.Engine.Resources.Memory.CmpInt64(memoryLargeSize) >= 0 {
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
 			database.Spec.Engine.Config = pxcConfigSizeLarge
 		}
 	}
