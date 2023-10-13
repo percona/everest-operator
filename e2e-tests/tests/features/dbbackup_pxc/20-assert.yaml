@@ -10,6 +10,14 @@ spec:
   backupStorageName: test-storage
   dbClusterName: test-pxc-cluster
 ---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-azure
+spec:
+  backupStorageName: test-storage-azure
+  dbClusterName: test-pxc-cluster
+---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
@@ -20,6 +28,18 @@ metadata:
       name: test-db-backup
 spec:
   storageName: test-storage
+  pxcCluster: test-pxc-cluster
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: test-db-backup-azure
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup-azure
+spec:
+  storageName: test-storage-azure
   pxcCluster: test-pxc-cluster
 ---
 apiVersion: pxc.percona.com/v1
@@ -42,5 +62,10 @@ spec:
           endpointUrl: s3.someprovider.com
           region: us-east-2
         type: s3
+      test-storage-azure:
+        azure:
+          container: test-backup-bucket
+          credentialsSecret: test-pxc-cluster-backup-azure
+        type: azure
 status:
   state: ready

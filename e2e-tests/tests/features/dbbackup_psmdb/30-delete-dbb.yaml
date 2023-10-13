@@ -5,4 +5,7 @@ delete:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseClusterBackup
     name: test-db-backup
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseClusterBackup
+    name: test-db-backup-azure
 

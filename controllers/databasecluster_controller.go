@@ -104,6 +104,7 @@ const (
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
+	azureStoragePrefix              = "everest"
 	databaseClusterNameLabel        = "clusterName"
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
@@ -330,12 +331,21 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
-				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
 					Bucket:            backupStorage.Spec.Bucket,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		case everestv1alpha1.BackupStorageTypeAzure:
+			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageAzure,
+				Azure: psmdbv1.BackupStorageAzureSpec{
+					Container:         backupStorage.Spec.Bucket,
+					Prefix:            azureStoragePrefix,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
 		default:
@@ -389,12 +399,21 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
-				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
 					Bucket:            backupStorage.Spec.Bucket,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		case everestv1alpha1.BackupStorageTypeAzure:
+			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageAzure,
+				Azure: psmdbv1.BackupStorageAzureSpec{
+					Container:         backupStorage.Spec.Bucket,
+					Prefix:            azureStoragePrefix,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
 		default:
@@ -424,12 +443,21 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
-				Type: psmdbv1.BackupStorageType(backupStorage.Spec.Type),
+				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
 					Bucket:            backupStorage.Spec.Bucket,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				},
+			}
+		case everestv1alpha1.BackupStorageTypeAzure:
+			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
+				Type: psmdbv1.BackupStorageAzure,
+				Azure: psmdbv1.BackupStorageAzureSpec{
+					Container:         backupStorage.Spec.Bucket,
+					Prefix:            azureStoragePrefix,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
 		default:
@@ -908,6 +936,14 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
 			Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
 		}
+		// XXX: Remove this once templates will be available
+		storages[backup.Spec.BackupStorageName].Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("1G"),
+				corev1.ResourceCPU:    resource.MustParse("600m"),
+			},
+		}
+
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[backup.Spec.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
@@ -916,12 +952,10 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 				Region:            backupStorage.Spec.Region,
 				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
-			// XXX: Remove this once templates will be available
-			storages[backup.Spec.BackupStorageName].Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("1G"),
-					corev1.ResourceCPU:    resource.MustParse("600m"),
-				},
+		case everestv1alpha1.BackupStorageTypeAzure:
+			storages[backup.Spec.BackupStorageName].Azure = &pxcv1.BackupStorageAzureSpec{
+				ContainerPath:     backupStorage.Spec.Bucket,
+				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 			}
 		default:
 			return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
@@ -959,6 +993,11 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				}
+			case everestv1alpha1.BackupStorageTypeAzure:
+				storages[schedule.BackupStorageName].Azure = &pxcv1.BackupStorageAzureSpec{
+					ContainerPath:     backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
 				return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
@@ -1268,8 +1307,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
-	pgbackrestS3Conf []byte,
+	pgbackrestKey string,
+	pgbackrestConf []byte,
 	pgBackrestSecretName string,
+	additionalSecrets map[string][]byte,
 ) (*corev1.Secret, error) {
 	pgBackrestSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1278,9 +1319,14 @@ func (r *DatabaseClusterReconciler) createPGBackrestSecret(
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"s3.conf": pgbackrestS3Conf,
+			pgbackrestKey: pgbackrestConf,
 		},
 	}
+
+	for k, v := range additionalSecrets {
+		pgBackrestSecret.Data[k] = v
+	}
+
 	err := controllerutil.SetControllerReference(database, pgBackrestSecret, r.Scheme)
 	if err != nil {
 		return nil, err
@@ -1299,12 +1345,16 @@ func getBackupStorageIndexInPGBackrestRepo(
 	repos []crunchyv1beta1.PGBackRestRepo,
 ) int {
 	for idx, repo := range repos {
-		if repo.S3 == nil || repo.S3.Bucket != backupStorage.Spec.Bucket ||
-			repo.S3.Region != backupStorage.Spec.Region ||
-			repo.S3.Endpoint != backupStorage.Spec.EndpointURL {
-			continue
+		if repo.S3 != nil &&
+			repo.S3.Bucket == backupStorage.Spec.Bucket &&
+			repo.S3.Region == backupStorage.Spec.Region &&
+			repo.S3.Endpoint == backupStorage.Spec.EndpointURL {
+			return idx
 		}
-		return idx
+
+		if repo.Azure != nil && repo.Azure.Container == backupStorage.Spec.Bucket {
+			return idx
+		}
 	}
 
 	return -1
@@ -1333,7 +1383,10 @@ func genPGBackrestRepo(
 			Region:   backupStorage.Region,
 			Endpoint: backupStorage.EndpointURL,
 		}
-
+	case everestv1alpha1.BackupStorageTypeAzure:
+		pgRepo.Azure = &crunchyv1beta1.RepoAzure{
+			Container: backupStorage.Bucket,
+		}
 	default:
 		return crunchyv1beta1.PGBackRestRepo{}, fmt.Errorf("unsupported backup storage type %s", backupStorage.Type)
 	}
@@ -1343,24 +1396,46 @@ func genPGBackrestRepo(
 
 // Adds the backup storage credentials to the PGBackrest secret data.
 func addBackupStorageCredentialsToPGBackrestSecretIni(
+	storageType everestv1alpha1.BackupStorageType,
 	cfg *ini.File,
 	repoName string,
 	secret *corev1.Secret,
 ) error {
-	_, err := cfg.Section("global").NewKey(
-		fmt.Sprintf("%s-s3-key", repoName),
-		string(secret.Data["AWS_ACCESS_KEY_ID"]),
-	)
-	if err != nil {
-		return err
-	}
+	switch storageType {
+	case everestv1alpha1.BackupStorageTypeS3:
+		_, err := cfg.Section("global").NewKey(
+			fmt.Sprintf("%s-s3-key", repoName),
+			string(secret.Data["AWS_ACCESS_KEY_ID"]),
+		)
+		if err != nil {
+			return err
+		}
 
-	_, err = cfg.Section("global").NewKey(
-		fmt.Sprintf("%s-s3-key-secret", repoName),
-		string(secret.Data["AWS_SECRET_ACCESS_KEY"]),
-	)
-	if err != nil {
-		return err
+		_, err = cfg.Section("global").NewKey(
+			fmt.Sprintf("%s-s3-key-secret", repoName),
+			string(secret.Data["AWS_SECRET_ACCESS_KEY"]),
+		)
+		if err != nil {
+			return err
+		}
+	case everestv1alpha1.BackupStorageTypeAzure:
+		_, err := cfg.Section("global").NewKey(
+			fmt.Sprintf("%s-azure-account", repoName),
+			string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"]),
+		)
+		if err != nil {
+			return err
+		}
+
+		_, err = cfg.Section("global").NewKey(
+			fmt.Sprintf("%s-azure-key", repoName),
+			string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"]),
+		)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("backup storage type %s not supported", storageType)
 	}
 
 	return nil
@@ -1368,13 +1443,18 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 
 func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorageSpec, repo crunchyv1beta1.PGBackRestRepo) string {
 	for name, spec := range backupStorages {
-		if repo.S3 == nil || repo.S3.Bucket != spec.Bucket ||
-			repo.S3.Region != spec.Region ||
-			repo.S3.Endpoint != spec.EndpointURL {
-			continue
+		if repo.S3 != nil &&
+			repo.S3.Bucket == spec.Bucket &&
+			repo.S3.Region == spec.Region &&
+			repo.S3.Endpoint == spec.EndpointURL {
+			return name
 		}
-		return name
+
+		if repo.Azure != nil && repo.Azure.Container == spec.Bucket {
+			return name
+		}
 	}
+
 	return ""
 }
 
@@ -1389,6 +1469,18 @@ func removeRepoName(s []string, n string) []string {
 		}
 	}
 	return s
+}
+
+func backupStorageTypeFromBackrestRepo(repo crunchyv1beta1.PGBackRestRepo) (everestv1alpha1.BackupStorageType, error) {
+	if repo.S3 != nil {
+		return everestv1alpha1.BackupStorageTypeS3, nil
+	}
+
+	if repo.Azure != nil {
+		return everestv1alpha1.BackupStorageTypeAzure, nil
+	}
+
+	return "", errors.New("could not determine backup storage type from repo")
 }
 
 //nolint:gocognit,gocyclo,cyclop,maintidx
@@ -1473,7 +1565,15 @@ func reconcilePGBackRestRepos(
 
 			pgBackRestGlobal[repo.Name+"-path"] = "/"
 			pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
-			err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
+			sType, err := backupStorageTypeFromBackrestRepo(repo)
+			if err != nil {
+				return []crunchyv1beta1.PGBackRestRepo{},
+					map[string]string{},
+					[]byte{},
+					err
+			}
+
+			err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
 			if err != nil {
 				return []crunchyv1beta1.PGBackRestRepo{},
 					map[string]string{},
@@ -1520,7 +1620,16 @@ func reconcilePGBackRestRepos(
 
 				pgBackRestGlobal[repo.Name+"-path"] = "/"
 				pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
-				err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
+
+				sType, err := backupStorageTypeFromBackrestRepo(repo)
+				if err != nil {
+					return []crunchyv1beta1.PGBackRestRepo{},
+						map[string]string{},
+						[]byte{},
+						err
+				}
+
+				err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
 				if err != nil {
 					return []crunchyv1beta1.PGBackRestRepo{},
 						map[string]string{},
@@ -1561,7 +1670,15 @@ func reconcilePGBackRestRepos(
 
 		pgBackRestGlobal[repo.Name+"-path"] = "/"
 		pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupSchedule.BackupStorageName])
+		sType, err := backupStorageTypeFromBackrestRepo(repo)
+		if err != nil {
+			return []crunchyv1beta1.PGBackRestRepo{},
+				map[string]string{},
+				[]byte{},
+				err
+		}
+
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupSchedule.BackupStorageName])
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
 				map[string]string{},
@@ -1602,7 +1719,15 @@ func reconcilePGBackRestRepos(
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
 		pgBackRestGlobal[repo.Name+"-path"] = "/"
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupRequest.Spec.BackupStorageName])
+		sType, err := backupStorageTypeFromBackrestRepo(repo)
+		if err != nil {
+			return []crunchyv1beta1.PGBackRestRepo{},
+				map[string]string{},
+				[]byte{},
+				err
+		}
+
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupRequest.Spec.BackupStorageName])
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
 				map[string]string{},
@@ -1655,7 +1780,7 @@ func reconcilePGBackRestRepos(
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
+func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	ctx context.Context,
 	oldBackups crunchyv1beta1.Backups,
 	database *everestv1alpha1.DatabaseCluster,
@@ -1839,8 +1964,10 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	pgBackrestSecret, err := r.createPGBackrestSecret(
 		ctx,
 		database,
+		"s3.conf",
 		pgBackrestSecretData,
 		database.Name+"-pgbackrest-secrets",
+		nil,
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
@@ -1861,7 +1988,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec(
 	return newBackups, nil
 }
 
-func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) {
+func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (*crunchyv1beta1.DataSource, error) { //nolint:gocognit,lll
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
 		return nil, errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
@@ -1929,7 +2056,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(pgBackRestSecretIni, repoName, backupStorageSecret)
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(everestv1alpha1.BackupStorageTypeS3, pgBackRestSecretIni, repoName, backupStorageSecret)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to add data source storage credentials to PGBackrest secret data"))
 		}
@@ -1943,8 +2070,10 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		pgBackrestSecret, err := r.createPGBackrestSecret(
 			ctx,
 			database,
+			"s3.conf",
 			secretData,
 			database.Name+"-pgbackrest-datasource-secrets",
+			nil,
 		)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
@@ -1965,6 +2094,58 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 				Bucket:   backupStorage.Spec.Bucket,
 				Endpoint: backupStorage.Spec.EndpointURL,
 				Region:   backupStorage.Spec.Region,
+			},
+		}
+	case everestv1alpha1.BackupStorageTypeAzure:
+		pgBackRestSecretIni, err := ini.Load([]byte{})
+		if err != nil {
+			return nil, errors.Join(err, errors.New("failed to initialize PGBackrest secret data"))
+		}
+
+		backupStorageSecret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+		if err != nil {
+			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
+		}
+
+		err = addBackupStorageCredentialsToPGBackrestSecretIni(
+			everestv1alpha1.BackupStorageTypeAzure, pgBackRestSecretIni, repoName, backupStorageSecret,
+		)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("failed to add data source storage credentials to PGBackrest secret data"))
+		}
+		pgBackrestSecretBuf := new(bytes.Buffer)
+		if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
+			return nil, errors.Join(err, errors.New("failed to write PGBackrest secret data"))
+		}
+
+		secretData := pgBackrestSecretBuf.Bytes()
+
+		pgBackrestSecret, err := r.createPGBackrestSecret(
+			ctx,
+			database,
+			"azure.conf",
+			secretData,
+			database.Name+"-pgbackrest-datasource-secrets",
+			nil,
+		)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("failed to create pgbackrest secret"))
+		}
+
+		pgDataSource.PGBackRest.Configuration = []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: pgBackrestSecret.Name,
+					},
+				},
+			},
+		}
+		pgDataSource.PGBackRest.Repo = crunchyv1beta1.PGBackRestRepo{
+			Name: repoName,
+			Azure: &crunchyv1beta1.RepoAzure{
+				Container: backupStorage.Spec.Bucket,
 			},
 		}
 	default:

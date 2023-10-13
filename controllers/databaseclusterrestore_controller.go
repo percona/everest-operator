@@ -176,7 +176,6 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 	}
 }
 
-//nolint:dupl
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
@@ -254,6 +253,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
+			case everestv1alpha1.BackupStorageTypeAzure:
+				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
+					Container:         backupStorage.Spec.Bucket,
+					Prefix:            azureStoragePrefix,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				}
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
@@ -277,7 +282,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 	return r.Status().Update(ctx, restore)
 }
 
-//nolint:dupl
 func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
@@ -312,6 +316,11 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+				}
+			case everestv1alpha1.BackupStorageTypeAzure:
+				pxcCR.Spec.BackupSource.Azure = &pxcv1.BackupStorageAzureSpec{
+					ContainerPath:     backupStorage.Spec.Bucket,
+					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)

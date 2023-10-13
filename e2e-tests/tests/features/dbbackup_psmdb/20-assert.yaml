@@ -10,6 +10,14 @@ spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
 ---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-azure
+spec:
+  backupStorageName: test-storage-azure
+  dbClusterName: test-psmdb-cluster
+---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
 metadata:
@@ -20,6 +28,18 @@ metadata:
       name: test-db-backup
 spec:
   storageName: test-storage
+  psmdbCluster: test-psmdb-cluster
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBBackup
+metadata:
+  name: test-db-backup-azure
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseClusterBackup
+      name: test-db-backup-azure
+spec:
+  storageName: test-storage-azure
   psmdbCluster: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
@@ -38,6 +58,11 @@ spec:
           endpointUrl: s3.amazonaws.com
           region: us-east-2
         type: s3
+      test-storage-azure:
+        azure:
+          container: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-azure
+        type: azure
 status:
   replsets:
     rs0:
