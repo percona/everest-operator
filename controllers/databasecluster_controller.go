@@ -129,6 +129,8 @@ var (
 	exposeAnnotationsMap = map[ClusterType]map[string]string{
 		ClusterTypeEKS: {
 			"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "4000",
+			"service.beta.kubernetes.io/aws-load-balancer-type":                    "external",
+			"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":         "IP",
 		},
 	}
 	memorySmallSize  = resource.MustParse("2G")
