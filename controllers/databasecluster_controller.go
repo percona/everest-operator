@@ -128,8 +128,7 @@ var (
 	maxUnavailable       = intstr.FromInt(1)
 	exposeAnnotationsMap = map[ClusterType]map[string]string{
 		ClusterTypeEKS: {
-			"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
-			"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "IP",
+			"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
 		},
 	}
 	memorySmallSize  = resource.MustParse("2G")
