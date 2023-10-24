@@ -28,7 +28,7 @@ metadata:
       name: test-db-backup
 spec:
   storageName: test-storage
-  psmdbCluster: test-psmdb-cluster
+  clusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
@@ -40,7 +40,7 @@ metadata:
       name: test-db-backup-azure
 spec:
   storageName: test-storage-azure
-  psmdbCluster: test-psmdb-cluster
+  clusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB

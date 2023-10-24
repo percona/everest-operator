@@ -399,11 +399,11 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		return err
 	}
 
-	backup.Spec.DBClusterName = psmdbBackup.Spec.PSMDBCluster
+	backup.Spec.DBClusterName = psmdbBackup.Spec.ClusterName
 	backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
 
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: psmdbBackup.Spec.PSMDBCluster,
+		databaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
 		fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
 	}
 	backup.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{{
@@ -543,7 +543,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			APIVersion: psmdbAPIVersion,
 			Kind:       psmdbBackupKind,
 		}
-		psmdbCR.Spec.PSMDBCluster = backup.Spec.DBClusterName
+		psmdbCR.Spec.ClusterName = backup.Spec.DBClusterName
 		psmdbCR.Spec.StorageName = backup.Spec.BackupStorageName
 
 		psmdbCR.SetOwnerReferences([]metav1.OwnerReference{{
