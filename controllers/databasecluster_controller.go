@@ -1068,7 +1068,8 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			case everestv1alpha1.RestoreState(pxcv1.RestorePITR):
 				jobRunning = true
 			default:
-				jobRunning = false
+				// The jobRunning flag should be sticky if a restore is in a
+				// running state so we don't want to set it to false here.
 			}
 		}
 		if jobRunning {
