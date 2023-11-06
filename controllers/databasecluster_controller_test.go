@@ -22,6 +22,7 @@ import (
 
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -60,7 +61,7 @@ func TestGetOperatorVersion(t *testing.T) {
 		Namespace: "super-x",
 		Name:      "percona-xtradb-cluster-operator",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1.12.0", version.String())
 	assert.NotEqual(t, "1.11.0", version.String())
 
@@ -68,7 +69,7 @@ func TestGetOperatorVersion(t *testing.T) {
 		Namespace: "non-existent",
 		Name:      "percona-xtradb-cluster-operator",
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestMergeMapSimple(t *testing.T) {
@@ -87,8 +88,8 @@ func TestMergeMapSimple(t *testing.T) {
 		"c": "cherry",
 	}
 	err := mergeMap(testDst, src)
-	assert.NoError(t, err)
-	assert.Equal(t, testDst, expDst)
+	require.NoError(t, err)
+	assert.Equal(t, expDst, testDst)
 }
 
 func TestMergeMapNested(t *testing.T) {
@@ -128,8 +129,8 @@ func TestMergeMapNested(t *testing.T) {
 		},
 	}
 	err := mergeMap(testDst, src)
-	assert.NoError(t, err)
-	assert.Equal(t, testDst, expDst)
+	require.NoError(t, err)
+	assert.Equal(t, expDst, testDst)
 }
 
 func TestMergeMapError(t *testing.T) {
@@ -149,7 +150,7 @@ func TestMergeMapError(t *testing.T) {
 		},
 	}
 	err := mergeMap(testDst, src)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
@@ -220,7 +221,7 @@ func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -297,7 +298,7 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -399,7 +400,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -507,7 +508,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -618,7 +619,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) 
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -741,7 +742,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -872,7 +873,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testin
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1007,7 +1008,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1142,7 +1143,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1273,7 +1274,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t 
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1379,7 +1380,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1503,7 +1504,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1604,7 +1605,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1721,7 +1722,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1838,7 +1839,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1911,7 +1912,7 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -1980,7 +1981,7 @@ func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2100,7 +2101,7 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2239,7 +2240,7 @@ func TestReconcilePGBackRestReposDifferentStorageThreeRequestsAddRequest(t *test
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2408,7 +2409,7 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2441,7 +2442,7 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2476,7 +2477,7 @@ func TestReconcilePGBackRestReposUnknownStorageSchedule(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
 }
 
@@ -2520,6 +2521,6 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 		testBackupStoragesSecrets,
 		testEngineStorage,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
 }
