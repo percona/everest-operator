@@ -109,13 +109,15 @@ const (
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
 	backupStorageLabelValue         = "used"
-	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"   //nolint:gosec
-	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order" //nolint:gosec
+	finalizerDeletePXCPodsInOrder   = "delete-pxc-pods-in-order"
+	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order"
 	finalizerDeletePXCPVC           = "delete-pxc-pvc"
 	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
 	finalizerDeletePGPVC            = "percona.com/delete-pvc"
 	finalizerDeletePXCSSL           = "delete-ssl"
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
+	pgBackRestPathTmpl              = "%s-path"
+	pgBackRestRetentionTmpl         = "%s-retention-full"
 )
 
 var (
@@ -1564,8 +1566,8 @@ func reconcilePGBackRestRepos(
 			// Keep track of backup storages which are already in use by a repo
 			backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-			pgBackRestGlobal[repo.Name+"-path"] = "/"
-			pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
 			sType, err := backupStorageTypeFromBackrestRepo(repo)
 			if err != nil {
 				return []crunchyv1beta1.PGBackRestRepo{},
@@ -1619,8 +1621,8 @@ func reconcilePGBackRestRepos(
 				// Keep track of backup storages which are already in use by a repo
 				backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-				pgBackRestGlobal[repo.Name+"-path"] = "/"
-				pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
 				if err != nil {
@@ -1669,8 +1671,8 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-		pgBackRestGlobal[repo.Name+"-path"] = "/"
-		pgBackRestGlobal[repo.Name+"-retention-full"] = fmt.Sprintf("%d", backupSchedule.RetentionCopies)
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
@@ -1719,7 +1721,7 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
-		pgBackRestGlobal[repo.Name+"-path"] = "/"
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
@@ -2021,7 +2023,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				repoName + "-path": "/",
+				fmt.Sprintf(pgBackRestPathTmpl, repoName): "/",
 			},
 			Stanza: "db",
 			Options: []string{
