@@ -42,6 +42,9 @@ spec:
                 description: CredentialsSecretName is the name of the secret with
                   credentials.
                 type: string
+              description:
+                description: Description stores description of a backup storage.
+                type: string
               endpointURL:
                 description: EndpointURL is an endpoint URL of backup storage.
                 type: string
