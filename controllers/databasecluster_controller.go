@@ -665,7 +665,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return err
 	}
 
-	if database.Spec.DataSource != nil {
+	if database.Spec.DataSource != nil && database.Status.Status == everestv1alpha1.AppStateReady {
 		err = r.reconcileDBRestoreFromDataSource(ctx, database)
 		if err != nil {
 			return err
@@ -1272,7 +1272,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return err
 	}
 
-	if database.Spec.DataSource != nil {
+	if database.Spec.DataSource != nil && database.Status.Status == everestv1alpha1.AppStateReady {
 		err = r.reconcileDBRestoreFromDataSource(ctx, database)
 		if err != nil {
 			return err
