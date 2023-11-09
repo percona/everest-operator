@@ -1566,8 +1566,13 @@ func reconcilePGBackRestRepos(
 			// Keep track of backup storages which are already in use by a repo
 			backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
+			copies := int(backupSchedule.RetentionCopies)
+			if copies == 0 {
+				// Zero copies means unlimited. PGBackRest supports values 1-9999999
+				copies = 9999999
+			}
 			pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(copies)
 			sType, err := backupStorageTypeFromBackrestRepo(repo)
 			if err != nil {
 				return []crunchyv1beta1.PGBackRestRepo{},
@@ -1621,8 +1626,13 @@ func reconcilePGBackRestRepos(
 				// Keep track of backup storages which are already in use by a repo
 				backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
+				copies := int(backupSchedule.RetentionCopies)
+				if copies == 0 {
+					// Zero copies means unlimited. PGBackRest supports values 1-9999999
+					copies = 9999999
+				}
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(copies)
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
 				if err != nil {
@@ -1671,8 +1681,13 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
+		copies := int(backupSchedule.RetentionCopies)
+		if copies == 0 {
+			// Zero copies means unlimited. PGBackRest supports values 1-9999999
+			copies = 9999999
+		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(int(backupSchedule.RetentionCopies))
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(copies)
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
