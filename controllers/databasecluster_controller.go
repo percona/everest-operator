@@ -524,6 +524,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
 		}
+		crVersion := version.ToCRVersion()
+		if psmdb.Spec.CRVersion != "" {
+			crVersion = psmdb.Spec.CRVersion
+		}
 
 		clusterType, err := r.getClusterType(ctx)
 		if err != nil {
@@ -556,7 +560,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 		}
 
-		psmdb.Spec.CRVersion = version.ToCRVersion()
+		psmdb.Spec.CRVersion = crVersion
 		psmdb.Spec.UnsafeConf = database.Spec.AllowUnsafeConfiguration
 		psmdb.Spec.Pause = database.Spec.Paused
 
@@ -1130,6 +1134,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			Kind:       PerconaXtraDBClusterKind,
 		}
 
+		crVersion := version.ToCRVersion()
+		if pxc.Spec.CRVersion != "" {
+			crVersion = pxc.Spec.CRVersion
+		}
 		clusterType, err := r.getClusterType(ctx)
 		if err != nil {
 			return err
@@ -1163,7 +1171,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		pxc.Spec.CRVersion = version.ToCRVersion()
+		pxc.Spec.CRVersion = crVersion
 		pxc.Spec.AllowUnsafeConfig = database.Spec.AllowUnsafeConfiguration
 		pxc.Spec.Pause = database.Spec.Paused
 		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
