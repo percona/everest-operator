@@ -44,6 +44,7 @@ jobs:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.1.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
 
@@ -144,6 +145,7 @@ jobs:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.1.0
           BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
