@@ -2168,6 +2168,13 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 
 //nolint:gocognit,maintidx,gocyclo,cyclop
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
+	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
+		Namespace: req.NamespacedName.Namespace,
+		Name:      pgDeploymentName,
+	})
+	if err != nil {
+		return err
+	}
 	clusterType, err := r.getClusterType(ctx)
 	if err != nil {
 		return err
@@ -2246,6 +2253,11 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		if !ok {
 			return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 		}
+		crVersion := version.ToCRVersion()
+		if pg.Spec.CRVersion != "" {
+			crVersion = pg.Spec.CRVersion
+		}
+		pg.Spec.CRVersion = crVersion
 
 		pg.Spec.Image = pgEngineVersion.ImagePath
 
