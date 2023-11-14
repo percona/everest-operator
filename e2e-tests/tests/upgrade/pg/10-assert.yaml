@@ -60,5 +60,3 @@ spec:
             resources:
               requests:
                 storage: 1G
-status:
-  state: ready
