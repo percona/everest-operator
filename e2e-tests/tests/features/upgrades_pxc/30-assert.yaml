@@ -1,0 +1,30 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  crVersion: 1.12.0
+  haproxy:
+    enabled: true
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *
+  backup:
+    schedule:
+    - keep: 1
+      name: daily-backup
+      schedule: 0 0 * * *
+      storageName: test-storage-scheduled
+    storages:
+      test-storage-scheduled:
+        s3:
+          bucket: test-backup-bucket-scheduled
+          credentialsSecret: test-pxc-cluster-backup-s3-scheduled
+          endpointUrl: s3.someprovider.com
+          region: us-east-2
+        type: s3

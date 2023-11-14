@@ -45,6 +45,8 @@ jobs:
           PSMDB_OPERATOR_VERSION: 1.15.0
           PG_OPERATOR_VERSION: 2.2.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.1.0
+          PREVIOUS_PXC_OPERATOR_VERSION: 1.12.0
+          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
 
