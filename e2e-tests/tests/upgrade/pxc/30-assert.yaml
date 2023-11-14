@@ -14,17 +14,3 @@ spec:
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
-  backup:
-    schedule:
-    - keep: 1
-      name: daily-backup
-      schedule: 0 0 * * *
-      storageName: test-storage-scheduled
-    storages:
-      test-storage-scheduled:
-        s3:
-          bucket: test-backup-bucket-scheduled
-          credentialsSecret: test-pxc-cluster-backup-s3-scheduled
-          endpointUrl: s3.someprovider.com
-          region: us-east-2
-        type: s3

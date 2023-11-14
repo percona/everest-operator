@@ -8,17 +8,11 @@ metadata:
 spec:
   engine:
     type: postgresql
+    config: |
+      max_connections = 2840
     replicas: 1
     storage:
       size: 1G
   proxy:
     type: pgbouncer
     replicas: 1
-  backup:
-    enabled: true
-    schedules:
-      - name: daily-backup
-        enabled: true
-        schedule: "0 0 * * *"
-        retentionCopies: 1
-        backupStorageName: test-storage-scheduled

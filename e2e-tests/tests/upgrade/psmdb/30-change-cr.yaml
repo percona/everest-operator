@@ -8,17 +8,12 @@ metadata:
 spec:
   engine:
     type: psmdb
+    config: |
+     operationProfiling:
+        mode: slowOp
     replicas: 1
     storage:
       size: 1G
   proxy:
     type: haproxy
     replicas: 1
-  backup:
-    enabled: true
-    schedules:
-      - name: daily-backup
-        enabled: true
-        schedule: "0 0 * * *"
-        retentionCopies: 1
-        backupStorageName: test-storage-scheduled
