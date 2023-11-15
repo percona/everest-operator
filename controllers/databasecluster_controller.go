@@ -524,6 +524,10 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			APIVersion: version.ToAPIVersion(psmdbAPIGroup),
 			Kind:       PerconaServerMongoDBKind,
 		}
+		crVersion := version.ToCRVersion()
+		if psmdb.Spec.CRVersion != "" {
+			crVersion = psmdb.Spec.CRVersion
+		}
 
 		clusterType, err := r.getClusterType(ctx)
 		if err != nil {
@@ -556,7 +560,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			}
 		}
 
-		psmdb.Spec.CRVersion = version.ToCRVersion()
+		psmdb.Spec.CRVersion = crVersion
 		psmdb.Spec.UnsafeConf = database.Spec.AllowUnsafeConfiguration
 		psmdb.Spec.Pause = database.Spec.Paused
 
@@ -1130,6 +1134,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			Kind:       PerconaXtraDBClusterKind,
 		}
 
+		crVersion := version.ToCRVersion()
+		if pxc.Spec.CRVersion != "" {
+			crVersion = pxc.Spec.CRVersion
+		}
 		clusterType, err := r.getClusterType(ctx)
 		if err != nil {
 			return err
@@ -1163,7 +1171,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		pxc.Spec.CRVersion = version.ToCRVersion()
+		pxc.Spec.CRVersion = crVersion
 		pxc.Spec.AllowUnsafeConfig = database.Spec.AllowUnsafeConfiguration
 		pxc.Spec.Pause = database.Spec.Paused
 		pxc.Spec.SecretsName = database.Spec.Engine.UserSecretsName
@@ -2160,6 +2168,13 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 
 //nolint:gocognit,maintidx,gocyclo,cyclop
 func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error {
+	version, err := r.getOperatorVersion(ctx, types.NamespacedName{
+		Namespace: req.NamespacedName.Namespace,
+		Name:      pgDeploymentName,
+	})
+	if err != nil {
+		return err
+	}
 	clusterType, err := r.getClusterType(ctx)
 	if err != nil {
 		return err
@@ -2238,6 +2253,11 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		if !ok {
 			return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 		}
+		crVersion := version.ToCRVersion()
+		if pg.Spec.CRVersion != "" {
+			crVersion = pg.Spec.CRVersion
+		}
+		pg.Spec.CRVersion = crVersion
 
 		pg.Spec.Image = pgEngineVersion.ImagePath
 
