@@ -910,8 +910,19 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		return nil, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
+	var timeBetweenUploads float64
+	if database.Spec.Backup.PITR.TimeBetweenUploadsSec != nil {
+		timeBetweenUploads = float64(*database.Spec.Backup.PITR.TimeBetweenUploadsSec)
+	}
+
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
 		Image: backupVersion.ImagePath,
+		PITR: pxcv1.PITRSpec{
+			Enabled:            database.Spec.Backup.PITR.Enabled,
+			StorageName:        database.Spec.Backup.PITR.StorageName,
+			Resources:          database.Spec.Backup.PITR.Resources,
+			TimeBetweenUploads: timeBetweenUploads,
+		},
 	}
 
 	storages := make(map[string]*pxcv1.BackupStorageSpec)
