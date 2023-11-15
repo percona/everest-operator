@@ -65,6 +65,88 @@ spec:
                   enabled:
                     description: Enabled is a flag to enable backups
                     type: boolean
+                  pitr:
+                    description: PITR is the configuration of the point in time recovery
+                    properties:
+                      compressionLevel:
+                        description: CompressionLevel level of compression (psmdb
+                          only, more info https://docs.percona.com/percona-backup-mongodb/reference/backup-options.html#backupcompressionlevel)
+                        type: integer
+                      compressionType:
+                        description: CompressionType type of compression (psmdb only,
+                          default s2)
+                        enum:
+                        - gzip
+                        - snappy
+                        - lz4
+                        - s2
+                        - pgzip
+                        - zstd
+                        type: string
+                      enabled:
+                        description: Enabled is a flag to enable PITR
+                        type: boolean
+                      resources:
+                        description: Resources the compute resource requirements (pxc
+                          only, default no limits applied)
+                        properties:
+                          claims:
+                            description: "Claims lists the names of resources, defined
+                              in spec.resourceClaims, that are used by this container.
+                              \n This is an alpha field and requires enabling the
+                              DynamicResourceAllocation feature gate. \n This field
+                              is immutable. It can only be set for containers."
+                            items:
+                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                              properties:
+                                name:
+                                  description: Name must match the name of one entry
+                                    in pod.spec.resourceClaims of the Pod where this
+                                    field is used. It makes that resource available
+                                    inside a container.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Limits describes the maximum amount of compute
+                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Requests describes the minimum amount of
+                              compute resources required. If Requests is omitted for
+                              a container, it defaults to Limits if that is explicitly
+                              specified, otherwise to an implementation-defined value.
+                              Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                      storageName:
+                        description: StorageName is the name of the BackupStorage
+                          where the PITR is enabled
+                        type: string
+                      timeBetweenUploadsSec:
+                        description: TimeBetweenUploadsSec number of seconds between
+                          the binlogs uploads
+                        type: integer
+                    required:
+                    - storageName
+                    type: object
                   schedules:
                     description: Schedules is a list of backup schedules
                     items:
@@ -120,6 +202,27 @@ spec:
                     description: DBClusterBackupName is the name of the DB cluster
                       backup to restore from
                     type: string
+                  pitr:
+                    description: PITR is the point-in-time recovery configuration
+                    properties:
+                      date:
+                        description: Date is the date to recover to
+                        type: string
+                      gtid:
+                        description: GTID is the transaction ID to restore to (pxc
+                          only)
+                        type: string
+                      type:
+                        default: date
+                        description: 'Type is the type of recovery. pxc: full list;
+                          psmdb, pg: date,latest'
+                        enum:
+                        - date
+                        - latest
+                        - transaction
+                        - skip
+                        type: string
+                    type: object
                 type: object
               engine:
                 description: Engine is the database engine specification
