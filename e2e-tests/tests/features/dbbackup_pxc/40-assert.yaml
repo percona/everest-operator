@@ -14,6 +14,10 @@ spec:
     apply: never
     schedule: 0 4 * * *
   backup:
+    pitr:
+      enabled: true
+      storageName: test-storage-scheduled
+      timeBetweenUploads: 120
     schedule:
     - keep: 1
       name: daily-backup

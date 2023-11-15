@@ -36,6 +36,10 @@ spec:
     replicas: 1
   backup:
     enabled: true
+    pitr:
+      enabled: true
+      storageName: test-storage-scheduled
+      timeBetweenUploadsSec: 120
     schedules:
       - name: daily-backup
         enabled: true
