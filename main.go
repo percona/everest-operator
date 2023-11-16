@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -79,6 +80,17 @@ func main() {
 		setupLog.Error(errors.New("failed to get everest watch namespace namespace"), fmt.Sprintf("%s must be set", everestNamespaceEnvVar))
 
 		os.Exit(1)
+	}
+	rawNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
+	if !found {
+		setupLog.Error(errors.New("failed to get everest watch namespace namespace"), fmt.Sprintf("%s must be set", everestNamespaceEnvVar))
+
+	}
+	cacheConfig := map[string]cache.Config{
+		ns: {},
+	}
+	for _, ns := range strings.Split(rawNamespaces, ",") {
+		cacheConfig[ns] = cache.Config{}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
