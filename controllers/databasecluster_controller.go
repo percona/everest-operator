@@ -298,7 +298,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		// XXX: Remove this once templates will be available
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("0.5G"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
 				corev1.ResourceCPU:    resource.MustParse("300m"),
 			},
 		},
