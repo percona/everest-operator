@@ -141,7 +141,8 @@ var (
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme           *runtime.Scheme
+	everestNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -2613,6 +2614,9 @@ func (r *DatabaseClusterReconciler) addPXCToScheme(scheme *runtime.Scheme) error
 func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error {
 	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
 	return builder.AddToScheme(scheme)
+}
+func (r *DatabaseClusterReconciler) SetEverestNamespace(namespace string) {
+	r.everestNamespace = namespace
 }
 
 // SetupWithManager sets up the controller with the Manager.

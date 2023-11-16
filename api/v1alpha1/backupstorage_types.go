@@ -45,6 +45,8 @@ type BackupStorageSpec struct {
 	Description string `json:"description,omitempty"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
+	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+	TargetNamespaces []string `json:"targetNamespaces"`
 }
 
 // BackupStorageStatus defines the observed state of BackupStorage.
