@@ -116,13 +116,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
-		if err := r.restorePXC(ctx, cr); err != nil {
+		if err := r.restorePXC(ctx, cr, dbCR); err != nil {
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
 	}
 	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
-		if err := r.restorePSMDB(ctx, cr); err != nil {
+		if err := r.restorePSMDB(ctx, cr, dbCR); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
 			// the storage is not defined in the upstream DB cluster CR, we
@@ -176,7 +176,10 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 	}
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
+	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
 		return err
@@ -252,11 +255,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+					Prefix:            backupStoragePrefix(db),
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            azureStoragePrefix,
+					Prefix:            backupStoragePrefix(db),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
@@ -282,7 +286,10 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(ctx context.Context, res
 	return r.Status().Update(ctx, restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) restorePXC(
+	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restore.Name,
@@ -312,14 +319,22 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(ctx context.Context, resto
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
 				pxcCR.Spec.BackupSource.S3 = &pxcv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
+					Bucket: fmt.Sprintf(
+						"%s/%s",
+						backupStorage.Spec.Bucket,
+						backupStoragePrefix(db),
+					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				pxcCR.Spec.BackupSource.Azure = &pxcv1.BackupStorageAzureSpec{
-					ContainerPath:     backupStorage.Spec.Bucket,
+					ContainerPath: fmt.Sprintf(
+						"%s/%s",
+						backupStorage.Spec.Bucket,
+						backupStoragePrefix(db),
+					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
