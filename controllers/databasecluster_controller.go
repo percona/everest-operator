@@ -331,27 +331,10 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 		if database.Namespace != r.everestNamespace {
-			secret := &corev1.Secret{}
-			if err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret); err != nil {
-				if k8serrors.IsNotFound(err) {
-					err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.everestNamespace}, secret)
-					if err != nil {
-						return psmdbv1.BackupSpec{Enabled: false}, err
-					}
-					secret.Namespace = database.Namespace
-					err = r.Create(ctx, secret)
-					if err != nil {
-						return psmdbv1.BackupSpec{Enabled: false}, err
-					}
-					backupStorage.UpdateNamespacesList(database.Namespace)
-					if err := r.Status().Update(ctx, backupStorage); err != nil {
-						return psmdbv1.BackupSpec{Enabled: false}, err
-					}
-				} else {
-					return psmdbv1.BackupSpec{Enabled: false}, err
-				}
-
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return psmdbv1.BackupSpec{Enabled: false}, err
 			}
+
 		}
 
 		switch backupStorage.Spec.Type {
@@ -3260,4 +3243,28 @@ func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMon
 			Enabled: false,
 		},
 	}
+}
+func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupStorage *everestv1alpha1.BackupStorage, database *everestv1alpha1.DatabaseCluster) error {
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.everestNamespace}, secret)
+	if err != nil {
+		return err
+	}
+	secret.Namespace = database.Namespace
+	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
+		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
+	}
+	err = r.Create(ctx, secret)
+	if err != nil {
+		return err
+	}
+	backupStorage.UpdateNamespacesList(database.Namespace)
+	if err := r.Status().Update(ctx, backupStorage); err != nil {
+		return err
+	}
+	return nil
 }

@@ -84,3 +84,15 @@ func (b *BackupStorage) UpdateNamespacesList(namespace string) {
 	}
 	b.Status.Namespaces[namespace] = true
 }
+func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
+	if len(b.Spec.TargetNamespaces) == 0 {
+		return true
+	}
+	for _, ns := range b.Spec.TargetNamespaces {
+		ns := ns
+		if ns == namespace {
+			return true
+		}
+	}
+	return false
+}
