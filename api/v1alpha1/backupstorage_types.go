@@ -50,7 +50,9 @@ type BackupStorageSpec struct {
 }
 
 // BackupStorageStatus defines the observed state of BackupStorage.
-type BackupStorageStatus struct{}
+type BackupStorageStatus struct {
+	Namespaces map[string]bool `json:"usedNamespaces"`
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -75,4 +77,10 @@ type BackupStorageList struct {
 
 func init() {
 	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
+}
+func (b *BackupStorage) UpdateNamespacesList(namespace string) {
+	if b.Status.Namespaces == nil {
+		b.Status.Namespaces = make(map[string]bool)
+	}
+	b.Status.Namespaces[namespace] = true
 }

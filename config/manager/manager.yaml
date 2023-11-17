@@ -103,7 +103,7 @@ spec:
             cpu: 10m
             memory: 64Mi
         env:
-        - name: WATCH_NAMESPACE
+        - name: EVEREST_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace

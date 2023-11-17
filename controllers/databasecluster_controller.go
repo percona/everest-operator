@@ -330,6 +330,29 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
+		if database.Namespace != r.everestNamespace {
+			secret := &corev1.Secret{}
+			if err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret); err != nil {
+				if k8serrors.IsNotFound(err) {
+					err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.everestNamespace}, secret)
+					if err != nil {
+						return psmdbv1.BackupSpec{Enabled: false}, err
+					}
+					secret.Namespace = database.Namespace
+					err = r.Create(ctx, secret)
+					if err != nil {
+						return psmdbv1.BackupSpec{Enabled: false}, err
+					}
+					backupStorage.UpdateNamespacesList(database.Namespace)
+					if err := r.Status().Update(ctx, backupStorage); err != nil {
+						return psmdbv1.BackupSpec{Enabled: false}, err
+					}
+				} else {
+					return psmdbv1.BackupSpec{Enabled: false}, err
+				}
+
+			}
+		}
 
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
