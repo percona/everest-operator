@@ -22,7 +22,6 @@ spec:
     storages:
       test-storage-scheduled:
         s3:
-          bucket: test-backup-bucket-scheduled
           credentialsSecret: test-pxc-cluster-backup-s3-scheduled
           endpointUrl: s3.someprovider.com
           region: us-east-2
