@@ -334,7 +334,6 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
 				return psmdbv1.BackupSpec{Enabled: false}, err
 			}
-
 		}
 
 		switch backupStorage.Spec.Type {
@@ -2621,6 +2620,7 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
 	return builder.AddToScheme(scheme)
 }
+
 func (r *DatabaseClusterReconciler) SetEverestNamespace(namespace string) {
 	r.everestNamespace = namespace
 }
@@ -3244,6 +3244,7 @@ func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMon
 		},
 	}
 }
+
 func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupStorage *everestv1alpha1.BackupStorage, database *everestv1alpha1.DatabaseCluster) error {
 	secret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)

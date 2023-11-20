@@ -78,12 +78,14 @@ type BackupStorageList struct {
 func init() {
 	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
 }
+
 func (b *BackupStorage) UpdateNamespacesList(namespace string) {
 	if b.Status.Namespaces == nil {
 		b.Status.Namespaces = make(map[string]bool)
 	}
 	b.Status.Namespaces[namespace] = true
 }
+
 func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
 	if len(b.Spec.TargetNamespaces) == 0 {
 		return true

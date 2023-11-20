@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -84,7 +83,6 @@ func main() {
 	rawNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
 	if !found {
 		setupLog.Error(errors.New("failed to get everest watch namespace namespace"), fmt.Sprintf("%s must be set", everestNamespaceEnvVar))
-
 	}
 	cacheConfig := map[string]cache.Config{
 		ns: {},
@@ -150,6 +148,20 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
+		os.Exit(1)
+	}
+	if err = (&controllers.BackupStorageReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
+		os.Exit(1)
+	}
+	if err = (&controllers.MonitoringConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
