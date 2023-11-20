@@ -18,12 +18,19 @@ package controllers
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+)
+
+const (
+	cleanupSecretsFinalizer = "percona.com/cleanup-secrets"
 )
 
 // BackupStorageReconciler reconciles a BackupStorage object
@@ -36,19 +43,56 @@ type BackupStorageReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the BackupStorage object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	bs := &everestv1alpha1.BackupStorage{}
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	err := r.Get(ctx, req.NamespacedName, bs)
+	if err != nil {
+		// NotFound cannot be fixed by requeuing so ignore it. During background
+		// deletion, we receive delete events from cluster's dependents after
+		// cluster is deleted.
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch DatabaseCluster")
+		}
+		return reconcile.Result{}, err
+	}
+	secret := &corev1.Secret{}
+	err = r.Get(ctx, req.NamespacedName, secret)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
+		controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
+	}
+	if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
+		err := r.Status().Update(ctx, bs)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	for namespace := range bs.Status.Namespaces {
+		secret.Namespace = namespace
+		if bs.DeletionTimestamp != nil {
+			err := r.Delete(ctx, secret)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			continue
+		}
+		err := r.Update(ctx, secret)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if bs.DeletionTimestamp != nil {
+		controllerutil.RemoveFinalizer(bs, cleanupSecretsFinalizer)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -57,5 +101,6 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
+		Owns(&corev1.Secret{}).
 		Complete(r)
 }

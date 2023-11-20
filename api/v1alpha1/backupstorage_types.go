@@ -79,11 +79,15 @@ func init() {
 	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
 }
 
-func (b *BackupStorage) UpdateNamespacesList(namespace string) {
+func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
 	if b.Status.Namespaces == nil {
 		b.Status.Namespaces = make(map[string]bool)
 	}
+	if _, ok := b.Status.Namespaces[namespace]; ok {
+		return false
+	}
 	b.Status.Namespaces[namespace] = true
+	return true
 }
 
 func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
