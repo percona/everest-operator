@@ -147,7 +147,7 @@ func main() {
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, namespaces); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}

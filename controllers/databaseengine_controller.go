@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -156,36 +155,37 @@ func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name t
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces []string) error {
 	// There's a good chance that the reconciler's client cache is not started
 	// yet so we use the client.Reader returned from manager.GetAPIReader() to
 	// hit the API server directly and avoid an ErrCacheNotStarted.
 	clientReader := mgr.GetAPIReader()
 	r.versionService = NewVersionService()
+	for _, namespaceName := range namespaces {
+		namespaceName := namespaceName
+		for operatorName, engineType := range operatorEngine {
+			dbEngine := &everestv1alpha1.DatabaseEngine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      operatorName,
+					Namespace: namespaceName,
+				},
+				Spec: everestv1alpha1.DatabaseEngineSpec{
+					Type: engineType,
+				},
+			}
 
-	for operatorName, engineType := range operatorEngine {
-		dbEngine := &everestv1alpha1.DatabaseEngine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      operatorName,
-				Namespace: os.Getenv("DEFAULT_NAMESPACE"),
-			},
-			Spec: everestv1alpha1.DatabaseEngineSpec{
-				Type: engineType,
-			},
-		}
-
-		found := &everestv1alpha1.DatabaseEngine{}
-		err := clientReader.Get(context.Background(), types.NamespacedName{Name: dbEngine.Name, Namespace: dbEngine.Namespace}, found)
-		if err != nil && apierrors.IsNotFound(err) {
-			err = r.Create(context.Background(), dbEngine)
-			if err != nil {
+			found := &everestv1alpha1.DatabaseEngine{}
+			err := clientReader.Get(context.Background(), types.NamespacedName{Name: dbEngine.Name, Namespace: dbEngine.Namespace}, found)
+			if err != nil && apierrors.IsNotFound(err) {
+				err = r.Create(context.Background(), dbEngine)
+				if err != nil {
+					return err
+				}
+			} else if err != nil {
 				return err
 			}
-		} else if err != nil {
-			return err
 		}
 	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
