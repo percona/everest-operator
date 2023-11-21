@@ -278,7 +278,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 	return err
 }
 
-//nolint:gocognit
+//nolint:gocognit,maintidx
 func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
