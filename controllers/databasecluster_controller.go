@@ -910,17 +910,10 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		return nil, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
-	var timeBetweenUploads float64
-	if database.Spec.Backup.PITR.UploadIntervalSec != nil {
-		timeBetweenUploads = float64(*database.Spec.Backup.PITR.UploadIntervalSec)
-	}
-
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
 		Image: backupVersion.ImagePath,
 		PITR: pxcv1.PITRSpec{
-			Enabled:            database.Spec.Backup.PITR.Enabled,
-			StorageName:        database.Spec.Backup.PITR.BackupStorageName,
-			TimeBetweenUploads: timeBetweenUploads,
+			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
 	}
 
@@ -969,10 +962,18 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	}
 
 	if database.Spec.Backup.PITR.Enabled {
-		spec, backupStorage, err := r.genPXCStorageSpec(ctx, database.Spec.Backup.PITR.BackupStorageName, database.Namespace)
+		storageName := database.Spec.Backup.PITR.BackupStorageName
+		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, database.Namespace)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to get pitr storage"))
 		}
+		pxcBackupSpec.PITR.StorageName = pitrStorageName(storageName)
+
+		var timeBetweenUploads float64
+		if database.Spec.Backup.PITR.UploadIntervalSec != nil {
+			timeBetweenUploads = float64(*database.Spec.Backup.PITR.UploadIntervalSec)
+		}
+		pxcBackupSpec.PITR.TimeBetweenUploads = timeBetweenUploads
 
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
