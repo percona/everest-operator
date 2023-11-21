@@ -3251,9 +3251,18 @@ func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupS
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+
+	if !controllerutil.ContainsFinalizer(secret, cleanupNamespaceFinalizer) {
+		controllerutil.AddFinalizer(secret, cleanupNamespaceFinalizer)
+	}
 	err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.everestNamespace}, secret)
 	if err != nil {
 		return err
+	}
+	if secret.Labels == nil {
+		secret.Labels = map[string]string{
+			labelBackupStorageName: backupStorage.Name,
+		}
 	}
 	secret.Namespace = database.Namespace
 	if !backupStorage.IsNamespaceAllowed(database.Namespace) {

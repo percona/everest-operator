@@ -90,6 +90,14 @@ func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
 	return true
 }
 
+func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
+	if _, ok := b.Status.Namespaces[namespace]; ok {
+		delete(b.Status.Namespaces, namespace)
+		return true
+	}
+	return false
+}
+
 func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
 	if len(b.Spec.TargetNamespaces) == 0 {
 		return true

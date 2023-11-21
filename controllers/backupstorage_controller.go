@@ -20,23 +20,29 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 const (
-	cleanupSecretsFinalizer = "percona.com/cleanup-secrets"
+	cleanupSecretsFinalizer   = "percona.com/cleanup-secrets"
+	cleanupNamespaceFinalizer = "percona.com/update-namespace"
+	labelBackupStorageName    = "percona.com/backup-storage-name"
 )
 
 // BackupStorageReconciler reconciles a BackupStorage object
 type BackupStorageReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme           *runtime.Scheme
+	defaultNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
@@ -46,8 +52,12 @@ type BackupStorageReconciler struct {
 func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	bs := &everestv1alpha1.BackupStorage{}
 	logger := log.FromContext(ctx)
+	backupStorageNamespace := req.NamespacedName.Namespace
+	if req.NamespacedName.Namespace != r.defaultNamespace {
+		backupStorageNamespace = r.defaultNamespace
+	}
 
-	err := r.Get(ctx, req.NamespacedName, bs)
+	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: backupStorageNamespace}, bs)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
@@ -62,17 +72,28 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
-		controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
-	}
-	if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
-		err := r.Status().Update(ctx, bs)
+	if req.NamespacedName.Namespace == r.defaultNamespace {
+		err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+		if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
+			controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
+		}
+		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
+			err := r.Status().Update(ctx, bs)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+	if secret.DeletionTimestamp != nil {
+		if bs.DeleteUsedNamespace(secret.Namespace) {
+			err := r.Status().Update(ctx, bs)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(bs, cleanupNamespaceFinalizer)
 		}
 	}
 
@@ -102,5 +123,14 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
+		WithEventFilter(predicateFunc()).
 		Complete(r)
+}
+
+func predicateFunc() predicate.Predicate {
+	return predicate.Funcs{
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
+		},
+	}
 }
