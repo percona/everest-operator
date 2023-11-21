@@ -48,8 +48,6 @@ type PITR struct {
 	Type string `json:"type,omitempty"`
 	// Date is the date to recover to
 	Date *RestoreDate `json:"date,omitempty"`
-	// GTID is the transaction ID to restore to (pxc only)
-	GTID string `json:"gtid,omitempty"`
 }
 
 // RestoreDate is a data type for better time.Time support, the same approach as used in psmdb.

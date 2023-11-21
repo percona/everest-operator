@@ -18,7 +18,6 @@ package v1alpha1
 import (
 	"net"
 
-	"github.com/percona/percona-backup-mongodb/pbm/compress"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -236,18 +235,10 @@ type Backup struct {
 type PITRSpec struct {
 	// Enabled is a flag to enable PITR
 	Enabled bool `json:"enabled,omitempty"`
-	// StorageName is the name of the BackupStorage where the PITR is enabled
-	StorageName string `json:"storageName"`
-	// TimeBetweenUploadsSec number of seconds between the binlogs uploads
-	TimeBetweenUploadsSec *int `json:"timeBetweenUploadsSec,omitempty"`
-	// CompressionType type of compression (psmdb only, default s2)
-	// +kubebuilder:validation:Enum:=gzip;snappy;lz4;s2;pgzip;zstd
-	CompressionType compress.CompressionType `json:"compressionType,omitempty"`
-	// CompressionLevel level of compression (psmdb only, more info
-	// https://docs.percona.com/percona-backup-mongodb/reference/backup-options.html#backupcompressionlevel)
-	CompressionLevel *int `json:"compressionLevel,omitempty"`
-	// Resources the compute resource requirements (pxc only, default no limits applied)
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// BackupStorageName is the name of the BackupStorage where the PITR is enabled
+	BackupStorageName string `json:"backupStorageName"`
+	// UploadIntervalSec number of seconds between the binlogs uploads
+	UploadIntervalSec *int `json:"uploadIntervalSec,omitempty"`
 }
 
 // Monitoring is the monitoring configuration.
