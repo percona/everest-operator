@@ -142,7 +142,7 @@ var (
 type DatabaseClusterReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
-	everestNamespace string
+	defaultNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -330,7 +330,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
-		if database.Namespace != r.everestNamespace {
+		if database.Namespace != r.defaultNamespace {
 			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
 				return psmdbv1.BackupSpec{Enabled: false}, err
 			}
@@ -2621,12 +2621,8 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 	return builder.AddToScheme(scheme)
 }
 
-func (r *DatabaseClusterReconciler) SetEverestNamespace(namespace string) {
-	r.everestNamespace = namespace
-}
-
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, defaultNamespace string) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
@@ -2659,6 +2655,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.initWatchers(controller)
+	r.defaultNamespace = defaultNamespace
 
 	return controller.Complete(r)
 }
@@ -3255,7 +3252,7 @@ func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupS
 	if !controllerutil.ContainsFinalizer(secret, cleanupNamespaceFinalizer) {
 		controllerutil.AddFinalizer(secret, cleanupNamespaceFinalizer)
 	}
-	err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.everestNamespace}, secret)
+	err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.defaultNamespace}, secret)
 	if err != nil {
 		return err
 	}

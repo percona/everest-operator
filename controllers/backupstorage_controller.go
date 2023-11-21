@@ -119,7 +119,8 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, defaultNamespace string) error {
+	r.defaultNamespace = defaultNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -42,7 +43,7 @@ import (
 )
 
 const (
-	everestNamespaceEnvVar = "EVEREST_NAMESPACE"
+	defaultNamespaceEnvVar = "DEFAULT_NAMESPACE"
 	watchNamespacesEnvVar  = "WATCH_NAMESPACES"
 )
 
@@ -74,20 +75,20 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	ns, found := os.LookupEnv(everestNamespaceEnvVar)
+	defaultNamespace, found := os.LookupEnv(defaultNamespaceEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get everest watch namespace namespace"), fmt.Sprintf("%s must be set", everestNamespaceEnvVar))
+		setupLog.Error(errors.New("failed to get default watch namespace namespace"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
 
 		os.Exit(1)
 	}
-	rawNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
+	watchNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get everest watch namespace namespace"), fmt.Sprintf("%s must be set", everestNamespaceEnvVar))
+		setupLog.Error(errors.New("failed to get default watch namespace namespace"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
 	}
 	cacheConfig := map[string]cache.Config{
-		ns: {},
+		defaultNamespace: {},
 	}
-	for _, ns := range strings.Split(rawNamespaces, ",") {
+	for _, ns := range strings.Split(watchNamespaces, ",") {
 		cacheConfig[ns] = cache.Config{}
 	}
 
@@ -100,9 +101,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "9094838c.percona.com",
 		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{
-				ns: {},
-			},
+			DefaultNamespaces: cacheConfig,
 		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -120,15 +119,13 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	dbReconciler := &controllers.DatabaseClusterReconciler{
+	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}
-	if err := dbReconciler.SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
-	dbReconciler.SetEverestNamespace(ns)
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -153,7 +150,7 @@ func main() {
 	if err = (&controllers.BackupStorageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
 		os.Exit(1)
 	}
