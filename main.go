@@ -19,13 +19,17 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -85,10 +89,10 @@ func main() {
 	if !found {
 		setupLog.Error(errors.New("failed to get default watch namespace namespace"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
 	}
-	cacheConfig := map[string]cache.Config{
-		defaultNamespace: {},
-	}
-	for _, ns := range strings.Split(watchNamespaces, ",") {
+	cacheConfig := map[string]cache.Config{}
+	namespaces := strings.Split(watchNamespaces, ",")
+	namespaces = append(namespaces, defaultNamespace)
+	for _, ns := range namespaces {
 		cacheConfig[ns] = cache.Config{}
 	}
 
@@ -118,6 +122,20 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+	namespace := &unstructured.Unstructured{}
+	namespace.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Namespace",
+		Version: "v1",
+	})
+	for _, namespaceName := range namespaces {
+		namespaceName := namespaceName
+		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
+		if err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
+			os.Exit(1)
+		}
 	}
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),

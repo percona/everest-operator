@@ -167,7 +167,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		dbEngine := &everestv1alpha1.DatabaseEngine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      operatorName,
-				Namespace: os.Getenv("WATCH_NAMESPACE"),
+				Namespace: os.Getenv("DEFAULT_NAMESPACE"),
 			},
 			Spec: everestv1alpha1.DatabaseEngineSpec{
 				Type: engineType,
