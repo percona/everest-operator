@@ -93,10 +93,6 @@ spec:
                       date:
                         description: Date is the date to recover to
                         type: string
-                      gtid:
-                        description: GTID is the transaction ID to restore to (pxc
-                          only)
-                        type: string
                       type:
                         default: date
                         description: 'Type is the type of recovery. pxc: full list;
