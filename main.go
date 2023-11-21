@@ -172,6 +172,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
 		os.Exit(1)
 	}
+	if err = (&controllers.SecretReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Secret")
+		os.Exit(1)
+	}
 	if err = (&controllers.MonitoringConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),

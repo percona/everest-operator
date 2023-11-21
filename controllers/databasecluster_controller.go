@@ -326,7 +326,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
@@ -399,9 +399,14 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return psmdbv1.BackupSpec{Enabled: false}, err
+			}
 		}
 
 		switch backupStorage.Spec.Type {
@@ -443,9 +448,14 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec(
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return psmdbv1.BackupSpec{Enabled: false}, err
+			}
 		}
 
 		switch backupStorage.Spec.Type {
@@ -940,9 +950,14 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return nil, err
+			}
 		}
 
 		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
@@ -990,9 +1005,14 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		// Add the storages used by the schedule backups
 		if _, ok := storages[schedule.BackupStorageName]; !ok {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
+			}
+			if database.Namespace != r.defaultNamespace {
+				if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+					return nil, err
+				}
 			}
 
 			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
@@ -1848,9 +1868,14 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}
@@ -1902,9 +1927,14 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}
@@ -1951,9 +1981,14 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
 			return crunchyv1beta1.Backups{}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
+		}
+		if database.Namespace != r.defaultNamespace {
+			if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+				return crunchyv1beta1.Backups{}, err
+			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}
@@ -2055,9 +2090,14 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: database.Namespace}, backupStorage)
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
+	}
+	if database.Namespace != r.defaultNamespace {
+		if err := r.reconcileSecret(ctx, backupStorage, database); err != nil {
+			return nil, err
+		}
 	}
 
 	switch backupStorage.Spec.Type {
@@ -2578,18 +2618,7 @@ func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) err
 }
 
 func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
-		Name:      psmdbDeploymentName,
-		Namespace: os.Getenv("WATCH_NAMESPACE"),
-	})
-	if err != nil {
-		return err
-	}
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: psmdbAPIGroup, Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
-	ver, _ := goversion.NewVersion("v1.12.0")
-	if version.version.GreaterThan(ver) {
-		psmdbSchemeGroupVersion = schema.GroupVersion{Group: psmdbAPIGroup, Version: "v1"}
-	}
+	psmdbSchemeGroupVersion := schema.GroupVersion{Group: psmdbAPIGroup, Version: "v1"}
 	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
 		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{})
 
@@ -3245,32 +3274,34 @@ func (r *DatabaseClusterReconciler) defaultPSMDBSpec() *psmdbv1.PerconaServerMon
 func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupStorage *everestv1alpha1.BackupStorage, database *everestv1alpha1.DatabaseCluster) error {
 	secret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+	}
+	if secret.Name != "" {
+		return nil
 	}
 
-	if !controllerutil.ContainsFinalizer(secret, cleanupNamespaceFinalizer) {
-		controllerutil.AddFinalizer(secret, cleanupNamespaceFinalizer)
-	}
 	err = r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: r.defaultNamespace}, secret)
 	if err != nil {
 		return err
 	}
-	if secret.Labels == nil {
-		secret.Labels = map[string]string{
+	secret.ObjectMeta = metav1.ObjectMeta{
+		Namespace: database.Namespace,
+		Name:      backupStorage.Spec.CredentialsSecretName,
+		Labels: map[string]string{
 			labelBackupStorageName: backupStorage.Name,
-		}
+		},
 	}
-	secret.Namespace = database.Namespace
+	if !controllerutil.ContainsFinalizer(secret, cleanupNamespaceFinalizer) {
+		controllerutil.AddFinalizer(secret, cleanupNamespaceFinalizer)
+	}
 	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
 	}
 	err = r.Create(ctx, secret)
 	if err != nil {
-		return err
-	}
-	backupStorage.UpdateNamespacesList(database.Namespace)
-	if err := r.Status().Update(ctx, backupStorage); err != nil {
 		return err
 	}
 	return nil

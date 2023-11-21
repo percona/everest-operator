@@ -24,9 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -63,42 +61,66 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// deletion, we receive delete events from cluster's dependents after
 		// cluster is deleted.
 		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch DatabaseCluster")
+			logger.Error(err, "unable to fetch BackupStorage")
 		}
 		return reconcile.Result{}, err
+	}
+	defaultSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, defaultSecret)
+	if err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch Secret")
+		}
+		return ctrl.Result{}, err
 	}
 	secret := &corev1.Secret{}
 	err = r.Get(ctx, req.NamespacedName, secret)
 	if err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch Secret")
+		}
 		return ctrl.Result{}, err
 	}
+	var needsUpdate bool
 	if req.NamespacedName.Namespace == r.defaultNamespace {
 		err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		needsUpdate = true
 		if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
 			controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
 		}
 		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
-			err := r.Status().Update(ctx, bs)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-	if secret.DeletionTimestamp != nil {
-		if bs.DeleteUsedNamespace(secret.Namespace) {
-			err := r.Status().Update(ctx, bs)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			controllerutil.RemoveFinalizer(bs, cleanupNamespaceFinalizer)
+			needsUpdate = true
 		}
 	}
 
 	for namespace := range bs.Status.Namespaces {
-		secret.Namespace = namespace
+		secret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: namespace}, secret)
+		if err != nil {
+			if err = client.IgnoreNotFound(err); err != nil {
+				logger.Error(err, "unable to fetch Secret")
+			}
+			return ctrl.Result{}, err
+		}
+		secret.Data = defaultSecret.Data
+		secret.Type = defaultSecret.Type
+		secret.StringData = defaultSecret.StringData
+		if secret.DeletionTimestamp != nil {
+			if bs.DeleteUsedNamespace(secret.Namespace) {
+				controllerutil.RemoveFinalizer(secret, cleanupNamespaceFinalizer)
+				logger.Info("Status updated")
+				if err := r.Status().Update(ctx, bs); err != nil {
+					return ctrl.Result{}, err
+				}
+				if err := r.Update(ctx, secret); err != nil {
+					return ctrl.Result{}, err
+				}
+
+			}
+		}
 		if bs.DeletionTimestamp != nil {
 			err := r.Delete(ctx, secret)
 			if err != nil {
@@ -112,7 +134,15 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 	if bs.DeletionTimestamp != nil {
+		needsUpdate = true
 		controllerutil.RemoveFinalizer(bs, cleanupSecretsFinalizer)
+	}
+	if needsUpdate {
+		err := r.Status().Update(ctx, bs)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		r.Update(ctx, bs)
 	}
 
 	return ctrl.Result{}, nil
@@ -124,14 +154,5 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, defaultName
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
-		WithEventFilter(predicateFunc()).
 		Complete(r)
-}
-
-func predicateFunc() predicate.Predicate {
-	return predicate.Funcs{
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return true
-		},
-	}
 }

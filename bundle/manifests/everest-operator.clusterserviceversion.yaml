@@ -103,7 +103,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-11-14T15:55:52Z"
+    createdAt: "2023-11-21T10:12:37Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.5.0-dev2
@@ -193,6 +193,20 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - backupstorages/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - backupstorages/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - everest.percona.com
           resources:
@@ -309,6 +323,20 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - monitoringconfigs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - monitoringconfigs/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - pgv2.percona.com
           resources:
@@ -512,10 +540,10 @@ spec:
                 command:
                 - /manager
                 env:
-                - name: WATCH_NAMESPACE
+                - name: EVEREST_NAMESPACE
                   valueFrom:
                     fieldRef:
-                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                      fieldPath: metadata.namespace
                 image: docker.io/perconalab/everest-operator:0.5.0-dev2
                 livenessProbe:
                   httpGet:
@@ -586,9 +614,9 @@ spec:
     type: OwnNamespace
   - supported: true
     type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
   - supported: true
+    type: MultiNamespace
+  - supported: false
     type: AllNamespaces
   keywords:
   - everest

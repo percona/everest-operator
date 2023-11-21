@@ -16,6 +16,8 @@
 package v1alpha1
 
 import (
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,11 +48,12 @@ type BackupStorageSpec struct {
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
 	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
-	TargetNamespaces []string `json:"targetNamespaces"`
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 }
 
 // BackupStorageStatus defines the observed state of BackupStorage.
 type BackupStorageStatus struct {
+	mu         *sync.Mutex
 	Namespaces map[string]bool `json:"usedNamespaces"`
 }
 
