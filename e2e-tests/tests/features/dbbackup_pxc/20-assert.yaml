@@ -57,14 +57,12 @@ spec:
     storages:
       test-storage:
         s3:
-          bucket: test-backup-bucket
           credentialsSecret: test-pxc-cluster-backup-s3
           endpointUrl: s3.someprovider.com
           region: us-east-2
         type: s3
       test-storage-azure:
         azure:
-          container: test-backup-bucket
           credentialsSecret: test-pxc-cluster-backup-azure
         type: azure
 status:
