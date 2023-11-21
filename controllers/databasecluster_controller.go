@@ -943,22 +943,12 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 			continue
 		}
 
-		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		spec, backupStorage, err := r.genPXCStorageSpec(ctx, backup.Spec.BackupStorageName, database.Namespace)
 		if err != nil {
-			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+			return nil, errors.Join(err, fmt.Errorf("failed to get backup storage for backup %s", backup.Name))
 		}
 
-		storages[backup.Spec.BackupStorageName] = &pxcv1.BackupStorageSpec{
-			Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
-		}
-		// XXX: Remove this once templates will be available
-		storages[backup.Spec.BackupStorageName].Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("1G"),
-				corev1.ResourceCPU:    resource.MustParse("600m"),
-			},
-		}
+		storages[backup.Spec.BackupStorageName] = spec
 
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
@@ -976,6 +966,30 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		default:
 			return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
+	}
+
+	if database.Spec.Backup.PITR.Enabled {
+		spec, backupStorage, err := r.genPXCStorageSpec(ctx, database.Spec.Backup.PITR.BackupStorageName, database.Namespace)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("failed to get pitr storage"))
+		}
+
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			spec.S3 = &pxcv1.BackupStorageS3Spec{
+				// use separate directory for binlogs
+				Bucket:            pitrBucketName(backupStorage.Spec.Bucket),
+				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				Region:            backupStorage.Spec.Region,
+				EndpointURL:       backupStorage.Spec.EndpointURL,
+			}
+		default:
+			return nil, fmt.Errorf("BackupStorage of type %s is not supported. PITR only works for s3 compatible storages", backupStorage.Spec.Type)
+		}
+
+		// create a separate storage for pxc pitr as the docs recommend
+		// https://docs.percona.com/percona-operator-for-mysql/pxc/backups-pitr.html
+		storages[pitrStorageName(backupStorage.Name)] = spec
 	}
 
 	// If scheduled backups are disabled, just return the storages used in
@@ -1032,6 +1046,34 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	pxcBackupSpec.Schedule = pxcSchedules
 
 	return pxcBackupSpec, nil
+}
+
+func pitrStorageName(storageName string) string {
+	return storageName + "-pitr"
+}
+
+// revisit if https://github.com/percona/everest-operator/pull/173 is merged first.
+func pitrBucketName(bucket string) string {
+	return bucket + "/pitr"
+}
+
+func (r *DatabaseClusterReconciler) genPXCStorageSpec(ctx context.Context, name, namespace string) (*pxcv1.BackupStorageSpec, *everestv1alpha1.BackupStorage, error) {
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, backupStorage)
+	if err != nil {
+		return nil, nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", name))
+	}
+
+	return &pxcv1.BackupStorageSpec{
+		Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
+		// XXX: Remove this once templates will be available
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("1G"),
+				corev1.ResourceCPU:    resource.MustParse("600m"),
+			},
+		},
+	}, backupStorage, nil
 }
 
 func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.Request, database *everestv1alpha1.DatabaseCluster) error { //nolint:lll,gocognit,gocyclo,cyclop,maintidx
