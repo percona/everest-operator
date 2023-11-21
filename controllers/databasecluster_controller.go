@@ -911,16 +911,15 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 	}
 
 	var timeBetweenUploads float64
-	if database.Spec.Backup.PITR.TimeBetweenUploadsSec != nil {
-		timeBetweenUploads = float64(*database.Spec.Backup.PITR.TimeBetweenUploadsSec)
+	if database.Spec.Backup.PITR.UploadIntervalSec != nil {
+		timeBetweenUploads = float64(*database.Spec.Backup.PITR.UploadIntervalSec)
 	}
 
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
 		Image: backupVersion.ImagePath,
 		PITR: pxcv1.PITRSpec{
 			Enabled:            database.Spec.Backup.PITR.Enabled,
-			StorageName:        database.Spec.Backup.PITR.StorageName,
-			Resources:          database.Spec.Backup.PITR.Resources,
+			StorageName:        database.Spec.Backup.PITR.BackupStorageName,
 			TimeBetweenUploads: timeBetweenUploads,
 		},
 	}

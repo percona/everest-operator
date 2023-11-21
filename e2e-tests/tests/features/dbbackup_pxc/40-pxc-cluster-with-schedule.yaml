@@ -38,8 +38,8 @@ spec:
     enabled: true
     pitr:
       enabled: true
-      storageName: test-storage-scheduled
-      timeBetweenUploadsSec: 120
+      backupStorageName: test-storage-scheduled
+      uploadIntervalSec: 120
     schedules:
       - name: daily-backup
         enabled: true
