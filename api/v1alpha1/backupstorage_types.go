@@ -16,8 +16,6 @@
 package v1alpha1
 
 import (
-	"sync"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,7 +51,6 @@ type BackupStorageSpec struct {
 
 // BackupStorageStatus defines the observed state of BackupStorage.
 type BackupStorageStatus struct {
-	mu         *sync.Mutex
 	Namespaces map[string]bool `json:"usedNamespaces"`
 }
 
