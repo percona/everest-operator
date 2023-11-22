@@ -639,7 +639,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: req.NamespacedName.Namespace,
+				Namespace: r.defaultNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
@@ -1279,7 +1279,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: req.NamespacedName.Namespace,
+				Namespace: r.defaultNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
@@ -2421,7 +2421,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: req.NamespacedName.Namespace,
+				Namespace: r.defaultNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
