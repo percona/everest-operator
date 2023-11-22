@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,12 +66,10 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	if bs.DeletionTimestamp != nil {
 		logger.Info("cleaning up the secrets across namespaces")
-		fmt.Println(bs.Status.Namespaces)
-		for namespace := range bs.Status.Namespaces {
+		for namespace := range bs.Status.UsedNamespaces {
 			if namespace == r.defaultNamespace {
 				continue
 			}
-			fmt.Println(namespace)
 			secret := &corev1.Secret{}
 			err = r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
 			if err != nil {
@@ -100,26 +97,19 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return ctrl.Result{}, err
 	}
-	secret := &corev1.Secret{}
-	err = r.Get(ctx, req.NamespacedName, secret)
-	if err != nil {
-		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch Secret")
-		}
-		return ctrl.Result{}, err
-	}
 	var needsUpdate bool
 	if req.NamespacedName.Namespace == r.defaultNamespace {
-		logger.Info("Setting controller references for the secret")
-		err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
+		logger.Info("setting controller references for the secret")
+		err = controllerutil.SetControllerReference(bs, defaultSecret, r.Client.Scheme())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Update(ctx, secret); err != nil {
+		if err := r.Update(ctx, defaultSecret); err != nil {
 			return ctrl.Result{}, err
 		}
 
 		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
+			logger.Info("Updating used namespaces list")
 			if err := r.Status().Update(ctx, bs); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -134,9 +124,13 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	for namespace := range bs.Status.Namespaces {
+	for namespace := range bs.Status.UsedNamespaces {
+		if namespace == r.defaultNamespace {
+			continue
+		}
+		logger.Info("updating secrets in used namespaces")
 		secret := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: namespace}, secret)
+		err = r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
 		if err != nil {
 			if err = client.IgnoreNotFound(err); err != nil {
 				logger.Error(err, "unable to fetch Secret")

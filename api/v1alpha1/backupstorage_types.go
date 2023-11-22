@@ -51,7 +51,7 @@ type BackupStorageSpec struct {
 
 // BackupStorageStatus defines the observed state of BackupStorage.
 type BackupStorageStatus struct {
-	Namespaces map[string]bool `json:"usedNamespaces"`
+	UsedNamespaces map[string]bool `json:"usedNamespaces"`
 }
 
 //+kubebuilder:object:root=true
@@ -80,19 +80,22 @@ func init() {
 }
 
 func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
-	if b.Status.Namespaces == nil {
-		b.Status.Namespaces = make(map[string]bool)
+	if b.Status.UsedNamespaces == nil {
+		b.Status.UsedNamespaces = make(map[string]bool)
 	}
-	if _, ok := b.Status.Namespaces[namespace]; ok {
+	if _, ok := b.Status.UsedNamespaces[namespace]; ok {
 		return false
 	}
-	b.Status.Namespaces[namespace] = true
+	b.Status.UsedNamespaces[namespace] = true
 	return true
 }
 
 func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
-	if _, ok := b.Status.Namespaces[namespace]; ok {
-		delete(b.Status.Namespaces, namespace)
+	if b.Status.UsedNamespaces == nil {
+		return false
+	}
+	if _, ok := b.Status.UsedNamespaces[namespace]; ok {
+		delete(b.Status.UsedNamespaces, namespace)
 		return true
 	}
 	return false
