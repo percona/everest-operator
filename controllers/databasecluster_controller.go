@@ -104,7 +104,6 @@ const (
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 
-	azureStoragePrefix              = "everest"
 	databaseClusterNameLabel        = "clusterName"
 	monitoringConfigNameLabel       = "monitoringConfigName"
 	backupStorageNameLabelTmpl      = "backupStorage-%s"
@@ -299,7 +298,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 		// XXX: Remove this once templates will be available
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("0.5G"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
 				corev1.ResourceCPU:    resource.MustParse("300m"),
 			},
 		},
@@ -345,6 +344,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+					Prefix:            backupStoragePrefix(database),
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -352,7 +352,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            azureStoragePrefix,
+					Prefix:            backupStoragePrefix(database),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
@@ -418,6 +418,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+					Prefix:            backupStoragePrefix(database),
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -425,7 +426,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            azureStoragePrefix,
+					Prefix:            backupStoragePrefix(database),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
@@ -467,6 +468,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
+					Prefix:            backupStoragePrefix(database),
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -474,7 +476,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 				Type: psmdbv1.BackupStorageAzure,
 				Azure: psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            azureStoragePrefix,
+					Prefix:            backupStoragePrefix(database),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				},
 			}
@@ -979,14 +981,22 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[backup.Spec.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
-				Bucket:            backupStorage.Spec.Bucket,
+				Bucket: fmt.Sprintf(
+					"%s/%s",
+					backupStorage.Spec.Bucket,
+					backupStoragePrefix(database),
+				),
 				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				Region:            backupStorage.Spec.Region,
 				EndpointURL:       backupStorage.Spec.EndpointURL,
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
 			storages[backup.Spec.BackupStorageName].Azure = &pxcv1.BackupStorageAzureSpec{
-				ContainerPath:     backupStorage.Spec.Bucket,
+				ContainerPath: fmt.Sprintf(
+					"%s/%s",
+					backupStorage.Spec.Bucket,
+					backupStoragePrefix(database),
+				),
 				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 			}
 		default:
@@ -1026,14 +1036,22 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
 				storages[schedule.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
+					Bucket: fmt.Sprintf(
+						"%s/%s",
+						backupStorage.Spec.Bucket,
+						backupStoragePrefix(database),
+					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				storages[schedule.BackupStorageName].Azure = &pxcv1.BackupStorageAzureSpec{
-					ContainerPath:     backupStorage.Spec.Bucket,
+					ContainerPath: fmt.Sprintf(
+						"%s/%s",
+						backupStorage.Spec.Bucket,
+						backupStoragePrefix(database),
+					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
@@ -1538,6 +1556,7 @@ func reconcilePGBackRestRepos(
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	engineStorage everestv1alpha1.Storage,
+	db *everestv1alpha1.DatabaseCluster,
 ) (
 	[]crunchyv1beta1.PGBackRestRepo,
 	map[string]string,
@@ -1610,7 +1629,7 @@ func reconcilePGBackRestRepos(
 			// Keep track of backup storages which are already in use by a repo
 			backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 			pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
 			sType, err := backupStorageTypeFromBackrestRepo(repo)
 			if err != nil {
@@ -1665,7 +1684,7 @@ func reconcilePGBackRestRepos(
 				// Keep track of backup storages which are already in use by a repo
 				backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
@@ -1715,7 +1734,7 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
@@ -1765,7 +1784,7 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/"
+		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
@@ -2018,6 +2037,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx,go
 		backupStorages,
 		backupStoragesSecrets,
 		database.Spec.Engine.Storage,
+		database,
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
@@ -2082,7 +2102,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				fmt.Sprintf(pgBackRestPathTmpl, repoName): "/",
+				fmt.Sprintf(pgBackRestPathTmpl, repoName): "/" + backupStoragePrefix(database),
 			},
 			Stanza: "db",
 			Options: []string{
@@ -3150,6 +3170,10 @@ func getPGRetentionCopies(retentionCopies int32) int {
 	}
 
 	return copies
+}
+
+func backupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
+	return fmt.Sprintf("%s/%s", db.Name, db.UID)
 }
 
 func (r *DatabaseClusterReconciler) defaultPGSpec() *pgv2.PerconaPGClusterSpec {

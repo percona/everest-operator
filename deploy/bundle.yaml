@@ -250,6 +250,22 @@ spec:
                   dbClusterBackupName:
                     description: DBClusterBackupName is the name of the DB cluster backup to restore from
                     type: string
+                  pitr:
+                    description: PITR is the point-in-time recovery configuration
+                    properties:
+                      date:
+                        description: Date is the date to recover to
+                        type: string
+                      type:
+                        default: date
+                        description: 'Type is the type of recovery. pxc: full list; psmdb, pg: date,latest'
+                        enum:
+                        - date
+                        - latest
+                        - transaction
+                        - skip
+                        type: string
+                    type: object
                 type: object
               dbClusterName:
                 description: DBClusterName defines the cluster name to restore.
@@ -337,6 +353,21 @@ spec:
                   enabled:
                     description: Enabled is a flag to enable backups
                     type: boolean
+                  pitr:
+                    description: PITR is the configuration of the point in time recovery
+                    properties:
+                      backupStorageName:
+                        description: BackupStorageName is the name of the BackupStorage where the PITR is enabled
+                        type: string
+                      enabled:
+                        description: Enabled is a flag to enable PITR
+                        type: boolean
+                      uploadIntervalSec:
+                        description: UploadIntervalSec number of seconds between the binlogs uploads
+                        type: integer
+                    required:
+                    - backupStorageName
+                    type: object
                   schedules:
                     description: Schedules is a list of backup schedules
                     items:
@@ -387,6 +418,22 @@ spec:
                   dbClusterBackupName:
                     description: DBClusterBackupName is the name of the DB cluster backup to restore from
                     type: string
+                  pitr:
+                    description: PITR is the point-in-time recovery configuration
+                    properties:
+                      date:
+                        description: Date is the date to recover to
+                        type: string
+                      type:
+                        default: date
+                        description: 'Type is the type of recovery. pxc: full list; psmdb, pg: date,latest'
+                        enum:
+                        - date
+                        - latest
+                        - transaction
+                        - skip
+                        type: string
+                    type: object
                 type: object
               engine:
                 description: Engine is the database engine specification

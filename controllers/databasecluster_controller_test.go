@@ -220,6 +220,12 @@ func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -297,6 +303,12 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -399,6 +411,12 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -507,6 +525,12 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -618,6 +642,12 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) 
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -741,6 +771,12 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -872,6 +908,12 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testin
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1007,6 +1049,12 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1142,6 +1190,12 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1273,6 +1327,12 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t 
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1379,6 +1439,12 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1503,6 +1569,12 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1604,6 +1676,12 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1721,6 +1799,12 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1838,6 +1922,12 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1911,6 +2001,12 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -1980,6 +2076,12 @@ func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2100,6 +2202,12 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2239,6 +2347,12 @@ func TestReconcilePGBackRestReposDifferentStorageThreeRequestsAddRequest(t *test
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2408,6 +2522,12 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2441,6 +2561,12 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2476,6 +2602,12 @@ func TestReconcilePGBackRestReposUnknownStorageSchedule(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.Error(t, err)
 	assert.Equal(t, expRepos, repos)
@@ -2520,6 +2652,12 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 		testBackupStorages,
 		testBackupStoragesSecrets,
 		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)

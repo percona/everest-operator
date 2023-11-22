@@ -87,6 +87,23 @@ spec:
                     description: DBClusterBackupName is the name of the DB cluster
                       backup to restore from
                     type: string
+                  pitr:
+                    description: PITR is the point-in-time recovery configuration
+                    properties:
+                      date:
+                        description: Date is the date to recover to
+                        type: string
+                      type:
+                        default: date
+                        description: 'Type is the type of recovery. pxc: full list;
+                          psmdb, pg: date,latest'
+                        enum:
+                        - date
+                        - latest
+                        - transaction
+                        - skip
+                        type: string
+                    type: object
                 type: object
               dbClusterName:
                 description: DBClusterName defines the cluster name to restore.

@@ -561,12 +561,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
-	// For consistency with PXC, we use the same destination format
-	destination := fmt.Sprintf("s3://%s/%s",
-		psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName].S3.Bucket,
-		psmdbCR.Status.Destination,
-	)
-	backup.Status.Destination = &destination
+	backup.Status.Destination = &psmdbCR.Status.Destination
 	return r.Status().Update(ctx, backup)
 }
 
@@ -574,6 +569,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	ctx context.Context,
 	backupStorage *everestv1alpha1.BackupStorage,
+	db *everestv1alpha1.DatabaseCluster,
 ) *string {
 	logger := log.FromContext(ctx)
 	backupStorageSecret := &corev1.Secret{}
@@ -601,7 +597,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	})
 	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(backupStorage.Spec.Bucket),
-		Prefix: aws.String("backup/db/backup.history/"),
+		Prefix: aws.String(fmt.Sprintf("%s/backup/db/backup.history/", backupStoragePrefix(db))),
 	})
 	if err != nil {
 		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)
@@ -622,7 +618,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 		}
 	}
 
-	destination := fmt.Sprintf("s3://%s/backup/db/%s", backupStorage.Spec.Bucket, lastBackup)
+	destination := fmt.Sprintf("s3://%s/%s/backup/db/%s", backupStorage.Spec.Bucket, backupStoragePrefix(db), lastBackup)
 	return &destination
 }
 
@@ -630,6 +626,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
 ) error {
+	logger := log.FromContext(ctx)
+
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -683,7 +681,16 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	// we work around not having the destination in the
 	// PerconaPGBackup CR by getting this info directly from S3
 	if backup.Status.State == everestv1alpha1.BackupState(pgv2.BackupSucceeded) && backup.Status.Destination == nil {
-		backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage)
+		db := &everestv1alpha1.DatabaseCluster{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      backup.Spec.DBClusterName,
+			Namespace: backup.Namespace,
+		}, db); err != nil {
+			logger.Error(err, "could not get database cluster ")
+		}
+		if err == nil {
+			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
+		}
 	}
 	return r.Status().Update(ctx, backup)
 }
