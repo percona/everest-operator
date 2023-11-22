@@ -36,7 +36,6 @@ spec:
           name: test-pg-cluster-pgbackrest-secrets
       global:
         repo1-retention-full: "1"
-        repo2-path: /
         repo2-retention-full: "1"
       repos:
       - name: repo1

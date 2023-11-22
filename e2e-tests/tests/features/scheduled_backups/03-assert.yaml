@@ -66,7 +66,6 @@ spec:
       aws:
         type: s3
         s3:
-          bucket: test
           credentialsSecret: test-pxc-cluster-backup-s3
           region: us-west-1
     schedule:
