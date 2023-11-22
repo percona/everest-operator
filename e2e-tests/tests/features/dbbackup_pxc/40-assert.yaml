@@ -32,7 +32,6 @@ spec:
         type: s3
       test-storage-scheduled-pitr:
         s3:
-          bucket: test-backup-bucket-scheduled/pitr
           credentialsSecret: test-pxc-cluster-backup-s3-scheduled
           endpointUrl: s3.someprovider.com
           region: us-east-2
