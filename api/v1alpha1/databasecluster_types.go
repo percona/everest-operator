@@ -234,7 +234,7 @@ type Backup struct {
 // PITRSpec represents a specification to configure point in time recovery for a database backup/restore.
 type PITRSpec struct {
 	// Enabled is a flag to enable PITR
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 	// BackupStorageName is the name of the BackupStorage where the PITR is enabled
 	BackupStorageName string `json:"backupStorageName"`
 	// UploadIntervalSec number of seconds between the binlogs uploads

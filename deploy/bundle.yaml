@@ -367,6 +367,7 @@ spec:
                         type: integer
                     required:
                     - backupStorageName
+                    - enabled
                     type: object
                   schedules:
                     description: Schedules is a list of backup schedules
