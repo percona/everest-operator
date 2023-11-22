@@ -16,7 +16,7 @@ spec:
   backup:
     pitr:
       enabled: true
-      storageName: test-storage-scheduled
+      storageName: test-storage-scheduled-pitr
       timeBetweenUploads: 120
     schedule:
     - keep: 1
