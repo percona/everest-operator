@@ -79,6 +79,7 @@ func init() {
 	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
 }
 
+// UpdateNamespacesList updates the list of namespaces that use the backupStorage.
 func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
 	if b.Status.UsedNamespaces == nil {
 		b.Status.UsedNamespaces = make(map[string]bool)
@@ -90,6 +91,7 @@ func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
 	return true
 }
 
+// DeleteUsedNamespace deletes the namespace from the usedNamespaces list.
 func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
 	if b.Status.UsedNamespaces == nil {
 		return false
@@ -101,6 +103,7 @@ func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
 	return false
 }
 
+// IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.
 func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
 	if len(b.Spec.TargetNamespaces) == 0 {
 		return true

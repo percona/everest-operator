@@ -31,11 +31,11 @@ import (
 )
 
 const (
-	cleanupSecretsFinalizer = "percona.com/cleanup-secrets"
+	cleanupSecretsFinalizer = "percona.com/cleanup-secrets" //nolint:gosec
 	labelBackupStorageName  = "percona.com/backup-storage-name"
 )
 
-// BackupStorageReconciler reconciles a BackupStorage object
+// BackupStorageReconciler reconciles a BackupStorage object.
 type BackupStorageReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
@@ -46,7 +46,16 @@ type BackupStorageReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/finalizers,verbs=update
 
-func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+// Modify the Reconcile function to compare the state specified by
+// the DatabaseClusterBackup object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:dupl
 	bs := &everestv1alpha1.BackupStorage{}
 	logger := log.FromContext(ctx)
 	backupStorageNamespace := req.NamespacedName.Namespace
@@ -66,22 +75,8 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	if bs.DeletionTimestamp != nil {
 		logger.Info("cleaning up the secrets across namespaces")
-		for namespace := range bs.Status.UsedNamespaces {
-			if namespace == r.defaultNamespace {
-				continue
-			}
-			secret := &corev1.Secret{}
-			err = r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
-			if err != nil {
-				if err = client.IgnoreNotFound(err); err != nil {
-					logger.Error(err, "unable to fetch Secret")
-				}
-				return ctrl.Result{}, err
-			}
-			err := r.Delete(ctx, secret)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+		if err := r.handleDelete(ctx, bs); err != nil {
+			return ctrl.Result{}, err
 		}
 		logger.Info("all secrets were removed")
 		controllerutil.RemoveFinalizer(bs, cleanupSecretsFinalizer)
@@ -100,22 +95,10 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	var needsUpdate bool
 	if req.NamespacedName.Namespace == r.defaultNamespace {
 		logger.Info("setting controller references for the secret")
-		err = controllerutil.SetControllerReference(bs, defaultSecret, r.Client.Scheme())
+		needsUpdate, err = r.reconcileBackupStorage(ctx, bs, defaultSecret)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Update(ctx, defaultSecret); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
-			logger.Info("Updating used namespaces list")
-			if err := r.Status().Update(ctx, bs); err != nil {
-				return ctrl.Result{}, err
-			}
-
-		}
-		needsUpdate = true
 		if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
 			controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
 			if err := r.Update(ctx, bs); err != nil {
@@ -124,26 +107,9 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	for namespace := range bs.Status.UsedNamespaces {
-		if namespace == r.defaultNamespace {
-			continue
-		}
-		logger.Info("updating secrets in used namespaces")
-		secret := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
-		if err != nil {
-			if err = client.IgnoreNotFound(err); err != nil {
-				logger.Error(err, "unable to fetch Secret")
-			}
-			return ctrl.Result{}, err
-		}
-		secret.Data = defaultSecret.Data
-		secret.Type = defaultSecret.Type
-		secret.StringData = defaultSecret.StringData
-		err := r.Update(ctx, secret)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	logger.Info("updating secrets in used namespaces")
+	if err := r.handleSecretUpdate(ctx, bs, defaultSecret); err != nil {
+		return ctrl.Result{}, err
 	}
 	if needsUpdate {
 		err := r.Status().Update(ctx, bs)
@@ -153,6 +119,62 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv1alpha1.BackupStorage) error {
+	for namespace := range bs.Status.UsedNamespaces {
+		if namespace == r.defaultNamespace {
+			continue
+		}
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
+		if err != nil {
+			return err
+		}
+		err = r.Delete(ctx, secret)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *BackupStorageReconciler) handleSecretUpdate(ctx context.Context, bs *everestv1alpha1.BackupStorage, defaultSecret *corev1.Secret) error {
+	for namespace := range bs.Status.UsedNamespaces {
+		if namespace == r.defaultNamespace {
+			continue
+		}
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
+		if err != nil {
+			return err
+		}
+		secret.Data = defaultSecret.Data
+		secret.Type = defaultSecret.Type
+		secret.StringData = defaultSecret.StringData
+		err = r.Update(ctx, secret)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *BackupStorageReconciler) reconcileBackupStorage(ctx context.Context, bs *everestv1alpha1.BackupStorage, defaultSecret *corev1.Secret) (bool, error) {
+	err := controllerutil.SetControllerReference(bs, defaultSecret, r.Client.Scheme())
+	if err != nil {
+		return false, err
+	}
+	if err = r.Update(ctx, defaultSecret); err != nil {
+		return false, err
+	}
+
+	if bs.UpdateNamespacesList(defaultSecret.Namespace) {
+		if err := r.Status().Update(ctx, bs); err != nil {
+			return false, err
+		}
+	}
+	return true, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
