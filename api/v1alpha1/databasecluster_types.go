@@ -202,6 +202,8 @@ type DataSource struct {
 	DBClusterBackupName string `json:"dbClusterBackupName,omitempty"`
 	// BackupSource is the backup source to restore from
 	BackupSource *BackupSource `json:"backupSource,omitempty"`
+	// PITR is the point-in-time recovery configuration
+	PITR *PITR `json:"pitr,omitempty"`
 }
 
 // BackupSchedule is the backup schedule configuration.
@@ -225,6 +227,18 @@ type Backup struct {
 	Enabled bool `json:"enabled"`
 	// Schedules is a list of backup schedules
 	Schedules []BackupSchedule `json:"schedules,omitempty"`
+	// PITR is the configuration of the point in time recovery
+	PITR PITRSpec `json:"pitr,omitempty"`
+}
+
+// PITRSpec represents a specification to configure point in time recovery for a database backup/restore.
+type PITRSpec struct {
+	// Enabled is a flag to enable PITR
+	Enabled bool `json:"enabled,omitempty"`
+	// BackupStorageName is the name of the BackupStorage where the PITR is enabled
+	BackupStorageName string `json:"backupStorageName"`
+	// UploadIntervalSec number of seconds between the binlogs uploads
+	UploadIntervalSec *int `json:"uploadIntervalSec,omitempty"`
 }
 
 // Monitoring is the monitoring configuration.
