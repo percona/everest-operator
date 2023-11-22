@@ -989,7 +989,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec(
 		case everestv1alpha1.BackupStorageTypeS3:
 			spec.S3 = &pxcv1.BackupStorageS3Spec{
 				// use separate directory for binlogs
-				Bucket:            pitrBucketName(backupStorage.Spec.Bucket),
+				Bucket:            pitrBucketName(database, backupStorage.Spec.Bucket),
 				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				Region:            backupStorage.Spec.Region,
 				EndpointURL:       backupStorage.Spec.EndpointURL,
@@ -1071,9 +1071,8 @@ func pitrStorageName(storageName string) string {
 	return storageName + "-pitr"
 }
 
-// revisit if https://github.com/percona/everest-operator/pull/173 is merged first.
-func pitrBucketName(bucket string) string {
-	return bucket + "/pitr"
+func pitrBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
+	return fmt.Sprintf("%s/%s/%s", bucket, backupStoragePrefix(db), "pitr")
 }
 
 func (r *DatabaseClusterReconciler) genPXCStorageSpec(ctx context.Context, name, namespace string) (*pxcv1.BackupStorageSpec, *everestv1alpha1.BackupStorage, error) {
