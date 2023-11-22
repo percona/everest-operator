@@ -3294,9 +3294,6 @@ func (r *DatabaseClusterReconciler) reconcileSecret(ctx context.Context, backupS
 			labelBackupStorageName: backupStorage.Name,
 		},
 	}
-	if !controllerutil.ContainsFinalizer(secret, cleanupNamespaceFinalizer) {
-		controllerutil.AddFinalizer(secret, cleanupNamespaceFinalizer)
-	}
 	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
 	}

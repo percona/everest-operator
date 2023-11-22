@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,9 +32,8 @@ import (
 )
 
 const (
-	cleanupSecretsFinalizer   = "percona.com/cleanup-secrets"
-	cleanupNamespaceFinalizer = "percona.com/update-namespace"
-	labelBackupStorageName    = "percona.com/backup-storage-name"
+	cleanupSecretsFinalizer = "percona.com/cleanup-secrets"
+	labelBackupStorageName  = "percona.com/backup-storage-name"
 )
 
 // BackupStorageReconciler reconciles a BackupStorage object
@@ -65,6 +65,33 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return reconcile.Result{}, err
 	}
+	if bs.DeletionTimestamp != nil {
+		logger.Info("cleaning up the secrets across namespaces")
+		fmt.Println(bs.Status.Namespaces)
+		for namespace := range bs.Status.Namespaces {
+			if namespace == r.defaultNamespace {
+				continue
+			}
+			fmt.Println(namespace)
+			secret := &corev1.Secret{}
+			err = r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
+			if err != nil {
+				if err = client.IgnoreNotFound(err); err != nil {
+					logger.Error(err, "unable to fetch Secret")
+				}
+				return ctrl.Result{}, err
+			}
+			err := r.Delete(ctx, secret)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		logger.Info("all secrets were removed")
+		controllerutil.RemoveFinalizer(bs, cleanupSecretsFinalizer)
+		if err := r.Update(ctx, bs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	defaultSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, defaultSecret)
 	if err != nil {
@@ -83,16 +110,27 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	var needsUpdate bool
 	if req.NamespacedName.Namespace == r.defaultNamespace {
+		logger.Info("Setting controller references for the secret")
 		err = controllerutil.SetControllerReference(bs, secret, r.Client.Scheme())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		if err := r.Update(ctx, secret); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
+			if err := r.Status().Update(ctx, bs); err != nil {
+				return ctrl.Result{}, err
+			}
+
+		}
 		needsUpdate = true
 		if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
 			controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
-		}
-		if bs.UpdateNamespacesList(req.NamespacedName.Namespace) {
-			needsUpdate = true
+			if err := r.Update(ctx, bs); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -108,41 +146,16 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		secret.Data = defaultSecret.Data
 		secret.Type = defaultSecret.Type
 		secret.StringData = defaultSecret.StringData
-		if secret.DeletionTimestamp != nil {
-			if bs.DeleteUsedNamespace(secret.Namespace) {
-				controllerutil.RemoveFinalizer(secret, cleanupNamespaceFinalizer)
-				logger.Info("Status updated")
-				if err := r.Status().Update(ctx, bs); err != nil {
-					return ctrl.Result{}, err
-				}
-				if err := r.Update(ctx, secret); err != nil {
-					return ctrl.Result{}, err
-				}
-
-			}
-		}
-		if bs.DeletionTimestamp != nil {
-			err := r.Delete(ctx, secret)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			continue
-		}
 		err := r.Update(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-	}
-	if bs.DeletionTimestamp != nil {
-		needsUpdate = true
-		controllerutil.RemoveFinalizer(bs, cleanupSecretsFinalizer)
 	}
 	if needsUpdate {
 		err := r.Status().Update(ctx, bs)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		r.Update(ctx, bs)
 	}
 
 	return ctrl.Result{}, nil
