@@ -3363,9 +3363,5 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 	if !monitoringConfig.IsNamespaceAllowed(database.Namespace) {
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, monitoringConfig.Name)
 	}
-	err = r.Create(ctx, secret)
-	if err != nil {
-		return err
-	}
-	return nil
+	return r.Create(ctx, secret)
 }
