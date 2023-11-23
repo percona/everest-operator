@@ -7,3 +7,7 @@ commands:
   - command: kubectl -n kuttl-test-pg delete db test-pg-cluster
   - command: kubectl patch postgresclusters test-pg-cluster -n kuttl-test-pg -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
+  - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
+  - command: kubectl patch backupstorage test-storage-scheduled -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true

@@ -1,10 +1,13 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
-  - command: kubectl -n $NAMESPACE delete db test-pxc-cluster
   - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
   - command: kubectl patch backupstorage test-storage-scheduled -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
+  - command: kubectl -n $NAMESPACE delete db test-pxc-cluster
   - command: kubectl patch pxc test-pxc-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
+  - command: kubectl -n kuttl-test-pxc delete db test-pxc-cluster
+  - command: kubectl patch pxc test-pxc-cluster -n kuttl-test-pxc  -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
