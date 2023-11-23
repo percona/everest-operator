@@ -3340,10 +3340,8 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 ) error {
 	secret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: monitoringConfig.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 	if secret.Name != "" {
 		return nil
