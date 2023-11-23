@@ -50,7 +50,7 @@ type DatabaseClusterRestoreStatus struct {
 
 // PITR represents a specification to configure point in time recovery for a database backup/restore.
 type PITR struct {
-	// Type is the type of recovery. pxc: full list; psmdb, pg: date,latest
+	// Type is the type of recovery.
 	// +kubebuilder:validation:Enum:=date;latest
 	// +kubebuilder:default:=date
 	Type PITRType `json:"type,omitempty"`
