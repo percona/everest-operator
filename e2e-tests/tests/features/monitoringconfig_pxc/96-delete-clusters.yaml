@@ -4,3 +4,5 @@ commands:
   - command: kubectl -n $NAMESPACE delete db pxc-mc
   - command: kubectl patch pxc pxc-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
+  - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
