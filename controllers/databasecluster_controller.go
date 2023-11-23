@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -34,7 +33,6 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
-	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
@@ -2632,19 +2630,7 @@ func (r *DatabaseClusterReconciler) getOperatorVersion(ctx context.Context, name
 }
 
 func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
-	version, err := r.getOperatorVersion(context.Background(), types.NamespacedName{
-		Name:      pxcDeploymentName,
-		Namespace: os.Getenv("WATCH_NAMESPACE"),
-	})
-	if err != nil {
-		return err
-	}
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: pxcAPIGroup, Version: strings.ReplaceAll("v"+version.String(), ".", "-")}
-	ver, _ := goversion.NewVersion("v1.11.0")
-	if version.version.GreaterThan(ver) {
-		pxcSchemeGroupVersion = schema.GroupVersion{Group: pxcAPIGroup, Version: "v1"}
-	}
-
+	pxcSchemeGroupVersion := schema.GroupVersion{Group: pxcAPIGroup, Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
 		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{})
 

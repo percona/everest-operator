@@ -1384,7 +1384,7 @@ spec:
         command:
         - /manager
         env:
-        - name: WATCH_NAMESPACE
+        - name: DEFAULT_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
