@@ -40,7 +40,6 @@ spec:
   region: us-east-2
   endpointURL: s3.amazonaws.com
 ---
----
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:

@@ -22,7 +22,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-psmdb-cluster-backup-s3-scheduled
+  name: test-storage-scheduled
 type: Opaque
 data:
   AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
@@ -35,7 +35,7 @@ metadata:
 spec:
   type: s3
   bucket: test-backup-bucket-scheduled
-  credentialsSecretName: test-psmdb-cluster-backup-s3-scheduled
+  credentialsSecretName: test-storage-scheduled
   region: us-east-2
   endpointURL: s3.amazonaws.com
 ---
