@@ -60,7 +60,7 @@ spec:
     enabled: true
     serverHost: localhost
     image: percona/pmm-client:latest
-    secret: everest-secrets-pg-mc-pmm
+    secret: everest-secrets-test-pg-cluster-pmm
     resources:
       limits:
         memory: "128Mi"
