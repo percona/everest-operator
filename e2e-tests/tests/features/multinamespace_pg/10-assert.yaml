@@ -1,0 +1,97 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc
+spec:
+  type: pmm
+  credentialsSecretName: test-mc
+  pmm:
+    url: http://localhost
+    image: percona/pmm-client:latest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-mc
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-storage-scheduled
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
+  AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-scheduled
+spec:
+  type: s3
+  bucket: test-backup-bucket-scheduled
+  credentialsSecretName: test-storage-scheduled
+  region: us-east-2
+  endpointURL: s3.amazonaws.com
+---
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  instances:
+    - dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1G
+      name: instance1
+      replicas: 1
+  port: 5432
+  pmm:
+    enabled: true
+    serverHost: localhost
+    image: percona/pmm-client:latest
+    secret: everest-secrets-pg-mc-pmm
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  proxy:
+    pgBouncer:
+      port: 5432
+      replicas: 1
+      expose:
+        type: ClusterIP
+  backups:
+    pgbackrest:
+      configuration:
+      - secret:
+          name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+        repo2-retention-full: "1"
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1G
+      - name: repo2
+        s3:
+          bucket: test-backup-bucket-scheduled
+          endpoint: s3.amazonaws.com
+          region: us-east-2
+        schedules:
+          full: 0 0 * * *

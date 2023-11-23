@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+delete:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: kuttl-test-pg
