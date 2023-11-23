@@ -100,8 +100,6 @@ spec:
                         enum:
                         - date
                         - latest
-                        - transaction
-                        - skip
                         type: string
                     type: object
                 type: object
