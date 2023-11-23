@@ -2,5 +2,9 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
   - command: kubectl -n $NAMESPACE delete db mongo-mc
+  - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
+  - command: kubectl patch backupstorage test-storage-scheduled -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
   - command: kubectl patch psmdb mongo-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
