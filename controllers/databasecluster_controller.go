@@ -3326,11 +3326,7 @@ func (r *DatabaseClusterReconciler) reconcileBackupStorageSecret( //nolint:dupl
 	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
 	}
-	err = r.Create(ctx, secret)
-	if err != nil {
-		return err
-	}
-	return nil
+	return r.Create(ctx, secret)
 }
 
 func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:dupl
