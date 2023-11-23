@@ -34,6 +34,8 @@ type MonitoringConfigSpec struct {
 	Type MonitoringType `json:"type"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
+	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// PMM is configuration for the PMM monitoring type.
 	PMM PMMConfig `json:"pmm,omitempty"`
 }
@@ -47,7 +49,9 @@ type PMMConfig struct {
 }
 
 // MonitoringConfigStatus defines the observed state of MonitoringConfig.
-type MonitoringConfigStatus struct{}
+type MonitoringConfigStatus struct {
+	UsedNamespaces map[string]bool `json:"usedNamespaces"`
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -73,4 +77,42 @@ type MonitoringConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
+}
+
+// UpdateNamespacesList updates the list of namespaces that use the monitoring config.
+func (m *MonitoringConfig) UpdateNamespacesList(namespace string) bool {
+	if m.Status.UsedNamespaces == nil {
+		m.Status.UsedNamespaces = make(map[string]bool)
+	}
+	if _, ok := m.Status.UsedNamespaces[namespace]; ok {
+		return false
+	}
+	m.Status.UsedNamespaces[namespace] = true
+	return true
+}
+
+// DeleteUsedNamespace deletes the namespace from the usedNamespaces list.
+func (m *MonitoringConfig) DeleteUsedNamespace(namespace string) bool {
+	if m.Status.UsedNamespaces == nil {
+		return false
+	}
+	if _, ok := m.Status.UsedNamespaces[namespace]; ok {
+		delete(m.Status.UsedNamespaces, namespace)
+		return true
+	}
+	return false
+}
+
+// IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.
+func (m *MonitoringConfig) IsNamespaceAllowed(namespace string) bool {
+	if len(m.Spec.TargetNamespaces) == 0 {
+		return true
+	}
+	for _, ns := range m.Spec.TargetNamespaces {
+		ns := ns
+		if ns == namespace {
+			return true
+		}
+	}
+	return false
 }

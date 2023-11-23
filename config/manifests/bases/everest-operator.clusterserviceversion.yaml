@@ -56,9 +56,9 @@ spec:
     type: OwnNamespace
   - supported: true
     type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
   - supported: true
+    type: MultiNamespace
+  - supported: false
     type: AllNamespaces
   keywords:
   - everest

@@ -48,6 +48,20 @@ rules:
 - apiGroups:
   - everest.percona.com
   resources:
+  - backupstorages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - backupstorages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - everest.percona.com
+  resources:
   - databaseclusterbackups
   verbs:
   - create
@@ -161,6 +175,20 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - monitoringconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - monitoringconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - pgv2.percona.com
   resources:
