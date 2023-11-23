@@ -3303,10 +3303,8 @@ func (r *DatabaseClusterReconciler) reconcileBackupStorageSecret( //nolint:dupl
 ) error {
 	secret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
 	}
 	if secret.Name != "" {
 		return nil
