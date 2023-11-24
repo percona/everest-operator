@@ -45,7 +45,7 @@ type BackupStorageReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/finalizers,verbs=update
-//+kubebuilder:rbac:groups=,resources=namespaces,verbs=get;watch
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
