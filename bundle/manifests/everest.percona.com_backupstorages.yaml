@@ -50,6 +50,12 @@ spec:
               region:
                 description: Region is a region where the bucket is located.
                 type: string
+              targetNamespaces:
+                description: TargetNamespaces is the list of namespaces where the
+                  operator will copy secrets provided in the CredentialsSecretsName.
+                items:
+                  type: string
+                type: array
               type:
                 description: Type is a type of backup storage.
                 enum:
@@ -63,6 +69,13 @@ spec:
             type: object
           status:
             description: BackupStorageStatus defines the observed state of BackupStorage.
+            properties:
+              usedNamespaces:
+                additionalProperties:
+                  type: boolean
+                type: object
+            required:
+            - usedNamespaces
             type: object
         type: object
     served: true

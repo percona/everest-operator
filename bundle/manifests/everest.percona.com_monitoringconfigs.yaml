@@ -57,6 +57,12 @@ spec:
                 - image
                 - url
                 type: object
+              targetNamespaces:
+                description: TargetNamespaces is the list of namespaces where the
+                  operator will copy secrets provided in the CredentialsSecretsName.
+                items:
+                  type: string
+                type: array
               type:
                 description: Type is type of monitoring.
                 enum:
@@ -68,6 +74,13 @@ spec:
             type: object
           status:
             description: MonitoringConfigStatus defines the observed state of MonitoringConfig.
+            properties:
+              usedNamespaces:
+                additionalProperties:
+                  type: boolean
+                type: object
+            required:
+            - usedNamespaces
             type: object
         type: object
     served: true

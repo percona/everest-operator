@@ -50,6 +50,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: percona.com
   group: everest
   kind: BackupStorage
@@ -58,6 +59,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: percona.com
   group: everest
   kind: MonitoringConfig

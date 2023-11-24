@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - script: DEFAULT_NAMESPACE=$NAMESPACE WATCH_NAMESPACES=$NAMESPACE,kuttl-test-pg ../../../../bin/manager -metrics-bind-address :8079 -health-probe-bind-address :8078
+    background: true
+    skipLogOutput: true
