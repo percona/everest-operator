@@ -45,10 +45,14 @@ type BackupStorageSpec struct {
 	Description string `json:"description,omitempty"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
+	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 }
 
 // BackupStorageStatus defines the observed state of BackupStorage.
-type BackupStorageStatus struct{}
+type BackupStorageStatus struct {
+	UsedNamespaces map[string]bool `json:"usedNamespaces"`
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -73,4 +77,42 @@ type BackupStorageList struct {
 
 func init() {
 	SchemeBuilder.Register(&BackupStorage{}, &BackupStorageList{})
+}
+
+// UpdateNamespacesList updates the list of namespaces that use the backupStorage.
+func (b *BackupStorage) UpdateNamespacesList(namespace string) bool {
+	if b.Status.UsedNamespaces == nil {
+		b.Status.UsedNamespaces = make(map[string]bool)
+	}
+	if _, ok := b.Status.UsedNamespaces[namespace]; ok {
+		return false
+	}
+	b.Status.UsedNamespaces[namespace] = true
+	return true
+}
+
+// DeleteUsedNamespace deletes the namespace from the usedNamespaces list.
+func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
+	if b.Status.UsedNamespaces == nil {
+		return false
+	}
+	if _, ok := b.Status.UsedNamespaces[namespace]; ok {
+		delete(b.Status.UsedNamespaces, namespace)
+		return true
+	}
+	return false
+}
+
+// IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.
+func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
+	if len(b.Spec.TargetNamespaces) == 0 {
+		return true
+	}
+	for _, ns := range b.Spec.TargetNamespaces {
+		ns := ns
+		if ns == namespace {
+			return true
+		}
+	}
+	return false
 }

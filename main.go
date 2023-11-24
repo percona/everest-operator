@@ -19,12 +19,17 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -40,7 +45,10 @@ import (
 	"github.com/percona/everest-operator/controllers"
 )
 
-const watchNamespaceEnvVar = "WATCH_NAMESPACE"
+const (
+	defaultNamespaceEnvVar = "DEFAULT_NAMESPACE"
+	watchNamespacesEnvVar  = "WATCH_NAMESPACES"
+)
 
 var (
 	scheme   = runtime.NewScheme()
@@ -70,11 +78,23 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	defaultNamespace, found := os.LookupEnv(defaultNamespaceEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get namespace"), fmt.Sprintf("%s must be set", watchNamespaceEnvVar))
+		setupLog.Error(errors.New("failed to get the default namespace"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
 
 		os.Exit(1)
+	}
+	watchNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
+	if !found {
+		setupLog.Error(errors.New("failed to get watch namespaces"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
+	}
+	cacheConfig := map[string]cache.Config{}
+	namespaces := []string{defaultNamespace}
+	if watchNamespaces != "" && strings.Contains(watchNamespaces, ",") {
+		namespaces = append(namespaces, strings.Split(watchNamespaces, ",")...)
+	}
+	for _, ns := range namespaces {
+		cacheConfig[ns] = cache.Config{}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -86,9 +106,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "9094838c.percona.com",
 		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{
-				ns: {},
-			},
+			DefaultNamespaces: cacheConfig,
 		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -106,18 +124,31 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
+	namespace := &unstructured.Unstructured{}
+	namespace.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Kind:    "Namespace",
+		Version: "v1",
+	})
+	for _, namespaceName := range namespaces {
+		namespaceName := namespaceName
+		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
+		if err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
+			os.Exit(1)
+		}
+	}
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, namespaces); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
@@ -133,6 +164,27 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
+		os.Exit(1)
+	}
+	if err = (&controllers.BackupStorageReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
+		os.Exit(1)
+	}
+	if err = (&controllers.SecretReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Secret")
+		os.Exit(1)
+	}
+	if err = (&controllers.MonitoringConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, defaultNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

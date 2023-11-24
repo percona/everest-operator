@@ -1,0 +1,68 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc
+spec:
+  type: pmm
+  credentialsSecretName: test-mc
+  pmm:
+    url: http://localhost
+    image: percona/pmm-client:latest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-mc
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-storage-scheduled
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
+  AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-scheduled
+spec:
+  type: s3
+  bucket: test-backup-bucket-scheduled
+  credentialsSecretName: test-storage-scheduled
+  region: us-east-2
+  endpointURL: s3.amazonaws.com
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    monitoringConfigName: test-mc
+  engine:
+    type: psmdb
+    replicas: 1
+    storage:
+      size: 1G
+  proxy:
+    type: haproxy
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 1
+        backupStorageName: test-storage-scheduled
