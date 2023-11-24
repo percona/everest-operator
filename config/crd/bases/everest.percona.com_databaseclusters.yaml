@@ -146,13 +146,10 @@ spec:
                         type: string
                       type:
                         default: date
-                        description: 'Type is the type of recovery. pxc: full list;
-                          psmdb, pg: date,latest'
+                        description: Type is the type of recovery.
                         enum:
                         - date
                         - latest
-                        - transaction
-                        - skip
                         type: string
                     type: object
                 type: object

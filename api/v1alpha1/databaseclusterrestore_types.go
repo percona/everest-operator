@@ -25,6 +25,16 @@ import (
 // RestoreState represents state of restoration.
 type RestoreState string
 
+// PITRType represents type of Point-in-time recovery.
+type PITRType string
+
+const (
+	// PITRTypeDate is Point-in-time recovery type based on the specific date.
+	PITRTypeDate PITRType = "date"
+	// PITRTypeLatest is Point-in-time recovery type based on the latest date.
+	PITRTypeLatest PITRType = "latest"
+)
+
 // DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
 type DatabaseClusterRestoreSpec struct {
 	// DBClusterName defines the cluster name to restore.
@@ -42,10 +52,10 @@ type DatabaseClusterRestoreStatus struct {
 
 // PITR represents a specification to configure point in time recovery for a database backup/restore.
 type PITR struct {
-	// Type is the type of recovery. pxc: full list; psmdb, pg: date,latest
-	// +kubebuilder:validation:Enum:=date;latest;transaction;skip
+	// Type is the type of recovery.
+	// +kubebuilder:validation:Enum:=date;latest
 	// +kubebuilder:default:=date
-	Type string `json:"type,omitempty"`
+	Type PITRType `json:"type,omitempty"`
 	// Date is the date to recover to
 	Date *RestoreDate `json:"date,omitempty"`
 }
