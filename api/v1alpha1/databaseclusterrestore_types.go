@@ -29,7 +29,9 @@ type RestoreState string
 type PITRType string
 
 const (
-	PITRTypeDate   PITRType = "date"
+	// PITRTypeDate is Point-in-time recovery type based on the specific date.
+	PITRTypeDate PITRType = "date"
+	// PITRTypeLatest is Point-in-time recovery type based on the latest date.
 	PITRTypeLatest PITRType = "latest"
 )
 
