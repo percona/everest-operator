@@ -341,6 +341,17 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
+
+		if restore.Spec.DataSource.PITR != nil {
+			pxcCR.Spec.PITR = &pxcv1.PITR{
+				BackupSource: &pxcv1.PXCBackupStatus{
+					StorageName: pitrStorageName(db.Spec.Backup.PITR.BackupStorageName),
+				},
+				Type: string(restore.Spec.DataSource.PITR.Type),
+				Date: restore.Spec.DataSource.PITR.Date.Format(everestv1alpha1.DateFormat),
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
