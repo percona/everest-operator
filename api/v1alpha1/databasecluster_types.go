@@ -284,8 +284,6 @@ type DatabaseClusterStatus struct {
 	Size int32 `json:"size,omitempty"`
 	// Message is extra information about the cluster
 	Message string `json:"message,omitempty"`
-	// PITRUploadIntervalSec is the interval set for PITR to upload the binlogs.
-	PITRUploadIntervalSec int `json:"pitrUploadIntervalSec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
