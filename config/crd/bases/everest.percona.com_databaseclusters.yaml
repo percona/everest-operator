@@ -353,6 +353,10 @@ spec:
               message:
                 description: Message is extra information about the cluster
                 type: string
+              pitrUploadIntervalSec:
+                description: PITRUploadIntervalSec is the interval set for PITR to
+                  upload the binlogs.
+                type: integer
               port:
                 description: Port is the port where the cluster can be reached
                 format: int32

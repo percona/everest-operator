@@ -76,6 +76,10 @@ const (
 	psmdbDeploymentName = "percona-server-mongodb-operator"
 	pgDeploymentName    = "percona-postgresql-operator"
 
+	defaultPITRUploadIntervalSecPXC   = 60
+	defaultPITRUploadIntervalSecPSMDB = 600
+	defaultPITRUploadIntervalSecPG    = 60
+
 	defaultPMMClientImage = "percona/pmm-client:2"
 
 	psmdbCRDName                = "perconaservermongodbs.psmdb.percona.com"
@@ -726,6 +730,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	}
 	database.Status.Message = message
 	database.Status.Port = 27017
+	database.Status.PITRUploadIntervalSec = getPITRUploadInverval(database, defaultPITRUploadIntervalSecPSMDB)
 	return r.Status().Update(ctx, database)
 }
 
@@ -1415,6 +1420,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 	database.Status.Size = pxc.Status.Size
 	database.Status.Message = strings.Join(pxc.Status.Messages, ";")
 	database.Status.Port = 3306
+	database.Status.PITRUploadIntervalSec = getPITRUploadInverval(database, defaultPITRUploadIntervalSecPXC)
 	return r.Status().Update(ctx, database)
 }
 
@@ -2558,6 +2564,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	database.Status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	database.Status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	database.Status.Port = 5432
+	database.Status.PITRUploadIntervalSec = getPITRUploadInverval(database, defaultPITRUploadIntervalSecPG)
 	return r.Status().Update(ctx, database)
 }
 
@@ -3408,4 +3415,16 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, monitoringConfig.Name)
 	}
 	return r.Create(ctx, secret)
+}
+
+func getPITRUploadInverval(database *everestv1alpha1.DatabaseCluster, defaultInterval int) int {
+	if !database.Spec.Backup.Enabled || !database.Spec.Backup.PITR.Enabled {
+		return 0
+	}
+
+	if database.Spec.Backup.PITR.UploadIntervalSec != nil {
+		return *database.Spec.Backup.PITR.UploadIntervalSec
+	}
+
+	return defaultInterval
 }
