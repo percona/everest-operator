@@ -29,7 +29,7 @@ type RestoreState string
 type PITRType string
 
 // DateFormat is the date format used in the user input.
-const DateFormat = "2006-01-02 15:04:05"
+const DateFormat = "2006-01-02T15:04:05Z"
 
 const (
 	// PITRTypeDate is Point-in-time recovery type based on the specific date.
