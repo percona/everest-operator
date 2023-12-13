@@ -92,7 +92,7 @@ spec:
                     properties:
                       date:
                         description: 'Date is the UTC date to recover to. The accepted
-                          format: "2006-01-02 15:04:05".'
+                          format: "2006-01-02T15:04:05Z".'
                         type: string
                       type:
                         default: date

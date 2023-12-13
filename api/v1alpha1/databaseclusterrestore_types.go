@@ -30,6 +30,7 @@ type PITRType string
 
 // DateFormat is the date format used in the user input.
 const DateFormat = "2006-01-02T15:04:05Z"
+const DateFormatSpace = "2006-01-02 15:04:05"
 
 const (
 	// PITRTypeDate is Point-in-time recovery type based on the specific date.
@@ -59,7 +60,7 @@ type PITR struct {
 	// +kubebuilder:validation:Enum:=date;latest
 	// +kubebuilder:default:=date
 	Type PITRType `json:"type,omitempty"`
-	// Date is the UTC date to recover to. The accepted format: "2006-01-02 15:04:05".
+	// Date is the UTC date to recover to. The accepted format: "2006-01-02T15:04:05Z".
 	Date *RestoreDate `json:"date,omitempty"`
 }
 
