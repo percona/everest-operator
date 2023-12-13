@@ -28,6 +28,12 @@ type RestoreState string
 // PITRType represents type of Point-in-time recovery.
 type PITRType string
 
+// DateFormat is the date format used in the user input.
+const (
+	DateFormat      = "2006-01-02T15:04:05Z"
+	DateFormatSpace = "2006-01-02 15:04:05"
+)
+
 const (
 	// PITRTypeDate is Point-in-time recovery type based on the specific date.
 	PITRTypeDate PITRType = "date"
@@ -56,7 +62,7 @@ type PITR struct {
 	// +kubebuilder:validation:Enum:=date;latest
 	// +kubebuilder:default:=date
 	Type PITRType `json:"type,omitempty"`
-	// Date is the date to recover to
+	// Date is the UTC date to recover to. The accepted format: "2006-01-02T15:04:05Z".
 	Date *RestoreDate `json:"date,omitempty"`
 }
 
@@ -72,6 +78,16 @@ func (RestoreDate) OpenAPISchemaType() []string { return []string{"string"} }
 // OpenAPISchemaFormat returns a format for OperAPI specification.
 func (RestoreDate) OpenAPISchemaFormat() string { return "" }
 
+// MarshalJSON marshals JSON.
+func (t RestoreDate) MarshalJSON() ([]byte, error) {
+	if t.IsZero() {
+		return []byte("null"), nil
+	}
+
+	timeStr := t.Time.Format(DateFormat)
+	return json.Marshal(timeStr)
+}
+
 // UnmarshalJSON unmarshals JSON.
 func (t *RestoreDate) UnmarshalJSON(b []byte) error {
 	if len(b) == 4 && string(b) == "null" {
@@ -85,7 +101,7 @@ func (t *RestoreDate) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	pt, err := time.Parse("2006-01-02 15:04:05", str)
+	pt, err := time.Parse(DateFormat, str)
 	if err != nil {
 		return err
 	}
