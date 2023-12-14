@@ -1,0 +1,25 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 400
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-source
+status:
+  ready: 1
+  size: 1
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-source
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  state: ready
