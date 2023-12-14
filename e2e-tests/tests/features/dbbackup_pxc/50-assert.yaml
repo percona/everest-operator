@@ -21,6 +21,8 @@ metadata:
 spec:
   storageName: test-storage
   pxcCluster: test-pxc-cluster
+status:
+  gaps: false
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
