@@ -2667,6 +2667,8 @@ func Test_globalDatasourceDestination(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty dest", func(t *testing.T) {
+		t.Parallel()
+
 		db := &everestv1alpha1.DatabaseCluster{}
 		db.Name = "db-name"
 		db.UID = "db-uid"
@@ -2678,6 +2680,8 @@ func Test_globalDatasourceDestination(t *testing.T) {
 	})
 
 	t.Run("not-empty dest s3", func(t *testing.T) {
+		t.Parallel()
+
 		db := &everestv1alpha1.DatabaseCluster{}
 		db.Name = "db-name"
 		db.UID = "db-uid"
@@ -2694,6 +2698,8 @@ func Test_globalDatasourceDestination(t *testing.T) {
 	})
 
 	t.Run("not-empty dest azure", func(t *testing.T) {
+		t.Parallel()
+
 		db := &everestv1alpha1.DatabaseCluster{}
 		db.Name = "db-name"
 		db.UID = "db-uid"
