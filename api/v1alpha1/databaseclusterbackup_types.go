@@ -40,6 +40,8 @@ type DatabaseClusterBackupStatus struct {
 	State BackupState `json:"state,omitempty"`
 	// Destination is the full path to the backup.
 	Destination *string `json:"destination,omitempty"`
+	// Gaps identifies if there are gaps detected in the PITR logs
+	Gaps bool `json:"gaps"`
 }
 
 //+kubebuilder:object:root=true

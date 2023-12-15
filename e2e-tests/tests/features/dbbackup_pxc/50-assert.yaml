@@ -9,6 +9,8 @@ metadata:
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pxc-cluster
+status:
+  gaps: false
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
