@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 func TestGetOperatorVersion(t *testing.T) {
@@ -2661,4 +2660,51 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, expRepos, repos)
+}
+
+func Test_globalDatasourceDestination(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty dest", func(t *testing.T) {
+		db := &everestv1alpha1.DatabaseCluster{}
+		db.Name = "db-name"
+		db.UID = "db-uid"
+
+		bs := &everestv1alpha1.BackupStorage{}
+
+		dest := globalDatasourceDestination("", db, bs)
+		assert.Equal(t, "/"+backupStoragePrefix(db), dest)
+	})
+
+	t.Run("not-empty dest s3", func(t *testing.T) {
+		db := &everestv1alpha1.DatabaseCluster{}
+		db.Name = "db-name"
+		db.UID = "db-uid"
+
+		bs := &everestv1alpha1.BackupStorage{
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   everestv1alpha1.BackupStorageTypeS3,
+				Bucket: "some/bucket/here",
+			},
+		}
+
+		dest := globalDatasourceDestination("s3://some/bucket/here/db-name/db-uid/some/folders/later", db, bs)
+		assert.Equal(t, "/db-name/db-uid", dest)
+	})
+
+	t.Run("not-empty dest azure", func(t *testing.T) {
+		db := &everestv1alpha1.DatabaseCluster{}
+		db.Name = "db-name"
+		db.UID = "db-uid"
+
+		bs := &everestv1alpha1.BackupStorage{
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   everestv1alpha1.BackupStorageTypeAzure,
+				Bucket: "some/bucket/here",
+			},
+		}
+
+		dest := globalDatasourceDestination("azure://some/bucket/here/db-name/db-uid/some/folders/later", db, bs)
+		assert.Equal(t, "/db-name/db-uid", dest)
+	})
 }

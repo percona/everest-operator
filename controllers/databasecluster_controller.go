@@ -2222,29 +2222,11 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		}
 	}
 
-	if dest == "" {
-		dest = "/" + backupStoragePrefix(database)
-	} else {
-		// Extract the relevant prefix from the backup destination
-		switch backupStorage.Spec.Type {
-		case everestv1alpha1.BackupStorageTypeS3:
-			dest = strings.TrimPrefix(dest, "s3://")
-		case everestv1alpha1.BackupStorageTypeAzure:
-			dest = strings.TrimPrefix(dest, "azure://")
-		}
-
-		dest = strings.TrimPrefix(dest, backupStorage.Spec.Bucket)
-		dest = strings.TrimLeft(dest, "/")
-		prefix := backupStoragePrefix(database)
-		prefixCount := len(strings.Split(prefix, "/"))
-		dest = "/" + strings.Join(strings.SplitN(dest, "/", prefixCount+1)[0:prefixCount], "/")
-	}
-
 	repoName := "repo1"
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				fmt.Sprintf(pgBackRestPathTmpl, repoName): dest,
+				fmt.Sprintf(pgBackRestPathTmpl, repoName): globalDatasourceDestination(dest, database, backupStorage),
 			},
 			Stanza: "db",
 			Options: []string{
@@ -2371,6 +2353,28 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	}
 
 	return pgDataSource, nil
+}
+
+func globalDatasourceDestination(dest string, db *everestv1alpha1.DatabaseCluster, backupStorage *everestv1alpha1.BackupStorage) string {
+	if dest == "" {
+		dest = "/" + backupStoragePrefix(db)
+	} else {
+		// Extract the relevant prefix from the backup destination
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			dest = strings.TrimPrefix(dest, "s3://")
+		case everestv1alpha1.BackupStorageTypeAzure:
+			dest = strings.TrimPrefix(dest, "azure://")
+		}
+
+		dest = strings.TrimPrefix(dest, backupStorage.Spec.Bucket)
+		dest = strings.TrimLeft(dest, "/")
+		prefix := backupStoragePrefix(db)
+		prefixCount := len(strings.Split(prefix, "/"))
+		dest = "/" + strings.Join(strings.SplitN(dest, "/", prefixCount+1)[0:prefixCount], "/")
+	}
+
+	return dest
 }
 
 //nolint:gocognit,maintidx,gocyclo,cyclop
