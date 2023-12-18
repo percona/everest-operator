@@ -66,6 +66,7 @@ const (
 	pgBackupCRDName = "perconapgbackups.pgv2.percona.com"
 
 	dbClusterBackupDBClusterNameField = ".spec.dbClusterName"
+	pxcGapsReasonString               = "BinlogGapDetected"
 )
 
 // ErrBackupStorageUndefined is returned when a backup storage is not defined
@@ -511,6 +512,11 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
 	backup.Status.Destination = &pxcCR.Status.Destination
+	for _, condition := range pxcCR.Status.Conditions {
+		if condition.Reason == pxcGapsReasonString {
+			backup.Status.Gaps = true
+		}
+	}
 
 	return r.Status().Update(ctx, backup)
 }

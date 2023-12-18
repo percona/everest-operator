@@ -9,7 +9,7 @@ spec:
   dataSource:
     dbClusterBackupName: test-db-backup
     pitr:
-      date: "2023-12-06 14:24:42"
+      date: "2023-12-06T14:24:42Z"
       type: date
   dbClusterName: test-pxc-cluster
 
