@@ -3409,3 +3409,61 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 	}
 	return r.Create(ctx, secret)
 }
+
+func mapRestoreStatusPXC(status pxcv1.BcpRestoreStates) everestv1alpha1.RestoreState {
+	switch status {
+	case pxcv1.RestoreNew:
+		return everestv1alpha1.RestoreNew
+	case pxcv1.RestoreStarting:
+		return everestv1alpha1.RestoreStarting
+	case pxcv1.RestoreStopCluster:
+		return everestv1alpha1.RestoreRunning
+	case pxcv1.RestoreRestore:
+		return everestv1alpha1.RestoreRunning
+	case pxcv1.RestoreStartCluster:
+		return everestv1alpha1.RestoreRunning
+	case pxcv1.RestorePITR:
+		return everestv1alpha1.RestoreRunning
+	case pxcv1.RestoreFailed:
+		return everestv1alpha1.RestoreFailed
+	case pxcv1.RestoreSucceeded:
+		return everestv1alpha1.RestoreSucceeded
+	}
+	return everestv1alpha1.RestoreNew
+}
+
+func mapRestoreStatusPSMDB(status psmdbv1.RestoreState) everestv1alpha1.RestoreState {
+	switch status {
+	case psmdbv1.RestoreStateNew:
+		return everestv1alpha1.RestoreNew
+	case psmdbv1.RestoreStateWaiting:
+		return everestv1alpha1.RestoreStarting
+	case psmdbv1.RestoreStateRequested:
+		return everestv1alpha1.RestoreStarting
+	case psmdbv1.RestoreStateRejected:
+		return everestv1alpha1.RestoreFailed
+	case psmdbv1.RestoreStateRunning:
+		return everestv1alpha1.RestoreRunning
+	case psmdbv1.RestoreStateError:
+		return everestv1alpha1.RestoreFailed
+	case psmdbv1.RestoreStateReady:
+		return everestv1alpha1.RestoreSucceeded
+	}
+	return everestv1alpha1.RestoreNew
+}
+
+func mapRestoreStatusPG(status pgv2.PGRestoreState) everestv1alpha1.RestoreState {
+	switch status {
+	case pgv2.RestoreNew:
+		return everestv1alpha1.RestoreNew
+	case pgv2.RestoreStarting:
+		return everestv1alpha1.RestoreStarting
+	case pgv2.RestoreRunning:
+		return everestv1alpha1.RestoreRunning
+	case pgv2.RestoreFailed:
+		return everestv1alpha1.RestoreFailed
+	case pgv2.RestoreSucceeded:
+		return everestv1alpha1.RestoreSucceeded
+	}
+	return everestv1alpha1.RestoreNew
+}

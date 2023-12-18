@@ -25,6 +25,19 @@ import (
 // RestoreState represents state of restoration.
 type RestoreState string
 
+const (
+	// RestoreNew is the default restore status.
+	RestoreNew RestoreState = ""
+	// RestoreStarting status for the restores that are starting.
+	RestoreStarting RestoreState = "Starting"
+	// RestoreRunning status for the restores that are in progress.
+	RestoreRunning RestoreState = "Running"
+	// RestoreFailed status for the restores that are finished unsuccessful.
+	RestoreFailed RestoreState = "Failed"
+	// RestoreSucceeded status for the restores that are finished successful.
+	RestoreSucceeded RestoreState = "Succeeded"
+)
+
 // PITRType represents type of Point-in-time recovery.
 type PITRType string
 
