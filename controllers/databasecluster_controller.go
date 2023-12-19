@@ -278,7 +278,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,maintidx
+func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
@@ -373,9 +373,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 	// Add used restore backup storages to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateReady) ||
-			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateError) ||
-			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRejected) {
+		if restore.IsComplete(database.Spec.Engine.Type) {
 			continue
 		}
 		// Restores using the BackupSource field instead of the
@@ -710,7 +708,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRunning) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -1157,28 +1155,11 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		if err != nil {
 			return err
 		}
-		jobRunning := false
 		for _, restore := range restores.Items {
-			switch restore.Status.State {
-			case everestv1alpha1.RestoreState(pxcv1.RestoreNew):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStarting):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStopCluster):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreRestore):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStartCluster):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestorePITR):
-				jobRunning = true
-			default:
-				// The jobRunning flag should be sticky if a restore is in a
-				// running state so we don't want to set it to false here.
+			if !restore.IsComplete(database.Spec.Engine.Type) {
+				database.Spec.Paused = pxc.Spec.Pause
+				break
 			}
-		}
-		if jobRunning {
-			database.Spec.Paused = pxc.Spec.Pause
 		}
 	}
 
@@ -1404,7 +1385,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreRestore) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -1896,7 +1877,7 @@ func reconcilePGBackRestRepos(
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx,gocyclo,cyclop
+func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	ctx context.Context,
 	oldBackups crunchyv1beta1.Backups,
 	database *everestv1alpha1.DatabaseCluster,
@@ -1981,8 +1962,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx,go
 	// Add backup storages used by restores to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreSucceeded) ||
-			restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreFailed) {
+		if restore.IsComplete(database.Spec.Engine.Type) {
 			continue
 		}
 
@@ -2548,7 +2528,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreRunning) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}

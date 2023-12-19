@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"time"
 
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -143,4 +146,75 @@ type DatabaseClusterRestoreList struct {
 
 func init() {
 	SchemeBuilder.Register(&DatabaseClusterRestore{}, &DatabaseClusterRestoreList{})
+}
+
+// IsComplete indicates if the restoration process is complete (regardless successful or not).
+func (r *DatabaseClusterRestore) IsComplete(engineType EngineType) bool {
+	switch engineType {
+	case DatabaseEnginePXC:
+		return isPXCRestoreStatusComplete(pxcv1.BcpRestoreStates(r.Status.State))
+	case DatabaseEnginePSMDB:
+		return isPSMDBRestoreStatusComplete(psmdbv1.RestoreState(r.Status.State))
+	case DatabaseEnginePostgresql:
+		return isPGRestoreStatusComplete(pgv2.PGRestoreState(r.Status.State))
+	}
+	return true
+}
+
+func isPXCRestoreStatusComplete(status pxcv1.BcpRestoreStates) bool {
+	switch status {
+	case pxcv1.RestoreNew:
+		return false
+	case pxcv1.RestoreStarting:
+		return false
+	case pxcv1.RestoreStopCluster:
+		return false
+	case pxcv1.RestoreRestore:
+		return false
+	case pxcv1.RestoreStartCluster:
+		return false
+	case pxcv1.RestorePITR:
+		return false
+	case pxcv1.RestoreFailed:
+		return true
+	case pxcv1.RestoreSucceeded:
+		return true
+	}
+	return true
+}
+
+func isPSMDBRestoreStatusComplete(status psmdbv1.RestoreState) bool {
+	switch status {
+	case psmdbv1.RestoreStateNew:
+		return false
+	case psmdbv1.RestoreStateWaiting:
+		return false
+	case psmdbv1.RestoreStateRequested:
+		return false
+	case psmdbv1.RestoreStateRunning:
+		return false
+	case psmdbv1.RestoreStateRejected:
+		return true
+	case psmdbv1.RestoreStateError:
+		return true
+	case psmdbv1.RestoreStateReady:
+		return true
+	}
+	return true
+}
+
+func isPGRestoreStatusComplete(status pgv2.PGRestoreState) bool {
+	switch status {
+	case pgv2.RestoreNew:
+		return false
+	case pgv2.RestoreStarting:
+		return false
+	case pgv2.RestoreRunning:
+		return false
+	case pgv2.RestoreFailed:
+		return true
+	case pgv2.RestoreSucceeded:
+		return true
+	}
+	return true
 }
