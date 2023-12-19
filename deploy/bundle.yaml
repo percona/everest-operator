@@ -170,9 +170,14 @@ spec:
               destination:
                 description: Destination is the full path to the backup.
                 type: string
+              gaps:
+                description: Gaps identifies if there are gaps detected in the PITR logs
+                type: boolean
               state:
                 description: State is the DatabaseBackup state.
                 type: string
+            required:
+            - gaps
             type: object
         type: object
     served: true
