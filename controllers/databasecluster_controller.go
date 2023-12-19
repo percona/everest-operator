@@ -278,7 +278,7 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,maintidx
+func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
@@ -373,9 +373,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:gocyclo,cyclop,
 	// Add used restore backup storages to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateReady) ||
-			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateError) ||
-			restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRejected) {
+		if restore.IsComplete(database.Spec.Engine.Type) {
 			continue
 		}
 		// Restores using the BackupSource field instead of the
@@ -710,7 +708,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(psmdbv1.RestoreStateRunning) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -1157,28 +1155,11 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		if err != nil {
 			return err
 		}
-		jobRunning := false
 		for _, restore := range restores.Items {
-			switch restore.Status.State {
-			case everestv1alpha1.RestoreState(pxcv1.RestoreNew):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStarting):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStopCluster):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreRestore):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestoreStartCluster):
-				jobRunning = true
-			case everestv1alpha1.RestoreState(pxcv1.RestorePITR):
-				jobRunning = true
-			default:
-				// The jobRunning flag should be sticky if a restore is in a
-				// running state so we don't want to set it to false here.
+			if !restore.IsComplete(database.Spec.Engine.Type) {
+				database.Spec.Paused = pxc.Spec.Pause
+				break
 			}
-		}
-		if jobRunning {
-			database.Spec.Paused = pxc.Spec.Pause
 		}
 	}
 
@@ -1404,7 +1385,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreRestore) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -1981,8 +1962,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx,go
 	// Add backup storages used by restores to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreSucceeded) ||
-			restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreFailed) {
+		if restore.IsComplete(database.Spec.Engine.Type) {
 			continue
 		}
 
@@ -2548,7 +2528,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(pgv2.RestoreRunning) {
+		if !restore.IsComplete(database.Spec.Engine.Type) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -3408,62 +3388,4 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, monitoringConfig.Name)
 	}
 	return r.Create(ctx, secret)
-}
-
-func mapRestoreStatusPXC(status pxcv1.BcpRestoreStates) everestv1alpha1.RestoreState {
-	switch status {
-	case pxcv1.RestoreNew:
-		return everestv1alpha1.RestoreNew
-	case pxcv1.RestoreStarting:
-		return everestv1alpha1.RestoreStarting
-	case pxcv1.RestoreStopCluster:
-		return everestv1alpha1.RestoreRunning
-	case pxcv1.RestoreRestore:
-		return everestv1alpha1.RestoreRunning
-	case pxcv1.RestoreStartCluster:
-		return everestv1alpha1.RestoreRunning
-	case pxcv1.RestorePITR:
-		return everestv1alpha1.RestoreRunning
-	case pxcv1.RestoreFailed:
-		return everestv1alpha1.RestoreFailed
-	case pxcv1.RestoreSucceeded:
-		return everestv1alpha1.RestoreSucceeded
-	}
-	return everestv1alpha1.RestoreNew
-}
-
-func mapRestoreStatusPSMDB(status psmdbv1.RestoreState) everestv1alpha1.RestoreState {
-	switch status {
-	case psmdbv1.RestoreStateNew:
-		return everestv1alpha1.RestoreNew
-	case psmdbv1.RestoreStateWaiting:
-		return everestv1alpha1.RestoreStarting
-	case psmdbv1.RestoreStateRequested:
-		return everestv1alpha1.RestoreStarting
-	case psmdbv1.RestoreStateRejected:
-		return everestv1alpha1.RestoreFailed
-	case psmdbv1.RestoreStateRunning:
-		return everestv1alpha1.RestoreRunning
-	case psmdbv1.RestoreStateError:
-		return everestv1alpha1.RestoreFailed
-	case psmdbv1.RestoreStateReady:
-		return everestv1alpha1.RestoreSucceeded
-	}
-	return everestv1alpha1.RestoreNew
-}
-
-func mapRestoreStatusPG(status pgv2.PGRestoreState) everestv1alpha1.RestoreState {
-	switch status {
-	case pgv2.RestoreNew:
-		return everestv1alpha1.RestoreNew
-	case pgv2.RestoreStarting:
-		return everestv1alpha1.RestoreStarting
-	case pgv2.RestoreRunning:
-		return everestv1alpha1.RestoreRunning
-	case pgv2.RestoreFailed:
-		return everestv1alpha1.RestoreFailed
-	case pgv2.RestoreSucceeded:
-		return everestv1alpha1.RestoreSucceeded
-	}
-	return everestv1alpha1.RestoreNew
 }
