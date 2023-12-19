@@ -17,11 +17,11 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"time"
+
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -148,6 +148,7 @@ func init() {
 	SchemeBuilder.Register(&DatabaseClusterRestore{}, &DatabaseClusterRestoreList{})
 }
 
+// IsComplete indicates if the restoration process is complete (regardless successful or not).
 func (r *DatabaseClusterRestore) IsComplete(engineType EngineType) bool {
 	switch engineType {
 	case DatabaseEnginePXC:

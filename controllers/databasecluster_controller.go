@@ -1877,7 +1877,7 @@ func reconcilePGBackRestRepos(
 }
 
 //nolint:gocognit
-func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx,gocyclo,cyclop
+func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	ctx context.Context,
 	oldBackups crunchyv1beta1.Backups,
 	database *everestv1alpha1.DatabaseCluster,
