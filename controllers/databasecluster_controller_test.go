@@ -195,7 +195,7 @@ func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -275,7 +275,7 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -327,7 +327,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -386,7 +386,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -435,7 +435,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -497,7 +497,7 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -550,7 +550,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -614,7 +614,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -668,7 +668,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -732,7 +732,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -796,7 +796,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testin
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -872,7 +872,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testin
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -934,7 +934,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1010,7 +1010,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1075,7 +1075,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1151,7 +1151,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1215,7 +1215,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1291,7 +1291,7 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t 
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1353,7 +1353,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1411,7 +1411,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1466,7 +1466,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1530,7 +1530,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1594,7 +1594,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1651,7 +1651,7 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1702,7 +1702,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1771,7 +1771,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1825,7 +1825,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1894,7 +1894,7 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1947,7 +1947,7 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -1984,7 +1984,7 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2025,7 +2025,7 @@ func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2059,7 +2059,7 @@ func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2104,7 +2104,7 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2226,7 +2226,7 @@ func TestReconcilePGBackRestReposDifferentStorageThreeRequestsAddRequest(t *test
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2374,7 +2374,7 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2472,7 +2472,7 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},
@@ -2635,7 +2635,7 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: &testEngineStorageClass,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: testEngineStorageSize,
 						},

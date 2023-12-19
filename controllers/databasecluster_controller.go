@@ -669,7 +669,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 			PersistentVolumeClaim: psmdbv1.PVCSpec{
 				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
 					StorageClassName: database.Spec.Engine.Storage.Class,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 						},
@@ -1355,7 +1355,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
 				StorageClassName: database.Spec.Engine.Storage.Class,
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 					},
@@ -1928,7 +1928,7 @@ func reconcilePGBackRestRepos(
 						corev1.ReadWriteOnce,
 					},
 					StorageClassName: engineStorage.Class,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: engineStorage.Size,
 						},
@@ -2498,7 +2498,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 				corev1.ReadWriteOnce,
 			},
 			StorageClassName: database.Spec.Engine.Storage.Class,
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 				},
