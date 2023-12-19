@@ -19,7 +19,7 @@ spec:
   bucket: test-backup-bucket
   credentialsSecretName: test-pxc-cluster-backup-s3
   region: us-east-2
-  endpointURL: s3.someprovider.com
+  endpointURL: s3.amazonaws.com
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
