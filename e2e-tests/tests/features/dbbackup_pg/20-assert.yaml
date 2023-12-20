@@ -85,5 +85,3 @@ spec:
           region: us-east-2
       - azure:
           container: test-backup-bucket
-status:
-  state: ready
