@@ -28,8 +28,6 @@ metadata:
       name: test-db-backup
 spec:
   pgCluster: test-pg-cluster
-status:
-  state: Succeeded
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGBackup
@@ -85,3 +83,5 @@ spec:
           region: us-east-2
       - azure:
           container: test-backup-bucket
+status:
+  state: ready
