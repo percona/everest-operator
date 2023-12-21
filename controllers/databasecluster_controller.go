@@ -208,6 +208,13 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
+	if database.Spec.DataSource != nil && database.Spec.DataSource.DBClusterBackupName != "" {
+		// We don't handle database.Spec.DataSource.BackupSource in operator
+		if err := r.copyCredentialsFromDBBackup(ctx, database.Spec.DataSource.DBClusterBackupName, database); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	if database.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
 		err := r.reconcilePXC(ctx, req, database)
 		return reconcile.Result{}, err
@@ -224,6 +231,60 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+// copyCredentialsFromDBBackup copies credentials from an old DB to the new DB about to be
+// provisioned by providing a DB Backup name of the old DB.
+func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
+	ctx context.Context, dbBackupName string, db *everestv1alpha1.DatabaseCluster,
+) error {
+	logger := log.FromContext(ctx)
+
+	dbb := &everestv1alpha1.DatabaseClusterBackup{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      dbBackupName,
+		Namespace: db.Namespace,
+	}, dbb)
+	if err != nil {
+		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
+	}
+
+	newSecretName := fmt.Sprintf("everest-secrets-%s", db.Name)
+	newSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      newSecretName,
+		Namespace: db.Namespace,
+	}, newSecret)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
+	}
+
+	if err == nil {
+		logger.Info(fmt.Sprintf("Secret %s already exists. Skipping secret copy during provisioning", newSecretName))
+		return nil
+	}
+
+	prevSecretName := fmt.Sprintf("everest-secrets-%s", dbb.Spec.DBClusterName)
+	secret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      prevSecretName,
+		Namespace: db.Namespace,
+	}, secret)
+	if err != nil {
+		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
+	}
+
+	secret.ObjectMeta = metav1.ObjectMeta{
+		Name:      newSecretName,
+		Namespace: secret.Namespace,
+	}
+	if err := r.createOrUpdate(ctx, secret, false); err != nil {
+		return errors.Join(err, errors.New("could not create new secret to copy credentials from old DB cluster"))
+	}
+
+	logger.Info(fmt.Sprintf("Copied secret %s to %s", prevSecretName, newSecretName))
+
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) getClusterType(ctx context.Context) (ClusterType, error) {
@@ -2108,6 +2169,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 
 	var backupBaseName string
 	var backupStorageName string
+	var dest string
 	if database.Spec.DataSource.DBClusterBackupName != "" {
 		dbClusterBackup := &everestv1alpha1.DatabaseClusterBackup{}
 		err := r.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, dbClusterBackup)
@@ -2121,6 +2183,7 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 
 		backupBaseName = filepath.Base(*dbClusterBackup.Status.Destination)
 		backupStorageName = dbClusterBackup.Spec.BackupStorageName
+		dest = *dbClusterBackup.Status.Destination
 	}
 
 	if database.Spec.DataSource.BackupSource != nil {
@@ -2128,11 +2191,22 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 		backupStorageName = database.Spec.DataSource.BackupSource.BackupStorageName
 	}
 
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.defaultNamespace}, backupStorage)
+	if err != nil {
+		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
+	}
+	if database.Namespace != r.defaultNamespace {
+		if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
+			return nil, err
+		}
+	}
+
 	repoName := "repo1"
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				fmt.Sprintf(pgBackRestPathTmpl, repoName): "/" + backupStoragePrefix(database),
+				fmt.Sprintf(pgBackRestPathTmpl, repoName): globalDatasourceDestination(dest, database, backupStorage),
 			},
 			Stanza: "db",
 			Options: []string{
@@ -2147,17 +2221,6 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 				},
 			},
 		},
-	}
-
-	backupStorage := &everestv1alpha1.BackupStorage{}
-	err := r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.defaultNamespace}, backupStorage)
-	if err != nil {
-		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
-	}
-	if database.Namespace != r.defaultNamespace {
-		if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
-			return nil, err
-		}
 	}
 
 	switch backupStorage.Spec.Type {
@@ -2270,6 +2333,28 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	}
 
 	return pgDataSource, nil
+}
+
+func globalDatasourceDestination(dest string, db *everestv1alpha1.DatabaseCluster, backupStorage *everestv1alpha1.BackupStorage) string {
+	if dest == "" {
+		dest = "/" + backupStoragePrefix(db)
+	} else {
+		// Extract the relevant prefix from the backup destination
+		switch backupStorage.Spec.Type {
+		case everestv1alpha1.BackupStorageTypeS3:
+			dest = strings.TrimPrefix(dest, "s3://")
+		case everestv1alpha1.BackupStorageTypeAzure:
+			dest = strings.TrimPrefix(dest, "azure://")
+		}
+
+		dest = strings.TrimPrefix(dest, backupStorage.Spec.Bucket)
+		dest = strings.TrimLeft(dest, "/")
+		prefix := backupStoragePrefix(db)
+		prefixCount := len(strings.Split(prefix, "/"))
+		dest = "/" + strings.Join(strings.SplitN(dest, "/", prefixCount+1)[0:prefixCount], "/")
+	}
+
+	return dest
 }
 
 //nolint:gocognit,maintidx,gocyclo,cyclop
