@@ -57,9 +57,10 @@ jobs:
 
       - name: Check default main state - dev version
         run: |
-          if ! grep -q "VERSION ?= 0.0.0" Makefile; then
-            exit 1
-          fi
+          if ! grep -q "VERSION ?= 0.0.0" Makefile; then 
+            echo "default VERSION in Makefile should be 0.0.0" 
+            exit 1 
+          fi 
 
       - name: Check default main state - generated files
         run: |
