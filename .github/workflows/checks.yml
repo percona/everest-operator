@@ -55,6 +55,18 @@ jobs:
           # use GITHUB_TOKEN because only it has access to GitHub Checks API
           bin/golangci-lint run --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} bin/reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
 
+      - name: Check default main state - dev version
+        run: |
+          if ! grep -q "VERSION ?= 0.0.0" Makefile; then
+            exit 1
+          fi
+
+      - name: Check default main state - generated files
+        run: |
+          make release
+          echo "Checking there is no source code changes except of the file with the generated date after a release attempt"
+          git diff --exit-code $(git ls-files | grep -v "bundle/manifests/everest-operator.clusterserviceversion.yaml")
+
       - name: Run debug commands on failure
         if: ${{ failure() }}
         run: |
