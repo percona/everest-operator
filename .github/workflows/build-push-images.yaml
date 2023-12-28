@@ -3,10 +3,9 @@ name: Build and Push images
 on:
   push:
     branches:
-      - 'release/v[0-9].[0-9]'
+      - main
     tags:
       - v*
-  workflow_dispatch:
 
 jobs:
 
@@ -56,26 +55,24 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/everest-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'dev') }}
+            percona/everest-operator,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
             perconalab/everest-operator
           tags: |
             type=match,pattern=v(.*),group=1
-            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'dev') }}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'dev') }}
-            type=sha
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'main') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
 
       - name: Docker bundle meta
         id: bundle_meta
         uses: docker/metadata-action@v4
         with:
           images: |
-            percona/everest-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'dev') }}
+            percona/everest-operator-bundle,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, 'rc') }}
             perconalab/everest-operator-bundle
           tags: |
             type=match,pattern=v(.*),group=1
-            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'dev') }}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'dev') }}
-            type=sha
+            type=match,pattern=v(\d.\d),group=1,enable=${{ !contains(github.ref_name, 'main') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
