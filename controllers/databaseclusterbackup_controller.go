@@ -274,7 +274,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	}
 
 	// We want to ignore backups that are done to the hardcoded PVC-based repo1.
-	// This repo only exists to allow users to spin up a PG cluster without specifying a backup storage. Therefore, we don't want to allow users to restore from these backups so shouldn't create a DBB CR from repo1.
+	// This repo only exists to allow users to spin up a PG cluster without specifying a backup storage.
+	// Therefore, we don't want to allow users to restore from these backups so shouldn't create a DBB CR from repo1.
 	if pgBackup.Spec.RepoName == "repo1" {
 		return nil
 	}
