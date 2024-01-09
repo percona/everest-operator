@@ -128,11 +128,11 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
+          PG_OPERATOR_VERSION: 2.3.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
           PREVIOUS_PXC_OPERATOR_VERSION: 1.12.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.EVEREST_EKS_E2E_KUBECONFIG_BASE64 }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
@@ -171,8 +171,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PG_OPERATOR_VERSION: 2.3.0
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.EVEREST_EKS_E2E_KUBECONFIG_BASE64 }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
@@ -186,8 +186,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PG_OPERATOR_VERSION: 2.3.0
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.EVEREST_EKS_E2E_KUBECONFIG_BASE64 }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
@@ -231,7 +231,7 @@ jobs:
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
         env:
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          BASE64_KUBECONFIG_DBAAS: ${{ secrets.EVEREST_EKS_E2E_KUBECONFIG_BASE64 }}
 
       - name: Clean up credentials
         run: |
