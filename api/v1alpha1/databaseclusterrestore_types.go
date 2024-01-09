@@ -149,12 +149,13 @@ func init() {
 }
 
 // IsComplete indicates if the restoration process is complete (regardless successful or not).
-func (r *DatabaseClusterRestore) IsComplete(engineType EngineType) bool {
+func (r *DatabaseClusterRestore) IsComplete(db *DatabaseCluster) bool {
+	engineType := db.Spec.Engine.Type
 	switch engineType {
 	case DatabaseEnginePXC:
 		return isPXCRestoreStatusComplete(pxcv1.BcpRestoreStates(r.Status.State))
 	case DatabaseEnginePSMDB:
-		return isPSMDBRestoreStatusComplete(psmdbv1.RestoreState(r.Status.State))
+		return isPSMDBRestoreStatusComplete(psmdbv1.RestoreState(r.Status.State), db.Spec.Backup.PITR.Enabled)
 	case DatabaseEnginePostgresql:
 		return isPGRestoreStatusComplete(pgv2.PGRestoreState(r.Status.State))
 	}
@@ -183,14 +184,16 @@ func isPXCRestoreStatusComplete(status pxcv1.BcpRestoreStates) bool {
 	return true
 }
 
-func isPSMDBRestoreStatusComplete(status psmdbv1.RestoreState) bool {
+func isPSMDBRestoreStatusComplete(status psmdbv1.RestoreState, pitrEnabled bool) bool {
 	switch status {
 	case psmdbv1.RestoreStateNew:
 		return false
 	case psmdbv1.RestoreStateWaiting:
 		return false
 	case psmdbv1.RestoreStateRequested:
-		return false
+		// if pitr is disabled the latest status of a psmdb restore will be "requested",
+		// so Everest should consider it as complete.
+		return !pitrEnabled
 	case psmdbv1.RestoreStateRunning:
 		return false
 	case psmdbv1.RestoreStateRejected:

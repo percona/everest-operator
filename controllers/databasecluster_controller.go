@@ -434,7 +434,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	// Add used restore backup storages to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.IsComplete(database.Spec.Engine.Type) {
+		if restore.IsComplete(database) {
 			continue
 		}
 		// Restores using the BackupSource field instead of the
@@ -769,7 +769,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if !restore.IsComplete(database.Spec.Engine.Type) {
+		if !restore.IsComplete(database) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -1217,7 +1217,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			return err
 		}
 		for _, restore := range restores.Items {
-			if !restore.IsComplete(database.Spec.Engine.Type) {
+			if !restore.IsComplete(database) {
 				database.Spec.Paused = pxc.Spec.Pause
 				break
 			}
@@ -1446,7 +1446,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if !restore.IsComplete(database.Spec.Engine.Type) {
+		if !restore.IsComplete(database) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
@@ -2023,7 +2023,7 @@ func (r *DatabaseClusterReconciler) reconcilePGBackupsSpec( //nolint:maintidx
 	// Add backup storages used by restores to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.IsComplete(database.Spec.Engine.Type) {
+		if restore.IsComplete(database) {
 			continue
 		}
 
@@ -2613,7 +2613,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		return errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 	for _, restore := range restoreList.Items {
-		if !restore.IsComplete(database.Spec.Engine.Type) {
+		if !restore.IsComplete(database) {
 			database.Status.Status = everestv1alpha1.AppStateRestoring
 			break
 		}
