@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -122,7 +123,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		}
 	}
 	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
-		if err := r.restorePSMDB(ctx, cr, dbCR); err != nil {
+		if err := r.restorePSMDB(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
 			// the storage is not defined in the upstream DB cluster CR, we
@@ -178,7 +179,6 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
-	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
@@ -246,7 +246,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 			}
 
 			psmdbCR.Spec.BackupSource = &psmdbv1.PerconaServerMongoDBBackupStatus{
-				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, restore.Spec.DataSource.BackupSource.Path),
+				Destination: restore.Spec.DataSource.BackupSource.Path,
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
@@ -255,12 +255,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(db),
+					Prefix:            parsePrefixFromDestination(restore.Spec.DataSource.BackupSource.Path),
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            backupStoragePrefix(db),
+					Prefix:            parsePrefixFromDestination(restore.Spec.DataSource.BackupSource.Path),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
@@ -534,4 +534,11 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 		return err
 	}
 	return controller.Complete(r)
+}
+
+func parsePrefixFromDestination(url string) string {
+	parts := strings.Split(url, "/")
+	l := len(parts)
+	// taking the third and the second last parts of the destination
+	return fmt.Sprintf("%s/%s", parts[l-3], parts[l-2])
 }
