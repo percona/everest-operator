@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go release
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           check-latest: true
@@ -115,7 +115,7 @@ jobs:
 
       - name: Scale up cluster
         run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=5 "$NODEPOOL_NAME" --wait
+          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
           CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
