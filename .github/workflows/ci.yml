@@ -117,8 +117,8 @@ jobs:
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=5 "$NODEPOOL_NAME" --wait
         env:
-          CLUSTER_NAME: "dbaas-ci-20221005"
-          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Run upgrade tests
         run: |
@@ -206,8 +206,8 @@ jobs:
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
         env:
-          CLUSTER_NAME: "dbaas-ci-20221005"
-          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Clean up resources and CRDs
         if: always()
