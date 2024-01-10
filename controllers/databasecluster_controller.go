@@ -331,11 +331,35 @@ func (r *DatabaseClusterReconciler) reconcileDBRestoreFromDataSource(ctx context
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbRestore, func() error {
 		dbRestore.Spec.DBClusterName = database.Name
-		dbRestore.Spec.DataSource = *database.Spec.DataSource
+		dbRestore.Spec.DataSource = r.getRestoreDataSource(ctx, database)
 		return nil
 	})
 
 	return err
+}
+
+func (r *DatabaseClusterReconciler) getRestoreDataSource(ctx context.Context, database *everestv1alpha1.DatabaseCluster) everestv1alpha1.DataSource {
+	if database.Spec.Engine.Type != everestv1alpha1.DatabaseEnginePSMDB || database.Spec.DataSource.DBClusterBackupName == "" {
+		return *database.Spec.DataSource
+	}
+
+	// Use the full backup source instead of just the backupName to be able to
+	// figure out the source dbc's prefix in the storage
+	backupName := database.Spec.DataSource.DBClusterBackupName
+
+	backup := &psmdbv1.PerconaServerMongoDBBackup{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupName, Namespace: database.Namespace}, backup)
+	if err != nil {
+		return everestv1alpha1.DataSource{}
+	}
+
+	return everestv1alpha1.DataSource{
+		BackupSource: &everestv1alpha1.BackupSource{
+			Path:              backup.Status.Destination,
+			BackupStorageName: backup.Spec.StorageName,
+		},
+		PITR: database.Spec.DataSource.PITR,
+	}
 }
 
 //nolint:gocognit
