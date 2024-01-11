@@ -36,6 +36,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	"github.com/percona/percona-server-mongodb-operator/pkg/util/numstr"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -377,6 +378,9 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	psmdbBackupSpec := psmdbv1.BackupSpec{
 		Enabled: true,
 		Image:   backupVersion.ImagePath,
+		PITR: psmdbv1.PITRSpec{
+			Enabled: database.Spec.Backup.PITR.Enabled,
+		},
 
 		// XXX: Remove this once templates will be available
 		Resources: corev1.ResourceRequirements{
@@ -573,6 +577,15 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			StorageName: schedule.BackupStorageName,
 		})
 	}
+
+	if database.Spec.Backup.PITR.Enabled {
+		interval := database.Spec.Backup.PITR.UploadIntervalSec
+		if interval != nil {
+			// the integer amount of minutes. default 10
+			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(fmt.Sprintf("%d", *interval/60))
+		}
+	}
+
 	psmdbBackupSpec.Storages = storages
 	psmdbBackupSpec.Tasks = tasks
 
