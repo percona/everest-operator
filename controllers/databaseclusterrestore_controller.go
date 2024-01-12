@@ -343,12 +343,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 		}
 
 		if restore.Spec.DataSource.PITR != nil {
-			if db.Spec.Backup.PITR.BackupStorageName == "" {
+			if db.Spec.Backup.PITR.BackupStorageName == nil || *db.Spec.Backup.PITR.BackupStorageName == "" {
 				return fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
 			}
 			pxcCR.Spec.PITR = &pxcv1.PITR{
 				BackupSource: &pxcv1.PXCBackupStatus{
-					StorageName: pitrStorageName(db.Spec.Backup.PITR.BackupStorageName),
+					StorageName: pitrStorageName(*db.Spec.Backup.PITR.BackupStorageName),
 				},
 				Type: string(restore.Spec.DataSource.PITR.Type),
 				// pxc accepts only the special format

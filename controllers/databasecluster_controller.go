@@ -363,7 +363,7 @@ func (r *DatabaseClusterReconciler) getRestoreDataSource(ctx context.Context, da
 	}
 }
 
-//nolint:gocognit
+//nolint:gocognit,gocyclo
 func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
@@ -579,10 +579,14 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	}
 
 	if database.Spec.Backup.PITR.Enabled {
+		if len(storages) > 1 {
+			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("can not enable PITR: more than one storage is used for the cluster")
+		}
+
 		interval := database.Spec.Backup.PITR.UploadIntervalSec
 		if interval != nil {
 			// the integer amount of minutes. default 10
-			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(fmt.Sprintf("%d", *interval/60))
+			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(strconv.Itoa(*interval / 60))
 		}
 	}
 
@@ -1092,7 +1096,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 	}
 
 	if database.Spec.Backup.PITR.Enabled {
-		storageName := database.Spec.Backup.PITR.BackupStorageName
+		storageName := *database.Spec.Backup.PITR.BackupStorageName
 		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, database.Namespace)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to get pitr storage"))

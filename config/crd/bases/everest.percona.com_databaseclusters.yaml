@@ -80,7 +80,6 @@ spec:
                           binlogs uploads
                         type: integer
                     required:
-                    - backupStorageName
                     - enabled
                     type: object
                   schedules:
