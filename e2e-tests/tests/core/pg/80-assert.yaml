@@ -9,7 +9,7 @@ metadata:
 spec:
   engine:
     type: postgresql
-    version: "14.7"
+    version: "16.1"
     replicas: 3
     storage:
       size: 15G
