@@ -10,6 +10,9 @@ spec:
   multiCluster:
     enabled: false
   backup:
+    pitr:
+      enabled: true
+      oplogSpanMin: 2
     tasks:
     - enabled: true
       keep: 1
