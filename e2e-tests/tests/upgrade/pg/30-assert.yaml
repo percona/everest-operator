@@ -7,7 +7,7 @@ kind: PerconaPGCluster
 metadata:
   name: test-pg-cluster
 spec:
-  crVersion: 2.2.0
+  crVersion: 2.3.0
   instances:
     - dataVolumeClaimSpec:
         accessModes:
