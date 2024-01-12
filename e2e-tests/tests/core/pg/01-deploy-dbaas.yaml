@@ -4,4 +4,4 @@ timeout: 10
 commands:
   - script: DEFAULT_NAMESPACE=$NAMESPACE ../../../../bin/manager -metrics-bind-address :8091 -health-probe-bind-address :8092
     background: true
-    # skipLogOutput: true
+    skipLogOutput: true
