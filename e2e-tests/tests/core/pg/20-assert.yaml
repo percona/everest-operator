@@ -6,4 +6,8 @@ timeout: 300
 # In the test assertion 02 we assert that the cluster is stopped and in 03 we assert that the cluster is up and ready to use.
 # The test steps are still declarative so no operation is executed in 03.
 commands:
-  - command: kubectl wait --for=jsonpath='{.status.status}'=initializing db/test-pg-cluster -n "${NAMESPACE}"
+  # This check has been disabled until a bug in PG operator has been fixed.
+  # PG operator does not pause a DB when a backup is running. PG operator shall
+  # wait until the backup has finished and only then pause the DB, but in v2.3.0
+  # this logic is broken.
+  # - command: kubectl wait --for=jsonpath='{.status.status}'=initializing db/test-pg-cluster -n "${NAMESPACE}"
