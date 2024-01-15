@@ -10,4 +10,5 @@ commands:
   # PG operator does not pause a DB when a backup is running. PG operator shall
   # wait until the backup has finished and only then pause the DB, but in v2.3.0
   # this logic is broken.
+  # https://perconadev.atlassian.net/browse/K8SPG-496
   # - command: kubectl wait --for=jsonpath='{.status.status}'=initializing db/test-pg-cluster -n "${NAMESPACE}"
