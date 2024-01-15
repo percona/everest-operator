@@ -183,12 +183,14 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	_, ok := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if ok && !database.Spec.Paused {
+		logger.Info("Pausing database cluster")
 		database.Spec.Paused = true
 		if err := r.Update(ctx, database); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 	if ok && database.Status.Status == everestv1alpha1.AppStatePaused {
+		logger.Info("Unpausing database cluster")
 		database.Spec.Paused = false
 		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
 		if err := r.Update(ctx, database); err != nil {
