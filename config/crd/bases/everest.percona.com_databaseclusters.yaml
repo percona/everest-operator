@@ -346,6 +346,10 @@ spec:
           status:
             description: DatabaseClusterStatus defines the observed state of DatabaseCluster.
             properties:
+              defaultStorage:
+                description: DefaultStorage is the storage used by default (psmdb
+                  only)
+                type: string
               hostname:
                 description: Hostname is the hostname where the cluster can be reached
                 type: string

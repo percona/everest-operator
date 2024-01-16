@@ -632,6 +632,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		return errors.Join(err, fmt.Errorf("failed to get database engine %s", operatorDeployment[database.Spec.Engine.Type]))
 	}
 
+	var defaultStorage string
 	if err := controllerutil.SetControllerReference(database, psmdb, r.Client.Scheme()); err != nil {
 		return err
 	}
@@ -790,6 +791,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		if err != nil {
 			return err
 		}
+		defaultStorage = getDefaultStorage(psmdb)
 		return nil
 	})
 	if err != nil {
@@ -832,6 +834,8 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 	}
 	database.Status.Message = message
 	database.Status.Port = 27017
+	database.Status.DefaultStorage = defaultStorage
+
 	return r.Status().Update(ctx, database)
 }
 
@@ -3520,4 +3524,11 @@ func (r *DatabaseClusterReconciler) reconcileMonitoringConfigSecret( //nolint:du
 		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, monitoringConfig.Name)
 	}
 	return r.Create(ctx, secret)
+}
+
+func getDefaultStorage(psmdb *psmdbv1.PerconaServerMongoDB) string {
+	for name := range psmdb.Spec.Backup.Storages {
+		return name
+	}
+	return ""
 }

@@ -46,3 +46,15 @@ status:
       size: 1
       status: ready
   state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  backup:
+    enabled: false
+    pitr:
+      enabled: false
+status:
+  defaultStorage: test-storage
