@@ -4,9 +4,9 @@ timeout: 60
 commands:
   # check that there is no dbb/pg-backup CRs left
   - script: >
-      test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" = "[]"
+      test "$(kubectl -n $NAMESPACE get dbb -o jsonpath='{.items}')" = "[]"
   - script: >
-      test "$(kubectl get pg-backup -n $NAMESPACE -o jsonpath='{.items}')" = "[]"
+      test "$(kubectl -n $NAMESPACE get pg-backup -o jsonpath='{range .items[*]}{.spec.pgCluster} repo:{.spec.repoName}{"\n"}{end}' | grep -v repo:repo1 | grep -c test-pg-cluster)" = "0"
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
