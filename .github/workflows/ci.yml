@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go release
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           check-latest: true
@@ -36,14 +36,14 @@ jobs:
           cp kubectl "$TOOLS_PATH"
           rm kubectl
         env:
-          KUBECTL_VERSION: 1.25.1
+          KUBECTL_VERSION: 1.27.9
       - name: Run tests
         run:
           make test
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
+          PG_OPERATOR_VERSION: 2.3.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
 
@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go release
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           check-latest: true
@@ -70,10 +70,22 @@ jobs:
         run:
           make build
 
-      - name: Install tools
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.EVEREST_EKS_E2E_IAM_USER_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.EVEREST_EKS_E2E_IAM_USER_ACCESS_KEY_SECRET }}
+          aws-region: us-east-2
+
+      - name: Configure env
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
+
+          aws eks update-kubeconfig --name everest-e2e-dev-eks-cluster
+        
+      - name: Install tools
+        run: |
           # Kubectl
           curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
           curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
@@ -98,45 +110,31 @@ jobs:
           curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
           tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
           chmod +x "$TOOLS_PATH"/eksctl
-          # Configure CLI access
-          mkdir "$HOME"/.aws
-          echo "[default]" >> "$HOME"/.aws/credentials
-          echo "aws_access_key_id="$EKSUID"" >> "${HOME}"/.aws/credentials
-          echo "aws_secret_access_key="$EKSKEY"" >> "${HOME}"/.aws/credentials
-          echo "[default]" >> "${HOME}"/.aws/config
-          echo "region = "$EKSREG"" >> "${HOME}"/.aws/config
         env:
-          KUBECTL_VERSION: 1.25.1
-          EKSUID: ${{ secrets.EKSU }}
-          EKSKEY: ${{ secrets.EKSSAK }}
-          EKSREG: ${{ secrets.EKSREG }}
+          KUBECTL_VERSION: 1.27.9
 
       - name: Scale up cluster
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
-          CLUSTER_NAME: "dbaas-ci-20221005"
-          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Run upgrade tests
         run: |
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          export KUBECONFIG="${HOME}/.kube/config"
-          mkdir -p "${KUBECONFIG%/*}"
-          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-upgrade.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
+          PG_OPERATOR_VERSION: 2.3.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
           PREVIOUS_PXC_OPERATOR_VERSION: 1.12.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
         if: always()
+        continue-on-error: true
         run: |
           namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
           for namespace in ${namespaces[@]}
@@ -157,37 +155,28 @@ jobs:
           done
           kubectl delete db --all-namespaces --all
           kubectl delete pvc --all-namespaces --all
+          kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
 
 
       - name: Run core tests
         if: always()
         run: |
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          export KUBECONFIG="${HOME}/.kube/config"
-          mkdir -p "${KUBECONFIG%/*}"
-          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PG_OPERATOR_VERSION: 2.3.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
         if: always()
         run: |
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          export KUBECONFIG="${HOME}/.kube/config"
-          mkdir -p "${KUBECONFIG%/*}"
-          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.2.0
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
+          PG_OPERATOR_VERSION: 2.3.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
@@ -219,24 +208,14 @@ jobs:
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
         env:
-          CLUSTER_NAME: "dbaas-ci-20221005"
-          NODEPOOL_NAME: "terraform-node-dbaas-ci-20221005"
+          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Clean up resources and CRDs
         if: always()
         run: |
-          export KUBECONFIG="${HOME}/.kube/config"
-          mkdir -p "${KUBECONFIG%/*}"
-          echo "$BASE64_KUBECONFIG_DBAAS"|base64 -d > "${KUBECONFIG}"
           kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
           kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
-        env:
-          BASE64_KUBECONFIG_DBAAS: ${{ secrets.BASE64_KUBECONFIG_DBAAS }}
-
-      - name: Clean up credentials
-        run: |
-          rm -f "$HOME"/.aws/config
-          rm -f "$HOME"/.aws/credentials
 
   make-bundle:
     name: Make Bundle
@@ -251,7 +230,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go release
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: '1.21'
           check-latest: true
