@@ -18,12 +18,12 @@ spec:
       keep: 1
       name: daily-backup
       schedule: "0 0 * * *"
-      storageName: test-storage-scheduled
+      storageName: test-storage
     storages:
-      test-storage-scheduled:
+      test-storage:
         s3:
-          bucket: test-backup-bucket-scheduled
-          credentialsSecret: test-psmdb-cluster-backup-s3-scheduled
+          bucket: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-s3
           endpointUrl: s3.amazonaws.com
           region: us-east-2
         type: s3

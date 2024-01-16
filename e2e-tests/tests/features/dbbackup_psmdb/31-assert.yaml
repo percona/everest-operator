@@ -5,21 +5,21 @@ timeout: 100
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
-  name: test-db-backup
+  name: test-db-backup-azure
 spec:
-  backupStorageName: test-storage
+  backupStorageName: test-storage-azure
   dbClusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
 metadata:
-  name: test-db-backup
+  name: test-db-backup-azure
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
-      name: test-db-backup
+      name: test-db-backup-azure
 spec:
-  storageName: test-storage
+  storageName: test-storage-azure
   clusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
@@ -31,13 +31,11 @@ spec:
     enabled: false
   backup:
     storages:
-      test-storage:
-        s3:
-          bucket: test-backup-bucket
-          credentialsSecret: test-psmdb-cluster-backup-s3
-          endpointUrl: s3.amazonaws.com
-          region: us-east-2
-        type: s3
+      test-storage-azure:
+        azure:
+          container: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-azure
+        type: azure
 status:
   replsets:
     rs0:

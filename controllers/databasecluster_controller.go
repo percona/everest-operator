@@ -134,6 +134,8 @@ var (
 	memorySmallSize  = resource.MustParse("2G")
 	memoryMediumSize = resource.MustParse("8G")
 	memoryLargeSize  = resource.MustParse("32G")
+
+	errPSMDBOneStorageRestriction = fmt.Errorf("using more than one storage is not allowed for psmdb clusters")
 )
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
@@ -369,10 +371,11 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
 ) (psmdbv1.BackupSpec, error) {
+	emptySpec := psmdbv1.BackupSpec{Enabled: false}
 	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
 	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
 	if !ok {
-		return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("backup version %s not available", bestBackupVersion)
+		return emptySpec, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
 	psmdbBackupSpec := psmdbv1.BackupSpec{
@@ -401,7 +404,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	}
 	err := r.List(ctx, backupList, listOps)
 	if err != nil {
-		return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
+		return emptySpec, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
 	}
 
 	// Add the storages used by the DatabaseClusterBackup objects
@@ -414,11 +417,11 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 		if database.Namespace != r.defaultNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
-				return psmdbv1.BackupSpec{Enabled: false}, err
+				return emptySpec, err
 			}
 		}
 
@@ -444,7 +447,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return emptySpec, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 
@@ -456,7 +459,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	}
 	err = r.List(ctx, restoreList, listOps)
 	if err != nil {
-		return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
+		return emptySpec, errors.Join(err, errors.New("failed to list DatabaseClusterRestore objects"))
 	}
 
 	// Add used restore backup storages to the list
@@ -475,7 +478,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		backup := &everestv1alpha1.DatabaseClusterBackup{}
 		err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.DBClusterBackupName, Namespace: restore.Namespace}, backup)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, errors.New("failed to get DatabaseClusterBackup"))
+			return emptySpec, errors.Join(err, errors.New("failed to get DatabaseClusterBackup"))
 		}
 
 		// Check if we already fetched that backup storage
@@ -486,11 +489,11 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
+			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
 		if database.Namespace != r.defaultNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
-				return psmdbv1.BackupSpec{Enabled: false}, err
+				return emptySpec, err
 			}
 		}
 
@@ -516,13 +519,16 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return emptySpec, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 	}
 
 	// If scheduled backups are disabled, just return the storages used in
 	// DatabaseClusterBackup objects
 	if !database.Spec.Backup.Enabled {
+		if len(storages) > 1 {
+			return emptySpec, errPSMDBOneStorageRestriction
+		}
 		psmdbBackupSpec.Storages = storages
 		return psmdbBackupSpec, nil
 	}
@@ -536,11 +542,11 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: r.defaultNamespace}, backupStorage)
 		if err != nil {
-			return psmdbv1.BackupSpec{Enabled: false}, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
+			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
 		}
 		if database.Namespace != r.defaultNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
-				return psmdbv1.BackupSpec{Enabled: false}, err
+				return emptySpec, err
 			}
 		}
 
@@ -566,7 +572,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 				},
 			}
 		default:
-			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+			return emptySpec, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 		}
 
 		tasks = append(tasks, psmdbv1.BackupTaskSpec{
@@ -579,15 +585,15 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 	}
 
 	if database.Spec.Backup.PITR.Enabled {
-		if len(storages) > 1 {
-			return psmdbv1.BackupSpec{Enabled: false}, fmt.Errorf("can not enable PITR: more than one storage is used for the cluster")
-		}
-
 		interval := database.Spec.Backup.PITR.UploadIntervalSec
 		if interval != nil {
 			// the integer amount of minutes. default 10
 			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(strconv.Itoa(*interval / 60))
 		}
+	}
+
+	if len(storages) > 1 {
+		return emptySpec, errPSMDBOneStorageRestriction
 	}
 
 	psmdbBackupSpec.Storages = storages
