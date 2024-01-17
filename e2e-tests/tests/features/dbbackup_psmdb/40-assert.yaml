@@ -48,4 +48,4 @@ spec:
       backupStorageName: test-storage
       uploadIntervalSec: 120
 status:
-  defaultStorage: test-storage
+  activeStorage: test-storage

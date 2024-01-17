@@ -284,8 +284,8 @@ type DatabaseClusterStatus struct {
 	Size int32 `json:"size,omitempty"`
 	// Message is extra information about the cluster
 	Message string `json:"message,omitempty"`
-	// DefaultStorage is the storage used by default (psmdb only)
-	DefaultStorage string `json:"defaultStorage,omitempty"`
+	// ActiveStorage is the storage used in cluster (psmdb only)
+	ActiveStorage string `json:"activeStorage,omitempty"`
 }
 
 //+kubebuilder:object:root=true
