@@ -10,17 +10,20 @@ spec:
   multiCluster:
     enabled: false
   backup:
+    pitr:
+      enabled: true
+      oplogSpanMin: 2
     tasks:
     - enabled: true
       keep: 1
       name: daily-backup
       schedule: "0 0 * * *"
-      storageName: test-storage-scheduled
+      storageName: test-storage
     storages:
-      test-storage-scheduled:
+      test-storage:
         s3:
-          bucket: test-backup-bucket-scheduled
-          credentialsSecret: test-psmdb-cluster-backup-s3-scheduled
+          bucket: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-s3
           endpointUrl: s3.amazonaws.com
           region: us-east-2
         type: s3
@@ -32,3 +35,17 @@ status:
       size: 1
       status: ready
   state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  backup:
+    enabled: true
+    pitr:
+      enabled: true
+      backupStorageName: test-storage
+      uploadIntervalSec: 120
+status:
+  activeStorage: test-storage

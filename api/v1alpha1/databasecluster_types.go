@@ -236,7 +236,7 @@ type PITRSpec struct {
 	// Enabled is a flag to enable PITR
 	Enabled bool `json:"enabled"`
 	// BackupStorageName is the name of the BackupStorage where the PITR is enabled
-	BackupStorageName string `json:"backupStorageName"`
+	BackupStorageName *string `json:"backupStorageName,omitempty"`
 	// UploadIntervalSec number of seconds between the binlogs uploads
 	UploadIntervalSec *int `json:"uploadIntervalSec,omitempty"`
 }
@@ -284,6 +284,8 @@ type DatabaseClusterStatus struct {
 	Size int32 `json:"size,omitempty"`
 	// Message is extra information about the cluster
 	Message string `json:"message,omitempty"`
+	// ActiveStorage is the storage used in cluster (psmdb only)
+	ActiveStorage string `json:"activeStorage,omitempty"`
 }
 
 //+kubebuilder:object:root=true
