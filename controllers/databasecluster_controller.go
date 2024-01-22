@@ -2745,6 +2745,13 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 			needsUpdate = true
 		}
 	}
+	if database.Spec.Backup.PITR.BackupStorageName != nil {
+		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)]; !ok {
+			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)] = backupStorageLabelValue
+			needsUpdate = true
+		}
+	}
+
 	for _, schedule := range database.Spec.Backup.Schedules {
 		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
 			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
