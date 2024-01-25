@@ -43,7 +43,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.0
+          PG_OPERATOR_VERSION: 2.3.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
 
@@ -126,7 +126,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.0
+          PG_OPERATOR_VERSION: 2.3.1
           PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
           PREVIOUS_PXC_OPERATOR_VERSION: 1.12.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
@@ -135,6 +135,8 @@ jobs:
       - name: Clean up custom resources
         if: always()
         continue-on-error: true
+        # If this does not finish in 10 minutes, it's stuck with some resource having a finalizer.
+        timeout-minutes: 10
         run: |
           namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
           for namespace in ${namespaces[@]}
@@ -166,7 +168,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.0
+          PG_OPERATOR_VERSION: 2.3.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
@@ -176,7 +178,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.13.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.0
+          PG_OPERATOR_VERSION: 2.3.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
