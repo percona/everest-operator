@@ -267,6 +267,14 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
+
+		if restore.Spec.DataSource.PITR != nil {
+			psmdbCR.Spec.PITR = &psmdbv1.PITRestoreSpec{
+				Type: psmdbv1.PITRestoreType(restore.Spec.DataSource.PITR.Type),
+				Date: &psmdbv1.PITRestoreDate{Time: restore.Spec.DataSource.PITR.Date.Time},
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
