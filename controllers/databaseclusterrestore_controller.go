@@ -557,6 +557,7 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 	case everestv1alpha1.PITRTypeLatest:
 		//nolint:godox
 		// TODO: figure out why "latest" doesn't work currently for Everest
+		return nil, errors.New("'latest' type is not supported by Everest yet")
 	default:
 		return nil, errors.New("unknown PITR type")
 	}
