@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 1000000
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBRestore
+metadata:
+  name: test-db-restore
+spec:
+  backupName: test-db-backup-pitr
+  clusterName: test-psmdb-cluster
+  pitr:
+    date: "2023-12-06 14:24:42"
+    type: date
