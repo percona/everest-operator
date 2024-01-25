@@ -555,7 +555,7 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 		}
 		date = dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace)
 	case everestv1alpha1.PITRTypeLatest:
-		// TODO: figure out why "latest" doesn't work currently for Everest
+		// TODO: figure out why "latest" doesn't work currently for Everest //nolint:godox
 	default:
 		return nil, errors.New("unknown PITR type")
 	}
