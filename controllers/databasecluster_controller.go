@@ -2765,7 +2765,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 		}
 	}
 	for key := range database.ObjectMeta.Labels {
-		if key == databaseClusterNameLabel {
+		if key == databaseClusterNameLabel || key == monitoringConfigNameLabel {
 			continue
 		}
 		var found bool
