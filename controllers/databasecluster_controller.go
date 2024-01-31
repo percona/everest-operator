@@ -2759,7 +2759,8 @@ func (r *DatabaseClusterReconciler) reconcileLabels(ctx context.Context, databas
 		}
 	}
 	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
-		if _, ok := database.ObjectMeta.Labels[monitoringConfigNameLabel]; !ok {
+		monitoringConfigName, ok := database.ObjectMeta.Labels[monitoringConfigNameLabel]
+		if !ok || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
 			database.ObjectMeta.Labels[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
 			needsUpdate = true
 		}
