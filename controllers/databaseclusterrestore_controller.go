@@ -49,6 +49,14 @@ const (
 	clusterReadyTimeout = 10 * time.Minute
 
 	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
+	pgBackupTypeImmediate              = "immediate"
+	pgBackupTypeDate                   = "time"
+)
+
+var (
+	errPitrTypeIsNotSupported = errors.New("unknown PITR type")
+	errPitrTypeLatest         = errors.New("'latest' type is not supported by Everest yet")
+	errPitrEmptyDate          = errors.New("no date provided for PITR of type 'date'")
 )
 
 // DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
@@ -269,6 +277,10 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		}
 
 		if restore.Spec.DataSource.PITR != nil {
+			if err := validatePitrRestoreSpec(restore.Spec.DataSource); err != nil {
+				return err
+			}
+
 			psmdbCR.Spec.PITR = &psmdbv1.PITRestoreSpec{
 				Type: psmdbv1.PITRestoreType(restore.Spec.DataSource.PITR.Type),
 				Date: &psmdbv1.PITRestoreDate{Time: restore.Spec.DataSource.PITR.Date.Time},
@@ -437,11 +449,8 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
 		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
-		pgCR.Spec.Options = []string{
-			"--type=immediate",
-			"--set=" + backupBaseName,
-		}
-		return nil
+		pgCR.Spec.Options, err = getPGRestoreOptions(restore, backupBaseName)
+		return err
 	})
 	if err != nil {
 		return err
@@ -555,19 +564,8 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
 	}
 
-	var date string
-	switch dataSource.PITR.Type {
-	case everestv1alpha1.PITRTypeDate:
-		if dataSource.PITR.Date == nil {
-			return nil, errors.New("no date provided for PITR of type 'date'")
-		}
-		date = dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace)
-	case everestv1alpha1.PITRTypeLatest:
-		//nolint:godox
-		// TODO: figure out why "latest" doesn't work currently for Everest
-		return nil, errors.New("'latest' type is not supported by Everest yet")
-	default:
-		return nil, errors.New("unknown PITR type")
+	if err := validatePitrRestoreSpec(dataSource); err != nil {
+		return nil, err
 	}
 
 	return &pxcv1.PITR{
@@ -575,6 +573,50 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 			StorageName: pitrStorageName(*db.Spec.Backup.PITR.BackupStorageName),
 		},
 		Type: string(dataSource.PITR.Type),
-		Date: date,
+		Date: dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace),
 	}, nil
+}
+
+func getPGRestoreOptions(restore *everestv1alpha1.DatabaseClusterRestore, backupBaseName string) ([]string, error) {
+	options := []string{
+		"--set=" + backupBaseName,
+	}
+
+	if restore.Spec.DataSource.PITR != nil {
+		if err := validatePitrRestoreSpec(restore.Spec.DataSource); err != nil {
+			return nil, err
+		}
+		dateString := fmt.Sprintf(`"%s"`, restore.Spec.DataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace))
+		options = append(options, "--type="+pgBackupTypeDate)
+		options = append(options, "--target="+dateString)
+	} else {
+		options = append(options, "--type="+pgBackupTypeImmediate)
+	}
+
+	return options, nil
+}
+
+func validatePitrRestoreSpec(dataSource everestv1alpha1.DataSource) error {
+	if dataSource.PITR == nil {
+		return nil
+	}
+
+	// use 'date' as default
+	if dataSource.PITR.Type == "" {
+		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
+	}
+
+	switch dataSource.PITR.Type {
+	case everestv1alpha1.PITRTypeDate:
+		if dataSource.PITR.Date == nil {
+			return errPitrEmptyDate
+		}
+	case everestv1alpha1.PITRTypeLatest:
+		//nolint:godox
+		// TODO: figure out why "latest" doesn't work currently for Everest
+		return errPitrTypeLatest
+	default:
+		return errPitrTypeIsNotSupported
+	}
+	return nil
 }
