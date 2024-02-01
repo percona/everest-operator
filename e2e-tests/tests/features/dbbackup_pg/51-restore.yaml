@@ -1,0 +1,15 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterRestore
+metadata:
+  name: test-db-restore
+spec:
+  dataSource:
+    dbClusterBackupName: test-db-backup
+    pitr:
+      date: "2023-12-06T14:24:42Z"
+      type: date
+  dbClusterName: test-pg-cluster
+
