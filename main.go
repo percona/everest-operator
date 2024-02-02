@@ -47,7 +47,7 @@ import (
 
 const (
 	systemNamespaceEnvVar  = "SYSTEM_NAMESPACE"
-	watchNamespacesEnvVar  = "WATCH_NAMESPACES"
+	dbNamespacesEnvVar     = "DB_NAMESPACES"
 )
 
 var (
@@ -84,16 +84,15 @@ func main() {
 
 		os.Exit(1)
 	}
-	watchNamespaces, found := os.LookupEnv(watchNamespacesEnvVar)
+	dbNamespacesString, found := os.LookupEnv(dbNamespacesEnvVar)
 	if !found {
-		setupLog.Error(errors.New("failed to get watch namespaces"), fmt.Sprintf("%s must be set", defaultNamespaceEnvVar))
+		setupLog.Error(errors.New("failed to get db namespaces"), fmt.Sprintf("%s must be set", dbNamespacesEnvVar))
 	}
-	cacheConfig := map[string]cache.Config{}
-	namespaces := []string{systemNamespace}
-	if watchNamespaces != "" && strings.Contains(watchNamespaces, ",") {
-		namespaces = append(namespaces, strings.Split(watchNamespaces, ",")...)
+	cacheConfig := map[string]cache.Config{
+		systemNamespace:     cache.Config{},
 	}
-	for _, ns := range namespaces {
+	dbNamespaces := strings.Split(dbNamespacesString, ",")
+	for _, ns := range dbNamespaces {
 		cacheConfig[ns] = cache.Config{}
 	}
 
@@ -130,7 +129,7 @@ func main() {
 		Kind:    "Namespace",
 		Version: "v1",
 	})
-	for _, namespaceName := range namespaces {
+	for _, namespaceName := range dbNamespaces {
 		namespaceName := namespaceName
 		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
 		if err != nil {
@@ -148,7 +147,7 @@ func main() {
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, namespaces); err != nil {
+	}).SetupWithManager(mgr, dbNamespaces); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
