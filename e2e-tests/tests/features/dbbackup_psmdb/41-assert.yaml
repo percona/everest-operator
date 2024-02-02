@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 1000000
+timeout: 100
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBRestore

@@ -403,7 +403,9 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		}
 
 		backupStorageName = backup.Spec.BackupStorageName
-		backupBaseName = filepath.Base(*backup.Status.Destination)
+		if backup.Status.Destination != nil {
+			backupBaseName = filepath.Base(*backup.Status.Destination)
+		}
 	}
 	if restore.Spec.DataSource.BackupSource != nil {
 		backupStorageName = restore.Spec.DataSource.BackupSource.BackupStorageName
