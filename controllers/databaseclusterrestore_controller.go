@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -122,7 +123,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		}
 	}
 	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
-		if err := r.restorePSMDB(ctx, cr, dbCR); err != nil {
+		if err := r.restorePSMDB(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
 			// the storage is not defined in the upstream DB cluster CR, we
@@ -178,7 +179,6 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
-	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
@@ -246,7 +246,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 			}
 
 			psmdbCR.Spec.BackupSource = &psmdbv1.PerconaServerMongoDBBackupStatus{
-				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, restore.Spec.DataSource.BackupSource.Path),
+				Destination: restore.Spec.DataSource.BackupSource.Path,
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
@@ -255,18 +255,26 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
 					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(db),
+					Prefix:            parsePrefixFromDestination(restore.Spec.DataSource.BackupSource.Path),
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
 					Container:         backupStorage.Spec.Bucket,
-					Prefix:            backupStoragePrefix(db),
+					Prefix:            parsePrefixFromDestination(restore.Spec.DataSource.BackupSource.Path),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
 		}
+
+		if restore.Spec.DataSource.PITR != nil {
+			psmdbCR.Spec.PITR = &psmdbv1.PITRestoreSpec{
+				Type: psmdbv1.PITRestoreType(restore.Spec.DataSource.PITR.Type),
+				Date: &psmdbv1.PITRestoreDate{Time: restore.Spec.DataSource.PITR.Date.Time},
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -343,17 +351,11 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 		}
 
 		if restore.Spec.DataSource.PITR != nil {
-			if db.Spec.Backup.PITR.BackupStorageName == "" {
-				return fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
+			spec, err := genPXCPitrRestoreSpec(restore.Spec.DataSource, *db)
+			if err != nil {
+				return err
 			}
-			pxcCR.Spec.PITR = &pxcv1.PITR{
-				BackupSource: &pxcv1.PXCBackupStatus{
-					StorageName: pitrStorageName(db.Spec.Backup.PITR.BackupStorageName),
-				},
-				Type: string(restore.Spec.DataSource.PITR.Type),
-				// pxc accepts only the special format
-				Date: restore.Spec.DataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace),
-			}
+			pxcCR.Spec.PITR = spec
 		}
 
 		return nil
@@ -534,4 +536,45 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 		return err
 	}
 	return controller.Complete(r)
+}
+
+func parsePrefixFromDestination(url string) string {
+	parts := strings.Split(url, "/")
+	l := len(parts)
+	// taking the third and the second last parts of the destination
+	return fmt.Sprintf("%s/%s", parts[l-3], parts[l-2])
+}
+
+func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1alpha1.DatabaseCluster) (*pxcv1.PITR, error) {
+	if db.Spec.Backup.PITR.BackupStorageName == nil || *db.Spec.Backup.PITR.BackupStorageName == "" {
+		return nil, fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
+	}
+
+	// use 'date' as default
+	if dataSource.PITR.Type == "" {
+		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
+	}
+
+	var date string
+	switch dataSource.PITR.Type {
+	case everestv1alpha1.PITRTypeDate:
+		if dataSource.PITR.Date == nil {
+			return nil, errors.New("no date provided for PITR of type 'date'")
+		}
+		date = dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace)
+	case everestv1alpha1.PITRTypeLatest:
+		//nolint:godox
+		// TODO: figure out why "latest" doesn't work currently for Everest
+		return nil, errors.New("'latest' type is not supported by Everest yet")
+	default:
+		return nil, errors.New("unknown PITR type")
+	}
+
+	return &pxcv1.PITR{
+		BackupSource: &pxcv1.PXCBackupStatus{
+			StorageName: pitrStorageName(*db.Spec.Backup.PITR.BackupStorageName),
+		},
+		Type: string(dataSource.PITR.Type),
+		Date: date,
+	}, nil
 }
