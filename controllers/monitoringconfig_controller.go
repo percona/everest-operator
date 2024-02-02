@@ -37,8 +37,8 @@ const (
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	defaultNamespace string
+	Scheme          *runtime.Scheme
+	systemNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -58,8 +58,8 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
 	monitoringConfigNamespace := req.NamespacedName.Namespace
-	if req.NamespacedName.Namespace != r.defaultNamespace {
-		monitoringConfigNamespace = r.defaultNamespace
+	if req.NamespacedName.Namespace != r.systemNamespace {
+		monitoringConfigNamespace = r.systemNamespace
 	}
 
 	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: monitoringConfigNamespace}, mc)
@@ -84,7 +84,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	defaultSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, defaultSecret)
+	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, defaultSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch Secret")
@@ -92,7 +92,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	var needsUpdate bool
-	if req.NamespacedName.Namespace == r.defaultNamespace {
+	if req.NamespacedName.Namespace == r.systemNamespace {
 		logger.Info("setting controller references for the secret")
 		needsUpdate, err = r.reconcileMonitoringConfig(ctx, mc, defaultSecret)
 		if err != nil {
@@ -122,7 +122,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 func (r *MonitoringConfigReconciler) handleDelete(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
 	for namespace := range mc.Status.UsedNamespaces {
-		if namespace == r.defaultNamespace {
+		if namespace == r.systemNamespace {
 			continue
 		}
 		secret := &corev1.Secret{}
@@ -140,7 +140,7 @@ func (r *MonitoringConfigReconciler) handleDelete(ctx context.Context, mc *evere
 
 func (r *MonitoringConfigReconciler) handleSecretUpdate(ctx context.Context, mc *everestv1alpha1.MonitoringConfig, defaultSecret *corev1.Secret) error {
 	for namespace := range mc.Status.UsedNamespaces {
-		if namespace == r.defaultNamespace {
+		if namespace == r.systemNamespace {
 			continue
 		}
 		secret := &corev1.Secret{}
@@ -177,8 +177,8 @@ func (r *MonitoringConfigReconciler) reconcileMonitoringConfig(ctx context.Conte
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, defaultNamespace string) error {
-	r.defaultNamespace = defaultNamespace
+func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+	r.systemNamespace = systemNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
 		Complete(r)

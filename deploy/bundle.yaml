@@ -1446,7 +1446,7 @@ spec:
         command:
         - /manager
         env:
-        - name: DEFAULT_NAMESPACE
+        - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace

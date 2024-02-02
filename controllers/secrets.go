@@ -33,8 +33,8 @@ import (
 // SecretReconciler reconciles a Secret object.
 type SecretReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	defaultNamespace string
+	Scheme          *runtime.Scheme
+	systemNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
@@ -76,7 +76,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *SecretReconciler) reconcileMonitoringConfigSecret(ctx context.Context, req ctrl.Request, secret *corev1.Secret) error { //nolint:dupl
 	logger := log.FromContext(ctx)
 	mc := &everestv1alpha1.MonitoringConfig{}
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, mc)
+	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, mc)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
@@ -107,7 +107,7 @@ func (r *SecretReconciler) reconcileMonitoringConfigSecret(ctx context.Context, 
 func (r *SecretReconciler) reconcileBackupStorageSecret(ctx context.Context, req ctrl.Request, secret *corev1.Secret) error { //nolint:dupl
 	logger := log.FromContext(ctx)
 	bs := &everestv1alpha1.BackupStorage{}
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, bs)
+	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, bs)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
@@ -137,8 +137,8 @@ func (r *SecretReconciler) reconcileBackupStorageSecret(ctx context.Context, req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager, defaultNamespace string) error {
-	r.defaultNamespace = defaultNamespace
+func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+	r.systemNamespace = systemNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
 		WithEventFilter(filterSecretsFunc()).

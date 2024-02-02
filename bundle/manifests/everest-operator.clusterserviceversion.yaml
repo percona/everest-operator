@@ -103,7 +103,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-01-17T12:53:45Z"
+    createdAt: "2024-02-02T14:10:22Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.0
@@ -547,7 +547,7 @@ spec:
                 command:
                 - /manager
                 env:
-                - name: DEFAULT_NAMESPACE
+                - name: SYSTEM_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
