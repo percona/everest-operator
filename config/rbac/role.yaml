@@ -197,6 +197,15 @@ rules:
   - patch
   - update
 - apiGroups:
+  - operator.victoriametrics.com
+  resources:
+  - vmagents
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
   - pgv2.percona.com
   resources:
   - perconapgbackups
