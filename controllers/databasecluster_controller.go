@@ -893,6 +893,10 @@ func (r *DatabaseClusterReconciler) updateSecretData(
 		return nil
 	}
 
+	err = controllerutil.SetControllerReference(database, secret, r.Scheme)
+	if err != nil {
+		return err
+	}
 	return r.Update(ctx, secret)
 }
 
@@ -913,15 +917,20 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 		return err
 	}
 
-	// If the secret does not exist, create it
-	return r.Create(ctx, &corev1.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: database.Namespace,
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: data,
-	})
+	}
+	err = controllerutil.SetControllerReference(database, secret, r.Scheme)
+	if err != nil {
+		return err
+	}
+	// If the secret does not exist, create it
+	return r.Create(ctx, secret)
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
