@@ -56,7 +56,7 @@ type BackupStorageReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:dupl
+func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	bs := &everestv1alpha1.BackupStorage{}
 	logger := log.FromContext(ctx)
 	backupStorageNamespace := req.NamespacedName.Namespace

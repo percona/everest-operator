@@ -18,6 +18,7 @@ kind: Secret
 metadata:
   name: test-mc
 data:
+  username: YXBpX2tleQ==
   apiKey: YWJjZGVm
 ---
 apiVersion: v1
@@ -39,7 +40,6 @@ spec:
   credentialsSecretName: test-storage-scheduled
   region: us-east-2
   endpointURL: s3.amazonaws.com
----
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster

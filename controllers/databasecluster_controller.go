@@ -857,7 +857,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 			return "", err
 		}
 
-		if key, ok := secret.Data["apiKey"]; ok {
+		if key, ok := secret.Data[everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey]; ok {
 			secretData = string(key)
 		}
 	}

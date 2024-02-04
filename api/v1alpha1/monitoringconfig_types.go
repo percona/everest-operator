@@ -25,6 +25,10 @@ type MonitoringType string
 const (
 	// PMMMonitoringType represents monitoring via PMM.
 	PMMMonitoringType MonitoringType = "pmm"
+	// MonitoringConfigCredentialsSecretUsernameKey is the credentials secret's key that contains the username.
+	MonitoringConfigCredentialsSecretUsernameKey = "username"
+	// MonitoringConfigCredentialsSecretAPIKeyKey is the credentials secret's key that contains the API key.
+	MonitoringConfigCredentialsSecretAPIKeyKey = "apiKey"
 )
 
 // MonitoringConfigSpec defines the desired state of MonitoringConfig.
