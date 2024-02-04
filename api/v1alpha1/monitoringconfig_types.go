@@ -49,9 +49,7 @@ type PMMConfig struct {
 }
 
 // MonitoringConfigStatus defines the observed state of MonitoringConfig.
-type MonitoringConfigStatus struct {
-	UsedNamespaces map[string]bool `json:"usedNamespaces"`
-}
+type MonitoringConfigStatus struct{}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -77,30 +75,6 @@ type MonitoringConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
-}
-
-// UpdateNamespacesList updates the list of namespaces that use the monitoring config.
-func (m *MonitoringConfig) UpdateNamespacesList(namespace string) bool {
-	if m.Status.UsedNamespaces == nil {
-		m.Status.UsedNamespaces = make(map[string]bool)
-	}
-	if _, ok := m.Status.UsedNamespaces[namespace]; ok {
-		return false
-	}
-	m.Status.UsedNamespaces[namespace] = true
-	return true
-}
-
-// DeleteUsedNamespace deletes the namespace from the usedNamespaces list.
-func (m *MonitoringConfig) DeleteUsedNamespace(namespace string) bool {
-	if m.Status.UsedNamespaces == nil {
-		return false
-	}
-	if _, ok := m.Status.UsedNamespaces[namespace]; ok {
-		delete(m.Status.UsedNamespaces, namespace)
-		return true
-	}
-	return false
 }
 
 // IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.

@@ -30,10 +30,6 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-const (
-	labelMonitoringConfigName = "percona.com/monitoring-config-name"
-)
-
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
 	client.Client
@@ -57,123 +53,37 @@ type MonitoringConfigReconciler struct {
 func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:dupl
 	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
-	monitoringConfigNamespace := req.NamespacedName.Namespace
-	if req.NamespacedName.Namespace != r.systemNamespace {
-		monitoringConfigNamespace = r.systemNamespace
-	}
 
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: monitoringConfigNamespace}, mc)
+	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, mc)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
 		// cluster is deleted.
 		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch BackupStorage")
+			logger.Error(err, "unable to fetch MonitoringConfig")
 		}
 		return reconcile.Result{}, err
 	}
-	if mc.DeletionTimestamp != nil {
-		logger.Info("cleaning up the secrets across namespaces")
-		if err := r.handleDelete(ctx, mc); err != nil {
-			return ctrl.Result{}, err
-		}
-		logger.Info("all secrets were removed")
-		controllerutil.RemoveFinalizer(mc, cleanupSecretsFinalizer)
-		if err := r.Update(ctx, mc); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	defaultSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, defaultSecret)
+
+	credentialsSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{Name: mc.Spec.CredentialsSecretName, Namespace: r.systemNamespace}, credentialsSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch Secret")
 		}
 		return ctrl.Result{}, err
 	}
-	var needsUpdate bool
-	if req.NamespacedName.Namespace == r.systemNamespace {
-		logger.Info("setting controller references for the secret")
-		needsUpdate, err = r.reconcileMonitoringConfig(ctx, mc, defaultSecret)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if !controllerutil.ContainsFinalizer(mc, cleanupSecretsFinalizer) {
-			controllerutil.AddFinalizer(mc, cleanupSecretsFinalizer)
-			if err := r.Update(ctx, mc); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
 
-	logger.Info("updating secrets in used namespaces")
-	if err := r.handleSecretUpdate(ctx, mc, defaultSecret); err != nil {
+	logger.Info("setting controller references for the secret")
+	err := controllerutil.SetControllerReference(mc, credentialsSecret, r.Client.Scheme())
+	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if needsUpdate {
-		err := r.Status().Update(ctx, mc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if err = r.Update(ctx, credentialsSecret); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *MonitoringConfigReconciler) handleDelete(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
-	for namespace := range mc.Status.UsedNamespaces {
-		if namespace == r.systemNamespace {
-			continue
-		}
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{Name: mc.Name, Namespace: namespace}, secret)
-		if err != nil {
-			return err
-		}
-		err = r.Delete(ctx, secret)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *MonitoringConfigReconciler) handleSecretUpdate(ctx context.Context, mc *everestv1alpha1.MonitoringConfig, defaultSecret *corev1.Secret) error {
-	for namespace := range mc.Status.UsedNamespaces {
-		if namespace == r.systemNamespace {
-			continue
-		}
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{Name: mc.Name, Namespace: namespace}, secret)
-		if err != nil {
-			return err
-		}
-		secret.Data = defaultSecret.Data
-		secret.Type = defaultSecret.Type
-		secret.StringData = defaultSecret.StringData
-		err = r.Update(ctx, secret)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *MonitoringConfigReconciler) reconcileMonitoringConfig(ctx context.Context, mc *everestv1alpha1.MonitoringConfig, defaultSecret *corev1.Secret) (bool, error) {
-	err := controllerutil.SetControllerReference(mc, defaultSecret, r.Client.Scheme())
-	if err != nil {
-		return false, err
-	}
-	if err = r.Update(ctx, defaultSecret); err != nil {
-		return false, err
-	}
-
-	if mc.UpdateNamespacesList(defaultSecret.Namespace) {
-		if err := r.Status().Update(ctx, mc); err != nil {
-			return false, err
-		}
-	}
-	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

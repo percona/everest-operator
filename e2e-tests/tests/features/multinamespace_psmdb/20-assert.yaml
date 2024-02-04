@@ -5,14 +5,6 @@ timeout: 100
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-mc
-  namespace: kuttl-test-psmdb
-data:
-  apiKey: YWJjZGVm
----
-apiVersion: v1
-kind: Secret
-metadata:
   name: test-storage-scheduled
   namespace: kuttl-test-psmdb
 type: Opaque

@@ -65,46 +65,10 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, err
 		}
 	}
-	if _, ok := secret.Labels[labelMonitoringConfigName]; ok {
-		if err := r.reconcileMonitoringConfigSecret(ctx, req, secret); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 	return ctrl.Result{}, nil
 }
 
-func (r *SecretReconciler) reconcileMonitoringConfigSecret(ctx context.Context, req ctrl.Request, secret *corev1.Secret) error { //nolint:dupl
-	logger := log.FromContext(ctx)
-	mc := &everestv1alpha1.MonitoringConfig{}
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, mc)
-	if err != nil {
-		// NotFound cannot be fixed by requeuing so ignore it. During background
-		// deletion, we receive delete events from cluster's dependents after
-		// cluster is deleted.
-		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch BackupStorage")
-		}
-		return err
-	}
-	var needsUpdate bool
-	if secret.DeletionTimestamp == nil && mc.DeletionTimestamp == nil && mc.UpdateNamespacesList(req.NamespacedName.Namespace) {
-		needsUpdate = true
-	}
-	if secret.DeletionTimestamp != nil && mc.DeletionTimestamp == nil {
-		if mc.DeleteUsedNamespace(secret.Namespace) {
-			logger.Info("Status updated")
-			needsUpdate = true
-		}
-	}
-	if needsUpdate {
-		if err := r.Status().Update(ctx, mc); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *SecretReconciler) reconcileBackupStorageSecret(ctx context.Context, req ctrl.Request, secret *corev1.Secret) error { //nolint:dupl
+func (r *SecretReconciler) reconcileBackupStorageSecret(ctx context.Context, req ctrl.Request, secret *corev1.Secret) error {
 	logger := log.FromContext(ctx)
 	bs := &everestv1alpha1.BackupStorage{}
 	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, bs)
@@ -151,9 +115,6 @@ func filterSecretsFunc() predicate.Predicate { //nolint:ireturn
 			if _, ok := e.Object.GetLabels()[labelBackupStorageName]; ok {
 				return true
 			}
-			if _, ok := e.Object.GetLabels()[labelMonitoringConfigName]; ok {
-				return true
-			}
 			return false
 		},
 
@@ -161,16 +122,10 @@ func filterSecretsFunc() predicate.Predicate { //nolint:ireturn
 			if _, ok := e.ObjectNew.GetLabels()[labelBackupStorageName]; ok {
 				return true
 			}
-			if _, ok := e.ObjectNew.GetLabels()[labelMonitoringConfigName]; ok {
-				return true
-			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			if _, ok := e.Object.GetLabels()[labelBackupStorageName]; ok {
-				return true
-			}
-			if _, ok := e.Object.GetLabels()[labelMonitoringConfigName]; ok {
 				return true
 			}
 			return false
