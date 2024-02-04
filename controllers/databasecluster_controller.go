@@ -141,8 +141,9 @@ var (
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	systemNamespace string
+	Scheme              *runtime.Scheme
+	systemNamespace     string
+	monitoringNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -746,7 +747,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: r.systemNamespace,
+				Namespace: r.monitoringNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
@@ -850,7 +851,7 @@ func (r *DatabaseClusterReconciler) getSecretFromMonitoringConfig(
 		secret = &corev1.Secret{}
 		err := r.Get(ctx, types.NamespacedName{
 			Name:      monitoring.Spec.CredentialsSecretName,
-			Namespace: r.defaultNamespace,
+			Namespace: r.monitoringNamespace,
 		}, secret)
 		if err != nil {
 			return "", err
@@ -1421,7 +1422,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: r.systemNamespace,
+				Namespace: r.monitoringNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
@@ -2584,7 +2585,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
 			err := r.Get(ctx, types.NamespacedName{
-				Namespace: r.systemNamespace,
+				Namespace: r.monitoringNamespace,
 				Name:      database.Spec.Monitoring.MonitoringConfigName,
 			}, monitoring)
 			if err != nil {
@@ -2843,7 +2844,7 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace, monitoringNamespace string) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
@@ -2877,6 +2878,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 
 	r.initWatchers(controller)
 	r.systemNamespace = systemNamespace
+	r.monitoringNamespace = monitoringNamespace
 
 	return controller.Complete(r)
 }

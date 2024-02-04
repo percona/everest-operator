@@ -33,8 +33,8 @@ import (
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	systemNamespace string
+	Scheme              *runtime.Scheme
+	monitoringNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -54,7 +54,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
 
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, mc)
+	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.monitoringNamespace}, mc)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
@@ -66,7 +66,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	credentialsSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: mc.Spec.CredentialsSecretName, Namespace: r.systemNamespace}, credentialsSecret)
+	err = r.Get(ctx, types.NamespacedName{Name: mc.Spec.CredentialsSecretName, Namespace: r.monitoringNamespace}, credentialsSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch Secret")
@@ -87,8 +87,8 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
-	r.systemNamespace = systemNamespace
+func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
+	r.monitoringNamespace = monitoringNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
 		Complete(r)

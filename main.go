@@ -46,8 +46,9 @@ import (
 )
 
 const (
-	systemNamespaceEnvVar  = "SYSTEM_NAMESPACE"
-	dbNamespacesEnvVar     = "DB_NAMESPACES"
+	systemNamespaceEnvVar     = "SYSTEM_NAMESPACE"
+	monitoringNamespaceEnvVar = "MONITORING_NAMESPACE"
+	dbNamespacesEnvVar        = "DB_NAMESPACES"
 )
 
 var (
@@ -84,12 +85,19 @@ func main() {
 
 		os.Exit(1)
 	}
+	monitoringNamespace, found := os.LookupEnv(monitoringNamespaceEnvVar)
+	if !found {
+		setupLog.Error(errors.New("failed to get the monitoring namespace"), fmt.Sprintf("%s must be set", monitoringNamespaceEnvVar))
+
+		os.Exit(1)
+	}
 	dbNamespacesString, found := os.LookupEnv(dbNamespacesEnvVar)
 	if !found {
 		setupLog.Error(errors.New("failed to get db namespaces"), fmt.Sprintf("%s must be set", dbNamespacesEnvVar))
 	}
 	cacheConfig := map[string]cache.Config{
-		systemNamespace:     cache.Config{},
+		systemNamespace:     {},
+		monitoringNamespace: {},
 	}
 	dbNamespaces := strings.Split(dbNamespacesString, ",")
 	for _, ns := range dbNamespaces {
@@ -140,7 +148,7 @@ func main() {
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr, systemNamespace, monitoringNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
@@ -182,7 +190,7 @@ func main() {
 	if err = (&controllers.MonitoringConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr, monitoringNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
