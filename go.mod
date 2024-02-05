@@ -17,9 +17,9 @@ require (
 	github.com/percona/percona-xtradb-cluster-operator v1.13.0
 	github.com/stretchr/testify v1.8.4
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.29.0
-	k8s.io/apimachinery v0.29.0
-	k8s.io/client-go v0.29.0
+	k8s.io/api v0.29.1
+	k8s.io/apimachinery v0.29.1
+	k8s.io/client-go v0.29.1
 	sigs.k8s.io/controller-runtime v0.16.3
 )
 
