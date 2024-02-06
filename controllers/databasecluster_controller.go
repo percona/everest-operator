@@ -1116,7 +1116,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 
 	if database.Spec.Backup.PITR.Enabled {
 		storageName := *database.Spec.Backup.PITR.BackupStorageName
-		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, database.Namespace)
+		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, r.systemNamespace)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to get pitr storage"))
 		}

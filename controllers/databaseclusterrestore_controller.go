@@ -54,7 +54,8 @@ const (
 // DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
 type DatabaseClusterRestoreReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	systemNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
@@ -240,7 +241,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		}
 		if restore.Spec.DataSource.BackupSource != nil {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
@@ -316,7 +317,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 
 		if restore.Spec.DataSource.BackupSource != nil {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: restore.Namespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
@@ -406,7 +407,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: restore.Namespace}, backupStorage)
+	err = r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.systemNamespace}, backupStorage)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 	}
@@ -496,7 +497,7 @@ func (r *DatabaseClusterRestoreReconciler) addPGToScheme(scheme *runtime.Scheme)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -535,6 +536,9 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	if err != nil {
 		return err
 	}
+
+	r.systemNamespace = systemNamespace
+
 	return controller.Complete(r)
 }
 
