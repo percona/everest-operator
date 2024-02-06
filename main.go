@@ -80,20 +80,22 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	systemNamespace, found := os.LookupEnv(systemNamespaceEnvVar)
-	if !found {
+	if !found || systemNamespace == "" {
 		setupLog.Error(errors.New("failed to get the system namespace"), fmt.Sprintf("%s must be set", systemNamespaceEnvVar))
 
 		os.Exit(1)
 	}
 	monitoringNamespace, found := os.LookupEnv(monitoringNamespaceEnvVar)
-	if !found {
+	if !found || monitoringNamespace == "" {
 		setupLog.Error(errors.New("failed to get the monitoring namespace"), fmt.Sprintf("%s must be set", monitoringNamespaceEnvVar))
 
 		os.Exit(1)
 	}
 	dbNamespacesString, found := os.LookupEnv(dbNamespacesEnvVar)
-	if !found {
+	if !found || dbNamespacesString == "" {
 		setupLog.Error(errors.New("failed to get db namespaces"), fmt.Sprintf("%s must be set", dbNamespacesEnvVar))
+
+		os.Exit(1)
 	}
 	cacheConfig := map[string]cache.Config{
 		systemNamespace:     {},
