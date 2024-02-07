@@ -76,7 +76,8 @@ var ErrBackupStorageUndefined = errors.New("backup storage is not defined in the
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	systemNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
@@ -128,7 +129,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	storage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, storage)
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, storage)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch BackupStorage")
@@ -170,7 +171,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -232,6 +233,9 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 				}))
 		}
 	}
+
+	r.systemNamespace = systemNamespace
+
 	return controller.Complete(r)
 }
 
@@ -655,7 +659,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: backup.Namespace}, backupStorage)
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 	}

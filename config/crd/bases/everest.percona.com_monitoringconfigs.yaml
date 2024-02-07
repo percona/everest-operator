@@ -75,13 +75,6 @@ spec:
             type: object
           status:
             description: MonitoringConfigStatus defines the observed state of MonitoringConfig.
-            properties:
-              usedNamespaces:
-                additionalProperties:
-                  type: boolean
-                type: object
-            required:
-            - usedNamespaces
             type: object
         type: object
     served: true

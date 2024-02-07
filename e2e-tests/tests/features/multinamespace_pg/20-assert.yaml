@@ -5,14 +5,6 @@ timeout: 120
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-mc
-  namespace: kuttl-test-pg
-data:
-  apiKey: YWJjZGVm
----
-apiVersion: v1
-kind: Secret
-metadata:
   name: test-storage-scheduled
   namespace: kuttl-test-pg
 type: Opaque

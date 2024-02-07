@@ -38,8 +38,8 @@ const (
 // BackupStorageReconciler reconciles a BackupStorage object.
 type BackupStorageReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	defaultNamespace string
+	Scheme          *runtime.Scheme
+	systemNamespace string
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
@@ -56,12 +56,12 @@ type BackupStorageReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:dupl
+func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	bs := &everestv1alpha1.BackupStorage{}
 	logger := log.FromContext(ctx)
 	backupStorageNamespace := req.NamespacedName.Namespace
-	if req.NamespacedName.Namespace != r.defaultNamespace {
-		backupStorageNamespace = r.defaultNamespace
+	if req.NamespacedName.Namespace != r.systemNamespace {
+		backupStorageNamespace = r.systemNamespace
 	}
 
 	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: backupStorageNamespace}, bs)
@@ -86,7 +86,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 	defaultSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.defaultNamespace}, defaultSecret)
+	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, defaultSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch Secret")
@@ -94,7 +94,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 	var needsUpdate bool
-	if req.NamespacedName.Namespace == r.defaultNamespace {
+	if req.NamespacedName.Namespace == r.systemNamespace {
 		logger.Info("setting controller references for the secret")
 		needsUpdate, err = r.reconcileBackupStorage(ctx, bs, defaultSecret)
 		if err != nil {
@@ -124,7 +124,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv1alpha1.BackupStorage) error {
 	for namespace := range bs.Status.UsedNamespaces {
-		if namespace == r.defaultNamespace {
+		if namespace == r.systemNamespace {
 			continue
 		}
 		secret := &corev1.Secret{}
@@ -142,7 +142,7 @@ func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv
 
 func (r *BackupStorageReconciler) handleSecretUpdate(ctx context.Context, bs *everestv1alpha1.BackupStorage, defaultSecret *corev1.Secret) error {
 	for namespace := range bs.Status.UsedNamespaces {
-		if namespace == r.defaultNamespace {
+		if namespace == r.systemNamespace {
 			continue
 		}
 		secret := &corev1.Secret{}
@@ -179,8 +179,8 @@ func (r *BackupStorageReconciler) reconcileBackupStorage(ctx context.Context, bs
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, defaultNamespace string) error {
-	r.defaultNamespace = defaultNamespace
+func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+	r.systemNamespace = systemNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).

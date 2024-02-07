@@ -17,6 +17,7 @@ kind: Secret
 metadata:
   name: test-mc
 data:
+  username: YXBpX2tleQ==
   apiKey: YWJjZGVm
 ---
 apiVersion: v1
