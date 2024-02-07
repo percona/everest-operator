@@ -2461,6 +2461,13 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 		pg.Finalizers = database.Finalizers
 		database.Finalizers = []string{}
 	}
+
+	// DataSource is not needed anymore when db is ready.
+	// Deleting it to prevent the future restoration conflicts.
+	if database.Status.Status == everestv1alpha1.AppStateReady {
+		database.Spec.DataSource = nil
+	}
+
 	if err := r.Update(ctx, database); err != nil {
 		return err
 	}
@@ -2640,6 +2647,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			return err
 		}
 
+		pg.Spec.DataSource = nil
 		if database.Spec.DataSource != nil {
 			pg.Spec.DataSource, err = r.genPGDataSourceSpec(ctx, database)
 			if err != nil {
