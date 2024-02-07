@@ -164,14 +164,14 @@ func main() {
 	if err = (&controllers.DatabaseClusterRestoreReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, systemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterRestore")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseClusterBackupReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, systemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
 		os.Exit(1)
 	}
