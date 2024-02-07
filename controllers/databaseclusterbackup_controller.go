@@ -682,6 +682,9 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		}})
 
 		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
+		pgCR.Spec.Options = []string{
+			"--type=full",
+		}
 		return nil
 	})
 	if err != nil {

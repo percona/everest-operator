@@ -28,6 +28,8 @@ metadata:
       name: test-db-backup
 spec:
   pgCluster: test-pg-cluster
+  options:
+    - --type=full
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGBackup
@@ -39,6 +41,8 @@ metadata:
       name: test-db-backup-azure
 spec:
   pgCluster: test-pg-cluster
+  options:
+    - --type=full
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster

@@ -21,6 +21,8 @@ metadata:
 spec:
   repoName: repo3
   pgCluster: test-pg-cluster
+  options:
+    - --type=full
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
