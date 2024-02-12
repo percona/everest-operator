@@ -2261,16 +2261,18 @@ func (r *DatabaseClusterReconciler) genPGDataSourceSpec(ctx context.Context, dat
 	}
 
 	repoName := "repo1"
+	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupBaseName)
+	if err != nil {
+		return nil, err
+	}
+
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
 				fmt.Sprintf(pgBackRestPathTmpl, repoName): globalDatasourceDestination(dest, database, backupStorage),
 			},
-			Stanza: "db",
-			Options: []string{
-				"--type=immediate",
-				"--set=" + backupBaseName,
-			},
+			Stanza:  "db",
+			Options: options,
 			// XXX: Remove this once templates will be available
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
