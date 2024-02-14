@@ -67,6 +67,9 @@ const (
 
 	dbClusterBackupDBClusterNameField = ".spec.dbClusterName"
 	pxcGapsReasonString               = "BinlogGapDetected"
+
+	deletePXCBackupFinalizer   = "delete-s3-backup"
+	deletePSMDBBackupFinalizer = "delete-backup"
 )
 
 // ErrBackupStorageUndefined is returned when a backup storage is not defined
@@ -498,6 +501,14 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 		return ErrBackupStorageUndefined
 	}
 
+	// We don't want any backups to be deleted so let's remove the finalizer
+	if controllerutil.ContainsFinalizer(pxcCR, deletePXCBackupFinalizer) {
+		controllerutil.RemoveFinalizer(pxcCR, deletePXCBackupFinalizer)
+		if err := r.Update(ctx, pxcCR); err != nil {
+			return err
+		}
+	}
+
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pxcAPIVersion,
@@ -539,9 +550,13 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 			Namespace: backup.Namespace,
 		},
 	}
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Name, Namespace: backup.Namespace}, psmdbCR)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
 
 	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
-	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
 	if err != nil {
 		return err
 	}
@@ -553,6 +568,14 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	}
 	if _, ok := psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
 		return ErrBackupStorageUndefined
+	}
+
+	// We don't want any backups to be deleted so let's remove the finalizer
+	if controllerutil.ContainsFinalizer(psmdbCR, deletePSMDBBackupFinalizer) {
+		controllerutil.RemoveFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
+		if err := r.Update(ctx, psmdbCR); err != nil {
+			return err
+		}
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
