@@ -94,23 +94,19 @@ func TestGetPGRestoreOptions(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name    string
-		data    everestv1alpha1.DatabaseClusterRestore
+		data    everestv1alpha1.DataSource
 		options []string
 	}{
 		{
 			name:    "only backup",
-			data:    everestv1alpha1.DatabaseClusterRestore{},
+			data:    everestv1alpha1.DataSource{},
 			options: []string{"--set=smth", "--type=immediate"},
 		},
 		{
 			name: "pitr with date",
-			data: everestv1alpha1.DatabaseClusterRestore{
-				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DataSource: everestv1alpha1.DataSource{
-						PITR: &everestv1alpha1.PITR{
-							Date: &everestv1alpha1.RestoreDate{},
-						},
-					},
+			data: everestv1alpha1.DataSource{
+				PITR: &everestv1alpha1.PITR{
+					Date: &everestv1alpha1.RestoreDate{},
 				},
 			},
 			options: []string{"--set=smth", "--type=time", "--target=\"0001-01-01 00:00:00\""},
@@ -120,7 +116,7 @@ func TestGetPGRestoreOptions(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			res, err := getPGRestoreOptions(&tc.data, "smth")
+			res, err := getPGRestoreOptions(tc.data, "smth")
 			require.NoError(t, err)
 			require.Equal(t, tc.options, res)
 		})

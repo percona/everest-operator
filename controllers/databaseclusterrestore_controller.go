@@ -452,7 +452,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
 		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
-		pgCR.Spec.Options, err = getPGRestoreOptions(restore, backupBaseName)
+		pgCR.Spec.Options, err = getPGRestoreOptions(restore.Spec.DataSource, backupBaseName)
 		return err
 	})
 	if err != nil {
@@ -583,16 +583,16 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 	}, nil
 }
 
-func getPGRestoreOptions(restore *everestv1alpha1.DatabaseClusterRestore, backupBaseName string) ([]string, error) {
+func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName string) ([]string, error) {
 	options := []string{
 		"--set=" + backupBaseName,
 	}
 
-	if restore.Spec.DataSource.PITR != nil {
-		if err := validatePitrRestoreSpec(restore.Spec.DataSource); err != nil {
+	if dataSource.PITR != nil {
+		if err := validatePitrRestoreSpec(dataSource); err != nil {
 			return nil, err
 		}
-		dateString := fmt.Sprintf(`"%s"`, restore.Spec.DataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace))
+		dateString := fmt.Sprintf(`"%s"`, dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace))
 		options = append(options, "--type="+pgBackupTypeDate)
 		options = append(options, "--target="+dateString)
 	} else {
