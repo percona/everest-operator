@@ -45,8 +45,8 @@ type BackupStorageSpec struct {
 	Description string `json:"description,omitempty"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
-	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
-	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
+	// AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 }
 
 // BackupStorageStatus defines the observed state of BackupStorage.
@@ -103,12 +103,12 @@ func (b *BackupStorage) DeleteUsedNamespace(namespace string) bool {
 	return false
 }
 
-// IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.
+// IsNamespaceAllowed checks the namespace against allowedNamespaces and returns if it's allowed to use.
 func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
-	if len(b.Spec.TargetNamespaces) == 0 {
+	if len(b.Spec.AllowedNamespaces) == 0 {
 		return true
 	}
-	for _, ns := range b.Spec.TargetNamespaces {
+	for _, ns := range b.Spec.AllowedNamespaces {
 		ns := ns
 		if ns == namespace {
 			return true
