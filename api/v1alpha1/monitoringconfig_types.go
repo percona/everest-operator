@@ -38,8 +38,8 @@ type MonitoringConfigSpec struct {
 	Type MonitoringType `json:"type"`
 	// CredentialsSecretName is the name of the secret with credentials.
 	CredentialsSecretName string `json:"credentialsSecretName"`
-	// TargetNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
-	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
+	// AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
+	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 	// PMM is configuration for the PMM monitoring type.
 	PMM PMMConfig `json:"pmm,omitempty"`
 }
@@ -81,12 +81,12 @@ func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
 }
 
-// IsNamespaceAllowed checks the namespace against targetNamespaces and returns if it's allowed to use.
+// IsNamespaceAllowed checks the namespace against allowedNamespaces and returns if it's allowed to use.
 func (m *MonitoringConfig) IsNamespaceAllowed(namespace string) bool {
-	if len(m.Spec.TargetNamespaces) == 0 {
+	if len(m.Spec.AllowedNamespaces) == 0 {
 		return true
 	}
-	for _, ns := range m.Spec.TargetNamespaces {
+	for _, ns := range m.Spec.AllowedNamespaces {
 		ns := ns
 		if ns == namespace {
 			return true
