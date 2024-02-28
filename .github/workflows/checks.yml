@@ -43,10 +43,10 @@ jobs:
           popd        && go mod tidy -v
           git status
           git diff --exit-code
-      - name: Run check-license
-        run: |
-          # run license checker on configured files
-          bin/license-eye -c .licenserc.yaml header check
+
+      - name: Check License Header
+        uses: apache/skywalking-eyes/header@v0.5.0
+
       - name: Run go-sumtype
         run: bin/go-sumtype ./...
 
