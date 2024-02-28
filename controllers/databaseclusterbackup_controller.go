@@ -251,7 +251,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
 	if len(obj.GetOwnerReferences()) == 0 {
 		err := createBackupFunc(ctx, obj)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("Failed to create DatabaseClusterBackup %s", obj.GetName()))
+			logger.Error(err, "Failed to create DatabaseClusterBackup "+obj.GetName())
 		}
 	}
 
@@ -637,7 +637,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	})
 	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(backupStorage.Spec.Bucket),
-		Prefix: aws.String(fmt.Sprintf("%s/backup/db/backup.history/", backupStoragePrefix(db))),
+		Prefix: aws.String(backupStoragePrefix(db) + "/backup/db/backup.history/"),
 	})
 	if err != nil {
 		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)

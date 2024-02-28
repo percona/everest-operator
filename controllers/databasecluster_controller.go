@@ -116,6 +116,8 @@ const (
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 	pgBackRestPathTmpl              = "%s-path"
 	pgBackRestRetentionTmpl         = "%s-retention-full"
+
+	everestSecretsPrefix = "everest-secrets-"
 )
 
 var (
@@ -135,7 +137,7 @@ var (
 	memoryMediumSize = resource.MustParse("8G")
 	memoryLargeSize  = resource.MustParse("32G")
 
-	errPSMDBOneStorageRestriction = fmt.Errorf("using more than one storage is not allowed for psmdb clusters")
+	errPSMDBOneStorageRestriction = errors.New("using more than one storage is not allowed for psmdb clusters")
 )
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
@@ -202,7 +204,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 	if database.Spec.Engine.UserSecretsName == "" {
-		database.Spec.Engine.UserSecretsName = fmt.Sprintf("everest-secrets-%s", database.Name)
+		database.Spec.Engine.UserSecretsName = everestSecretsPrefix + database.Name
 	}
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
@@ -255,7 +257,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
 	}
 
-	newSecretName := fmt.Sprintf("everest-secrets-%s", db.Name)
+	newSecretName := everestSecretsPrefix + db.Name
 	newSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      newSecretName,
@@ -270,7 +272,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return nil
 	}
 
-	prevSecretName := fmt.Sprintf("everest-secrets-%s", dbb.Spec.DBClusterName)
+	prevSecretName := everestSecretsPrefix + dbb.Spec.DBClusterName
 	secret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      prevSecretName,
@@ -702,7 +704,7 @@ func (r *DatabaseClusterReconciler) reconcilePSMDB(ctx context.Context, req ctrl
 
 		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 			Users:         database.Spec.Engine.UserSecretsName,
-			EncryptionKey: fmt.Sprintf("%s-mongodb-encryption-key", database.Name),
+			EncryptionKey: database.Name + "-mongodb-encryption-key",
 		}
 
 		if database.Spec.Engine.Config != "" {
@@ -1619,7 +1621,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 	switch storageType {
 	case everestv1alpha1.BackupStorageTypeS3:
 		_, err := cfg.Section("global").NewKey(
-			fmt.Sprintf("%s-s3-key", repoName),
+			repoName+"-s3-key",
 			string(secret.Data["AWS_ACCESS_KEY_ID"]),
 		)
 		if err != nil {
@@ -1627,7 +1629,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 		}
 
 		_, err = cfg.Section("global").NewKey(
-			fmt.Sprintf("%s-s3-key-secret", repoName),
+			repoName+"-s3-key-secret",
 			string(secret.Data["AWS_SECRET_ACCESS_KEY"]),
 		)
 		if err != nil {
@@ -1635,7 +1637,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 		}
 	case everestv1alpha1.BackupStorageTypeAzure:
 		_, err := cfg.Section("global").NewKey(
-			fmt.Sprintf("%s-azure-account", repoName),
+			repoName+"-azure-account",
 			string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"]),
 		)
 		if err != nil {
@@ -1643,7 +1645,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 		}
 
 		_, err = cfg.Section("global").NewKey(
-			fmt.Sprintf("%s-azure-key", repoName),
+			repoName+"-azure-key",
 			string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"]),
 		)
 		if err != nil {
@@ -1920,7 +1922,7 @@ func reconcilePGBackRestRepos(
 		}
 
 		if len(availableRepoNames) == 0 {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("exceeded max number of repos")
+			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.New("exceeded max number of repos")
 		}
 
 		repoName := availableRepoNames[0]
@@ -2461,7 +2463,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 	}
 
 	if pg.Spec.PMM.Secret == "" {
-		pg.Spec.PMM.Secret = fmt.Sprintf("everest-secrets-%s-pmm", database.Name)
+		pg.Spec.PMM.Secret = fmt.Sprintf("%s%s-pmm", everestSecretsPrefix, database.Name)
 	}
 
 	if len(database.Finalizers) != 0 {
@@ -2495,7 +2497,7 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 			controllerutil.AddFinalizer(pg, finalizerDeletePGSSL)
 		}
 		pg.TypeMeta = metav1.TypeMeta{
-			APIVersion: fmt.Sprintf("%s/v2", pgAPIGroup),
+			APIVersion: pgAPIGroup + "/v2",
 			Kind:       PerconaPGClusterKind,
 		}
 
@@ -3015,7 +3017,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 	controller.Watches(
 		&everestv1alpha1.DatabaseClusterBackup{},
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			dbClusterBackup, ok := obj.(*everestv1alpha1.DatabaseClusterBackup)
 			if !ok {
 				return []reconcile.Request{}
@@ -3034,7 +3036,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 	controller.Watches(
 		&everestv1alpha1.DatabaseClusterRestore{},
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			dbClusterRestore, ok := obj.(*everestv1alpha1.DatabaseClusterRestore)
 			if !ok {
 				return []reconcile.Request{}

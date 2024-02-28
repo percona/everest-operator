@@ -51,14 +51,14 @@ func (v *Version) ToCRVersion() string {
 
 // ToSemver returns version is semver format.
 func (v *Version) ToSemver() string {
-	return fmt.Sprintf("v%s", v.String())
+	return "v" + v.String()
 }
 
 // ToAPIVersion returns version that can be used as K8s APIVersion parameter.
 func (v *Version) ToAPIVersion(apiRoot string) string {
 	ver, _ := goversion.NewVersion("v1.12.0")
 	if v.version.GreaterThan(ver) {
-		return fmt.Sprintf("%s/v1", apiRoot)
+		return apiRoot + "/v1"
 	}
 	return fmt.Sprintf("%s/v%s", apiRoot, strings.ReplaceAll(v.String(), ".", "-"))
 }
