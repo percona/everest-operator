@@ -11,7 +11,7 @@ require (
 	github.com/go-ini/ini v1.67.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/onsi/ginkgo/v2 v2.15.0
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/gomega v1.31.1
 	github.com/percona/percona-postgresql-operator v0.0.0-20231220140959-ad5eef722609
 	github.com/percona/percona-server-mongodb-operator v1.15.0
 	github.com/percona/percona-xtradb-cluster-operator v1.13.0
