@@ -15,7 +15,7 @@ require (
 	github.com/percona/percona-postgresql-operator v0.0.0-20231220140959-ad5eef722609
 	github.com/percona/percona-server-mongodb-operator v1.15.0
 	github.com/percona/percona-xtradb-cluster-operator v1.13.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
