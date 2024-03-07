@@ -73,9 +73,10 @@ const (
 	// PerconaPGClusterKind represents postgresql kind.
 	PerconaPGClusterKind = "PerconaPGCluster"
 
-	pxcDeploymentName   = "percona-xtradb-cluster-operator"
-	psmdbDeploymentName = "percona-server-mongodb-operator"
-	pgDeploymentName    = "percona-postgresql-operator"
+	pxcDeploymentName       = "percona-xtradb-cluster-operator"
+	pxcHAProxyEnvSecretName = "haproxy-env-secret" //nolint:gosec // This is not a credential, only a secret name.
+	psmdbDeploymentName     = "percona-server-mongodb-operator"
+	pgDeploymentName        = "percona-postgresql-operator"
 
 	defaultPMMClientImage = "percona/pmm-client:2"
 
@@ -936,6 +937,7 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
+	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
 	clusterType ClusterType,
@@ -968,6 +970,29 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	}
 
 	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
+	if database.Spec.Proxy.Config == "" {
+		haProxy.PodSpec.Configuration = haProxyConfigDefault
+	}
+
+	// Ensure there is a env vars secret for HAProxy
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pxcHAProxyEnvSecretName,
+			Namespace: database.GetNamespace(),
+		},
+	}
+	if err := controllerutil.SetControllerReference(database, secret, r.Client.Scheme()); err != nil {
+		return nil, fmt.Errorf("failed to set controller reference for secret %s", pxcHAProxyEnvSecretName)
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		secret.Data = map[string][]byte{
+			"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
+		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to create or update secret %w", err)
+	}
+	haProxy.PodSpec.EnvVarsSecretName = pxcHAProxyEnvSecretName
 
 	haProxyAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeHAProxy]
 	if !ok {
@@ -1416,7 +1441,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 		switch database.Spec.Proxy.Type {
 		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
-			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine, clusterType)
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(ctx, database, engine, clusterType)
 			if err != nil {
 				return err
 			}
@@ -2882,6 +2907,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
+			controller.Owns(&corev1.Secret{})
 		}
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
