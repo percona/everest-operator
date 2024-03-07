@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint:lll
 package controllers
 
 const (
 	// A pxcConfigSizeSmall is the configuration for PXC cluster with the dimension of 1 vCPU and 2GB RAM.
+	// nolint:lll
 	pxcConfigSizeSmall = `[mysqld]
 binlog_cache_size = 131072
 binlog_expire_logs_seconds = 604800
@@ -65,6 +65,7 @@ wsrep_trx_fragment_unit = bytes
 wsrep-provider-options = evs.delayed_keep_period=PT545S;evs.inactive_timeout=PT90S;gmcast.peer_timeout=PT11S;gmcast.time_wait=PT13S;pc.linger=PT45S;evs.delay_margin=PT22S;evs.suspect_timeout=PT45S;gcs.fc_limit=96;gcs.max_packet_size=98304;evs.send_window=768;evs.user_send_window=768;evs.join_retrans_period=PT3S;evs.inactive_check_period=PT3S;evs.stats_report_period=PT1M;evs.max_install_timeouts=3;pc.announce_timeout=PT45S;pc.recovery=true;gcache.size=477560113;gcache.recover=yes;
     `
 	// A pxcConfigSizeMedium is the configuration for PXC cluster with the dimension of 4 vCPU and 8GB RAM.
+	// nolint:lll
 	pxcConfigSizeMedium = `[mysqld]
 binlog_cache_size = 131072
 binlog_expire_logs_seconds = 604800
@@ -111,6 +112,7 @@ wsrep_trx_fragment_unit = bytes
 wsrep-provider-options = evs.suspect_timeout=PT45S;gcs.max_packet_size=98365;evs.delay_margin=PT22S;evs.inactive_timeout=PT90S;evs.join_retrans_period=PT3S;gmcast.peer_timeout=PT11S;gcache.size=1966951020;evs.send_window=768;evs.user_send_window=768;evs.max_install_timeouts=3;pc.linger=PT45S;evs.stats_report_period=PT1M;gcs.fc_limit=96;gmcast.time_wait=PT13S;evs.inactive_check_period=PT3S;pc.announce_timeout=PT45S;pc.recovery=true;gcache.recover=yes;evs.delayed_keep_period=PT545S;
 	`
 	// A pxcConfigSizeLarge is the configuration for PXC cluster with the dimension of 8 vCPU and 32GB RAM.
+	// nolint:lll
 	pxcConfigSizeLarge = `[mysqld]
 binlog_cache_size = 131072
 binlog_expire_logs_seconds = 604800
