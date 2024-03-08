@@ -2905,7 +2905,6 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Owns(&pxcv1.PerconaXtraDBCluster{})
-			controller.Owns(&corev1.Secret{})
 		}
 	}
 	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbCRDName}, unstructuredResource)
