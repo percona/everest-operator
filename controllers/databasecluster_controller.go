@@ -982,12 +982,10 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 		},
 	}
 	if err := controllerutil.SetControllerReference(database, secret, r.Client.Scheme()); err != nil {
-		return nil, fmt.Errorf("failed to set controller reference for secret %s", pxcHAProxyEnvSecretName)
+		return nil, fmt.Errorf("failed to set owner reference for secret %s", pxcHAProxyEnvSecretName)
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = map[string][]byte{
-			"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
-		}
+		secret.Data = haProxyEnvVars
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("failed to create or update secret %w", err)

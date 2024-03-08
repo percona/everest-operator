@@ -15,7 +15,10 @@
 
 package controllers
 
+import "strconv"
+
 const (
+	// haproxyConfigDefault is the default HAProxy configuration.
 	haProxyConfigDefault = `
 global
     maxconn 4048
@@ -24,4 +27,10 @@ defaults
     timeout client 28800ms
     timeout server 28800ms
     `
+)
+
+var (
+	haProxyEnvVars = map[string][]byte{
+		"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
+	}
 )
