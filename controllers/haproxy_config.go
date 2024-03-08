@@ -30,6 +30,7 @@ defaults
 )
 
 var (
+	// haProxyEnvVars contains the environment variables to be set in the HAProxy container.
 	haProxyEnvVars = map[string][]byte{
 		"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
 	}

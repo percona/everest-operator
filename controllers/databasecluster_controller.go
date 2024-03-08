@@ -970,7 +970,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	}
 
 	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
-	if database.Spec.Proxy.Config == "" {
+	if haProxy.PodSpec.Configuration == "" {
 		haProxy.PodSpec.Configuration = haProxyConfigDefault
 	}
 
@@ -982,7 +982,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 		},
 	}
 	if err := controllerutil.SetControllerReference(database, secret, r.Client.Scheme()); err != nil {
-		return nil, fmt.Errorf("failed to set owner reference for secret %s", pxcHAProxyEnvSecretName)
+		return nil, fmt.Errorf("failed to set controller reference for secret %s", pxcHAProxyEnvSecretName)
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
 		secret.Data = haProxyEnvVars
