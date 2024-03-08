@@ -203,6 +203,7 @@ jobs:
           done
           kubectl delete db --all-namespaces --all
           kubectl delete pvc --all-namespaces --all
+          kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
 
       - name: Scale down cluster
