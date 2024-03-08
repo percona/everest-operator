@@ -18,7 +18,7 @@ package controllers
 import "strconv"
 
 const (
-	// haproxyConfigDefault is the default HAProxy configuration.
+	// A haproxyConfigDefault is the default HAProxy configuration.
 	haProxyConfigDefault = `
 global
     maxconn 4048
@@ -29,9 +29,7 @@ defaults
     `
 )
 
-var (
-	// haProxyEnvVars contains the environment variables to be set in the HAProxy container.
-	haProxyEnvVars = map[string][]byte{
-		"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
-	}
-)
+// A haProxyEnvVars contains the environment variables to be set in the HAProxy container.
+var haProxyEnvVars = map[string][]byte{
+	"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
+}
