@@ -1495,7 +1495,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType { //nolint:nestif
 			image := defaultPMMClientImage
 			if monitoring.Spec.PMM.Image != "" {
 				image = monitoring.Spec.PMM.Image
