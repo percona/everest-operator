@@ -943,7 +943,11 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	clusterType ClusterType,
 ) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
-
+	// For large clusters, we need to increase the timeout for the liveness and readiness probes.
+	if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
+		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
+		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
+	}
 	haProxy.PodSpec.Enabled = true
 
 	if database.Spec.Proxy.Replicas == nil {
@@ -3458,6 +3462,8 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
 				},
+				ReadinessProbes: corev1.Probe{TimeoutSeconds: 23},
+				LivenessProbes:  corev1.Probe{TimeoutSeconds: 23},
 			},
 		},
 		ProxySQL: &pxcv1.PodSpec{
