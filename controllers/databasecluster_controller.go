@@ -1503,6 +1503,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 
 			//nolint:godox
 			// TODO (EVEREST-824): Set PMM container LivenessProbes and ReadinessProbes timeouts once possible.
+
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 			if err != nil {
@@ -1511,6 +1512,16 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pxc.Spec.PMM.Image = image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
+			// Set resources based on cluster size.
+			if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
+				pxc.Spec.PMM.Resources = pmmResourceRequirementsSmall
+			}
+			if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
+				pxc.Spec.PMM.Resources = pmmResourceRequirementsMedium
+			}
+			if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
+				pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
+			}
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, monitoring)
 			if err != nil {

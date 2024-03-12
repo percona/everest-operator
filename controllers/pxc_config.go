@@ -169,36 +169,36 @@ var ( //nolint:dupl
 	// A pxcResourceRequirementsSmall is the resource requirements for PXC for small clusters.
 	pxcResourceRequirementsSmall = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1.61Gi"),
-			corev1.ResourceMemory: resource.MustParse("570m"),
+			corev1.ResourceMemory: resource.MustParse("1.61Gi"),
+			corev1.ResourceCPU:    resource.MustParse("570m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1.6Gi"),
-			corev1.ResourceMemory: resource.MustParse("600m"),
+			corev1.ResourceMemory: resource.MustParse("1.6Gi"),
+			corev1.ResourceCPU:    resource.MustParse("600m"),
 		},
 	}
 
 	// A pxcResourceRequirementsMedium is the resource requirements for PXC for medium clusters.
 	pxcResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("6.65Gi"),
-			corev1.ResourceMemory: resource.MustParse("3040m"),
+			corev1.ResourceMemory: resource.MustParse("6.65Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3040m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("7Gi"),
-			corev1.ResourceMemory: resource.MustParse("3200m"),
+			corev1.ResourceMemory: resource.MustParse("7Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3200m"),
 		},
 	}
 
 	// A pxcResourceRequirementsLarge is the resource requirements for PXC for large clusters.
 	pxcResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("26.6Gi"),
-			corev1.ResourceMemory: resource.MustParse("3040m"),
+			corev1.ResourceMemory: resource.MustParse("26.6Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3040m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("28Gi"),
-			corev1.ResourceMemory: resource.MustParse("3200m"),
+			corev1.ResourceMemory: resource.MustParse("28Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3200m"),
 		},
 	}
 )
