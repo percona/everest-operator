@@ -40,8 +40,8 @@ var ( //nolint:dupl
 			corev1.ResourceCPU:    resource.MustParse("228m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("204.7Mi"),
-			corev1.ResourceMemory: resource.MustParse("240m"),
+			corev1.ResourceMemory: resource.MustParse("204.7Mi"),
+			corev1.ResourceCPU:    resource.MustParse("240m"),
 		},
 	}
 
