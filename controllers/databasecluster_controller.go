@@ -943,10 +943,17 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	clusterType ClusterType,
 ) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
-	// For large clusters, we need to increase the timeout for the liveness and readiness probes.
+	// Set configuration based on database size.
 	if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
+		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
 		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
 		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
+	}
+	if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
+		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
+	}
+	if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
+		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
 	}
 	haProxy.PodSpec.Enabled = true
 
@@ -1440,18 +1447,21 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
 
-		// Set timeouts for liveness and readiness probes based on the cluster size.
+		// Set timeouts and resources based on the database size.
 		if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
 			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 450
 			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 450
+			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsSmall
 		}
 		if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
 			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 451
 			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 451
+			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsMedium
 		}
 		if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
 			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
 			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
+			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsLarge
 		}
 
 		switch database.Spec.Proxy.Type {
@@ -1491,6 +1501,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				image = monitoring.Spec.PMM.Image
 			}
 
+			//nolint:godox
 			// TODO (EVEREST-824): Set PMM container LivenessProbes and ReadinessProbes timeouts once possible.
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)

@@ -15,7 +15,12 @@
 
 package controllers
 
-import "strconv"
+import (
+	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+)
 
 const (
 	// A haproxyConfigDefault is the default HAProxy configuration.
@@ -33,3 +38,41 @@ defaults
 var haProxyEnvVars = map[string][]byte{
 	"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
 }
+
+var ( //nolint:dupl
+	// A haProxyResourceRequirementsSmall is the resource requirements for HAProxy for small clusters.
+	haProxyResourceRequirementsSmall = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("195Mi"),
+			corev1.ResourceMemory: resource.MustParse("95m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("204Mi"),
+			corev1.ResourceMemory: resource.MustParse("100m"),
+		},
+	}
+
+	// A haProxyResourceRequirementsMedium is the resource requirements for HAProxy for medium clusters.
+	haProxyResourceRequirementsMedium = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("778Mi"),
+			corev1.ResourceMemory: resource.MustParse("228m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("819Mi"),
+			corev1.ResourceMemory: resource.MustParse("240m"),
+		},
+	}
+
+	// A haProxyResourceRequirementsLarge is the resource requirements for HAProxy for large clusters.
+	haProxyResourceRequirementsLarge = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("3.19Gi"),
+			corev1.ResourceMemory: resource.MustParse("228m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("3.04Gi"),
+			corev1.ResourceMemory: resource.MustParse("240m"),
+		},
+	}
+)
