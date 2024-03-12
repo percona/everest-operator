@@ -1440,6 +1440,20 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
 
+		// Set timeouts for liveness and readiness probes based on the cluster size.
+		if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
+			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 450
+			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 450
+		}
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
+			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 451
+			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 451
+		}
+		if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
+			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
+			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
+		}
+
 		switch database.Spec.Proxy.Type {
 		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
@@ -1477,6 +1491,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 				image = monitoring.Spec.PMM.Image
 			}
 
+			// TODO (EVEREST-824): Set PMM container LivenessProbes and ReadinessProbes timeouts once possible.
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 			if err != nil {
