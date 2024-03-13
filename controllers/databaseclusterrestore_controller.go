@@ -390,22 +390,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 	return r.Status().Update(ctx, restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) getSourceDBClusterFromDBBackup(ctx context.Context, bkpName, namespace string) (*everestv1alpha1.DatabaseCluster, error) {
-	// First get the source backup object.
-	backup := &everestv1alpha1.DatabaseClusterBackup{}
-	err := r.Get(ctx, types.NamespacedName{Name: bkpName, Namespace: namespace}, backup)
-	if err != nil {
-		return nil, err
-	}
-	// Get the source cluster the backup belongs to.
-	dbCluster := &everestv1alpha1.DatabaseCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: namespace}, dbCluster)
-	if err != nil {
-		return nil, err
-	}
-	return dbCluster, nil
-}
-
 func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	logger := log.FromContext(ctx)
 
@@ -579,7 +563,8 @@ func parsePrefixFromDestination(url string) string {
 func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	ctx context.Context,
 	dataSource everestv1alpha1.DataSource,
-	db everestv1alpha1.DatabaseCluster) (*pxcv1.PITR, error) {
+	db everestv1alpha1.DatabaseCluster,
+) (*pxcv1.PITR, error) {
 	if db.Spec.Backup.PITR.BackupStorageName == nil || *db.Spec.Backup.PITR.BackupStorageName == "" {
 		return nil, fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
 	}
