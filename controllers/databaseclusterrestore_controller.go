@@ -308,7 +308,8 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 }
 
 func (r *DatabaseClusterRestoreReconciler) restorePXC(
-	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
+	ctx context.Context,
+	restore *everestv1alpha1.DatabaseClusterRestore,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
@@ -327,15 +328,15 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 			pxcCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
 		}
 
-		if restore.Spec.DataSource.BackupSource != nil {
+		if dataSource := restore.Spec.DataSource; dataSource.BackupSource != nil {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{Name: dataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
 
 			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
-				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, restore.Spec.DataSource.BackupSource.Path),
+				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, dataSource.BackupSource.Path),
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
@@ -361,16 +362,23 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 			default:
 				return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 			}
-		}
 
-		if restore.Spec.DataSource.PITR != nil {
-			spec, err := genPXCPitrRestoreSpec(restore.Spec.DataSource, *db)
-			if err != nil {
-				return err
+			if dataSource.PITR != nil {
+				// We want the cluster that owns the source backup.
+				// We do this so that the restore process is generic between cross-cluster and same-cluster restores.
+				sourceCluster, err := r.getSourceDBClusterFromDBBackup(ctx, dataSource.DBClusterBackupName, restore.Namespace)
+				if err != nil {
+					return fmt.Errorf("failed to get source cluster for backup %s: %w", dataSource.DBClusterBackupName, err)
+				}
+				pitrBackupStorage := backupStorage.DeepCopy()
+				pitrBackupStorage.Spec.Bucket = pitrBucketName(sourceCluster, backupStorage.Spec.Bucket)
+				spec, err := genPXCPitrRestoreSpec(restore.Spec.DataSource, pitrBackupStorage, *db)
+				if err != nil {
+					return err
+				}
+				pxcCR.Spec.PITR = spec
 			}
-			pxcCR.Spec.PITR = spec
 		}
-
 		return nil
 	})
 	if err != nil {
@@ -388,6 +396,22 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 	restore.Status.Message = pxcCR.Status.Comments
 
 	return r.Status().Update(ctx, restore)
+}
+
+func (r *DatabaseClusterRestoreReconciler) getSourceDBClusterFromDBBackup(ctx context.Context, bkpName, namespace string) (*everestv1alpha1.DatabaseCluster, error) {
+	// First get the source backup object.
+	backup := &everestv1alpha1.DatabaseClusterBackup{}
+	err := r.Get(ctx, types.NamespacedName{Name: bkpName, Namespace: namespace}, backup)
+	if err != nil {
+		return nil, err
+	}
+	// Get the source cluster the backup belongs to.
+	dbCluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: namespace}, dbCluster)
+	if err != nil {
+		return nil, err
+	}
+	return dbCluster, nil
 }
 
 func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
@@ -560,7 +584,10 @@ func parsePrefixFromDestination(url string) string {
 	return fmt.Sprintf("%s/%s", parts[l-3], parts[l-2])
 }
 
-func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1alpha1.DatabaseCluster) (*pxcv1.PITR, error) {
+func genPXCPitrRestoreSpec(
+	dataSource everestv1alpha1.DataSource,
+	backupStorage *everestv1alpha1.BackupStorage,
+	db everestv1alpha1.DatabaseCluster) (*pxcv1.PITR, error) {
 	if db.Spec.Backup.PITR.BackupStorageName == nil || *db.Spec.Backup.PITR.BackupStorageName == "" {
 		return nil, fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
 	}
@@ -576,7 +603,12 @@ func genPXCPitrRestoreSpec(dataSource everestv1alpha1.DataSource, db everestv1al
 
 	return &pxcv1.PITR{
 		BackupSource: &pxcv1.PXCBackupStatus{
-			StorageName: pitrStorageName(*db.Spec.Backup.PITR.BackupStorageName),
+			S3: &pxcv1.BackupStorageS3Spec{
+				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+				Region:            backupStorage.Spec.Region,
+				EndpointURL:       backupStorage.Spec.EndpointURL,
+				Bucket:            backupStorage.Spec.Bucket,
+			},
 		},
 		Type: string(dataSource.PITR.Type),
 		Date: dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace),
