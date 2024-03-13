@@ -578,19 +578,22 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	}
 
 	// First get the source backup object.
-	// Note: This assumes that we will always restore to same namespace (cross-cluster).
+	// Note: This assumes that we will always restore to same namespace, even to a new cluster.
 	sourceBackup := &everestv1alpha1.DatabaseClusterBackup{}
-	if err := r.Get(ctx, types.NamespacedName{Name: dataSource.DBClusterBackupName, Namespace: db.GetNamespace()}, sourceBackup); err != nil {
+	key := types.NamespacedName{Name: dataSource.DBClusterBackupName, Namespace: db.GetNamespace()}
+	if err := r.Get(ctx, key, sourceBackup); err != nil {
 		return nil, fmt.Errorf("failed to get source backup %s: %w", dataSource.DBClusterBackupName, err)
 	}
 	// Get the source cluster the backup belongs to.
 	sourceDB := &everestv1alpha1.DatabaseCluster{}
-	if err := r.Get(ctx, types.NamespacedName{Name: sourceBackup.Spec.DBClusterName, Namespace: sourceBackup.GetNamespace()}, sourceDB); err != nil {
+	key = types.NamespacedName{Name: sourceBackup.Spec.DBClusterName, Namespace: sourceBackup.GetNamespace()}
+	if err := r.Get(ctx, key, sourceDB); err != nil {
 		return nil, fmt.Errorf("failed to get source cluster for backup %s: %w", dataSource.DBClusterBackupName, err)
 	}
 	// Get the storage object where the source backup is stored.
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	if err := r.Get(ctx, types.NamespacedName{Name: sourceBackup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage); err != nil {
+	key = types.NamespacedName{Name: sourceBackup.Spec.BackupStorageName, Namespace: r.systemNamespace}
+	if err := r.Get(ctx, key, backupStorage); err != nil {
 		return nil, fmt.Errorf("failed to get backup storage '%s' for backup: %w", sourceBackup.Spec.BackupStorageName, err)
 	}
 
@@ -608,6 +611,8 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 			EndpointURL:       backupStorage.Spec.EndpointURL,
 			Bucket:            pitrBucketName(sourceDB, backupStorage.Spec.Bucket),
 		}
+		//nolint:godox
+		// TODO: add support for Azure.
 	default:
 		return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 	}
