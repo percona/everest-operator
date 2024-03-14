@@ -2697,14 +2697,15 @@ func (r *DatabaseClusterReconciler) reconcilePG(ctx context.Context, req ctrl.Re
 func (r *DatabaseClusterReconciler) updatePGConfig(
 	pg *pgv2.PerconaPGCluster, db *everestv1alpha1.DatabaseCluster,
 ) error {
+	//nolint:godox
 	// TODO: uncomment once https://perconadev.atlassian.net/browse/K8SPG-518 done
-	//if db.Spec.Engine.Config == "" {
-	//	if pg.Spec.Patroni == nil {
-	//		return nil
-	//	}
-	//	pg.Spec.Patroni.DynamicConfiguration = nil
-	//	return nil
-	//}
+	// if db.Spec.Engine.Config == "" {
+	//	 if pg.Spec.Patroni == nil {
+	//		 return nil
+	//	 }
+	//	 pg.Spec.Patroni.DynamicConfiguration = nil
+	//	 return nil
+	// }
 
 	parser := NewPGConfigParser(db.Spec.Engine.Config)
 	cfg, err := parser.ParsePGConfig()
@@ -2712,6 +2713,7 @@ func (r *DatabaseClusterReconciler) updatePGConfig(
 		return err
 	}
 
+	//nolint:godox
 	// TODO: remove once https://perconadev.atlassian.net/browse/K8SPG-518 done
 	cfg["track_commit_timestamp"] = "on"
 
