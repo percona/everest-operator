@@ -23,6 +23,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Prefefined database engine sizes based on memory.
+var (
+	MemorySmallSize  = resource.MustParse("2G")
+	MemoryMediumSize = resource.MustParse("8G")
+	MemoryLargeSize  = resource.MustParse("32G")
+)
+
 const (
 	// AppStateUnknown is an unknown state.
 	AppStateUnknown AppState = "unknown"
@@ -77,7 +84,34 @@ type (
 		// Hot (Frequently accessed or modified data), Cool (Infrequently accessed or modified data), Archive (Rarely accessed or modified data) for Azure.
 		StorageClass string `json:"storageClass,omitempty"`
 	}
+	// EngineSize is used to represent the size of a database engine based on memory.
+	EngineSize string
 )
+
+const (
+	// EngineSizeSmall represents a small engine size.
+	EngineSizeSmall EngineSize = "small"
+	// EngineSizeMedium represents a medium engine size.
+	EngineSizeMedium EngineSize = "medium"
+	// EngineSizeLarge represents a large engine size.
+	EngineSizeLarge EngineSize = "large"
+	// EngineSizeUnknown represents an unknown engine size.
+	EngineSizeUnknown EngineSize = "unknown"
+)
+
+// Applier provides methods for specifying how to apply a DatabaseCluster CR
+// onto the CR(s) provided by the underlying DB operators (e.g. PerconaXtraDBCluster, PerconaServerMongoDB, PerconaPGCluster, etc.)
+//
+// +kubebuilder:object:generate=false
+type Applier interface {
+	Paused(paused bool)
+	AllowUnsafeConfig(allow bool)
+	Engine() error
+	Proxy() error
+	DataSource() error
+	Monitoring() error
+	Backup() error
+}
 
 // Storage is the storage configuration.
 type Storage struct {
@@ -114,6 +148,20 @@ type Engine struct {
 	Config string `json:"config,omitempty"`
 	// UserSecretsName is the name of the secret containing the user secrets
 	UserSecretsName string `json:"userSecretsName,omitempty"`
+}
+
+// Size returns the size of the engine.
+func (e Engine) Size() EngineSize {
+	if e.Resources.Memory.Cmp(MemorySmallSize) == 0 {
+		return EngineSizeSmall
+	}
+	if e.Resources.Memory.Cmp(MemoryMediumSize) == 0 {
+		return EngineSizeMedium
+	}
+	if e.Resources.Memory.Cmp(MemoryLargeSize) == 0 {
+		return EngineSizeLarge
+	}
+	return EngineSizeUnknown
 }
 
 // ExposeType is the expose type.

@@ -13,144 +13,208 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:dupl,goconst
-package controllers
+package pg
 
 import (
-	"context"
+	"reflect"
 	"testing"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-func TestGetOperatorVersion(t *testing.T) {
+func TestPGConfigParser_ParsePGConfig(t *testing.T) {
 	t.Parallel()
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "percona-xtradb-cluster-operator",
-			Namespace: "super-x",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Image: "percona/percona-xtradb-cluster-operator:1.12.0",
-						},
-					},
-				},
+
+	tests := []struct {
+		name    string
+		config  string
+		want    map[string]any
+		wantErr bool
+	}{
+		{
+			name:   "parse one value",
+			config: "name = value",
+			want: map[string]any{
+				"name": "value",
 			},
+			wantErr: false,
+		},
+		{
+			name:   "parse one value with new line",
+			config: "name = value\n",
+			want: map[string]any{
+				"name": "value",
+			},
+			wantErr: false,
+		},
+		{
+			name: "parse many values",
+			config: `
+			name1 = value1
+			name2 = value2
+			name3 = value3
+			`,
+			want: map[string]any{
+				"name1": "value1",
+				"name2": "value2",
+				"name3": "value3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "parse many values mixed spaces and equal signs",
+			config: `
+			name1 = value1
+			name2 value2
+			name3 = value3
+			`,
+			want: map[string]any{
+				"name1": "value1",
+				"name2": "value2",
+				"name3": "value3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "parse complex config",
+			config: `
+			name1 = value1
+			name2 value2
+			# comment
+			name3 = value3 # comment
+
+			# comment
+			name4 value4
+			# name5 value5
+
+			`,
+			want: map[string]any{
+				"name1": "value1",
+				"name2": "value2",
+				"name3": "value3",
+				"name4": "value4",
+			},
+			wantErr: false,
 		},
 	}
-	cl := fake.NewClientBuilder().WithObjects(deployment).Build()
-	s := scheme.Scheme
-	s.AddKnownTypes(everestv1alpha1.GroupVersion, &everestv1alpha1.DatabaseCluster{})
-	r := &DatabaseClusterReconciler{Client: cl, Scheme: s}
-	version, err := r.getOperatorVersion(context.TODO(), types.NamespacedName{
-		Namespace: "super-x",
-		Name:      "percona-xtradb-cluster-operator",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "1.12.0", version.String())
-	assert.NotEqual(t, "1.11.0", version.String())
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	_, err = r.getOperatorVersion(context.TODO(), types.NamespacedName{
-		Namespace: "non-existent",
-		Name:      "percona-xtradb-cluster-operator",
-	})
-	require.Error(t, err)
+			p := &PGConfigParser{
+				config: tt.config,
+			}
+			got, err := p.ParsePGConfig()
+			if err != nil {
+				t.Errorf("PGConfigParser.ParsePGConfig() error = %v wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PGConfigParser.parsePGConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestMergeMapSimple(t *testing.T) {
+func TestPGConfigParser_lineUsesEqualSign(t *testing.T) {
 	t.Parallel()
-	testDst := map[string]interface{}{
-		"a": "apple",
-		"b": "banana",
-	}
-	src := map[string]interface{}{
-		"a": "avocado",
-		"c": "cherry",
-	}
-	expDst := map[string]interface{}{
-		"a": "avocado",
-		"b": "banana",
-		"c": "cherry",
-	}
-	err := mergeMap(testDst, src)
-	require.NoError(t, err)
-	assert.Equal(t, expDst, testDst)
-}
 
-func TestMergeMapNested(t *testing.T) {
-	t.Parallel()
-	testDst := map[string]interface{}{
-		"a": "apple",
-		"b": "banana",
-		"dry": map[string]interface{}{
-			"a": "almond",
-			"p": "peanut",
+	tests := []struct {
+		name     string
+		line     string
+		useEqual bool
+	}{
+		{
+			name:     "equal - standard",
+			line:     "name = value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - no spaces",
+			line:     "name=value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - no spaces but space in value",
+			line:     "name=value abc",
+			useEqual: true,
+		},
+		{
+			name:     "equal - no spaces before",
+			line:     "name= value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - no spaces after",
+			line:     "name =value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - many spaces",
+			line:     "name   =    value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - many spaces before",
+			line:     "name   = value",
+			useEqual: true,
+		},
+		{
+			name:     "equal - many spaces after",
+			line:     "name =   value",
+			useEqual: true,
+		},
+		{
+			name:     "no equal - standard",
+			line:     "name value",
+			useEqual: false,
+		},
+		{
+			name:     "no equal - more spaces",
+			line:     "name  value",
+			useEqual: false,
+		},
+		{
+			name:     "no equal - equal in value with space",
+			line:     "name value =",
+			useEqual: false,
+		},
+		{
+			name:     "no equal - equal in value with no space",
+			line:     "name value=",
+			useEqual: false,
+		},
+		{
+			name:     "no equal - multiple spaces, equal in value with no space",
+			line:     "name  value=",
+			useEqual: false,
+		},
+		{
+			name:     "no equal - multiple spaces, equal in value with space",
+			line:     "name  value =",
+			useEqual: false,
 		},
 	}
-	src := map[string]interface{}{
-		"a": "avocado",
-		"c": "cherry",
-		"dry": map[string]interface{}{
-			"c": "cashew",
-			"p": "pecan",
-		},
-		"vegetables": map[string]interface{}{
-			"a": "aspargus",
-			"b": "beet",
-		},
-	}
-	expDst := map[string]interface{}{
-		"a": "avocado",
-		"b": "banana",
-		"c": "cherry",
-		"dry": map[string]interface{}{
-			"a": "almond",
-			"c": "cashew",
-			"p": "pecan",
-		},
-		"vegetables": map[string]interface{}{
-			"a": "aspargus",
-			"b": "beet",
-		},
-	}
-	err := mergeMap(testDst, src)
-	require.NoError(t, err)
-	assert.Equal(t, expDst, testDst)
-}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-func TestMergeMapError(t *testing.T) {
-	t.Parallel()
-	testDst := map[string]interface{}{
-		"dry": map[string]interface{}{
-			"vegetables": map[string]interface{}{
-				"a": 1,
-			},
-		},
+			p := &PGConfigParser{config: ""}
+			got := p.lineUsesEqualSign([]byte(tt.line))
+			if tt.useEqual != got {
+				t.Errorf("Did not detect equal sign properly for test %s %q", tt.name, tt.line)
+			}
+		})
 	}
-	src := map[string]interface{}{
-		"dry": map[string]interface{}{
-			"vegetables": map[string]interface{}{
-				"a": "avocado",
-			},
-		},
-	}
-	err := mergeMap(testDst, src)
-	require.Error(t, err)
 }
 
 func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
@@ -2676,7 +2740,7 @@ func Test_globalDatasourceDestination(t *testing.T) {
 		bs := &everestv1alpha1.BackupStorage{}
 
 		dest := globalDatasourceDestination("", db, bs)
-		assert.Equal(t, "/"+backupStoragePrefix(db), dest)
+		assert.Equal(t, "/"+common.BackupStoragePrefix(db), dest)
 	})
 
 	t.Run("not-empty dest s3", func(t *testing.T) {
@@ -2714,15 +2778,4 @@ func Test_globalDatasourceDestination(t *testing.T) {
 		dest := globalDatasourceDestination("azure://some/bucket/here/db-name/db-uid/some/folders/later", db, bs)
 		assert.Equal(t, "/db-name/db-uid", dest)
 	})
-}
-
-func Test_parsePrefixFromDestination(t *testing.T) {
-	t.Parallel()
-	cases := map[string]string{
-		"s3://bucketname/dbname/db-uid/backupname": "dbname/db-uid",
-		"s3://percona-test-backup-storage-2/mongodb-jxs/b6968af3-dbf4-431f-a8a8-630835081abd/2024-01-10T10:56:13Z": "mongodb-jxs/b6968af3-dbf4-431f-a8a8-630835081abd",
-	}
-	for source, expected := range cases {
-		assert.Equal(t, expected, parsePrefixFromDestination(source))
-	}
 }

@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
 const (
@@ -49,8 +50,8 @@ const (
 	clusterReadyTimeout = 10 * time.Minute
 
 	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
-	pgBackupTypeImmediate              = "immediate"
 	pgBackupTypeDate                   = "time"
+	pgBackupTypeImmediate              = "immediate"
 )
 
 var (
@@ -346,7 +347,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 					Bucket: fmt.Sprintf(
 						"%s/%s",
 						backupStorage.Spec.Bucket,
-						backupStoragePrefix(db),
+						common.BackupStoragePrefix(db),
 					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 					Region:            backupStorage.Spec.Region,
@@ -357,7 +358,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 					ContainerPath: fmt.Sprintf(
 						"%s/%s",
 						backupStorage.Spec.Bucket,
-						backupStoragePrefix(db),
+						common.BackupStoragePrefix(db),
 					),
 					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 				}
@@ -431,7 +432,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	// PerconaPGCluster CR. If not, we requeue the restore to give the
 	// DatabaseCluster controller a chance to update the PG cluster CR.
 	// Otherwise, the restore will fail.
-	repoIdx := getBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	repoIdx := common.GetBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
 	if repoIdx == -1 {
 		logger.Info(
 			fmt.Sprintf("Backup storage %s is not defined in the pg cluster %s, requeuing",
@@ -613,7 +614,7 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 			Region:            backupStorage.Spec.Region,
 			EndpointURL:       backupStorage.Spec.EndpointURL,
-			Bucket:            pitrBucketName(sourceDB, backupStorage.Spec.Bucket),
+			Bucket:            common.PITRBucketName(sourceDB, backupStorage.Spec.Bucket),
 		}
 		//nolint:godox
 		// TODO: add support for Azure.

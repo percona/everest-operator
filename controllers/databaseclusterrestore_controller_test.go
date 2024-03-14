@@ -122,3 +122,14 @@ func TestGetPGRestoreOptions(t *testing.T) {
 		})
 	}
 }
+
+func Test_parsePrefixFromDestination(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"s3://bucketname/dbname/db-uid/backupname": "dbname/db-uid",
+		"s3://percona-test-backup-storage-2/mongodb-jxs/b6968af3-dbf4-431f-a8a8-630835081abd/2024-01-10T10:56:13Z": "mongodb-jxs/b6968af3-dbf4-431f-a8a8-630835081abd",
+	}
+	for source, expected := range cases {
+		assert.Equal(t, expected, parsePrefixFromDestination(source))
+	}
+}

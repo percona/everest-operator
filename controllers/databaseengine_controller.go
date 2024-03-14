@@ -32,19 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
-	pxcDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
-	psmdbDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
-	pgDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
+	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
+	common.PSMDBDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
+	common.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
-	versionService *VersionService
+	versionService *version.VersionService
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
@@ -160,7 +162,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	// yet so we use the client.Reader returned from manager.GetAPIReader() to
 	// hit the API server directly and avoid an ErrCacheNotStarted.
 	clientReader := mgr.GetAPIReader()
-	r.versionService = NewVersionService()
+	r.versionService = version.NewVersionService()
 	for _, namespaceName := range namespaces {
 		namespaceName := namespaceName
 		for operatorName, engineType := range operatorEngine {
