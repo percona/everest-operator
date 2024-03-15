@@ -1502,7 +1502,7 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 
 			//nolint:godox
-			// TODO (EVEREST-824): Set PMM container LivenessProbes and ReadinessProbes timeouts once possible.
+			// TODO (K8SPXC-1367): Set PMM container LivenessProbes timeouts once possible.
 
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
