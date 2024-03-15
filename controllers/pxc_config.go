@@ -15,152 +15,190 @@
 
 package controllers
 
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+)
+
 const (
 	// A pxcConfigSizeSmall is the configuration for PXC cluster with the dimension of 1 vCPU and 2GB RAM.
+	//nolint:lll
 	pxcConfigSizeSmall = `[mysqld]
+binlog_cache_size = 131072
+binlog_expire_logs_seconds = 604800
+binlog_format = ROW
+binlog_stmt_cache_size = 131072
+global-connection-memory-limit = 18446744073709551615
+global-connection-memory-tracking = false
 innodb_adaptive_hash_index = True
-innodb_log_files_in_group = 2
-innodb_parallel_read_threads = 1
-innodb_buffer_pool_instances = 1
-innodb_flush_method = O_DIRECT
-innodb_log_file_size = 152548048
-innodb_page_cleaners = 1
-innodb_purge_threads = 4
 innodb_buffer_pool_chunk_size = 2097152
-innodb_buffer_pool_size = 731424661
+innodb_buffer_pool_instances = 1
+innodb_buffer_pool_size = 1398838681
 innodb_ddl_threads = 2
 innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
 innodb_io_capacity_max = 1800
 innodb_monitor_enable = ALL
-replica_parallel_workers = 4
-replica_preserve_commit_order = ON
+innodb_page_cleaners = 1
+innodb_parallel_read_threads = 1
+innodb_purge_threads = 4
+innodb_redo_log_capacity = 415269664
+join_buffer_size = 524288
+max_connections = 152
+max_heap_table_size = 16777216
+read_rnd_buffer_size = 393216
 replica_compressed_protocol = 1
 replica_exec_mode = STRICT
 replica_parallel_type = LOGICAL_CLOCK
-loose_group_replication_member_expel_timeout = 6
-loose_group_replication_autorejoin_tries = 3
-loose_group_replication_message_cache_size = 162538812
-loose_group_replication_communication_max_message_size = 10485760
-loose_group_replication_unreachable_majority_timeout = 1029
-loose_group_replication_poll_spin_loops = 20000
-loose_group_replication_paxos_single_leader = ON
-loose_binlog_transaction_dependency_tracking = WRITESET
-read_rnd_buffer_size = 393216
+replica_parallel_workers = 4
+replica_preserve_commit_order = ON
 sort_buffer_size = 524288
-max_heap_table_size = 16777216
-tmp_table_size = 16777216
-binlog_cache_size = 131072
-binlog_stmt_cache_size = 131072
-join_buffer_size = 524288
-max_connections = 72
-tablespace_definition_cache = 512
-thread_cache_size = 9
-thread_stack = 1024
-table_open_cache_instances = 4
-sync_binlog = 1
 sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,TRADITIONAL,STRICT_ALL_TABLES'
-binlog_expire_logs_seconds = 604800
-thread_pool_size = 4
+sync_binlog = 1
 table_definition_cache = 4096
 table_open_cache = 4096
-binlog_format = ROW
+table_open_cache_instances = 4
+tablespace_definition_cache = 512
+thread_cache_size = 11
+thread_pool_size = 4
+thread_stack = 1048576
+tmp_table_size = 16777216
+wsrep_slave_threads = 1
+wsrep_sync_wait = 3
+wsrep_trx_fragment_size = 1048576
+wsrep_trx_fragment_unit = bytes
+wsrep-provider-options = evs.delayed_keep_period=PT545S;evs.inactive_timeout=PT90S;gmcast.peer_timeout=PT11S;gmcast.time_wait=PT13S;pc.linger=PT45S;evs.delay_margin=PT22S;evs.suspect_timeout=PT45S;gcs.fc_limit=96;gcs.max_packet_size=98304;evs.send_window=768;evs.user_send_window=768;evs.join_retrans_period=PT3S;evs.inactive_check_period=PT3S;evs.stats_report_period=PT1M;evs.max_install_timeouts=3;pc.announce_timeout=PT45S;pc.recovery=true;gcache.size=477560113;gcache.recover=yes;
     `
 	// A pxcConfigSizeMedium is the configuration for PXC cluster with the dimension of 4 vCPU and 8GB RAM.
+	//nolint:lll
 	pxcConfigSizeMedium = `[mysqld]
+binlog_cache_size = 131072
+binlog_expire_logs_seconds = 604800
+binlog_format = ROW
+binlog_stmt_cache_size = 131072
+global-connection-memory-limit = 18446744073709551615
+global-connection-memory-tracking = false
+innodb_adaptive_hash_index = True
+innodb_buffer_pool_chunk_size = 2097152
+innodb_buffer_pool_instances = 6
+innodb_buffer_pool_size = 5512928528
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_io_capacity_max = 1800
+innodb_monitor_enable = ALL
+innodb_page_cleaners = 6
+innodb_parallel_read_threads = 3
+innodb_purge_threads = 4
+innodb_redo_log_capacity = 1710392192
+join_buffer_size = 524288
+max_connections = 802
+max_heap_table_size = 16777216
+read_rnd_buffer_size = 393216
+replica_compressed_protocol = 1
+replica_exec_mode = STRICT
 replica_parallel_type = LOGICAL_CLOCK
 replica_parallel_workers = 4
 replica_preserve_commit_order = ON
-replica_compressed_protocol = 1
-replica_exec_mode = STRICT
-loose_group_replication_message_cache_size = 680057301
-loose_group_replication_communication_max_message_size = 10485760
-loose_group_replication_unreachable_majority_timeout = 1029
-loose_group_replication_poll_spin_loops = 20000
-loose_group_replication_paxos_single_leader = ON
-loose_binlog_transaction_dependency_tracking = WRITESET
-loose_group_replication_member_expel_timeout = 6
-loose_group_replication_autorejoin_tries = 3
 sort_buffer_size = 524288
-max_heap_table_size = 16777216
-tmp_table_size = 16777216
-binlog_cache_size = 131072
-binlog_stmt_cache_size = 131072
-join_buffer_size = 524288
-read_rnd_buffer_size = 393216
-table_definition_cache = 4096
-table_open_cache_instances = 4
-binlog_expire_logs_seconds = 604800
-binlog_format = ROW
-max_connections = 72
-thread_pool_size = 6
-table_open_cache = 4096
-thread_stack = 1024
-tablespace_definition_cache = 512
-sync_binlog = 1
 sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,TRADITIONAL,STRICT_ALL_TABLES'
-thread_cache_size = 9
-innodb_buffer_pool_size = 3060257859
-innodb_ddl_threads = 2
-innodb_flush_log_at_trx_commit = 2
-innodb_log_files_in_group = 5
-innodb_purge_threads = 4
-innodb_buffer_pool_chunk_size = 2097152
-innodb_adaptive_hash_index = True
-innodb_flush_method = O_DIRECT
-innodb_log_file_size = 251255603
-innodb_page_cleaners = 3
-innodb_buffer_pool_instances = 3
-innodb_io_capacity_max = 1800
-innodb_parallel_read_threads = 3
-innodb_monitor_enable = ALL
+sync_binlog = 1
+table_definition_cache = 4096
+table_open_cache = 4096
+table_open_cache_instances = 4
+tablespace_definition_cache = 512
+thread_cache_size = 24
+thread_pool_size = 6
+thread_stack = 1048576
+tmp_table_size = 16777216
+wsrep_slave_threads = 1
+wsrep_sync_wait = 3
+wsrep_trx_fragment_size = 1048576
+wsrep_trx_fragment_unit = bytes
+wsrep-provider-options = evs.suspect_timeout=PT45S;gcs.max_packet_size=98365;evs.delay_margin=PT22S;evs.inactive_timeout=PT90S;evs.join_retrans_period=PT3S;gmcast.peer_timeout=PT11S;gcache.size=1966951020;evs.send_window=768;evs.user_send_window=768;evs.max_install_timeouts=3;pc.linger=PT45S;evs.stats_report_period=PT1M;gcs.fc_limit=96;gmcast.time_wait=PT13S;evs.inactive_check_period=PT3S;pc.announce_timeout=PT45S;pc.recovery=true;gcache.recover=yes;evs.delayed_keep_period=PT545S;
 	`
 	// A pxcConfigSizeLarge is the configuration for PXC cluster with the dimension of 8 vCPU and 32GB RAM.
+	//nolint:lll
 	pxcConfigSizeLarge = `[mysqld]
+binlog_cache_size = 131072
+binlog_expire_logs_seconds = 604800
+binlog_format = ROW
+binlog_stmt_cache_size = 131072
+global-connection-memory-limit = 18446744073709551615
+global-connection-memory-tracking = false
+innodb_adaptive_hash_index = True
+innodb_buffer_pool_chunk_size = 2097152
+innodb_buffer_pool_instances = 6
+innodb_buffer_pool_size = 23154566817
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_io_capacity_max = 1800
+innodb_monitor_enable = ALL
+innodb_page_cleaners = 6
+innodb_parallel_read_threads = 3
+innodb_purge_threads = 4
+innodb_redo_log_capacity = 7816840704
+join_buffer_size = 524288
+max_connections = 1602
+max_heap_table_size = 16777216
+read_rnd_buffer_size = 393216
 replica_compressed_protocol = 1
 replica_exec_mode = STRICT
 replica_parallel_type = LOGICAL_CLOCK
 replica_parallel_workers = 4
 replica_preserve_commit_order = ON
-loose_group_replication_member_expel_timeout = 6
-loose_group_replication_autorejoin_tries = 3
-loose_group_replication_message_cache_size = 2729928056
-loose_group_replication_communication_max_message_size = 10485760
-loose_group_replication_unreachable_majority_timeout = 1022
-loose_group_replication_poll_spin_loops = 20000
-loose_group_replication_paxos_single_leader = ON
-loose_binlog_transaction_dependency_tracking = WRITESET
 sort_buffer_size = 524288
-max_heap_table_size = 16777216
-tmp_table_size = 16777216
-binlog_cache_size = 131072
-binlog_stmt_cache_size = 131072
-join_buffer_size = 524288
-read_rnd_buffer_size = 393216
+sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,TRADITIONAL,STRICT_ALL_TABLES'
+sync_binlog = 1
+table_definition_cache = 4096
+table_open_cache = 4096
 table_open_cache_instances = 4
 tablespace_definition_cache = 512
-sync_binlog = 1
-sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,TRADITIONAL,STRICT_ALL_TABLES'
-binlog_format = ROW
-thread_cache_size = 9
-table_definition_cache = 4096
-thread_pool_size = 12
-table_open_cache = 4096
-thread_stack = 1024
-binlog_expire_logs_seconds = 604800
-max_connections = 72
-innodb_adaptive_hash_index = True
-innodb_log_files_in_group = 11
-innodb_buffer_pool_size = 12284676255
-innodb_buffer_pool_instances = 13
-innodb_flush_log_at_trx_commit = 2
-innodb_purge_threads = 8
-innodb_parallel_read_threads = 6
-innodb_monitor_enable = ALL
-innodb_ddl_threads = 2
-innodb_flush_method = O_DIRECT
-innodb_page_cleaners = 13
-innodb_log_file_size = 456113989
-innodb_io_capacity_max = 1800
-innodb_buffer_pool_chunk_size = 2097152
+thread_cache_size = 40
+thread_pool_size = 6
+thread_stack = 1048576
+tmp_table_size = 16777216
+wsrep_slave_threads = 1
+wsrep_sync_wait = 3
+wsrep_trx_fragment_size = 1048576
+wsrep_trx_fragment_unit = bytes
+wsrep-provider-options = evs.delayed_keep_period=PT560S;evs.stats_report_period=PT1M;gcs.fc_limit=128;gmcast.peer_timeout=PT15S;gmcast.time_wait=PT18S;evs.max_install_timeouts=5;pc.recovery=true;gcache.recover=yes;gcache.size=8989366809;evs.delay_margin=PT30S;evs.user_send_window=1024;evs.inactive_check_period=PT5S;evs.join_retrans_period=PT5S;evs.suspect_timeout=PT60S;gcs.max_packet_size=131072;pc.linger=PT60S;evs.send_window=1024;evs.inactive_timeout=PT120S;pc.announce_timeout=PT60S;
 	`
+)
+
+var ( //nolint:dupl
+	// A pxcResourceRequirementsSmall is the resource requirements for PXC for small clusters.
+	pxcResourceRequirementsSmall = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("1.61Gi"),
+			corev1.ResourceCPU:    resource.MustParse("570m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("1.7Gi"),
+			corev1.ResourceCPU:    resource.MustParse("600m"),
+		},
+	}
+
+	// A pxcResourceRequirementsMedium is the resource requirements for PXC for medium clusters.
+	pxcResourceRequirementsMedium = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("6.65Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3040m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("7Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3200m"),
+		},
+	}
+
+	// A pxcResourceRequirementsLarge is the resource requirements for PXC for large clusters.
+	pxcResourceRequirementsLarge = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("26.6Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3040m"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("28Gi"),
+			corev1.ResourceCPU:    resource.MustParse("3200m"),
+		},
+	}
 )
