@@ -73,7 +73,7 @@ func New(
 		controllerutil.AddFinalizer(psmdb, f)
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PGDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PSMDBDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
