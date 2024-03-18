@@ -49,6 +49,7 @@ type MonitoringConfigReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -238,6 +239,16 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (map[st
 		})
 	}
 	vmAgentSpec["remoteWrite"] = remoteWrite
+
+	// Use the kube-system namespace ID as the k8s_cluster_id label.
+	kubeSystemNamespace := &corev1.Namespace{}
+	err = r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("could not get kube-system namespace"))
+	}
+	vmAgentSpec["externalLabels"] = map[string]interface{}{
+		"k8s_cluster_id": string(kubeSystemNamespace.UID),
+	}
 
 	return vmAgentSpec, nil
 }
