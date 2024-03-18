@@ -164,12 +164,7 @@ func (p *Provider) handlePXCRestores(ctx context.Context) error {
 	db := p.DB
 	pxc := p.PerconaXtraDBCluster
 	if pxc.Spec.Pause != db.Spec.Paused {
-		restores := &everestv1alpha1.DatabaseClusterRestoreList{}
-		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(common.DBClusterRestoreDBClusterNameField, db.GetName()),
-			Namespace:     db.GetNamespace(),
-		}
-		err := p.C.List(ctx, restores, listOps)
+		restores, err := common.ListDatabaseClusterRestores(ctx, p.C, db.GetName(), db.GetNamespace())
 		if err != nil {
 			return err
 		}
