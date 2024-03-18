@@ -185,8 +185,6 @@ func (p *Provider) Cleanup(_ context.Context, _ *everestv1alpha1.DatabaseCluster
 }
 
 // DBObject returns the PerconaPGCluster object.
-//
-//nolint:ireturn
-func (p *Provider) DBObject() client.Object {
+func (p *Provider) DBObject() client.Object { //nolint:ireturn
 	return p.PerconaPGCluster
 }
