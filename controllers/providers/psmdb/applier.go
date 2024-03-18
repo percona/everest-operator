@@ -1,6 +1,22 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package psmdb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -24,19 +40,20 @@ const (
 	encryptionKeySuffix = "-mongodb-encryption-key"
 )
 
-type psmdbApplier struct {
-	*PSMDBProvider
+type applier struct {
+	*Provider
+	ctx context.Context //nolint:containedctx
 }
 
-func (p *psmdbApplier) Paused(paused bool) {
+func (p *applier) Paused(paused bool) {
 	p.PerconaServerMongoDB.Spec.Pause = paused
 }
 
-func (p *psmdbApplier) AllowUnsafeConfig(allow bool) {
+func (p *applier) AllowUnsafeConfig(allow bool) {
 	p.PerconaServerMongoDB.Spec.UnsafeConf = allow
 }
 
-func (p *psmdbApplier) Engine() error {
+func (p *applier) Engine() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 	engine := p.DBEngine
@@ -83,7 +100,7 @@ func (p *psmdbApplier) Engine() error {
 	return nil
 }
 
-func (p *psmdbApplier) Proxy() error {
+func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 	switch database.Spec.Proxy.Expose.Type {
@@ -100,7 +117,7 @@ func (p *psmdbApplier) Proxy() error {
 	return nil
 }
 
-func (p *psmdbApplier) Backup() error {
+func (p *applier) Backup() error {
 	spec, err := p.genPSMDBBackupSpec()
 	if err != nil {
 		return err
@@ -109,7 +126,7 @@ func (p *psmdbApplier) Backup() error {
 	return nil
 }
 
-func (p *psmdbApplier) DataSource() error {
+func (p *applier) DataSource() error {
 	database := p.DB
 	if database.Spec.DataSource == nil {
 		// Nothing to do.
@@ -122,7 +139,7 @@ func (p *psmdbApplier) DataSource() error {
 	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
-func (p *psmdbApplier) Monitoring() error {
+func (p *applier) Monitoring() error {
 	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
 	if err != nil {
 		return err
@@ -137,7 +154,7 @@ func (p *psmdbApplier) Monitoring() error {
 	return nil
 }
 
-func (p *psmdbApplier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
+func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 	ctx := p.ctx
@@ -173,7 +190,7 @@ func (p *psmdbApplier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig)
 }
 
 // Add the storages used by restores.
-func (p *psmdbApplier) addBackupStoragesByRestores(
+func (p *applier) addBackupStoragesByRestores(
 	restoreList *everestv1alpha1.DatabaseClusterRestoreList,
 	storages map[string]psmdbv1.BackupStorageSpec,
 ) error {
@@ -252,8 +269,8 @@ func (p *psmdbApplier) addBackupStoragesByRestores(
 	return nil
 }
 
-// Add the storages used by the DatabaseClusterBackup objects
-func (p *psmdbApplier) addBackupStoragesByDatabaseClusterBackups(
+// Add the storages used by the DatabaseClusterBackup objects.
+func (p *applier) addBackupStoragesByDatabaseClusterBackups(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	storages map[string]psmdbv1.BackupStorageSpec,
 ) error {
@@ -314,7 +331,7 @@ func (p *psmdbApplier) addBackupStoragesByDatabaseClusterBackups(
 	return nil
 }
 
-func (p *psmdbApplier) getBackupTasks(
+func (p *applier) getBackupTasks(
 	storages map[string]psmdbv1.BackupStorageSpec,
 ) ([]psmdbv1.BackupTaskSpec, error) {
 	database := p.DB
@@ -382,7 +399,7 @@ func (p *psmdbApplier) getBackupTasks(
 	return tasks, nil
 }
 
-func (p *psmdbApplier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
+func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	database := p.DB
 	ctx := p.ctx
 	engine := p.DBEngine

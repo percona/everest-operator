@@ -1,3 +1,19 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package common contains common utilities for the everest-operator.
 package common
 
 import (
@@ -10,8 +26,6 @@ import (
 	"reflect"
 	"strings"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/version"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,6 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 const (
@@ -33,14 +50,17 @@ const (
 	dbTemplateNameAnnotationKey = "everest.percona.com/dbtemplate-name"
 )
 
+// PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
 	return fmt.Sprintf("%s/%s/%s", bucket, BackupStoragePrefix(db), "pitr")
 }
 
+// PITRStorageName returns the name of the storage for the point-in-time recovery backups.
 func PITRStorageName(storageName string) string {
 	return storageName + "-pitr"
 }
 
+// BackupStoragePrefix returns the prefix for the backup storage.
 func BackupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
 	return fmt.Sprintf("%s/%s", db.Name, db.UID)
 }
@@ -50,7 +70,8 @@ func BackupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
 func GetOperatorVersion(
 	ctx context.Context,
 	c client.Client,
-	name types.NamespacedName) (*version.Version, error) {
+	name types.NamespacedName,
+) (*version.Version, error) {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apps",
@@ -98,6 +119,7 @@ func GetClusterType(ctx context.Context, c client.Client) (ClusterType, error) {
 	return clusterType, nil
 }
 
+// ApplyTemplate applies the template to the object.
 func ApplyTemplate(
 	ctx context.Context,
 	c client.Client,
@@ -215,12 +237,14 @@ func applyTemplate(
 	return nil
 }
 
-func GetDatabaseEngine(c client.Client, name, namespace string) (*everestv1alpha1.DatabaseEngine, error) {
+// GetDatabaseEngine gets the DatabaseEngine object with the specified name and namespace.
+func GetDatabaseEngine(ctx context.Context, c client.Client, name, namespace string) (*everestv1alpha1.DatabaseEngine, error) {
 	engine := &everestv1alpha1.DatabaseEngine{}
-	err := c.Get(context.Background(),
+	err := c.Get(ctx,
 		types.NamespacedName{
 			Name:      name,
-			Namespace: namespace}, engine)
+			Namespace: namespace,
+		}, engine)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database engine %s", name)
 	}
@@ -329,6 +353,7 @@ func CreateOrUpdateSecretData(
 	return c.Create(ctx, secret)
 }
 
+// ReconcileBackupStorageSecret reconciles the backup storage secret.
 func ReconcileBackupStorageSecret(
 	ctx context.Context,
 	c client.Client,
@@ -362,10 +387,13 @@ func ReconcileBackupStorageSecret(
 	return c.Create(ctx, secret)
 }
 
+// ReconcileDBRestoreFromDataSource reconciles the DatabaseClusterRestore object
+// based on the DataSource field of the DatabaseCluster.
 func ReconcileDBRestoreFromDataSource(
 	ctx context.Context,
 	c client.Client,
-	database *everestv1alpha1.DatabaseCluster) error {
+	database *everestv1alpha1.DatabaseCluster,
+) error {
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
 		return errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
@@ -392,7 +420,8 @@ func ReconcileDBRestoreFromDataSource(
 func getRestoreDataSource(
 	ctx context.Context,
 	c client.Client,
-	database *everestv1alpha1.DatabaseCluster) everestv1alpha1.DataSource {
+	database *everestv1alpha1.DatabaseCluster,
+) everestv1alpha1.DataSource {
 	if database.Spec.Engine.Type != everestv1alpha1.DatabaseEnginePSMDB || database.Spec.DataSource.DBClusterBackupName == "" {
 		return *database.Spec.DataSource
 	}
@@ -416,6 +445,7 @@ func getRestoreDataSource(
 	}
 }
 
+// ValidatePitrRestoreSpec validates the PITR restore spec.
 func ValidatePitrRestoreSpec(dataSource everestv1alpha1.DataSource) error {
 	if dataSource.PITR == nil {
 		return nil
@@ -447,7 +477,8 @@ func CreateOrUpdate(
 	ctx context.Context,
 	c client.Client,
 	obj client.Object,
-	patchSecretData bool) error {
+	patchSecretData bool,
+) error {
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Join(err, errors.New("calculate object hash"))
@@ -517,7 +548,8 @@ func updateObject(
 	ctx context.Context,
 	c client.Client,
 	obj, oldObject client.Object,
-	patchSecretData bool) error {
+	patchSecretData bool,
+) error {
 	obj.SetResourceVersion(oldObject.GetResourceVersion())
 	switch object := obj.(type) {
 	case *corev1.Service:
@@ -661,6 +693,5 @@ func GetBackupStorageIndexInPGBackrestRepo(
 			return idx
 		}
 	}
-
 	return -1
 }

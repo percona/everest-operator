@@ -1,12 +1,25 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package psmdb contains the provider for Percona Server for MongoDB.
 package psmdb
 
 import (
 	"context"
 
 	"github.com/AlekSi/pointer"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
-	"github.com/percona/everest-operator/controllers/providers"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,6 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/controllers/providers"
 )
 
 const (
@@ -23,23 +40,25 @@ const (
 	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
 )
 
-type PSMDBProvider struct {
+// Provider is a provider for Percona Server for MongoDB.
+type Provider struct {
 	*psmdbv1.PerconaServerMongoDB
 	providers.ProviderOptions
-	ctx context.Context
 }
 
+// New returns a new provider for Percona Server for MongoDB.
 func New(
 	ctx context.Context,
 	opts providers.ProviderOptions,
-) (*PSMDBProvider, error) {
+) (*Provider, error) {
 	client := opts.C
 
 	psmdb := &psmdbv1.PerconaServerMongoDB{}
 	err := client.Get(ctx,
 		types.NamespacedName{
 			Name:      opts.DB.GetName(),
-			Namespace: opts.DB.GetNamespace()},
+			Namespace: opts.DB.GetNamespace(),
+		},
 		psmdb)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
@@ -54,22 +73,21 @@ func New(
 		controllerutil.AddFinalizer(psmdb, f)
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(client, common.PGDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PGDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 	opts.DBEngine = dbEngine
 
 	psmdb.Spec = defaultSpec()
-	p := &PSMDBProvider{
+	p := &Provider{
 		PerconaServerMongoDB: psmdb,
 		ProviderOptions:      opts,
-		ctx:                  ctx,
 	}
-	if err := p.handleOperatorVersion(); err != nil {
+	if err := p.handleOperatorVersion(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handleClusterTypeConfig(); err != nil {
+	if err := p.handleClusterTypeConfig(ctx); err != nil {
 		return nil, err
 	}
 	if err := common.ApplyTemplate(ctx, opts.C, opts.DB, psmdb); err != nil {
@@ -78,9 +96,9 @@ func New(
 	return p, nil
 }
 
-func (p *PSMDBProvider) handleOperatorVersion() error {
+func (p *Provider) handleOperatorVersion(ctx context.Context) error {
 	psmdb := p.PerconaServerMongoDB
-	v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
+	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
 		Name:      common.PGDeploymentName,
 		Namespace: p.DB.GetNamespace(),
 	})
@@ -100,12 +118,11 @@ func (p *PSMDBProvider) handleOperatorVersion() error {
 }
 
 // handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *PSMDBProvider) handleClusterTypeConfig() error {
+func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
 	psmdb := p.PerconaServerMongoDB
-	ct, err := common.GetClusterType(p.ctx, p.C)
+	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
 		return err
-
 	}
 	if ct == common.ClusterTypeEKS {
 		affinity := &psmdbv1.PodAffinity{
@@ -116,11 +133,18 @@ func (p *PSMDBProvider) handleClusterTypeConfig() error {
 	return nil
 }
 
-func (p *PSMDBProvider) Apply() everestv1alpha1.Applier {
-	return &psmdbApplier{p}
+// Apply returns the applier for Percona Server for MongoDB.
+//
+//nolint:ireturn
+func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
+	return &applier{
+		Provider: p,
+		ctx:      ctx,
+	}
 }
 
-func (p *PSMDBProvider) Status() (everestv1alpha1.DatabaseClusterStatus, error) {
+// Status builds the DatabaseCluster Status based on the current state of the PerconaServerMongoDB.
+func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	status := p.DB.Status
 	psmdb := p.PerconaServerMongoDB
 
@@ -138,7 +162,7 @@ func (p *PSMDBProvider) Status() (everestv1alpha1.DatabaseClusterStatus, error) 
 	status.Port = 27017
 	status.ActiveStorage = activeStorage
 	// If a restore is running for this database, set the database status to restoring.
-	if restoring, err := common.IsDatabaseClusterRestoreRunning(p.ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
@@ -146,12 +170,16 @@ func (p *PSMDBProvider) Status() (everestv1alpha1.DatabaseClusterStatus, error) 
 	return status, nil
 }
 
-func (p *PSMDBProvider) Cleanup(db *everestv1alpha1.DatabaseCluster) (bool, error) {
+// Cleanup runs the cleanup routines and returns true if the cleanup is done.
+func (p *Provider) Cleanup(_ context.Context, _ *everestv1alpha1.DatabaseCluster) (bool, error) {
 	// Nothing to do
 	return true, nil
 }
 
-func (p *PSMDBProvider) DBObject() client.Object {
+// DBObject returns the PerconaServerMongoDB object.
+//
+//nolint:ireturn
+func (p *Provider) DBObject() client.Object {
 	return p.PerconaServerMongoDB
 }
 

@@ -1,13 +1,27 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package pxc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 
 	"github.com/AlekSi/pointer"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,21 +30,25 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
-type pxcApplier struct {
-	*PXCProvider
+type applier struct {
+	*Provider
+	ctx context.Context //nolint:containedctx
 }
 
-func (p *pxcApplier) Paused(paused bool) {
+func (p *applier) Paused(paused bool) {
 	p.PerconaXtraDBCluster.Spec.Pause = paused
 }
 
-func (p *pxcApplier) AllowUnsafeConfig(allow bool) {
+func (p *applier) AllowUnsafeConfig(allow bool) {
 	p.PerconaXtraDBCluster.Spec.AllowUnsafeConfig = allow
 }
 
-func (p *pxcApplier) Engine() error {
+func (p *applier) Engine() error {
 	engine := p.DBEngine
 	spec := p.DB.Spec.Engine
 	if spec.Version == "" {
@@ -86,7 +104,7 @@ func (p *pxcApplier) Engine() error {
 	return nil
 }
 
-func (p *pxcApplier) Backup() error {
+func (p *applier) Backup() error {
 	bkp, err := p.genPXCBackupSpec()
 	if err != nil {
 		return err
@@ -95,7 +113,7 @@ func (p *pxcApplier) Backup() error {
 	return nil
 }
 
-func (p *pxcApplier) Proxy() error {
+func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
@@ -112,7 +130,7 @@ func (p *pxcApplier) Proxy() error {
 	return nil
 }
 
-func (p *pxcApplier) DataSource() error {
+func (p *applier) DataSource() error {
 	if p.DB.Spec.DataSource == nil {
 		// Nothing to do.
 		return nil
@@ -124,7 +142,7 @@ func (p *pxcApplier) DataSource() error {
 	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
-func (p *pxcApplier) Monitoring() error {
+func (p *applier) Monitoring() error {
 	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
 	if err != nil {
 		return err
@@ -205,7 +223,7 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 	}
 }
 
-func (p *PXCProvider) applyHAProxyCfg() error {
+func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
 	switch p.DB.Spec.Engine.Size() {
@@ -216,7 +234,7 @@ func (p *PXCProvider) applyHAProxyCfg() error {
 	case everestv1alpha1.EngineSizeMedium:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
 	case everestv1alpha1.EngineSizeLarge:
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
+		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
 	default:
 		return fmt.Errorf("unknown engine size %s", p.DB.Spec.Engine.Size())
 	}
@@ -289,7 +307,7 @@ func (p *PXCProvider) applyHAProxyCfg() error {
 	return nil
 }
 
-func (p *PXCProvider) applyProxySQLCfg() error {
+func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
 	if p.DB.Spec.Proxy.Replicas == nil {
@@ -336,7 +354,7 @@ func (p *PXCProvider) applyProxySQLCfg() error {
 	return nil
 }
 
-func (p *PXCProvider) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
+func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pxc := p.PerconaXtraDBCluster
 	pxc.Spec.PMM.Enabled = true
 	image := common.DefaultPMMClientImage
@@ -380,7 +398,7 @@ func (p *PXCProvider) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) 
 	return nil
 }
 
-func (p *pxcApplier) genPXCStorageSpec(name, namespace string) (*pxcv1.BackupStorageSpec, *everestv1alpha1.BackupStorage, error) {
+func (p *applier) genPXCStorageSpec(name, namespace string) (*pxcv1.BackupStorageSpec, *everestv1alpha1.BackupStorage, error) {
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err := p.C.Get(p.ctx, types.NamespacedName{Name: name, Namespace: namespace}, backupStorage)
 	if err != nil {
@@ -399,7 +417,7 @@ func (p *pxcApplier) genPXCStorageSpec(name, namespace string) (*pxcv1.BackupSto
 	}, backupStorage, nil
 }
 
-func (p *pxcApplier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
+func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	engine := p.DBEngine
 	database := p.DB
 	// Get the best backup version for the specified database engine
@@ -452,9 +470,10 @@ func (p *pxcApplier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	return pxcBackupSpec, nil
 }
 
-func (p *pxcApplier) addBackupStorages(
+func (p *applier) addBackupStorages(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
-	storages map[string]*pxcv1.BackupStorageSpec) error {
+	storages map[string]*pxcv1.BackupStorageSpec,
+) error {
 	database := p.DB
 	for _, backup := range backupList.Items {
 		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
@@ -501,7 +520,7 @@ func (p *pxcApplier) addBackupStorages(
 	return nil
 }
 
-func (p *pxcApplier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageSpec, pxcBackupSpec *pxcv1.PXCScheduledBackup) error {
+func (p *applier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageSpec, pxcBackupSpec *pxcv1.PXCScheduledBackup) error {
 	database := p.DB
 	storageName := *database.Spec.Backup.PITR.BackupStorageName
 
@@ -535,9 +554,10 @@ func (p *pxcApplier) addPITRConfiguration(storages map[string]*pxcv1.BackupStora
 	return nil
 }
 
-func (p *pxcApplier) addScheduledBackupsConfiguration(
+func (p *applier) addScheduledBackupsConfiguration(
 	storages map[string]*pxcv1.BackupStorageSpec,
-	pxcBackupSpec *pxcv1.PXCScheduledBackup) error {
+	pxcBackupSpec *pxcv1.PXCScheduledBackup,
+) error {
 	database := p.DB
 	var pxcSchedules []pxcv1.PXCScheduledBackupSchedule //nolint:prealloc
 	for _, schedule := range database.Spec.Backup.Schedules {

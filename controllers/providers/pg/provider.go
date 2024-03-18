@@ -1,11 +1,24 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package pg contains the Percona PostgreSQL provider code.
 package pg
 
 import (
 	"context"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
-	"github.com/percona/everest-operator/controllers/providers"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,6 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/controllers/providers"
 )
 
 const (
@@ -22,16 +39,17 @@ const (
 	finalizerDeletePGSSL = "percona.com/delete-ssl"
 )
 
-type PGProvider struct {
+// Provider is a provider for Percona PostgreSQL.
+type Provider struct {
 	*pgv2.PerconaPGCluster
 	providers.ProviderOptions
-	ctx context.Context
 }
 
+// New returns a new provider for Percona PostgreSQL.
 func New(
 	ctx context.Context,
 	opts providers.ProviderOptions,
-) (*PGProvider, error) {
+) (*Provider, error) {
 	client := opts.C
 	pg := &pgv2.PerconaPGCluster{}
 	err := client.Get(ctx, types.NamespacedName{Name: opts.DB.GetName(), Namespace: opts.DB.GetNamespace()}, pg)
@@ -39,7 +57,7 @@ func New(
 		return nil, err
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(client, common.PGDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PGDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
@@ -55,16 +73,18 @@ func New(
 		controllerutil.AddFinalizer(pg, f)
 	}
 
-	p := &PGProvider{
+	p := &Provider{
 		PerconaPGCluster: pg,
 		ProviderOptions:  opts,
-		ctx:              ctx,
 	}
 
-	if err := p.handleClusterTypeConfig(); err != nil {
+	if err := p.handlePGOperatorVersion(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.ensureDataSourceRemoved(opts.DB); err != nil {
+	if err := p.handleClusterTypeConfig(ctx); err != nil {
+		return nil, err
+	}
+	if err := p.ensureDataSourceRemoved(ctx, opts.DB); err != nil {
 		return nil, err
 	}
 	if err := common.ApplyTemplate(ctx, opts.C, opts.DB, pg); err != nil {
@@ -75,18 +95,18 @@ func New(
 
 // DataSource is not needed anymore when db is ready.
 // Deleting it to prevent the future restoration conflicts.
-func (p *PGProvider) ensureDataSourceRemoved(db *everestv1alpha1.DatabaseCluster) error {
+func (p *Provider) ensureDataSourceRemoved(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
 	if db.Status.Status == everestv1alpha1.AppStateReady &&
 		db.Spec.DataSource != nil {
 		db.Spec.DataSource = nil
-		return p.C.Update(p.ctx, db)
+		return p.C.Update(ctx, db)
 	}
 	return nil
 }
 
-func (p *PGProvider) handlePGOperatorVersion() error {
+func (p *Provider) handlePGOperatorVersion(ctx context.Context) error {
 	pg := p.PerconaPGCluster
-	v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
+	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
 		Name:      common.PGDeploymentName,
 		Namespace: p.DB.GetNamespace(),
 	})
@@ -100,18 +120,16 @@ func (p *PGProvider) handlePGOperatorVersion() error {
 	crVersion := v.ToCRVersion()
 	if pg.Spec.CRVersion != "" {
 		crVersion = pg.Spec.CRVersion
-		return p.C.Update(p.ctx, pg)
 	}
 	pg.Spec.CRVersion = crVersion
 	return nil
 }
 
 // handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *PGProvider) handleClusterTypeConfig() error {
-	ct, err := common.GetClusterType(p.ctx, p.C)
+func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
+	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
 		return err
-
 	}
 	if ct == common.ClusterTypeEKS {
 		affinity := &corev1.Affinity{
@@ -130,13 +148,17 @@ func (p *PGProvider) handleClusterTypeConfig() error {
 }
 
 // Apply returns the PG applier.
-func (p *PGProvider) Apply() everestv1alpha1.Applier {
-	return &pgApplier{p}
+//
+//nolint:ireturn
+func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
+	return &applier{
+		Provider: p,
+		ctx:      ctx,
+	}
 }
 
-// Status returns the DatabaseClusterStatus based on the PG status.
-func (p *PGProvider) Status() (everestv1alpha1.DatabaseClusterStatus, error) {
-	ctx := p.ctx
+// Status builds the DatabaseCluster Status based on the current state of the PerconaPGCluster.
+func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	c := p.C
 	pg := p.PerconaPGCluster
 
@@ -157,12 +179,14 @@ func (p *PGProvider) Status() (everestv1alpha1.DatabaseClusterStatus, error) {
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
-func (p *PGProvider) Cleanup(db *everestv1alpha1.DatabaseCluster) (bool, error) {
+func (p *Provider) Cleanup(_ context.Context, _ *everestv1alpha1.DatabaseCluster) (bool, error) {
 	// Nothing to do
 	return true, nil
 }
 
-// DBObject returns the PG object.
-func (p *PGProvider) DBObject() client.Object {
+// DBObject returns the PerconaPGCluster object.
+//
+//nolint:ireturn
+func (p *Provider) DBObject() client.Object {
 	return p.PerconaPGCluster
 }

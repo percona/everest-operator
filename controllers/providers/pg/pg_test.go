@@ -13,20 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:dupl,goconst
 package pg
 
 import (
 	"reflect"
 	"testing"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
 func TestPGConfigParser_ParsePGConfig(t *testing.T) {
@@ -109,22 +111,22 @@ func TestPGConfigParser_ParsePGConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			p := &PGConfigParser{
+			p := &ConfigParser{
 				config: tt.config,
 			}
 			got, err := p.ParsePGConfig()
 			if err != nil {
-				t.Errorf("PGConfigParser.ParsePGConfig() error = %v wantErr %v", err, tt.wantErr)
+				t.Errorf("ConfigParser.ParsePGConfig() error = %v wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PGConfigParser.parsePGConfig() = %v, want %v", got, tt.want)
+				t.Errorf("ConfigParser.parsePGConfig() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestPGConfigParser_lineUsesEqualSign(t *testing.T) {
+func TestConfigParser_lineUsesEqualSign(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -208,7 +210,7 @@ func TestPGConfigParser_lineUsesEqualSign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			p := &PGConfigParser{config: ""}
+			p := &ConfigParser{config: ""}
 			got := p.lineUsesEqualSign([]byte(tt.line))
 			if tt.useEqual != got {
 				t.Errorf("Did not detect equal sign properly for test %s %q", tt.name, tt.line)

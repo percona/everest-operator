@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package version provides a wrapper around github.com/hashicorp/go-version
+// that provides additional functions on top of Percona's version service.
 package version
 
 import (

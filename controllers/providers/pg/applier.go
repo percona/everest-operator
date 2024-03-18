@@ -1,3 +1,18 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package pg
 
 import (
@@ -13,8 +28,6 @@ import (
 	"strings"
 
 	"github.com/go-ini/ini"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
 const (
@@ -33,18 +49,19 @@ const (
 	pgBackRestRetentionTmpl = "%s-retention-full"
 )
 
-type pgApplier struct {
-	*PGProvider
+type applier struct {
+	*Provider
+	ctx context.Context //nolint:containedctx
 }
 
-func (p *pgApplier) Paused(paused bool) {
+func (p *applier) Paused(paused bool) {
 	p.PerconaPGCluster.Spec.Pause = &paused
 }
 
-func (p *pgApplier) AllowUnsafeConfig(allow bool) {
+func (p *applier) AllowUnsafeConfig(_ bool) {
 }
 
-func (p *pgApplier) Engine() error {
+func (p *applier) Engine() error {
 	pg := p.PerconaPGCluster
 	database := p.DB
 	engine := p.DBEngine
@@ -92,7 +109,7 @@ func (p *pgApplier) Engine() error {
 	return nil
 }
 
-func (p *pgApplier) Proxy() error {
+func (p *applier) Proxy() error {
 	engine := p.DBEngine
 	pg := p.PerconaPGCluster
 	database := p.DB
@@ -145,7 +162,7 @@ func (p *pgApplier) Proxy() error {
 	return nil
 }
 
-func (p *pgApplier) Backup() error {
+func (p *applier) Backup() error {
 	spec, err := p.reconcilePGBackupsSpec()
 	if err != nil {
 		return err
@@ -154,7 +171,7 @@ func (p *pgApplier) Backup() error {
 	return nil
 }
 
-func (p *pgApplier) DataSource() error {
+func (p *applier) DataSource() error {
 	spec, err := p.genPGDataSourceSpec()
 	if err != nil {
 		return err
@@ -163,7 +180,7 @@ func (p *pgApplier) DataSource() error {
 	return nil
 }
 
-func (p *pgApplier) Monitoring() error {
+func (p *applier) Monitoring() error {
 	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
 	if err != nil {
 		return err
@@ -178,7 +195,7 @@ func (p *pgApplier) Monitoring() error {
 	return nil
 }
 
-func (p *pgApplier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
+func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pg := p.PerconaPGCluster
 	database := p.DB
 	c := p.C
@@ -246,7 +263,7 @@ func defaultSpec(db *everestv1alpha1.DatabaseCluster) pgv2.PerconaPGClusterSpec 
 	}
 }
 
-func (p *pgApplier) updatePGConfig(
+func (p *applier) updatePGConfig(
 	pg *pgv2.PerconaPGCluster, db *everestv1alpha1.DatabaseCluster,
 ) error {
 	//nolint:godox
@@ -258,7 +275,7 @@ func (p *pgApplier) updatePGConfig(
 	//	 return nil
 	// }
 
-	parser := NewPGConfigParser(db.Spec.Engine.Config)
+	parser := NewConfigParser(db.Spec.Engine.Config)
 	cfg, err := parser.ParsePGConfig()
 	if err != nil {
 		return err
@@ -308,7 +325,8 @@ func getBackupInfo(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster) (
-	string, string, string, error) {
+	string, string, string, error,
+) {
 	backupBaseName := ""
 	backupStorageName := ""
 	dest := ""
@@ -336,7 +354,7 @@ func getBackupInfo(
 }
 
 // handlePGDataSourceAzure handles the PGDataSource object for S3 backup storage.
-func (p *pgApplier) handlePGDataSourceAzure(
+func (p *applier) handlePGDataSourceAzure(
 	repoName string,
 	pgDataSource *crunchyv1beta1.DataSource,
 	backupStorage *everestv1alpha1.BackupStorage,
@@ -397,7 +415,7 @@ func (p *pgApplier) handlePGDataSourceAzure(
 }
 
 // handlePGDataSourceS3 handles the PGDataSource object for S3 backup storage.
-func (p *pgApplier) handlePGDataSourceS3(
+func (p *applier) handlePGDataSourceS3(
 	repoName string,
 	pgDataSource *crunchyv1beta1.DataSource,
 	backupStorage *everestv1alpha1.BackupStorage,
@@ -457,7 +475,7 @@ func (p *pgApplier) handlePGDataSourceS3(
 	return nil
 }
 
-func (p *pgApplier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
+func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	database := p.DB
 	ctx := p.ctx
 	c := p.C
@@ -613,7 +631,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
-func (p *pgApplier) createPGBackrestSecret(
+func (p *applier) createPGBackrestSecret(
 	pgbackrestKey string,
 	pgbackrestConf []byte,
 	pgBackrestSecretName string,
@@ -649,8 +667,8 @@ func (p *pgApplier) createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
-// Add backup storages used by restores to the list
-func (p *pgApplier) addBackupStoragesByRestores(
+// Add backup storages used by restores to the list.
+func (p *applier) addBackupStoragesByRestores(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	restoreList *everestv1alpha1.DatabaseClusterRestoreList,
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
@@ -670,7 +688,8 @@ func (p *pgApplier) addBackupStoragesByRestores(
 			backup := &everestv1alpha1.DatabaseClusterBackup{}
 			key := types.NamespacedName{
 				Name:      restore.Spec.DataSource.DBClusterBackupName,
-				Namespace: restore.GetNamespace()}
+				Namespace: restore.GetNamespace(),
+			}
 			err := c.Get(ctx, key, backup)
 			if err != nil {
 				return errors.Join(err, errors.New("failed to get DatabaseClusterBackup"))
@@ -731,8 +750,8 @@ func (p *pgApplier) addBackupStoragesByRestores(
 	return nil
 }
 
-// Add backup storages used by backup schedules to the list
-func (p *pgApplier) addBackupStoragesBySchedules(
+// Add backup storages used by backup schedules to the list.
+func (p *applier) addBackupStoragesBySchedules(
 	backupSchedules []everestv1alpha1.BackupSchedule,
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
@@ -769,8 +788,8 @@ func (p *pgApplier) addBackupStoragesBySchedules(
 	return nil
 }
 
-// Add backup storages used by on-demand backups to the list
-func (p *pgApplier) addBackupStoragesByOnDemandBackups(
+// Add backup storages used by on-demand backups to the list.
+func (p *applier) addBackupStoragesByOnDemandBackups(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
@@ -806,7 +825,7 @@ func (p *pgApplier) addBackupStoragesByOnDemandBackups(
 	return nil
 }
 
-func (p *pgApplier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
+func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	ctx := p.ctx
 	c := p.C
 	database := p.DB

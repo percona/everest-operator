@@ -46,7 +46,7 @@ var operatorEngine = map[string]everestv1alpha1.EngineType{
 type DatabaseEngineReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
-	versionService *version.VersionService
+	versionService *version.Service
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete

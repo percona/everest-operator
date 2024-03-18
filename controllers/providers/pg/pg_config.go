@@ -26,20 +26,20 @@ import (
 	"github.com/go-ini/ini"
 )
 
-// PGConfigParser represents a parser for PG config.
-type PGConfigParser struct {
+// ConfigParser represents a parser for PG config.
+type ConfigParser struct {
 	config string
 }
 
-// NewPGConfigParser returns a new parser for PG config.
-func NewPGConfigParser(config string) *PGConfigParser {
-	return &PGConfigParser{
+// NewConfigParser returns a new parser for PG config.
+func NewConfigParser(config string) *ConfigParser {
+	return &ConfigParser{
 		config: config,
 	}
 }
 
 // ParsePGConfig parses a PG config file.
-func (p *PGConfigParser) ParsePGConfig() (map[string]any, error) {
+func (p *ConfigParser) ParsePGConfig() (map[string]any, error) {
 	res := make(map[string]any)
 	b := bufio.NewReader(strings.NewReader(p.config))
 
@@ -72,7 +72,7 @@ func (p *PGConfigParser) ParsePGConfig() (map[string]any, error) {
 	return res, nil
 }
 
-func (p *PGConfigParser) newParser(line []byte) (*ini.File, error) {
+func (p *ConfigParser) newParser(line []byte) (*ini.File, error) {
 	delims := "="
 	if !p.lineUsesEqualSign(line) {
 		delims = " "
@@ -88,7 +88,7 @@ func (p *PGConfigParser) newParser(line []byte) (*ini.File, error) {
 // name value
 //
 // This method helps determine which one it is.
-func (p *PGConfigParser) lineUsesEqualSign(line []byte) bool {
+func (p *ConfigParser) lineUsesEqualSign(line []byte) bool {
 	idxSpace := bytes.Index(line, []byte{' '})
 	idxEqual := bytes.Index(line, []byte{'='})
 

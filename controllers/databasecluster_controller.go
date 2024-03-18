@@ -60,9 +60,6 @@ const (
 	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey = "everest.percona.com/restart"
 
-	dbTemplateKindAnnotationKey = "everest.percona.com/dbtemplate-kind"
-	dbTemplateNameAnnotationKey = "everest.percona.com/dbtemplate-name"
-
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
@@ -86,22 +83,25 @@ type DatabaseClusterReconciler struct {
 // of database CRs against database operators.
 type dbProvider interface {
 	metav1.Object
-	Apply() everestv1alpha1.Applier
-	Status() (everestv1alpha1.DatabaseClusterStatus, error)
-	Cleanup(*everestv1alpha1.DatabaseCluster) (bool, error)
+	Apply(ctx context.Context) everestv1alpha1.Applier
+	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error)
+	Cleanup(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (bool, error)
 	DBObject() client.Object
 }
 
 // We want to make sure that our internal implementations for
 // various DB operators are implementing the dbProvider interface.
-var _ dbProvider = (*pxc.PXCProvider)(nil)
-var _ dbProvider = (*pg.PGProvider)(nil)
-var _ dbProvider = (*psmdb.PSMDBProvider)(nil)
+var (
+	_ dbProvider = (*pxc.Provider)(nil)
+	_ dbProvider = (*pg.Provider)(nil)
+	_ dbProvider = (*psmdb.Provider)(nil)
+)
 
+//nolint:ireturn
 func (r *DatabaseClusterReconciler) newDBProvider(
 	ctx context.Context,
-	database *everestv1alpha1.DatabaseCluster) (dbProvider, error) {
-
+	database *everestv1alpha1.DatabaseCluster,
+) (dbProvider, error) {
 	opts := providers.ProviderOptions{
 		C:            r.Client,
 		DB:           database,
@@ -124,11 +124,11 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
-	p dbProvider) (ctrl.Result, error) {
-
+	p dbProvider,
+) (ctrl.Result, error) {
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
-		if done, err := p.Cleanup(db); err != nil {
+		if done, err := p.Cleanup(ctx, db); err != nil {
 			return ctrl.Result{}, err
 		} else if !done {
 			return ctrl.Result{Requeue: true}, nil
@@ -147,21 +147,22 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}
 
 	// Reconcile the DB.
-	p.Apply().Paused(db.Spec.Paused)
-	p.Apply().AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
-	if err := p.Apply().Engine(); err != nil {
+	applier := p.Apply(ctx)
+	applier.Paused(db.Spec.Paused)
+	applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
+	if err := applier.Engine(); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := p.Apply().Proxy(); err != nil {
+	if err := applier.Proxy(); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := p.Apply().Monitoring(); err != nil {
+	if err := applier.Monitoring(); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := p.Apply().Backup(); err != nil {
+	if err := applier.Backup(); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := p.Apply().DataSource(); err != nil {
+	if err := applier.DataSource(); err != nil {
 		return ctrl.Result{}, err
 	}
 	obj := p.DBObject()
@@ -179,7 +180,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}
 
 	// Reconcile the status of the DatabaseCluster object.
-	status, err := p.Status()
+	status, err := p.Status(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -264,7 +265,8 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *DatabaseClusterReconciler) handleRestart(
 	ctx context.Context,
 	logger logr.Logger,
-	database *everestv1alpha1.DatabaseCluster) error {
+	database *everestv1alpha1.DatabaseCluster,
+) error {
 	_, restartRequired := database.ObjectMeta.Annotations[restartAnnotationKey]
 	if !restartRequired {
 		return nil
@@ -344,7 +346,8 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 }
 
 func (r *DatabaseClusterReconciler) reconcileLabels(
-	ctx context.Context, database *everestv1alpha1.DatabaseCluster) error {
+	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
+) error {
 	needsUpdate := false
 	if len(database.ObjectMeta.Labels) == 0 {
 		database.ObjectMeta.Labels = map[string]string{
