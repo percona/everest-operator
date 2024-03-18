@@ -136,41 +136,41 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, nil
 	}
 
+	// Set metadata.
 	p.SetName(db.GetName())
 	p.SetNamespace(db.GetNamespace())
 	p.SetAnnotations(db.GetAnnotations())
-
-	// Copy the finalizers from the DatabaseCluster to the DB CR.
-	if len(db.GetFinalizers()) > 0 {
+	if len(db.GetFinalizers()) != 0 {
 		p.SetFinalizers(db.GetFinalizers())
 		db.SetFinalizers([]string{})
 	}
 
-	// Reconcile the DB.
-	applier := p.Apply(ctx)
-	applier.Paused(db.Spec.Paused)
-	applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
-	if err := applier.Engine(); err != nil {
-		return ctrl.Result{}, err
+	// Mutate the spec and update with kube-api.
+	mutate := func() error {
+		applier := p.Apply(ctx)
+		applier.Paused(db.Spec.Paused)
+		applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
+		if err := applier.Engine(); err != nil {
+			return err
+		}
+		if err := applier.Proxy(); err != nil {
+			return err
+		}
+		if err := applier.Monitoring(); err != nil {
+			return err
+		}
+		if err := applier.Backup(); err != nil {
+			return err
+		}
+		if err := applier.DataSource(); err != nil {
+			return err
+		}
+		if err := controllerutil.SetControllerReference(db, p.DBObject(), r.Client.Scheme()); err != nil {
+			return err
+		}
+		return nil
 	}
-	if err := applier.Proxy(); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := applier.Monitoring(); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := applier.Backup(); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := applier.DataSource(); err != nil {
-		return ctrl.Result{}, err
-	}
-	obj := p.DBObject()
-	if err := controllerutil.SetControllerReference(db, obj, r.Client.Scheme()); err != nil {
-		return ctrl.Result{}, err
-	}
-	mutate := func() error { return nil }
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, obj, mutate); err != nil {
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), mutate); err != nil {
 		return ctrl.Result{}, err
 	}
 

@@ -41,7 +41,7 @@ type applier struct {
 }
 
 func (p *applier) Paused(paused bool) {
-	p.PerconaXtraDBCluster.Spec.Pause = paused
+	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }
 
 func (p *applier) AllowUnsafeConfig(allow bool) {
@@ -153,6 +153,7 @@ func (p *applier) Monitoring() error {
 			return err
 		}
 	default:
+		return nil
 	}
 	return nil
 }

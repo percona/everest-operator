@@ -99,7 +99,7 @@ func New(
 func (p *Provider) handleOperatorVersion(ctx context.Context) error {
 	psmdb := p.PerconaServerMongoDB
 	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PGDeploymentName,
+		Name:      common.PSMDBDeploymentName,
 		Namespace: p.DB.GetNamespace(),
 	})
 	if err != nil {

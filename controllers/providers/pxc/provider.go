@@ -56,7 +56,10 @@ func New(
 ) (*Provider, error) {
 	pxc := &pxcv1.PerconaXtraDBCluster{}
 	client := opts.C
-	err := client.Get(ctx, types.NamespacedName{Name: opts.DB.GetName(), Namespace: opts.DB.GetNamespace()}, pxc)
+	err := client.Get(
+		ctx,
+		types.NamespacedName{Name: opts.DB.GetName(), Namespace: opts.DB.GetNamespace()},
+		pxc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}
