@@ -50,44 +50,43 @@ func (p *applier) AllowUnsafeConfig(allow bool) {
 
 func (p *applier) Engine() error {
 	engine := p.DBEngine
-	spec := p.DB.Spec.Engine
-	if spec.Version == "" {
-		spec.Version = engine.BestEngineVersion()
+	if p.DB.Spec.Engine.Version == "" {
+		p.DB.Spec.Engine.Version = engine.BestEngineVersion()
 	}
 
 	pxc := p.PerconaXtraDBCluster
 
-	pxc.Spec.SecretsName = spec.UserSecretsName
-	pxc.Spec.PXC.PodSpec.Size = spec.Replicas
+	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
+	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
 
-	if spec.Config != "" {
-		pxc.Spec.PXC.PodSpec.Configuration = spec.Config
+	if p.DB.Spec.Engine.Config != "" {
+		pxc.Spec.PXC.PodSpec.Configuration = p.DB.Spec.Engine.Config
 	}
-	pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[spec.Version]
+	pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[p.DB.Spec.Engine.Version]
 	if !ok {
-		return fmt.Errorf("engine version %s not available", spec.Version)
+		return fmt.Errorf("engine version %s not available", p.DB.Spec.Engine.Version)
 	}
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
 
 	pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-			StorageClassName: spec.Storage.Class,
+			StorageClassName: p.DB.Spec.Engine.Storage.Class,
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: spec.Storage.Size,
+					corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
 				},
 			},
 		},
 	}
 
-	if !spec.Resources.CPU.IsZero() {
-		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceCPU] = spec.Resources.CPU
+	if !p.DB.Spec.Engine.Resources.CPU.IsZero() {
+		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Engine.Resources.CPU
 	}
-	if !spec.Resources.Memory.IsZero() {
-		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = spec.Resources.Memory
+	if !p.DB.Spec.Engine.Resources.Memory.IsZero() {
+		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 	}
 
-	switch spec.Size() {
+	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 450
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 450
@@ -236,8 +235,6 @@ func (p *applier) applyHAProxyCfg() error {
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
 	case everestv1alpha1.EngineSizeLarge:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
-	default:
-		return fmt.Errorf("unknown engine size %s", p.DB.Spec.Engine.Size())
 	}
 
 	if p.DB.Spec.Proxy.Replicas == nil {

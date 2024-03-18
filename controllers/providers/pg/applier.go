@@ -172,6 +172,10 @@ func (p *applier) Backup() error {
 }
 
 func (p *applier) DataSource() error {
+	if p.DB.Spec.DataSource == nil {
+		// Nothing to do.
+		return nil
+	}
 	spec, err := p.genPGDataSourceSpec()
 	if err != nil {
 		return err
