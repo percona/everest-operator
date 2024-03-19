@@ -144,6 +144,7 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	p.PerconaServerMongoDB.Spec.PMM = defaultSpec().PMM
 	switch monitoring.Spec.Type {
 	case everestv1alpha1.PMMMonitoringType:
 		if err := p.applyPMMCfg(monitoring); err != nil {
