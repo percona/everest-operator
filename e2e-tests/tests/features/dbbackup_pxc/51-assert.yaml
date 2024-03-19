@@ -10,7 +10,10 @@ spec:
   backupName: test-db-backup
   pitr:
     backupSource:
-      storageName: test-storage-scheduled-pitr
+      s3:
+        credentialsSecret: test-pxc-cluster-backup-s3
+        endpointUrl: s3.someprovider.com
+        region: us-east-2
     date: "2023-12-06 14:24:42"
     type: date
   pxcCluster: test-pxc-cluster
