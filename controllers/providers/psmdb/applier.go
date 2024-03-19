@@ -349,7 +349,7 @@ func (p *applier) getBackupTasks(
 		if err != nil {
 			return nil, err
 		}
-		if database.GetName() != p.SystemNs {
+		if database.GetNamespace() != p.SystemNs {
 			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
 				return nil, err
 			}
