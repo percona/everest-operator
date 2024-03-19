@@ -975,6 +975,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 		annotations, ok := exposeAnnotationsMap[clusterType]
 		if ok {
 			haProxy.PodSpec.ServiceAnnotations = annotations
+			haProxy.PodSpec.ReplicasServiceAnnotations = annotations
 		}
 	default:
 		return nil, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
