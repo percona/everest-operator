@@ -62,7 +62,7 @@ const (
 	LabelBackupStorageName = "percona.com/backup-storage-name"
 
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
-	EverestSecretsPrefix = "everest-secrests-"
+	EverestSecretsPrefix = "everest-secrets-"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
