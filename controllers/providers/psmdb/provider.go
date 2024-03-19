@@ -90,9 +90,6 @@ func New(
 	if err := p.handleClusterTypeConfig(ctx); err != nil {
 		return nil, err
 	}
-	if err := common.ApplyTemplate(ctx, opts.C, opts.DB, psmdb); err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 

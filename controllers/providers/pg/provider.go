@@ -87,9 +87,6 @@ func New(
 	if err := p.ensureDataSourceRemoved(ctx, opts.DB); err != nil {
 		return nil, err
 	}
-	if err := common.ApplyTemplate(ctx, opts.C, opts.DB, pg); err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 

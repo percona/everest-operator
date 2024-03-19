@@ -174,8 +174,14 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, err
 	}
 
-	// Since we may mutate the DatabaseCluster object, we need to update it with kube-api.
-	if err := r.Update(ctx, db); err != nil {
+	// Running the applier can possibly also mutate the DatabaseCluster,
+	// so we should make sure we push those changes to the API server.
+	updatedDB := db.DeepCopy()
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, db, func() error {
+		db.ObjectMeta = updatedDB.ObjectMeta
+		db.Spec = updatedDB.Spec
+		return nil
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 

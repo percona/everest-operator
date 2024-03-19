@@ -45,11 +45,6 @@ import (
 	"github.com/percona/everest-operator/controllers/version"
 )
 
-const (
-	dbTemplateKindAnnotationKey = "everest.percona.com/dbtemplate-kind"
-	dbTemplateNameAnnotationKey = "everest.percona.com/dbtemplate-name"
-)
-
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
 	return fmt.Sprintf("%s/%s/%s", bucket, BackupStoragePrefix(db), "pitr")
@@ -119,31 +114,6 @@ func GetClusterType(ctx context.Context, c client.Client) (ClusterType, error) {
 	return clusterType, nil
 }
 
-// ApplyTemplate applies the template to the object.
-func ApplyTemplate(
-	ctx context.Context,
-	c client.Client,
-	db *everestv1alpha1.DatabaseCluster,
-	obj interface{},
-) error {
-	annots := db.GetAnnotations()
-	dbTemplateKind, hasTemplateKind := annots[dbTemplateKindAnnotationKey]
-	dbTemplateName, hasTemplateName := annots[dbTemplateNameAnnotationKey]
-	if hasTemplateKind && !hasTemplateName {
-		return fmt.Errorf("missing %s annotation", dbTemplateNameAnnotationKey)
-	}
-	if !hasTemplateKind && hasTemplateName {
-		return fmt.Errorf("missing %s annotation", dbTemplateKindAnnotationKey)
-	}
-	if hasTemplateKind && hasTemplateName {
-		return applyTemplate(ctx, c, obj, dbTemplateKind, types.NamespacedName{
-			Namespace: db.GetNamespace(),
-			Name:      dbTemplateName,
-		})
-	}
-	return nil
-}
-
 func mergeMap(dst map[string]interface{}, src map[string]interface{}) error {
 	return mergeMapInternal(dst, src, "")
 }
@@ -170,69 +140,6 @@ func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, pa
 		default:
 			dst[k] = v
 		}
-	}
-	return nil
-}
-
-func applyTemplate(
-	ctx context.Context,
-	c client.Client,
-	obj interface{},
-	kind string,
-	namespacedName types.NamespacedName,
-) error {
-	unstructuredTemplate := &unstructured.Unstructured{}
-	unstructuredDB := &unstructured.Unstructured{}
-
-	unstructuredTemplate.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "everest.percona.com",
-		Kind:    kind,
-		Version: "v1alpha1",
-	})
-	err := c.Get(ctx, namespacedName, unstructuredTemplate)
-	if err != nil {
-		return err
-	}
-
-	unstructuredDB.Object, err = runtime.DefaultUnstructuredConverter.
-		ToUnstructured(obj)
-	if err != nil {
-		return err
-	}
-	//nolint:forcetypeassert
-	err = mergeMap(unstructuredDB.Object["spec"].(map[string]interface{}),
-		unstructuredTemplate.Object["spec"].(map[string]interface{}))
-	if err != nil {
-		return err
-	}
-
-	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"] != nil { //nolint:forcetypeassert
-		if unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] == nil { //nolint:forcetypeassert
-			unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"] = make(map[string]interface{}) //nolint:forcetypeassert
-		}
-		//nolint:forcetypeassert
-		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}),
-			unstructuredTemplate.Object["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}))
-		if err != nil {
-			return err
-		}
-	}
-
-	if unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"] != nil { //nolint:forcetypeassert
-		if unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] == nil { //nolint:forcetypeassert
-			unstructuredDB.Object["metadata"].(map[string]interface{})["labels"] = make(map[string]interface{}) //nolint:forcetypeassert
-		}
-		//nolint:forcetypeassert
-		err = mergeMap(unstructuredDB.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}),
-			unstructuredTemplate.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{}))
-		if err != nil {
-			return err
-		}
-	}
-
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredDB.Object, obj)
-	if err != nil {
-		return err
 	}
 	return nil
 }

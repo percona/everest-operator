@@ -3,4 +3,4 @@ kind: TestStep
 commands:
   - script: SYSTEM_NAMESPACE=$NAMESPACE MONITORING_NAMESPACE=$NAMESPACE DB_NAMESPACES=$NAMESPACE ../../../../bin/manager -metrics-bind-address :8065 -health-probe-bind-address :8066
     background: true
-    skipLogOutput: false
+    skipLogOutput: true
