@@ -72,6 +72,8 @@ spec:
           name: test-pg-cluster-pgbackrest-secrets
       global:
         repo1-retention-full: "1"
+        repo2-storage-verify-tls: "n"
+        repo3-storage-verify-tls: "n"
       repos:
       - name: repo1
         volume:
