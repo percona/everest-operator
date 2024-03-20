@@ -117,6 +117,7 @@ const (
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 	pgBackRestPathTmpl              = "%s-path"
 	pgBackRestRetentionTmpl         = "%s-retention-full"
+	pgBackRestStorageVerifyTmpl     = "%s-storage-verify-tls"
 
 	everestSecretsPrefix = "everest-secrets-"
 )
@@ -1869,7 +1870,7 @@ func reconcilePGBackRestRepos(
 
 			if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
 				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-				pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 			}
 
 			err = addBackupStorageCredentialsToPGBackrestSecretIni(
@@ -1923,7 +1924,7 @@ func reconcilePGBackRestRepos(
 
 				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
 					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-					pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 				}
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
@@ -1975,7 +1976,7 @@ func reconcilePGBackRestRepos(
 
 		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
 			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-			pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
@@ -2029,7 +2030,7 @@ func reconcilePGBackRestRepos(
 
 		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
 			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-			pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
