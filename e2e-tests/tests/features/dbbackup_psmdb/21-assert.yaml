@@ -1,0 +1,15 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  backup:
+    storages:
+      test-storage:
+        s3:
+          insecureSkipTLSVerify: true
+        type: s3
