@@ -140,6 +140,11 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
+	// By default, we must always verify TLS.
+	if verifyTLS := storage.Spec.VerifyTLS; verifyTLS == nil {
+		storage.Spec.VerifyTLS = pointer.To(true)
+	}
+
 	switch cluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
 		err = r.reconcilePXC(ctx, backup)

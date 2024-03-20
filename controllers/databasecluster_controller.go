@@ -1210,7 +1210,8 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 			}
 
 			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
-				Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
+				Type:      pxcv1.BackupStorageType(backupStorage.Spec.Type),
+				VerifyTLS: backupStorage.Spec.VerifyTLS,
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
@@ -1276,6 +1277,7 @@ func (r *DatabaseClusterReconciler) genPXCStorageSpec(ctx context.Context, name,
 				corev1.ResourceCPU:    resource.MustParse("600m"),
 			},
 		},
+		VerifyTLS: backupStorage.Spec.VerifyTLS,
 	}, backupStorage, nil
 }
 
