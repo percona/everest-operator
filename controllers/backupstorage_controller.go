@@ -88,7 +88,8 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	defaultSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      req.NamespacedName.Name,
-		Namespace: r.systemNamespace},
+		Namespace: r.systemNamespace,
+	},
 		defaultSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {

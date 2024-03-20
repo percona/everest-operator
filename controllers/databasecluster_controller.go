@@ -423,7 +423,8 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		backupStorage := &everestv1alpha1.BackupStorage{}
 		err := r.Get(ctx, types.NamespacedName{
 			Name:      backup.Spec.BackupStorageName,
-			Namespace: r.systemNamespace}, backupStorage)
+			Namespace: r.systemNamespace,
+		}, backupStorage)
 		if err != nil {
 			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
