@@ -421,10 +421,13 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      backup.Spec.BackupStorageName,
+			Namespace: r.systemNamespace}, backupStorage)
 		if err != nil {
 			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		if database.Namespace != r.systemNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
 				return emptySpec, err
@@ -436,11 +439,12 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -497,6 +501,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		if err != nil {
 			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		if database.Namespace != r.systemNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
 				return emptySpec, err
@@ -508,11 +513,12 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -556,16 +562,18 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			}
 		}
 
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
