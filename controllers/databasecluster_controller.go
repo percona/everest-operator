@@ -1866,7 +1866,13 @@ func reconcilePGBackRestRepos(
 					err
 			}
 
-			err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
+			if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+				pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+			}
+
+			err = addBackupStorageCredentialsToPGBackrestSecretIni(
+				sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
 			if err != nil {
 				return []crunchyv1beta1.PGBackRestRepo{},
 					map[string]string{},
@@ -1913,6 +1919,11 @@ func reconcilePGBackRestRepos(
 
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
+
+				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+					pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+				}
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
 				if err != nil {
@@ -1961,6 +1972,10 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
@@ -2011,6 +2026,10 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[repo.Name+"-storage-verify-tls"] = "n"
+		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
