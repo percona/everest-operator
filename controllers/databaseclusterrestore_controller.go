@@ -338,6 +338,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 
 			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
 				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, dataSource.BackupSource.Path),
+				VerifyTLS:   backupStorage.Spec.VerifyTLS,
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
