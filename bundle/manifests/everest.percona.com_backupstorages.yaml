@@ -67,6 +67,10 @@ spec:
                 - s3
                 - azure
                 type: string
+              verifyTLS:
+                default: true
+                description: VerifyTLS must be set to enforce TLS verification.
+                type: boolean
             required:
             - bucket
             - credentialsSecretName
