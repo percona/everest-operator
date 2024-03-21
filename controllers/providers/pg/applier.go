@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -45,8 +46,9 @@ const (
 	pgBackupTypeDate      = "time"
 	pgBackupTypeImmediate = "immediate"
 
-	pgBackRestPathTmpl      = "%s-path"
-	pgBackRestRetentionTmpl = "%s-retention-full"
+	pgBackRestPathTmpl          = "%s-path"
+	pgBackRestRetentionTmpl     = "%s-retention-full"
+	pgBackRestStorageVerifyTmpl = "%s-storage-verify-tls"
 )
 
 type applier struct {
@@ -1075,6 +1077,10 @@ func reconcilePGBackRestRepos(
 					[]byte{},
 					err
 			}
+			if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+			}
 
 			err = addBackupStorageCredentialsToPGBackrestSecretIni(
 				sType,
@@ -1133,6 +1139,10 @@ func reconcilePGBackRestRepos(
 
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
+				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+				}
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
 				if err != nil {
@@ -1192,6 +1202,10 @@ func reconcilePGBackRestRepos(
 
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+		}
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
@@ -1241,6 +1255,10 @@ func reconcilePGBackRestRepos(
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+		}
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},

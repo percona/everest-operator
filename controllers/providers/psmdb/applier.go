@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"github.com/percona/percona-server-mongodb-operator/pkg/util/numstr"
 	corev1 "k8s.io/api/core/v1"
@@ -238,11 +239,12 @@ func (p *applier) addBackupStoragesByRestores(
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            common.BackupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                common.BackupStoragePrefix(database),
+					InsecureSkipTLSVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
 				},
 			}
 		}
@@ -300,11 +302,12 @@ func (p *applier) addBackupStoragesByDatabaseClusterBackups(
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            common.BackupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                common.BackupStoragePrefix(database),
+					InsecureSkipTLSVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
 				},
 			}
 		}
@@ -360,11 +363,12 @@ func (p *applier) getBackupTasks(
 			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            common.BackupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                common.BackupStoragePrefix(database),
+					InsecureSkipTLSVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
 				},
 			}
 		}
