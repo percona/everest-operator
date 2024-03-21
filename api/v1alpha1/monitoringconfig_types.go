@@ -41,7 +41,8 @@ type MonitoringConfigSpec struct {
 	// AllowedNamespaces is the list of namespaces where the operator will copy secrets provided in the CredentialsSecretsName.
 	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 	// PMM is configuration for the PMM monitoring type.
-	PMM PMMConfig `json:"pmm,omitempty"`
+	PMM       PMMConfig `json:"pmm,omitempty"`
+	VerifyTLS *bool     `json:"verifyTLS,omitempty"`
 }
 
 // PMMConfig is configuration of the PMM monitoring type.
