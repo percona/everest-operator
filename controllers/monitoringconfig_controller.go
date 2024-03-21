@@ -20,6 +20,7 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/AlekSi/pointer"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
