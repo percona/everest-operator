@@ -70,7 +70,7 @@ spec:
               verifyTLS:
                 default: true
                 description: |-
-                  VerifyTLS is be set to ensure TLS/SSL verification.
+                  VerifyTLS is set to ensure TLS/SSL verification.
                   If unspecified, the default value is true.
                 type: boolean
             required:
