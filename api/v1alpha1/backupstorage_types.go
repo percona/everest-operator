@@ -40,7 +40,9 @@ type BackupStorageSpec struct {
 	Region string `json:"region,omitempty"`
 	// EndpointURL is an endpoint URL of backup storage.
 	EndpointURL string `json:"endpointURL,omitempty"`
-	// VerifyTLS must be set to enforce TLS verification.
+	// VerifyTLS is be set to ensure TLS/SSL verification.
+	// If unspecified, the default value is true.
+	//
 	// +kubebuilder:default:=true
 	VerifyTLS *bool `json:"verifyTLS,omitempty"`
 
