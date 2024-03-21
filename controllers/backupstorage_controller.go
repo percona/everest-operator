@@ -74,7 +74,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return reconcile.Result{}, err
 	}
-	if bs.DeletionTimestamp != nil {
+	if bs.GetDeletionTimestamp() != nil {
 		logger.Info("cleaning up the secrets across namespaces")
 		if err := r.handleDelete(ctx, bs); err != nil {
 			return ctrl.Result{}, err
@@ -86,7 +86,11 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 	defaultSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.systemNamespace}, defaultSecret)
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      req.NamespacedName.Name,
+		Namespace: r.systemNamespace,
+	},
+		defaultSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch Secret")
