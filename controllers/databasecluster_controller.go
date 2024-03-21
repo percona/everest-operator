@@ -117,6 +117,7 @@ const (
 	finalizerDeletePGSSL            = "percona.com/delete-ssl"
 	pgBackRestPathTmpl              = "%s-path"
 	pgBackRestRetentionTmpl         = "%s-retention-full"
+	pgBackRestStorageVerifyTmpl     = "%s-storage-verify-tls"
 
 	everestSecretsPrefix = "everest-secrets-"
 )
@@ -421,10 +422,14 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		}
 
 		backupStorage := &everestv1alpha1.BackupStorage{}
-		err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      backup.Spec.BackupStorageName,
+			Namespace: r.systemNamespace,
+		}, backupStorage)
 		if err != nil {
 			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		if database.Namespace != r.systemNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
 				return emptySpec, err
@@ -436,11 +441,12 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -497,6 +503,7 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 		if err != nil {
 			return emptySpec, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 		}
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		if database.Namespace != r.systemNamespace {
 			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
 				return emptySpec, err
@@ -508,11 +515,12 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			storages[backup.Spec.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -556,16 +564,18 @@ func (r *DatabaseClusterReconciler) genPSMDBBackupSpec( //nolint:cyclop,maintidx
 			}
 		}
 
+		verifyTLS := pointer.Get(backupStorage.Spec.VerifyTLS)
 		switch backupStorage.Spec.Type {
 		case everestv1alpha1.BackupStorageTypeS3:
 			storages[schedule.BackupStorageName] = psmdbv1.BackupStorageSpec{
 				Type: psmdbv1.BackupStorageS3,
 				S3: psmdbv1.BackupStorageS3Spec{
-					Bucket:            backupStorage.Spec.Bucket,
-					CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-					Region:            backupStorage.Spec.Region,
-					EndpointURL:       backupStorage.Spec.EndpointURL,
-					Prefix:            backupStoragePrefix(database),
+					Bucket:                backupStorage.Spec.Bucket,
+					CredentialsSecret:     backupStorage.Spec.CredentialsSecretName,
+					Region:                backupStorage.Spec.Region,
+					EndpointURL:           backupStorage.Spec.EndpointURL,
+					Prefix:                backupStoragePrefix(database),
+					InsecureSkipTLSVerify: !verifyTLS,
 				},
 			}
 		case everestv1alpha1.BackupStorageTypeAzure:
@@ -1210,7 +1220,8 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 			}
 
 			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
-				Type: pxcv1.BackupStorageType(backupStorage.Spec.Type),
+				Type:      pxcv1.BackupStorageType(backupStorage.Spec.Type),
+				VerifyTLS: backupStorage.Spec.VerifyTLS,
 			}
 			switch backupStorage.Spec.Type {
 			case everestv1alpha1.BackupStorageTypeS3:
@@ -1276,6 +1287,7 @@ func (r *DatabaseClusterReconciler) genPXCStorageSpec(ctx context.Context, name,
 				corev1.ResourceCPU:    resource.MustParse("600m"),
 			},
 		},
+		VerifyTLS: backupStorage.Spec.VerifyTLS,
 	}, backupStorage, nil
 }
 
@@ -1856,7 +1868,13 @@ func reconcilePGBackRestRepos(
 					err
 			}
 
-			err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
+			if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+			}
+
+			err = addBackupStorageCredentialsToPGBackrestSecretIni(
+				sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
 			if err != nil {
 				return []crunchyv1beta1.PGBackRestRepo{},
 					map[string]string{},
@@ -1903,6 +1921,11 @@ func reconcilePGBackRestRepos(
 
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
+
+				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
+					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+				}
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
 				if err != nil {
@@ -1951,6 +1974,10 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
@@ -2001,6 +2028,10 @@ func reconcilePGBackRestRepos(
 		// Keep track of backup storages which are already in use by a repo
 		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
 
+		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+		}
 		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + backupStoragePrefix(db)
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {

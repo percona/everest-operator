@@ -21,6 +21,7 @@ spec:
   credentialsSecretName: test-pg-cluster-backup-s3
   region: us-east-2
   endpointURL: s3.amazonaws.com
+  verifyTLS: false
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
@@ -48,6 +49,7 @@ spec:
   type: azure
   bucket: test-backup-bucket
   credentialsSecretName: test-pg-cluster-backup-azure
+  verifyTLS: false
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup

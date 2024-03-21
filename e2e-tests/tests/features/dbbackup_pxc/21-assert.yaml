@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  backup:
+    storages:
+      test-storage:
+        type: s3
+        verifyTLS: false
