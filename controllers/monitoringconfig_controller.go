@@ -70,6 +70,10 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
 	}
+	// VerifyTLS is set to 'true' by default, if unspecified.
+	if mc.Spec.VerifyTLS == nil {
+		mc.Spec.VerifyTLS = pointer.To(true)
+	}
 	if k8serrors.IsNotFound(err) {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
@@ -79,10 +83,6 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
-	}
-	// VerifyTLS is set to 'true' by default, if unspecified.
-	if mc.Spec.VerifyTLS == nil {
-		mc.Spec.VerifyTLS = pointer.To(true)
 	}
 
 	credentialsSecret := &corev1.Secret{}
@@ -109,7 +109,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
-	skipTLS := pointer.Get(mc.Spec.VerifyTLS)
+	skipTLS := !pointer.Get(mc.Spec.VerifyTLS)
 	vmAgentSpec, err := r.genVMAgentSpec(ctx, skipTLS)
 	if err != nil {
 		return err
