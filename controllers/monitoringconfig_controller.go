@@ -20,6 +20,7 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,12 +70,16 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
 	}
+	// VerifyTLS is set to 'true' by default, if unspecified.
+	if mc.Spec.VerifyTLS == nil {
+		mc.Spec.VerifyTLS = pointer.To(true)
+	}
 	if k8serrors.IsNotFound(err) {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
 		// deletion, we receive delete events from cluster's dependents after
 		// cluster is deleted.
 		logger.Info("reconciling VMAgent")
-		if err := r.reconcileVMAgent(ctx); err != nil {
+		if err := r.reconcileVMAgent(ctx, mc); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -97,14 +102,15 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	logger.Info("reconciling VMAgent")
-	if err := r.reconcileVMAgent(ctx); err != nil {
+	if err := r.reconcileVMAgent(ctx, mc); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
-	vmAgentSpec, err := r.genVMAgentSpec(ctx)
+func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
+	skipTLS := !pointer.Get(mc.Spec.VerifyTLS)
+	vmAgentSpec, err := r.genVMAgentSpec(ctx, skipTLS)
 	if err != nil {
 		return err
 	}
@@ -179,7 +185,7 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 	return nil
 }
 
-func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (map[string]interface{}, error) {
+func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLSVerify bool) (map[string]interface{}, error) {
 	vmAgentSpec := map[string]interface{}{
 		"extraArgs": map[string]interface{}{
 			"memory.allowedPercent": "40",
@@ -233,7 +239,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (map[st
 				},
 			},
 			"tlsConfig": map[string]interface{}{
-				"insecureSkipVerify": true,
+				"insecureSkipVerify": skipTLSVerify,
 			},
 			"url": u.JoinPath("victoriametrics/api/v1/write").String(),
 		})

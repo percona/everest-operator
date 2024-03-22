@@ -42,6 +42,11 @@ type MonitoringConfigSpec struct {
 	AllowedNamespaces []string `json:"allowedNamespaces,omitempty"`
 	// PMM is configuration for the PMM monitoring type.
 	PMM PMMConfig `json:"pmm,omitempty"`
+	// VerifyTLS is set to ensure TLS/SSL verification.
+	// If unspecified, the default value is true.
+	//
+	// +kubebuilder:default:=true
+	VerifyTLS *bool `json:"verifyTLS,omitempty"`
 }
 
 // PMMConfig is configuration of the PMM monitoring type.
