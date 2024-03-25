@@ -1,6 +1,6 @@
 module github.com/percona/everest-operator/tools
 
-go 1.21.7
+go 1.22
 
 toolchain go1.22.0
 
