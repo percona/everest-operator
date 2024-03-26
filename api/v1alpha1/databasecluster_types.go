@@ -152,14 +152,18 @@ type Engine struct {
 
 // Size returns the size of the engine.
 func (e Engine) Size() EngineSize {
-	if e.Resources.Memory.Cmp(MemorySmallSize) == 0 {
-		return EngineSizeSmall
+	m := e.Resources.Memory
+	// mem >= Large
+	if m.Cmp(MemoryLargeSize) >= 0 {
+		return EngineSizeLarge
 	}
-	if e.Resources.Memory.Cmp(MemoryMediumSize) == 0 {
+	// mem >= Medium
+	if m.Cmp(MemoryMediumSize) >= 0 {
 		return EngineSizeMedium
 	}
-	if e.Resources.Memory.Cmp(MemoryLargeSize) == 0 {
-		return EngineSizeLarge
+	// mem >= Small
+	if m.Cmp(MemorySmallSize) >= 0 {
+		return EngineSizeSmall
 	}
 	return EngineSizeUnknown
 }

@@ -15,8 +15,11 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
@@ -51,6 +54,47 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 			e := Expose{}
 			if got := e.toCIDR(tt.ranges); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expose.toCIDR() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDatabaseCluster_Size(t *testing.T) {
+	testCases := []struct {
+		engine       Engine
+		expectedSize EngineSize
+	}{
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("2Gi")}},
+			expectedSize: EngineSizeSmall,
+		},
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("3Gi")}},
+			expectedSize: EngineSizeSmall,
+		},
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("8Gi")}},
+			expectedSize: EngineSizeMedium,
+		},
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("12Gi")}},
+			expectedSize: EngineSizeMedium,
+		},
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("32Gi")}},
+			expectedSize: EngineSizeLarge,
+		},
+		{
+			engine:       Engine{Resources: Resources{Memory: resource.MustParse("64Gi")}},
+			expectedSize: EngineSizeLarge,
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			tc := tc
+			if tc.engine.Size() != tc.expectedSize {
+				t.Errorf("expected size %s, got %s", tc.expectedSize, tc.engine.Size())
 			}
 		})
 	}
