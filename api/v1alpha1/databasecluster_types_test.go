@@ -92,8 +92,9 @@ func TestDatabaseCluster_Size(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
+		tc := tc
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			tc := tc
+			t.Parallel()
 			if tc.engine.Size() != tc.expectedSize {
 				t.Errorf("expected size %s, got %s", tc.expectedSize, tc.engine.Size())
 			}
