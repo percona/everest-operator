@@ -54,9 +54,6 @@ const (
 	psmdbCRDName         = "perconaservermongodbs.psmdb.percona.com"
 	pxcCRDName           = "perconaxtradbclusters.pxc.percona.com"
 	pgCRDName            = "perconapgclusters.pgv2.percona.com"
-	pxcAPIGroup          = "pxc.percona.com"
-	psmdbAPIGroup        = "psmdb.percona.com"
-	pgAPIGroup           = "pgv2.percona.com"
 	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey = "everest.percona.com/restart"
 
@@ -410,7 +407,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 }
 
 func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: pxcAPIGroup, Version: "v1"}
+	pxcSchemeGroupVersion := schema.GroupVersion{Group: common.PXCAPIGroup, Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
 		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{})
 
@@ -419,7 +416,7 @@ func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) err
 }
 
 func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: psmdbAPIGroup, Version: "v1"}
+	psmdbSchemeGroupVersion := schema.GroupVersion{Group: common.PSMDBAPIGroup, Version: "v1"}
 	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
 		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{})
 
@@ -428,7 +425,7 @@ func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) e
 }
 
 func (r *DatabaseClusterReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
-	pgSchemeGroupVersion := schema.GroupVersion{Group: pgAPIGroup, Version: "v2"}
+	pgSchemeGroupVersion := schema.GroupVersion{Group: common.PGAPIGroup, Version: "v2"}
 	scheme.AddKnownTypes(pgSchemeGroupVersion,
 		&pgv2.PerconaPGCluster{}, &pgv2.PerconaPGClusterList{})
 

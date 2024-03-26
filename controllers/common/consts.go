@@ -19,11 +19,6 @@ const (
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
 
-	// DBTemplateKindAnnotationKey is the annotation key for the database template kind.
-	DBTemplateKindAnnotationKey = "everest.percona.com/dbtemplate-kind"
-	// DBTemplateNameAnnotationKey is the annotation key for the database template name.
-	DBTemplateNameAnnotationKey = "everest.percona.com/dbtemplate-name"
-
 	// DBClusterRestoreDBClusterNameField is the field in the DatabaseClusterRestore CR.
 	DBClusterRestoreDBClusterNameField = ".spec.dbClusterName"
 	// DBClusterBackupDBClusterNameField is the field in the DatabaseClusterBackup CR.
