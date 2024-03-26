@@ -73,10 +73,9 @@ const (
 	// PerconaPGClusterKind represents postgresql kind.
 	PerconaPGClusterKind = "PerconaPGCluster"
 
-	pxcDeploymentName       = "percona-xtradb-cluster-operator"
-	pxcHAProxyEnvSecretName = "haproxy-env-secret" //nolint:gosec // This is not a credential, only a secret name.
-	psmdbDeploymentName     = "percona-server-mongodb-operator"
-	pgDeploymentName        = "percona-postgresql-operator"
+	pxcDeploymentName   = "percona-xtradb-cluster-operator"
+	psmdbDeploymentName = "percona-server-mongodb-operator"
+	pgDeploymentName    = "percona-postgresql-operator"
 
 	defaultPMMClientImage = "percona/pmm-client:2"
 
@@ -947,24 +946,12 @@ func (r *DatabaseClusterReconciler) createOrUpdateSecretData(
 }
 
 func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
-	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 	engine *everestv1alpha1.DatabaseEngine,
 	clusterType ClusterType,
 ) (*pxcv1.HAProxySpec, error) {
 	haProxy := r.defaultPXCSpec().HAProxy
-	// Set configuration based on database size.
-	if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
-		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
-		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
-	}
-	if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
-	}
-	if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
-	}
+
 	haProxy.PodSpec.Enabled = true
 
 	if database.Spec.Proxy.Replicas == nil {
@@ -992,27 +979,6 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	}
 
 	haProxy.PodSpec.Configuration = database.Spec.Proxy.Config
-	if haProxy.PodSpec.Configuration == "" {
-		haProxy.PodSpec.Configuration = haProxyConfigDefault
-	}
-
-	// Ensure there is a env vars secret for HAProxy
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pxcHAProxyEnvSecretName,
-			Namespace: database.GetNamespace(),
-		},
-	}
-	if err := controllerutil.SetControllerReference(database, secret, r.Client.Scheme()); err != nil {
-		return nil, fmt.Errorf("failed to set controller reference for secret %s", pxcHAProxyEnvSecretName)
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = haProxyEnvVars
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("failed to create or update secret %w", err)
-	}
-	haProxy.PodSpec.EnvVarsSecretName = pxcHAProxyEnvSecretName
 
 	haProxyAvailVersions, ok := engine.Status.AvailableVersions.Proxy[everestv1alpha1.ProxyTypeHAProxy]
 	if !ok {
@@ -1460,27 +1426,10 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 		}
 
-		// Set timeouts and resources based on the database size.
-		if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
-			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 450
-			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 450
-			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsSmall
-		}
-		if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
-			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 451
-			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 451
-			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsMedium
-		}
-		if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
-			pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
-			pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
-			pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsLarge
-		}
-
 		switch database.Spec.Proxy.Type {
 		case everestv1alpha1.ProxyTypeHAProxy:
 			pxc.Spec.ProxySQL.Enabled = false
-			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(ctx, database, engine, clusterType)
+			pxc.Spec.HAProxy, err = r.genPXCHAProxySpec(database, engine, clusterType)
 			if err != nil {
 				return err
 			}
@@ -1508,14 +1457,11 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			}
 		}
 
-		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType { //nolint:nestif
+		if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 			image := defaultPMMClientImage
 			if monitoring.Spec.PMM.Image != "" {
 				image = monitoring.Spec.PMM.Image
 			}
-
-			//nolint:godox
-			// TODO (K8SPXC-1367): Set PMM container LivenessProbes timeouts once possible.
 
 			pxc.Spec.PMM.Enabled = true
 			pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
@@ -1525,16 +1471,6 @@ func (r *DatabaseClusterReconciler) reconcilePXC(ctx context.Context, req ctrl.R
 			pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 			pxc.Spec.PMM.Image = image
 			pxc.Spec.PMM.Resources = database.Spec.Monitoring.Resources
-			// Set resources based on cluster size.
-			if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
-				pxc.Spec.PMM.Resources = pmmResourceRequirementsSmall
-			}
-			if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
-				pxc.Spec.PMM.Resources = pmmResourceRequirementsMedium
-			}
-			if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
-				pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
-			}
 
 			apiKey, err := r.getSecretFromMonitoringConfig(ctx, monitoring)
 			if err != nil {
@@ -3537,8 +3473,6 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
 				},
-				ReadinessProbes: corev1.Probe{TimeoutSeconds: 23},
-				LivenessProbes:  corev1.Probe{TimeoutSeconds: 23},
 			},
 		},
 		ProxySQL: &pxcv1.PodSpec{
