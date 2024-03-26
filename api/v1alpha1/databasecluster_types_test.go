@@ -15,8 +15,8 @@
 package v1alpha1
 
 import (
-	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -60,6 +60,7 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 }
 
 func TestDatabaseCluster_Size(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		engine       Engine
 		expectedSize EngineSize
@@ -91,7 +92,7 @@ func TestDatabaseCluster_Size(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			tc := tc
 			if tc.engine.Size() != tc.expectedSize {
 				t.Errorf("expected size %s, got %s", tc.expectedSize, tc.engine.Size())
