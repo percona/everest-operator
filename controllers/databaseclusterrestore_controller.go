@@ -599,11 +599,23 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	}
 
 	spec := &pxcv1.PITR{
-		BackupSource: &pxcv1.PXCBackupStatus{
-			StorageName: pitrStorageName(*db.Spec.Backup.PITR.BackupStorageName),
-		},
-		Type: string(dataSource.PITR.Type),
-		Date: dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace),
+		BackupSource: &pxcv1.PXCBackupStatus{},
+		Type:         string(dataSource.PITR.Type),
+		Date:         dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace),
+	}
+
+	switch backupStorage.Spec.Type {
+	case everestv1alpha1.BackupStorageTypeS3:
+		spec.BackupSource.S3 = &pxcv1.BackupStorageS3Spec{
+			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+			Region:            backupStorage.Spec.Region,
+			EndpointURL:       backupStorage.Spec.EndpointURL,
+			Bucket:            pitrBucketName(sourceDB, backupStorage.Spec.Bucket),
+		}
+		//nolint:godox
+		// TODO: add support for Azure.
+	default:
+		return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
 	}
 	return spec, nil
 }
