@@ -955,19 +955,12 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	haProxy := r.defaultPXCSpec().HAProxy
 	// Set configuration based on database size.
 	if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
 		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
 		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
 	}
-	if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
-	}
-	if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
-		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
-		if database.Spec.Engine.Replicas > 3 {
-			haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
-		}
-	}
+	// TODO (EVEREST-824): We need to figure out the correct values
+	// for HAProxy resources and set them here, based on memory size.
+
 	haProxy.PodSpec.Enabled = true
 
 	if database.Spec.Proxy.Replicas == nil {
