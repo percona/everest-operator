@@ -24,6 +24,7 @@ import (
 
 const (
 	// A haproxyConfigDefault is the default HAProxy configuration.
+	//nolint:lll
 	haProxyConfigDefault = `
     global
       log stdout format raw local0
