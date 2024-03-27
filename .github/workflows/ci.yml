@@ -155,10 +155,7 @@ jobs:
           do
             kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
-          kubectl delete pxc --all-namespaces --all
-          kubectl delete psmdb --all-namespaces --all
-          kubectl delete pg --all-namespaces --all
-          kubectl delete db --all-namespaces --all
+          kubectl delete db --all-namespaces --all --cascade=foreground
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
@@ -204,10 +201,7 @@ jobs:
           do
             kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
-          kubectl delete pxc --all-namespaces --all
-          kubectl delete psmdb --all-namespaces --all
-          kubectl delete pg --all-namespaces --all
-          kubectl delete db --all-namespaces --all
+          kubectl delete db --all-namespaces --all --cascade=foreground
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
