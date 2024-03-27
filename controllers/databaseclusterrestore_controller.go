@@ -566,9 +566,6 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	dataSource everestv1alpha1.DataSource,
 	db everestv1alpha1.DatabaseCluster,
 ) (*pxcv1.PITR, error) {
-	if db.Spec.Backup.PITR.BackupStorageName == nil || *db.Spec.Backup.PITR.BackupStorageName == "" {
-		return nil, fmt.Errorf("no backup storage defined for PITR in %s cluster", db.Name)
-	}
 	// use 'date' as default
 	if dataSource.PITR.Type == "" {
 		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
@@ -593,7 +590,11 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	}
 	// Get the storage object where the source backup is stored.
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	storageName := *db.Spec.Backup.PITR.BackupStorageName
+
+	if sourceDB.Spec.Backup.PITR.BackupStorageName == nil || *sourceDB.Spec.Backup.PITR.BackupStorageName == "" {
+		return nil, fmt.Errorf("no backup storage defined for PITR in %s cluster", sourceDB.Name)
+	}
+	storageName := *sourceDB.Spec.Backup.PITR.BackupStorageName
 
 	key = types.NamespacedName{Name: storageName, Namespace: r.systemNamespace}
 	if err := r.Get(ctx, key, backupStorage); err != nil {
