@@ -113,11 +113,11 @@ var ( //nolint:dupl
 	// A haProxyResourceRequirementsLarge is the resource requirements for HAProxy for large clusters.
 	haProxyResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("3.19Gi"),
+			corev1.ResourceMemory: resource.MustParse("3.04Gi"),
 			corev1.ResourceCPU:    resource.MustParse("228m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("3.04Gi"),
+			corev1.ResourceMemory: resource.MustParse("3.19Gi"),
 			corev1.ResourceCPU:    resource.MustParse("240m"),
 		},
 	}
