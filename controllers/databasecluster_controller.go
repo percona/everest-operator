@@ -958,6 +958,7 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
 		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
 	}
+	//nolint:godox
 	// TODO (EVEREST-824): We need to figure out the correct values
 	// for HAProxy resources and set them here, based on memory size.
 
