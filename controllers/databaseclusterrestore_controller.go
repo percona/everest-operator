@@ -593,9 +593,11 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	}
 	// Get the storage object where the source backup is stored.
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	key = types.NamespacedName{Name: sourceBackup.Spec.BackupStorageName, Namespace: r.systemNamespace}
+	storageName := *db.Spec.Backup.PITR.BackupStorageName
+
+	key = types.NamespacedName{Name: storageName, Namespace: r.systemNamespace}
 	if err := r.Get(ctx, key, backupStorage); err != nil {
-		return nil, fmt.Errorf("failed to get backup storage '%s' for backup: %w", sourceBackup.Spec.BackupStorageName, err)
+		return nil, fmt.Errorf("failed to get backup storage '%s' for backup: %w", storageName, err)
 	}
 
 	spec := &pxcv1.PITR{
