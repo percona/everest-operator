@@ -100,12 +100,12 @@ var ( //nolint:dupl
 	// A haProxyResourceRequirementsMedium is the resource requirements for HAProxy for medium clusters.
 	haProxyResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("778Mi"),
-			corev1.ResourceMemory: resource.MustParse("228m"),
+			corev1.ResourceMemory: resource.MustParse("778Mi"),
+			corev1.ResourceCPU:    resource.MustParse("228m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("819Mi"),
-			corev1.ResourceMemory: resource.MustParse("240m"),
+			corev1.ResourceMemory: resource.MustParse("819Mi"),
+			corev1.ResourceCPU:    resource.MustParse("240m"),
 		},
 	}
 

@@ -964,6 +964,9 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	}
 	if database.Spec.Engine.Resources.Memory.Cmp(memorySmallSize) == 0 {
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
+		if database.Spec.Engine.Replicas > 3 {
+			haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
+		}
 	}
 	haProxy.PodSpec.Enabled = true
 
