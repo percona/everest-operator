@@ -1161,7 +1161,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 		}
 	}
 
-	if database.Spec.Backup.PITR.Enabled {
+	if database.Spec.Backup.PITR.Enabled { //nolint:nestif
 		storageName := *database.Spec.Backup.PITR.BackupStorageName
 		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, r.systemNamespace)
 		if err != nil {
