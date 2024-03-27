@@ -1188,6 +1188,12 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 			return nil, fmt.Errorf("BackupStorage of type %s is not supported. PITR only works for s3 compatible storages", backupStorage.Spec.Type)
 		}
 
+		if database.Namespace != r.systemNamespace {
+			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
+				return nil, err
+			}
+		}
+
 		// create a separate storage for pxc pitr as the docs recommend
 		// https://docs.percona.com/percona-operator-for-mysql/pxc/backups-pitr.html
 		storages[pitrStorageName(backupStorage.Name)] = spec
