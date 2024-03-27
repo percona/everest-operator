@@ -101,24 +101,24 @@ var ( //nolint:dupl
 	// A haProxyResourceRequirementsMedium is the resource requirements for HAProxy for medium clusters.
 	haProxyResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("778Mi"),
-			corev1.ResourceMemory: resource.MustParse("228m"),
+			corev1.ResourceCPU:    resource.MustParse("532m"),
+			corev1.ResourceMemory: resource.MustParse("778Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("819Mi"),
-			corev1.ResourceMemory: resource.MustParse("240m"),
+			corev1.ResourceCPU:    resource.MustParse("560m"),
+			corev1.ResourceMemory: resource.MustParse("820Mi"),
 		},
 	}
 
 	// A haProxyResourceRequirementsLarge is the resource requirements for HAProxy for large clusters.
 	haProxyResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("3.19Gi"),
-			corev1.ResourceCPU:    resource.MustParse("228m"),
+			corev1.ResourceMemory: resource.MustParse("2.84Gi"),
+			corev1.ResourceCPU:    resource.MustParse("818m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("3.04Gi"),
-			corev1.ResourceCPU:    resource.MustParse("240m"),
+			corev1.ResourceMemory: resource.MustParse("3Gi"),
+			corev1.ResourceCPU:    resource.MustParse("861m"),
 		},
 	}
 )
