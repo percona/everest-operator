@@ -548,6 +548,12 @@ func (p *applier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageS
 		return fmt.Errorf("BackupStorage of type %s is not supported. PITR only works for s3 compatible storages", backupStorage.Spec.Type)
 	}
 
+	if database.Namespace != p.SystemNs {
+		if err := common.ReconcileBackupStorageSecret(p.ctx, p.C, p.SystemNs, backupStorage, database); err != nil {
+			return err
+		}
+	}
+
 	// create a separate storage for pxc pitr as the docs recommend
 	// https://docs.percona.com/percona-operator-for-mysql/pxc/backups-pitr.html
 	storages[common.PITRStorageName(backupStorage.Name)] = spec
