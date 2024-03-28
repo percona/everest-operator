@@ -1159,7 +1159,7 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 		}
 	}
 
-	if database.Spec.Backup.PITR.Enabled {
+	if database.Spec.Backup.PITR.Enabled { //nolint:nestif
 		storageName := *database.Spec.Backup.PITR.BackupStorageName
 		spec, backupStorage, err := r.genPXCStorageSpec(ctx, storageName, r.systemNamespace)
 		if err != nil {
@@ -1184,6 +1184,12 @@ func (r *DatabaseClusterReconciler) genPXCBackupSpec( //nolint:gocognit
 			}
 		default:
 			return nil, fmt.Errorf("BackupStorage of type %s is not supported. PITR only works for s3 compatible storages", backupStorage.Spec.Type)
+		}
+
+		if database.Namespace != r.systemNamespace {
+			if err := r.reconcileBackupStorageSecret(ctx, backupStorage, database); err != nil {
+				return nil, err
+			}
 		}
 
 		// create a separate storage for pxc pitr as the docs recommend
