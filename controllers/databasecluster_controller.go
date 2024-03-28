@@ -956,8 +956,6 @@ func (r *DatabaseClusterReconciler) genPXCHAProxySpec(
 	// Set configuration based on database size.
 	if database.Spec.Engine.Resources.Memory.Cmp(memoryLargeSize) == 0 {
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsLarge
-		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
-		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
 	}
 	if database.Spec.Engine.Resources.Memory.Cmp(memoryMediumSize) == 0 {
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
@@ -3543,8 +3541,8 @@ func (r *DatabaseClusterReconciler) defaultPXCSpec() *pxcv1.PerconaXtraDBCluster
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
 				},
-				ReadinessProbes: corev1.Probe{TimeoutSeconds: 23},
-				LivenessProbes:  corev1.Probe{TimeoutSeconds: 23},
+				ReadinessProbes: corev1.Probe{TimeoutSeconds: 30},
+				LivenessProbes:  corev1.Probe{TimeoutSeconds: 30},
 			},
 		},
 		ProxySQL: &pxcv1.PodSpec{
