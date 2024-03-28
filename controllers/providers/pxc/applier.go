@@ -205,8 +205,8 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
 				},
-				ReadinessProbes: corev1.Probe{TimeoutSeconds: 23},
-				LivenessProbes:  corev1.Probe{TimeoutSeconds: 23},
+				ReadinessProbes: corev1.Probe{TimeoutSeconds: 30},
+				LivenessProbes:  corev1.Probe{TimeoutSeconds: 30},
 			},
 		},
 		ProxySQL: &pxcv1.PodSpec{
@@ -230,8 +230,6 @@ func (p *applier) applyHAProxyCfg() error {
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
-		haProxy.PodSpec.LivenessProbes.TimeoutSeconds = 30
-		haProxy.PodSpec.ReadinessProbes.TimeoutSeconds = 30
 	case everestv1alpha1.EngineSizeMedium:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsMedium
 	case everestv1alpha1.EngineSizeLarge:
