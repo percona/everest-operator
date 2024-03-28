@@ -162,7 +162,6 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	clientReader := mgr.GetAPIReader()
 	r.versionService = NewVersionService()
 	for _, namespaceName := range namespaces {
-		namespaceName := namespaceName
 		for operatorName, engineType := range operatorEngine {
 			dbEngine := &everestv1alpha1.DatabaseEngine{
 				ObjectMeta: metav1.ObjectMeta{
