@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package pxc
 
 import (
 	"strconv"
@@ -101,12 +101,12 @@ var ( //nolint:dupl
 	// A haProxyResourceRequirementsMedium is the resource requirements for HAProxy for medium clusters.
 	haProxyResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("532m"),
 			corev1.ResourceMemory: resource.MustParse("778Mi"),
+			corev1.ResourceCPU:    resource.MustParse("532m"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("560m"),
 			corev1.ResourceMemory: resource.MustParse("820Mi"),
+			corev1.ResourceCPU:    resource.MustParse("560m"),
 		},
 	}
 
