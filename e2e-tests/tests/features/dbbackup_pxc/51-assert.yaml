@@ -11,7 +11,7 @@ spec:
   pitr:
     backupSource:
       s3:
-        credentialsSecret: test-pxc-cluster-backup-s3
+        credentialsSecret: test-pxc-cluster-backup-s3-scheduled
         endpointUrl: s3.someprovider.com
         region: us-east-2
     date: "2023-12-06 14:24:42"
