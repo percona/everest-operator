@@ -184,6 +184,8 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 		} else if !done {
 			return false, nil
 		}
+		controllerutil.RemoveFinalizer(database, common.DBCBackupCleanupFinalizer)
+		return true, p.C.Update(ctx, database)
 	}
 	return true, nil
 }
