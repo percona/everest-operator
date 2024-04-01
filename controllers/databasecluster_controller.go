@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"sort"
 
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -237,6 +239,10 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
+	if err := r.ensureFinalizers(ctx, database); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if database.Spec.Engine.UserSecretsName == "" {
 		database.Spec.Engine.UserSecretsName = common.EverestSecretsPrefix + database.Name
 	}
@@ -263,6 +269,22 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 	return r.reconcileDB(ctx, database, p)
+}
+
+func (r *DatabaseClusterReconciler) ensureFinalizers(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	desiredFinalizers := []string{common.DBCBackupCleanupFinalizer}
+	currentFinalizers := database.GetFinalizers()
+	sort.Strings(desiredFinalizers)
+	sort.Strings(currentFinalizers)
+
+	if !reflect.DeepEqual(currentFinalizers, desiredFinalizers) {
+		database.SetFinalizers(desiredFinalizers)
+		return r.Update(ctx, database)
+	}
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) handleRestart(

@@ -602,3 +602,29 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	}
 	return -1
 }
+
+// DeleteBackupsForDatabase deleted the DatabaseClusterBackup objects for the specified database.
+// Returns true if all backups were deleted, otherwise false.
+func DeleteBackupsForDatabase(
+	ctx context.Context,
+	c client.Client,
+	dbName, dbNs string,
+) (bool, error) {
+	backupList, err := ListDatabaseClusterBackups(ctx, c, dbName, dbNs)
+	if err != nil {
+		return false, err
+	}
+	if len(backupList.Items) == 0 {
+		return true, nil
+	}
+	for _, backup := range backupList.Items {
+		if !backup.GetDeletionTimestamp().IsZero() {
+			// Already deleting, continue to next.
+			continue
+		}
+		if err := c.Delete(ctx, &backup); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}

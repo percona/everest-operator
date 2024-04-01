@@ -168,8 +168,15 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
-func (p *Provider) Cleanup(_ context.Context, _ *everestv1alpha1.DatabaseCluster) (bool, error) {
-	// Nothing to do
+func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
+	// Handle cleanup of dbb objects.
+	if controllerutil.ContainsFinalizer(database, common.DBCBackupCleanupFinalizer) {
+		if done, err := common.DeleteBackupsForDatabase(ctx, p.C, database.GetName(), database.GetNamespace()); err != nil {
+			return false, err
+		} else if !done {
+			return false, nil
+		}
+	}
 	return true, nil
 }
 
