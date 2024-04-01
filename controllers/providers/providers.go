@@ -13,22 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+// Package providers contains the providers for the DB operators supported by everest.
+package providers
 
 import (
-	"testing"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
-func TestVersion(t *testing.T) {
-	t.Parallel()
-	v, err := NewVersion("1.11.0")
-	require.NoError(t, err)
-
-	assert.Equal(t, "1.11.0", v.ToCRVersion())
-	assert.Equal(t, "1.11.0", v.String())
-	assert.Equal(t, "v1.11.0", v.ToSemver())
-	assert.Equal(t, "pxc.percona.com/v1-11-0", v.ToAPIVersion("pxc.percona.com"))
+// ProviderOptions contains options for configuring DB providers.
+type ProviderOptions struct {
+	C            client.Client
+	DB           *everestv1alpha1.DatabaseCluster
+	DBEngine     *everestv1alpha1.DatabaseEngine
+	SystemNs     string
+	MonitoringNs string
 }

@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
 const (
@@ -642,7 +643,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	})
 	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(backupStorage.Spec.Bucket),
-		Prefix: aws.String(backupStoragePrefix(db) + "/backup/db/backup.history/"),
+		Prefix: aws.String(common.BackupStoragePrefix(db) + "/backup/db/backup.history/"),
 	})
 	if err != nil {
 		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)
@@ -663,7 +664,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 		}
 	}
 
-	destination := fmt.Sprintf("s3://%s/%s/backup/db/%s", backupStorage.Spec.Bucket, backupStoragePrefix(db), lastBackup)
+	destination := fmt.Sprintf("s3://%s/%s/backup/db/%s", backupStorage.Spec.Bucket, common.BackupStoragePrefix(db), lastBackup)
 	return &destination
 }
 
@@ -694,7 +695,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 
 	// If the backup storage is not defined in the PerconaPGCluster CR, we
 	// cannot proceed
-	repoIdx := getBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	repoIdx := common.GetBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
 	if repoIdx == -1 {
 		return ErrBackupStorageUndefined
 	}
