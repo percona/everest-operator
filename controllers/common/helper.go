@@ -603,7 +603,8 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	return -1
 }
 
-// HandleDBBackupsCleanup handles the cleanup of the DatabaseCluster backups.
+// HandleDBBackupsCleanup handles the cleanup of the dbbackup objects.
+// Returns true if cleanup is complete.
 func HandleDBBackupsCleanup(
 	ctx context.Context,
 	c client.Client,
@@ -621,6 +622,8 @@ func HandleDBBackupsCleanup(
 	return true, nil
 }
 
+// Delete all dbbackups for the given database.
+// Returns true if no dbbackups are found.
 func deleteBackupsForDatabase(
 	ctx context.Context,
 	c client.Client,
