@@ -20,13 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"sort"
 
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,6 +143,19 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	p.SetNamespace(db.GetNamespace())
 	p.SetAnnotations(db.GetAnnotations())
 
+	// Ensure finalizers.
+	dbcFinalizers := []string{} // set on the databasecluster object.
+	dbFinalizers := []string{}  // set on the underlying DB CR.
+	for _, f := range db.GetFinalizers() {
+		if slices.Contains(everestFinalizers, f) {
+			dbcFinalizers = append(dbcFinalizers, f)
+			continue
+		}
+		dbFinalizers = append(dbFinalizers, f)
+	}
+	db.SetFinalizers(dbcFinalizers)
+	p.SetFinalizers(dbFinalizers)
+
 	// Mutate the spec and update with kube-api.
 	mutate := func() error {
 		applier := p.Apply(ctx)
@@ -239,10 +251,6 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	if err := r.ensureFinalizers(ctx, database); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	if database.Spec.Engine.UserSecretsName == "" {
 		database.Spec.Engine.UserSecretsName = common.EverestSecretsPrefix + database.Name
 	}
@@ -269,22 +277,6 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 	return r.reconcileDB(ctx, database, p)
-}
-
-func (r *DatabaseClusterReconciler) ensureFinalizers(
-	ctx context.Context,
-	database *everestv1alpha1.DatabaseCluster,
-) error {
-	desiredFinalizers := everestFinalizers
-	currentFinalizers := database.GetFinalizers()
-	sort.Strings(desiredFinalizers)
-	sort.Strings(currentFinalizers)
-
-	if !reflect.DeepEqual(currentFinalizers, desiredFinalizers) {
-		database.SetFinalizers(desiredFinalizers)
-		return r.Update(ctx, database)
-	}
-	return nil
 }
 
 func (r *DatabaseClusterReconciler) handleRestart(
