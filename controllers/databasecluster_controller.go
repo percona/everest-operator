@@ -154,7 +154,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		dbFinalizers = append(dbFinalizers, f)
 	}
 	db.SetFinalizers(dbcFinalizers)
-	p.SetFinalizers(dbFinalizers)
+	if len(dbFinalizers) > 0 {
+		p.SetFinalizers(dbFinalizers)
+	}
 
 	// Mutate the spec and update with kube-api.
 	mutate := func() error {
