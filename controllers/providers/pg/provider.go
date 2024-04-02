@@ -181,6 +181,8 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 }
 
 // DBObject returns the PerconaPGCluster object.
-func (p *Provider) DBObject() client.Object { //nolint:ireturn
+//
+//nolint:ireturn
+func (p *Provider) DBObject() client.Object {
 	return p.PerconaPGCluster
 }
