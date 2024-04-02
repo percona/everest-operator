@@ -634,6 +634,7 @@ func deleteBackupsForDatabase(
 		return true, nil
 	}
 	for _, backup := range backupList.Items {
+		backup := backup
 		if !backup.GetDeletionTimestamp().IsZero() {
 			// Already deleting, continue to next.
 			continue
