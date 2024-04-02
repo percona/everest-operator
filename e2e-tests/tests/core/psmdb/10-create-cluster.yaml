@@ -5,6 +5,8 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
+  finalizer:
+  - everest.percona.com/dbb-cleanup
 spec:
   engine:
     type: psmdb
