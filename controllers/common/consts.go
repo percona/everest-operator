@@ -60,7 +60,7 @@ const (
 	EverestSecretsPrefix = "everest-secrets-"
 
 	// DBCBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
-	DBCBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
+	DBBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.

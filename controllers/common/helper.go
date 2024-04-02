@@ -603,9 +603,25 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	return -1
 }
 
-// DeleteBackupsForDatabase deleted the DatabaseClusterBackup objects for the specified database.
-// Returns true if all backups were deleted, otherwise false.
-func DeleteBackupsForDatabase(
+// HandleDBBackupsCleanup handles the cleanup of the DatabaseCluster backups.
+func HandleDBBackupsCleanup(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (bool, error) {
+	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
+		if done, err := deleteBackupsForDatabase(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
+			return false, err
+		} else if !done {
+			return false, nil
+		}
+		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
+		return true, c.Update(ctx, database)
+	}
+	return true, nil
+}
+
+func deleteBackupsForDatabase(
 	ctx context.Context,
 	c client.Client,
 	dbName, dbNs string,

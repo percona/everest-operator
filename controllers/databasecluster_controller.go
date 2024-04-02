@@ -70,6 +70,12 @@ const (
 	backupStorageLabelValue    = "used"
 )
 
+var (
+	everestFinalizers = []string{
+		common.DBBackupCleanupFinalizer,
+	}
+)
+
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
 	client.Client
@@ -139,10 +145,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	p.SetName(db.GetName())
 	p.SetNamespace(db.GetNamespace())
 	p.SetAnnotations(db.GetAnnotations())
-	if len(db.GetFinalizers()) != 0 {
-		p.SetFinalizers(db.GetFinalizers())
-		db.SetFinalizers([]string{})
-	}
 
 	// Mutate the spec and update with kube-api.
 	mutate := func() error {
@@ -275,7 +277,7 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 ) error {
-	desiredFinalizers := []string{common.DBCBackupCleanupFinalizer}
+	desiredFinalizers := everestFinalizers
 	currentFinalizers := database.GetFinalizers()
 	sort.Strings(desiredFinalizers)
 	sort.Strings(currentFinalizers)
