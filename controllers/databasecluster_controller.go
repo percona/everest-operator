@@ -70,11 +70,9 @@ const (
 	backupStorageLabelValue    = "used"
 )
 
-var (
-	everestFinalizers = []string{
-		common.DBBackupCleanupFinalizer,
-	}
-)
+var everestFinalizers = []string{
+	common.DBBackupCleanupFinalizer,
+}
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
