@@ -20,8 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"sort"
+	"slices"
 
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -749,10 +748,10 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 ) error {
 	desiredFinalizers := everestFinalizers
 	currentFinalizers := database.GetFinalizers()
-	sort.Strings(desiredFinalizers)
-	sort.Strings(currentFinalizers)
+	slices.Sort(desiredFinalizers)
+	slices.Sort(currentFinalizers)
 
-	if !reflect.DeepEqual(currentFinalizers, desiredFinalizers) {
+	if !slices.Equal(desiredFinalizers, currentFinalizers) {
 		database.SetFinalizers(desiredFinalizers)
 		return r.Update(ctx, database)
 	}
