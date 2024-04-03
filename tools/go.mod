@@ -7,7 +7,7 @@ toolchain go1.22.0
 require (
 	github.com/BurntSushi/go-sumtype v0.0.0-20221020234012-480526a59796
 	github.com/apache/skywalking-eyes v0.5.0
-	github.com/daixiang0/gci v0.13.1
+	github.com/daixiang0/gci v0.13.4
 	github.com/golangci/golangci-lint v1.57.1
 	github.com/reviewdog/reviewdog v0.17.2
 	golang.org/x/tools v0.19.0
