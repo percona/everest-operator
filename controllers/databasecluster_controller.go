@@ -746,10 +746,11 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 ) error {
-	// Merge the everest finalizers with the current finalizers.
-	desiredFinalizers := slices.Concat(everestFinalizers, database.GetFinalizers())
+	// Combine everest finalizers and finalizers applied by the user.
+	desiredFinalizers := append([]string{}, everestFinalizers...)
+	desiredFinalizers = append(desiredFinalizers, database.GetFinalizers()...)
 	slices.Sort(desiredFinalizers)
-	desiredFinalizers = slices.Compact(desiredFinalizers)
+	desiredFinalizers = slices.Compact(desiredFinalizers) // remove duplicates
 
 	currentFinalizers := database.GetFinalizers()
 	slices.Sort(currentFinalizers)
