@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -67,6 +68,10 @@ const (
 	backupStorageNameLabelTmpl = "backupStorage-%s"
 	backupStorageLabelValue    = "used"
 )
+
+var everestFinalizers = []string{
+	common.DBBackupCleanupFinalizer,
+}
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
@@ -137,10 +142,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	p.SetName(db.GetName())
 	p.SetNamespace(db.GetNamespace())
 	p.SetAnnotations(db.GetAnnotations())
-	if len(db.GetFinalizers()) != 0 {
-		p.SetFinalizers(db.GetFinalizers())
-		db.SetFinalizers([]string{})
-	}
 
 	// Mutate the spec and update with kube-api.
 	mutate := func() error {
@@ -234,6 +235,10 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if err := r.handleRestart(ctx, logger, database); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.ensureFinalizers(ctx, database); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -735,4 +740,24 @@ func (r *DatabaseClusterReconciler) getDBClustersReconcileRequestsByRelatedObjec
 	}
 
 	return requests
+}
+
+func (r *DatabaseClusterReconciler) ensureFinalizers(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	// Combine everest finalizers and finalizers applied by the user.
+	desiredFinalizers := append([]string{}, everestFinalizers...)
+	desiredFinalizers = append(desiredFinalizers, database.GetFinalizers()...)
+	slices.Sort(desiredFinalizers)
+	desiredFinalizers = slices.Compact(desiredFinalizers) // remove duplicates
+
+	currentFinalizers := database.GetFinalizers()
+	slices.Sort(currentFinalizers)
+
+	if !slices.Equal(desiredFinalizers, currentFinalizers) {
+		database.SetFinalizers(desiredFinalizers)
+		return r.Update(ctx, database)
+	}
+	return nil
 }
