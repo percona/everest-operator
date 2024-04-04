@@ -498,6 +498,13 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(ctx context.Context, back
 		return err
 	}
 
+	if !backup.GetDeletionTimestamp().IsZero() &&
+		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
+		if err := r.handleStorageCleanup(ctx, backup, pxcCR, deletePXCBackupFinalizer); err != nil {
+			return err
+		}
+	}
+
 	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
 	// cannot proceed
 	if pxcDBCR.Spec.Backup.Storages == nil {
@@ -565,6 +572,13 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(ctx context.Context, ba
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
 	if err != nil {
 		return err
+	}
+
+	if !backup.GetDeletionTimestamp().IsZero() &&
+		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
+		if err := r.handleStorageCleanup(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer); err != nil {
+			return err
+		}
 	}
 
 	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
@@ -687,6 +701,16 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		return err
 	}
 
+	if !backup.GetDeletionTimestamp().IsZero() &&
+		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
+		// We can't handle this finalizer in PG yet.
+		// See: https://perconadev.atlassian.net/browse/K8SPG-538
+		controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer)
+		if err := r.Update(ctx, backup); err != nil {
+			return err
+		}
+	}
+
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
 	if err != nil {
@@ -761,4 +785,26 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 		return "", fmt.Errorf("invalid schedule index %v in the repo %s", scheduleInd, repoName)
 	}
 	return cluster.Spec.Backup.Schedules[scheduleInd-2].BackupStorageName, nil
+}
+
+// handleCleanup handles the cleanup of the DatabaseClusterBackup.
+func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
+	ctx context.Context,
+	dbcBackup *everestv1alpha1.DatabaseClusterBackup,
+	childBackup client.Object,
+	storageFinalizer string,
+) error {
+	// Add finalizer to the child backup if it doesn't exist.
+	if controllerutil.AddFinalizer(childBackup, storageFinalizer) {
+		if err := r.Update(ctx, childBackup); err != nil {
+			return err
+		}
+	}
+	// Remove the everest finalizer from the DatabaseClusterBackup.
+	if controllerutil.RemoveFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer) {
+		if err := r.Update(ctx, childBackup); err != nil {
+			return err
+		}
+	}
+	return nil
 }
