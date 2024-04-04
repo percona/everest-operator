@@ -151,6 +151,20 @@ spec:
                       type: object
                     type: object
                 type: object
+              operatorUpgrade:
+                description: OperatorUpgrade contains the status of the operator upgrade,
+                  if any.
+                properties:
+                  message:
+                    type: string
+                  phase:
+                    type: string
+                  startedAt:
+                    format: date-time
+                    type: string
+                  targetVersion:
+                    type: string
+                type: object
               operatorVersion:
                 type: string
               status:
