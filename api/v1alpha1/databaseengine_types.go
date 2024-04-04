@@ -23,6 +23,11 @@ import (
 )
 
 const (
+	// DBOperatorUpgradeAnnotation is the annotation used to upgrade the operator to a specific version.
+	DBOperatorUpgradeAnnotation = "everest.percona.com/upgrade-operator-to"
+)
+
+const (
 	// DBEngineStateNotInstalled represents the state of engine when underlying operator is not installed.
 	DBEngineStateNotInstalled EngineState = "not installed"
 	// DBEngineStateInstalling represents the state of engine when underlying operator is installing.
@@ -64,9 +69,29 @@ type DatabaseEngineSpec struct {
 
 // DatabaseEngineStatus defines the observed state of DatabaseEngine.
 type DatabaseEngineStatus struct {
-	State             EngineState `json:"status,omitempty"`
-	OperatorVersion   string      `json:"operatorVersion,omitempty"`
-	AvailableVersions Versions    `json:"availableVersions,omitempty"`
+	State             EngineState            `json:"status,omitempty"`
+	OperatorVersion   string                 `json:"operatorVersion,omitempty"`
+	AvailableVersions Versions               `json:"availableVersions,omitempty"`
+	OperatorUpgrade   *OperatorUpgradeStatus `json:"upgrade,omitempty"`
+}
+
+type UpgradePhase string
+
+const (
+	UpgradePhaseStarted   UpgradePhase = "Started"
+	UpgradePhaseCompleted UpgradePhase = "Completed"
+	UpgradePhaseFailed    UpgradePhase = "Failed"
+)
+
+type OperatorUpgradeStatus struct {
+	// Timestamp at which the operator upgrade started.
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+	// Phase is the current phase of the upgrade.
+	Phase *UpgradePhase `json:"upgradePhase,omitempty"`
+	// TargetVersion is the version to which the operator is being upgraded.
+	TargetVersion string `json:"targetVersion,omitempty"`
+	// Message contains any additional information about the upgrade.
+	Message string `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true
