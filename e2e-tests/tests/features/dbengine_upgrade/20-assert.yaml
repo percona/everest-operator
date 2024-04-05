@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  type: psmdb
+status:
+  status: upgrading
+  operatorUpgrade:
+    targetVersion: 9.9.9
+    phase: failed
+    message: "InstallPlan for version '9.9.9' not found"
+

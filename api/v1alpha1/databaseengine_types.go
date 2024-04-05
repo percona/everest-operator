@@ -85,11 +85,11 @@ type DatabaseEngineStatus struct {
 
 const (
 	// UpgradePhaseStarted represents the phase when the operator upgrade has started.
-	UpgradePhaseStarted UpgradePhase = "Started"
+	UpgradePhaseStarted UpgradePhase = "started"
 	// UpgradePhaseCompleted represents the phase when the operator upgrade has completed.
-	UpgradePhaseCompleted UpgradePhase = "Completed"
+	UpgradePhaseCompleted UpgradePhase = "completed"
 	// UpgradePhaseFailed represents the phase when the operator upgrade has failed.
-	UpgradePhaseFailed UpgradePhase = "Failed"
+	UpgradePhaseFailed UpgradePhase = "failed"
 )
 
 // OperatorUpgradeStatus contains the status of the operator upgrade.

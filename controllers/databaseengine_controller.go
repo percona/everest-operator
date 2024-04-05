@@ -107,14 +107,14 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if version != "" {
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
-	}
 
-	// Handle operator upgrade, if needed.
-	if done, err := r.handleOperatorUpgrade(ctx, dbEngine, ready); err != nil {
-		return ctrl.Result{}, err
-	} else if !done {
-		// Not yet done, check again later.
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		// Handle operator upgrade, if needed.
+		if done, err := r.handleOperatorUpgrade(ctx, dbEngine, ready); err != nil {
+			return ctrl.Result{}, err
+		} else if !done {
+			// Not yet done, check again later.
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
 	}
 
 	// Not ready yet, check again later.
