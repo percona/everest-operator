@@ -339,27 +339,28 @@ func getDatabaseEngineRequestsFromInstallPlan(_ context.Context, o client.Object
 		return result
 	}
 
-	extractDBEngineName := func(csvName string) string {
-		// Define the regular expression pattern to match the version part
-		pattern := `.v\d+\.\d+\.\d+`
-		// Compile the regular expression pattern
-		regex := regexp.MustCompile(pattern)
-		// Find the index of the version match in the input string
-		matchIndex := regex.FindStringIndex(csvName)
-		if matchIndex != nil {
-			// Extract the part before the version
-			rest := csvName[:matchIndex[0]]
-			return rest
-		}
-		// If no version match is found, return the input string as it is
-		return csvName
-	}
 	for _, csv := range installPlan.Spec.ClusterServiceVersionNames {
-		dbEngineName := extractDBEngineName(csv)
+		dbEngineName, _ := parseOperatorCSVName(csv)
 		result = append(result, reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      dbEngineName,
 			Namespace: installPlan.GetNamespace(),
 		}})
 	}
 	return result
+}
+
+// parseOperatorCSVName parses the CSV name to extract the operator name and version.
+// Example:
+//   - input: "percona-xtradb-cluster-operator.v1.9.0"
+//     output: "percona-xtradb-cluster-operator", "1.9.0"
+func parseOperatorCSVName(csvName string) (string, string) {
+	// Regex for matching the version part of the CSV name
+	pattern := `.v\d+\.\d+\.\d+`
+	regex := regexp.MustCompile(pattern)
+	matchIndex := regex.FindStringIndex(csvName)
+	if matchIndex != nil {
+		split := matchIndex[0]
+		return csvName[:split], csvName[split+2:]
+	}
+	return "", ""
 }
