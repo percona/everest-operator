@@ -185,6 +185,8 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		return true, nil
 	}
 
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
+
 	// Check if we're already at the desired version?
 	if dbEngine.Status.OperatorVersion == upgradeTo && operatorReady {
 		// Clean-up and return.
@@ -194,7 +196,6 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		return true, r.Update(ctx, dbEngine)
 	}
 
-	dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
 	if dbEngine.Status.OperatorUpgrade == nil {
 		dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{}
 	}
