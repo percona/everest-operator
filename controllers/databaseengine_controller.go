@@ -17,6 +17,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -32,9 +34,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
+	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/version"
+)
+
+var (
+	errInstallPlanNotFound = errors.New("install plan not found")
 )
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
@@ -143,16 +150,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	dbEngine.Status.AvailableVersions = versions
 
-	annotations := dbEngine.GetAnnotations()
-
-	// Check if we need to upgrade the operator.
-	if upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]; found {
-		if done, err := r.handleOperatorUpgrade(ctx, dbEngine, upgradeTo); err != nil {
-			return ctrl.Result{}, err
-		} else if !done {
-			// Not yet done, check again later.
-			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
-		}
+	// Handle operator upgrade.
+	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
+		return ctrl.Result{}, err
+	} else if !done {
+		// Not yet done, check again later.
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -163,10 +166,86 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
-	upgradeTo string) (bool, error) {
-	// TODO
+) (bool, error) {
+	// Check if upgrade was requested?
+	annotations := dbEngine.GetAnnotations()
+	upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]
+	upgradeTo = strings.TrimPrefix(upgradeTo, "v")
+	if !found {
+		// upgrade not requested, we're done.
+		dbEngine.Status.OperatorUpgrade = nil
+		return true, nil
+	}
 
-	return true, nil
+	// Check if we're already at the desired version?
+	if dbEngine.Status.OperatorVersion == upgradeTo {
+		// Clean-up and return.
+		dbEngine.Status.OperatorUpgrade = nil
+		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
+		dbEngine.SetAnnotations(annotations)
+		return true, r.Update(ctx, dbEngine)
+	}
+
+	if dbEngine.Status.OperatorUpgrade == nil {
+		dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{}
+	}
+	dbEngine.Status.OperatorUpgrade.TargetVersion = upgradeTo
+
+	// TODO(EVEREST-961): Expose a list of available upgrade versions in the status
+	// and check if 'upgradeTo' is listed in it.
+	// This will ensure that we're always moving to a higher version.
+
+	// List all InstallPlans in the namespace.
+	ipList := &opfwv1alpha1.InstallPlanList{}
+	if err := r.List(ctx, ipList, client.InNamespace(dbEngine.Namespace)); err != nil {
+		return false, err
+	}
+
+	// Find the InstallPlan that contains the CSV we want to upgrade to.
+	findIPWithCSV := func(targetCSVName string) *opfwv1alpha1.InstallPlan {
+		for _, ip := range ipList.Items {
+			for _, c := range ip.Spec.ClusterServiceVersionNames {
+				if c == targetCSVName {
+					return &ip
+				}
+			}
+		}
+		return nil
+	}
+	csvName := fmt.Sprintf("%s.v%s", dbEngine.GetName(), upgradeTo)
+	foundIP := findIPWithCSV(csvName)
+	if foundIP == nil {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+		dbEngine.Status.OperatorUpgrade.Message = fmt.Sprintf("InstallPlan for version '%s' not found", upgradeTo)
+		return false, errInstallPlanNotFound
+	}
+
+	// Approve the InstallPlan if not done already.
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
+		foundIP.Spec.Approved = true
+		if err := r.Update(ctx, foundIP); err != nil {
+			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+			dbEngine.Status.OperatorUpgrade.Message = "Failed to approve InstallPlan: " + err.Error()
+			return false, err
+		}
+		now := metav1.Now()
+		dbEngine.Status.OperatorUpgrade.StartedAt = &now
+	}
+
+	dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseStarted
+	dbEngine.Status.OperatorUpgrade.Message = ""
+
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseCompleted
+		return false, nil
+	}
+
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseFailed {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+		return false, nil
+	}
+
+	return false, nil
 }
 
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {
@@ -222,8 +301,14 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 			}
 		}
 	}
+
+	if err := opfwv1alpha1.AddToScheme(r.Scheme); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
+		Watches(&opfwv1alpha1.InstallPlan{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

@@ -92,7 +92,7 @@ const (
 
 // OperatorUpgradeStatus contains the status of the operator upgrade.
 type OperatorUpgradeStatus struct {
-	Phase         string       `json:"phase,omitempty"`
+	Phase         UpgradePhase `json:"phase,omitempty"`
 	StartedAt     *metav1.Time `json:"startedAt,omitempty"`
 	TargetVersion string       `json:"targetVersion,omitempty"`
 	Message       string       `json:"message,omitempty"`
