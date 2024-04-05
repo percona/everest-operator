@@ -29,7 +29,7 @@ const (
 	DBEngineStateInstalling EngineState = "installing"
 	// DBEngineStateInstalled represents the state of engine when underlying operator is installed.
 	DBEngineStateInstalled EngineState = "installed"
-	// DBEndingStateUpgrading represents the state of engine when underlying operator is upgrading.
+	// DBEngineStateUpgrading represents the state of engine when underlying operator is upgrading.
 	DBEngineStateUpgrading EngineState = "upgrading"
 
 	// DatabaseEnginePXC represents engine type for PXC clusters.
