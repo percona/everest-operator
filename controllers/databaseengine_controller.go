@@ -305,19 +305,18 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 		}
 	}
 
-	if err := opfwv1alpha1.AddToScheme(r.Scheme); err != nil {
-		return err
-	}
-
-	return ctrl.NewControllerManagedBy(mgr).
+	c := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
-		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
-		Watches(
+		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{})
+
+	if err := opfwv1alpha1.AddToScheme(r.Scheme); err == nil {
+		c.Watches(
 			&opfwv1alpha1.InstallPlan{},
 			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromInstallPlan),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
-		Complete(r)
+		)
+	}
+	return c.Complete(r)
 }
 
 // getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
