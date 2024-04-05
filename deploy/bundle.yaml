@@ -864,6 +864,20 @@ spec:
                       type: object
                     type: object
                 type: object
+              operatorUpgrade:
+                description: OperatorUpgrade contains the status of the operator upgrade, if any.
+                properties:
+                  message:
+                    type: string
+                  phase:
+                    description: UpgradePhase represents the phase of the operator upgrade.
+                    type: string
+                  startedAt:
+                    format: date-time
+                    type: string
+                  targetVersion:
+                    type: string
+                type: object
               operatorVersion:
                 type: string
               status:
@@ -1230,6 +1244,15 @@ rules:
   - delete
   - get
   - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - installplans
+  verbs:
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - pgv2.percona.com
   resources:
