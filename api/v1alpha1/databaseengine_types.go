@@ -79,7 +79,8 @@ type DatabaseEngineStatus struct {
 	OperatorVersion   string      `json:"operatorVersion,omitempty"`
 	AvailableVersions Versions    `json:"availableVersions,omitempty"`
 
-	// OperatorUpgrade contains the status of the operator upgrade, if any.
+	// OperatorUpgrade contains the status of the operator upgrade.
+	// This is set only if the `everest.percona.com/upgrade-to` annotation is present.
 	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
 }
 
