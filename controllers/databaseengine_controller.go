@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +58,7 @@ type DatabaseEngineReconciler struct {
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) {
 	engineType, ok := operatorEngine[req.NamespacedName.Name]
 	if !ok {
 		// Unknown operator, nothing to do here
@@ -70,11 +71,10 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Namespace: req.NamespacedName.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
 		dbEngine.Spec.Type = engineType
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -90,49 +90,83 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 	}
-	if ready { //nolint:nestif
-		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
-		matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
-		if err != nil {
-			return ctrl.Result{}, err
+
+	defer func() {
+		if updErr := r.Status().Update(ctx, dbEngine); updErr != nil {
+			res = ctrl.Result{}
+			err = updErr
 		}
-		versions := everestv1alpha1.Versions{
-			Backup: matrix.Backup,
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
-			for key := range matrix.PXC {
-				// We do not need supporting mysql 5
-				if strings.HasPrefix(key, "5") {
-					delete(matrix.PXC, key)
-				}
-			}
-			versions.Engine = matrix.PXC
-			versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
-				everestv1alpha1.ProxyTypeHAProxy:  matrix.HAProxy,
-				everestv1alpha1.ProxyTypeProxySQL: matrix.ProxySQL,
-			}
-			versions.Tools = map[string]everestv1alpha1.ComponentsMap{
-				"logCollector": matrix.LogCollector,
-			}
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
-			versions.Engine = matrix.Mongod
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
-			versions.Engine = matrix.Postgresql
-			versions.Backup = matrix.PGBackRest
-			versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
-				everestv1alpha1.ProxyTypePGBouncer: matrix.PGBouncer,
-			}
-		}
-		dbEngine.Status.AvailableVersions = versions
+	}()
+
+	// Not ready yet, check again later.
+	if !ready {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	if err := r.Status().Update(ctx, dbEngine); err != nil {
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
+	matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	versions := everestv1alpha1.Versions{
+		Backup: matrix.Backup,
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
+		for key := range matrix.PXC {
+			// We do not need supporting mysql 5
+			if strings.HasPrefix(key, "5") {
+				delete(matrix.PXC, key)
+			}
+		}
+		versions.Engine = matrix.PXC
+		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
+			everestv1alpha1.ProxyTypeHAProxy:  matrix.HAProxy,
+			everestv1alpha1.ProxyTypeProxySQL: matrix.ProxySQL,
+		}
+		versions.Tools = map[string]everestv1alpha1.ComponentsMap{
+			"logCollector": matrix.LogCollector,
+		}
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
+		versions.Engine = matrix.Mongod
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
+		versions.Engine = matrix.Postgresql
+		versions.Backup = matrix.PGBackRest
+		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
+			everestv1alpha1.ProxyTypePGBouncer: matrix.PGBouncer,
+		}
+	}
+	dbEngine.Status.AvailableVersions = versions
+
+	annotations := dbEngine.GetAnnotations()
+
+	// Check if we need to upgrade the operator.
+	if upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]; found {
+		if done, err := r.handleOperatorUpgrade(ctx, dbEngine, upgradeTo); err != nil {
+			return ctrl.Result{}, err
+		} else if !done {
+			// Not yet done, check again later.
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
+}
+
+// handleOperatorUpgrade handles operator upgrades for the database engine.
+// Returns true if the upgrade is complete.
+func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
+	ctx context.Context,
+	dbEngine *everestv1alpha1.DatabaseEngine,
+	upgradeTo string) (bool, error) {
+	// TODO
+
+	return true, nil
 }
 
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {
