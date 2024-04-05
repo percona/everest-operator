@@ -19,9 +19,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
+	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,19 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/version"
 )
 
-var (
-	errInstallPlanNotFound = errors.New("install plan not found")
-)
+var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
@@ -65,7 +67,7 @@ type DatabaseEngineReconciler struct {
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) {
+func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) { //nolint:nonamedreturns
 	engineType, ok := operatorEngine[req.NamespacedName.Name]
 	if !ok {
 		// Unknown operator, nothing to do here
@@ -85,6 +87,13 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	defer func() {
+		if updErr := r.Status().Update(ctx, dbEngine); updErr != nil {
+			res = ctrl.Result{}
+			err = updErr
+		}
+	}()
+
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
 	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
@@ -97,13 +106,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 	}
-
-	defer func() {
-		if updErr := r.Status().Update(ctx, dbEngine); updErr != nil {
-			res = ctrl.Result{}
-			err = updErr
-		}
-	}()
 
 	// Not ready yet, check again later.
 	if !ready {
@@ -191,6 +193,7 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	}
 	dbEngine.Status.OperatorUpgrade.TargetVersion = upgradeTo
 
+	//nolint:godox
 	// TODO(EVEREST-961): Expose a list of available upgrade versions in the status
 	// and check if 'upgradeTo' is listed in it.
 	// This will ensure that we're always moving to a higher version.
@@ -309,6 +312,44 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
-		Watches(&opfwv1alpha1.InstallPlan{}, &handler.EnqueueRequestForObject{}).
+		Watches(
+			&opfwv1alpha1.InstallPlan{},
+			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromInstallPlan),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+// getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
+// databaseengine referenced by an InstallPlan.
+func getDatabaseEngineRequestsFromInstallPlan(_ context.Context, o client.Object) []reconcile.Request {
+	result := []reconcile.Request{}
+	installPlan, ok := o.(*opfwv1alpha1.InstallPlan)
+	if !ok {
+		return result
+	}
+
+	extractDBEngineName := func(csvName string) string {
+		// Define the regular expression pattern to match the version part
+		pattern := `.v\d+\.\d+\.\d+`
+		// Compile the regular expression pattern
+		regex := regexp.MustCompile(pattern)
+		// Find the index of the version match in the input string
+		matchIndex := regex.FindStringIndex(csvName)
+		if matchIndex != nil {
+			// Extract the part before the version
+			rest := csvName[:matchIndex[0]]
+			return rest
+		}
+		// If no version match is found, return the input string as it is
+		return csvName
+	}
+	for _, csv := range installPlan.Spec.ClusterServiceVersionNames {
+		dbEngineName := extractDBEngineName(csv)
+		result = append(result, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      dbEngineName,
+			Namespace: installPlan.GetNamespace(),
+		}})
+	}
+	return result
 }

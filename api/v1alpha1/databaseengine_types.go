@@ -48,7 +48,7 @@ const (
 )
 
 const (
-	// DatabaseOperatorUpgradeAnnotation indicates that the database operator needs to be upgarded.
+	// DatabaseOperatorUpgradeAnnotation indicates that the database operator needs to be upgraded.
 	// The value of the annotation is the version to upgrade to.
 	DatabaseOperatorUpgradeAnnotation = "everest.percona.com/upgrade-to"
 )
@@ -82,9 +82,9 @@ type DatabaseEngineStatus struct {
 }
 
 const (
-	// UpgradePhaseNotStarted represents the phase when the operator upgrade has started.
+	// UpgradePhaseStarted represents the phase when the operator upgrade has started.
 	UpgradePhaseStarted UpgradePhase = "Started"
-	// UpgradePhaseInProgress represents the phase when the operator upgrade has completed.
+	// UpgradePhaseCompleted represents the phase when the operator upgrade has completed.
 	UpgradePhaseCompleted UpgradePhase = "Completed"
 	// UpgradePhaseFailed represents the phase when the operator upgrade has failed.
 	UpgradePhaseFailed UpgradePhase = "Failed"
