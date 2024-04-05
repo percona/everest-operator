@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -102,9 +103,18 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, err
 		}
 	}
+
 	if version != "" {
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
+	}
+
+	// Handle operator upgrade, if needed.
+	if done, err := r.handleOperatorUpgrade(ctx, dbEngine, ready); err != nil {
+		return ctrl.Result{}, err
+	} else if !done {
+		// Not yet done, check again later.
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
 
 	// Not ready yet, check again later.
@@ -152,14 +162,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	dbEngine.Status.AvailableVersions = versions
 
-	// Handle operator upgrade.
-	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
-		return ctrl.Result{}, err
-	} else if !done {
-		// Not yet done, check again later.
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -168,7 +170,10 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
+	operatorReady bool,
 ) (bool, error) {
+	logger := log.FromContext(ctx)
+
 	// Check if upgrade was requested?
 	annotations := dbEngine.GetAnnotations()
 	upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]
@@ -180,7 +185,7 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	}
 
 	// Check if we're already at the desired version?
-	if dbEngine.Status.OperatorVersion == upgradeTo {
+	if dbEngine.Status.OperatorVersion == upgradeTo && operatorReady {
 		// Clean-up and return.
 		dbEngine.Status.OperatorUpgrade = nil
 		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
@@ -188,6 +193,7 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		return true, r.Update(ctx, dbEngine)
 	}
 
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
 	if dbEngine.Status.OperatorUpgrade == nil {
 		dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{}
 	}
@@ -225,6 +231,9 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 
 	// Approve the InstallPlan if not done already.
 	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
+		logger.Info("Upgrading operator",
+			"from", dbEngine.Status.OperatorVersion,
+			"to", upgradeTo)
 		foundIP.Spec.Approved = true
 		if err := r.Update(ctx, foundIP); err != nil {
 			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed

@@ -624,6 +624,15 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - installplans
+          verbs:
+          - get
+          - list
+          - watch
+          - update
         serviceAccountName: everest-operator-controller-manager
     strategy: deployment
   installModes:
