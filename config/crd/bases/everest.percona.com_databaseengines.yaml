@@ -158,6 +158,8 @@ spec:
                   message:
                     type: string
                   phase:
+                    description: UpgradePhase represents the phase of the operator
+                      upgrade.
                     type: string
                   startedAt:
                     format: date-time
