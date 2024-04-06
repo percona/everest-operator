@@ -98,7 +98,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// We will still requeue to check for the InstallPlan later.
 		requeue = true
 		logger.Error(err, "Failed to handle operator upgrade")
-
 	} else if !done {
 		// Upgrade is not complete, we will update the status and requeue.
 		return ctrl.Result{RequeueAfter: 10 * time.Second},
