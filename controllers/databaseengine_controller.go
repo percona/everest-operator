@@ -69,7 +69,8 @@ type DatabaseEngineReconciler struct {
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) { //nolint:nonamedreturns
+func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
 	engineType, ok := operatorEngine[req.NamespacedName.Name]
 	if !ok {
 		// Unknown operator, nothing to do here
@@ -89,13 +90,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	defer func() {
-		if updErr := r.Status().Update(ctx, dbEngine); updErr != nil {
-			res = ctrl.Result{}
-			err = updErr
-		}
-	}()
-
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
 	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
@@ -105,21 +99,32 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
+	requeue := false
 	if version != "" {
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 
 		// Handle operator upgrade, if needed.
 		if done, err := r.handleOperatorUpgrade(ctx, dbEngine, ready); err != nil {
-			return ctrl.Result{}, err
+			// There was an error, but we will log it and fallthrough,
+			// so that the dbEngine can be reconciled.
+			// We will however requeue.
+			requeue = true
+			logger.Error(err, "Failed to handle operator upgrade")
+
 		} else if !done {
-			// Not yet done, check again later.
-			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			// Not yet done, we will check again later and wait for the upgrade
+			// to complete before proceeding.
+			return ctrl.Result{RequeueAfter: 10 * time.Second},
+				r.Status().Update(ctx, dbEngine)
 		}
 	}
 
-	// Not ready yet, check again later.
+	// Not ready yet, update status and check again later.
 	if !ready {
+		if err := r.Status().Update(ctx, dbEngine); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
@@ -163,7 +168,13 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	dbEngine.Status.AvailableVersions = versions
 
-	return ctrl.Result{}, nil
+	if err := r.Status().Update(ctx, dbEngine); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{
+		Requeue: requeue,
+	}, nil
 }
 
 // handleOperatorUpgrade handles operator upgrades for the database engine.
