@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl delete -n $NAMESPACE --all csv
+  - command: kubectl delete -n $NAMESPACE --all subscription
