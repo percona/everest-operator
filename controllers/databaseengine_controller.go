@@ -108,13 +108,13 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if done, err := r.handleOperatorUpgrade(ctx, dbEngine, ready); err != nil {
 			// There was an error, but we will log it and fallthrough,
 			// so that the dbEngine can be reconciled.
-			// We will however requeue.
+			// The error message is set in the status for the user
+			// We will however requeue for resilience.
 			requeue = true
 			logger.Error(err, "Failed to handle operator upgrade")
 
 		} else if !done {
-			// Not yet done, we will check again later and wait for the upgrade
-			// to complete before proceeding.
+			// Upgrade is not complete, we will update the status and requeue.
 			return ctrl.Result{RequeueAfter: 10 * time.Second},
 				r.Status().Update(ctx, dbEngine)
 		}

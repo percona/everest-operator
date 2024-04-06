@@ -5,8 +5,12 @@ timeout: 300
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
 metadata:
-  name: percona-server-mongodb-operator
+  name: percona-xtradb-cluster-operator
 spec:
-  type: psmdb
+  type: pxc
 status:
-  status: installed
+  status: upgrading
+  operatorUpgrade:
+    targetVersion: 1.13.0
+    phase: started
+

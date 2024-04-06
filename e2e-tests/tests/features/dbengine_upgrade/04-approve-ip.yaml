@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - script: >
+      INSTALL_PLAN_NAME=$(kubectl get sub percona-xtradb-cluster-operator -n $NAMESPACE -o jsonpath='{.status.installplan.name}') && 
+      kubectl -n $NAMESPACE patch --type merge installplan $INSTALL_PLAN_NAME -p '{"spec":{"approved":true}}'

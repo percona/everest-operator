@@ -9,13 +9,6 @@ metadata:
 spec:
   type: pxc
 status:
-  status: not installed
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
-metadata:
-  name: percona-server-mongodb-operator
-spec:
-  type: psmdb
-status:
-  status: not installed
+  status: installed
+  operatorVersion: 1.13.0
+

@@ -1,0 +1,50 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+
+  - script: |
+      cat <<EOF | kubectl apply -n olm -f -
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: CatalogSource
+      metadata:
+        name: everest-catalog
+      spec:
+        displayName: Everest Catalog
+        image: docker.io/percona/everest-catalog:${EVEREST_CATALOG_VERSION}
+        publisher: Percona
+        sourceType: grpc
+        updateStrategy:
+          registryPoll:
+            interval: 45m
+      EOF
+
+  - script: |
+      cat <<EOF | kubectl apply -n $NAMESPACE -f -
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: Subscription
+      metadata:
+        name: percona-xtradb-cluster-operator
+      spec:
+        channel: stable-v1
+        config:
+          env:
+          - name: DISABLE_TELEMETRY
+            value: "false"
+        installPlanApproval: Manual
+        name: percona-xtradb-cluster-operator
+        source: everest-catalog
+        sourceNamespace: olm
+        startingCSV: percona-xtradb-cluster-operator.v${PREVIOUS_PXC_OPERATOR_VERSION}
+      EOF
+
+  - script: |
+      cat <<EOF | kubectl apply -n $NAMESPACE -f -
+      apiVersion: operators.coreos.com/v1
+      kind: OperatorGroup
+      metadata:
+        name: everest-databases
+      spec:
+        targetNamespaces:
+        - $NAMESPACE
+      EOF
