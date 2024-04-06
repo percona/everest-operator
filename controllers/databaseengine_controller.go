@@ -93,10 +93,9 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if !errors.Is(err, errInstallPlanNotFound) {
 			return ctrl.Result{}, err
 		}
-		// There was an error, but we will log it and fallthrough,
-		// so that the dbEngine can be reconciled.
-		// The error message is set in the status for the user.
-		// We will however requeue for resilience.
+		// We could not find the InstallPlan for the operator upgrade,
+		// so we will fallthrough since we'd still want the engine status to be updated.
+		// We will still requeue to check for the InstallPlan later.
 		requeue = true
 		logger.Error(err, "Failed to handle operator upgrade")
 
