@@ -27,9 +27,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -92,6 +90,9 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	requeue := false
 	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
+		if !errors.Is(err, errInstallPlanNotFound) {
+			return ctrl.Result{}, err
+		}
 		// There was an error, but we will log it and fallthrough,
 		// so that the dbEngine can be reconciled.
 		// The error message is set in the status for the user.
@@ -182,7 +183,7 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 ) (bool, error) {
 	logger := log.FromContext(ctx)
 
-	// Check if upgrade was requested?
+	// Check if an upgrade was requested?
 	annotations := dbEngine.GetAnnotations()
 	upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]
 	if !found {
@@ -247,9 +248,9 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	dbEngine.Status.OperatorUpgrade.Message = ""
 
 	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
-		if ready, _, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
+		if ready, version, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
 			return false, err
-		} else if !ready {
+		} else if !ready || version != upgradeTo {
 			return false, nil
 		}
 		// Upgrade is complete, remove the annotation and mark upgrade as complete.
@@ -268,23 +269,15 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 }
 
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	})
 	deployment := &appsv1.Deployment{}
-	if err := r.Get(ctx, name, unstructuredResource); err != nil {
-		return false, "", err
-	}
-	err := runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, deployment)
-	if err != nil {
+	if err := r.Get(ctx, name, deployment); err != nil {
 		return false, "", err
 	}
 	version := strings.Split(deployment.Spec.Template.Spec.Containers[0].Image, ":")[1]
-	ready := deployment.Status.ReadyReplicas == deployment.Status.Replicas
+	ready := deployment.Status.ReadyReplicas == deployment.Status.Replicas &&
+		deployment.Status.Replicas == deployment.Status.UpdatedReplicas &&
+		deployment.Status.UnavailableReplicas == 0 &&
+		deployment.GetGeneration() == deployment.Status.ObservedGeneration
 	return ready, version, nil
 }
 
