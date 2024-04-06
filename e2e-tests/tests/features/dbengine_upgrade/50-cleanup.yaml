@@ -2,4 +2,5 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 commands:
-  - command: kubectl delete ns olm
+  - command: kubectl delete -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
+  - command: kubectl delete ns olm operators
