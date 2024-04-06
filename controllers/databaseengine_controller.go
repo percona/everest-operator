@@ -115,7 +115,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if version != "" {
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
-
 	}
 
 	// Not ready yet, update status and check again later.
@@ -248,6 +247,11 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	dbEngine.Status.OperatorUpgrade.Message = ""
 
 	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
+		if ready, _, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
+			return false, err
+		} else if !ready {
+			return false, nil
+		}
 		// Upgrade is complete, remove the annotation and mark upgrade as complete.
 		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseCompleted
 		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
