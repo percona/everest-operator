@@ -27,7 +27,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -316,14 +318,35 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{})
 
-	if err := opfwv1alpha1.AddToScheme(r.Scheme); err == nil {
+	if r.isOLMInstalled() {
+		err := opfwv1alpha1.AddToScheme(r.Scheme)
+		if err != nil {
+			return err
+		}
 		c.Watches(
 			&opfwv1alpha1.InstallPlan{},
 			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromInstallPlan),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
 	}
+
 	return c.Complete(r)
+}
+
+func (r *DatabaseEngineReconciler) isOLMInstalled() bool {
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+	if err := r.Get(
+		context.Background(),
+		types.NamespacedName{Name: "subscription.operators.coreos.com"},
+		unstructuredResource); err == nil {
+		return true
+	}
+	return false
 }
 
 // getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
