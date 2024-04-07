@@ -342,7 +342,7 @@ func (r *DatabaseEngineReconciler) isOLMInstalled() bool {
 	})
 	if err := r.Get(
 		context.Background(),
-		types.NamespacedName{Name: "subscription.operators.coreos.com"},
+		types.NamespacedName{Name: "subscriptions.operators.coreos.com"},
 		unstructuredResource); err == nil {
 		return true
 	}
