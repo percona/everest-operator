@@ -18,3 +18,4 @@ spec:
   type: pxc
 status:
   status: installed
+  operatorVersion: 1.12.0
