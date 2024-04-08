@@ -184,6 +184,7 @@ jobs:
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
           EVEREST_CATALOG_VERSION: 0.9.1
+          OLM_VERSION: 0.27.0
 
       - name: Clean up custom resources
         if: always()
