@@ -99,7 +99,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// so we will fallthrough since we'd still want the engine status to be updated.
 		// We will still requeue to check for the InstallPlan later.
 		requeue = true
-		logger.Error(err, "Failed to handle operator upgrade")
+		logger.Error(err, "Upgrade failed, cannot find InstallPlan")
 	} else if !done {
 		// Upgrade is not complete, we will update the status and requeue.
 		return ctrl.Result{RequeueAfter: 10 * time.Second},
@@ -120,10 +120,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Not ready yet, update status and check again later.
 	if !ready {
-		if err := r.Status().Update(ctx, dbEngine); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: 10 * time.Second},
+			r.Status().Update(ctx, dbEngine)
 	}
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
