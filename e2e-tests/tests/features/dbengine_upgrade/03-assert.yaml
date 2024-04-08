@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+commands:
+  # check that there is an installPlan
+  - script: >
+      test "$(kubectl get sub percona-xtradb-cluster-operator -n $NAMESPACE -o jsonpath='{.status.installplan.name}')" != ""
+

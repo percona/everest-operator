@@ -29,6 +29,8 @@ const (
 	DBEngineStateInstalling EngineState = "installing"
 	// DBEngineStateInstalled represents the state of engine when underlying operator is installed.
 	DBEngineStateInstalled EngineState = "installed"
+	// DBEngineStateUpgrading represents the state of engine when underlying operator is upgrading.
+	DBEngineStateUpgrading EngineState = "upgrading"
 
 	// DatabaseEnginePXC represents engine type for PXC clusters.
 	DatabaseEnginePXC EngineType = "pxc"
@@ -47,6 +49,12 @@ const (
 	DBEngineComponentUnsupported ComponentStatus = "unsupported"
 )
 
+const (
+	// DatabaseOperatorUpgradeAnnotation indicates that the database operator needs to be upgraded.
+	// The value of the annotation is the version to upgrade to.
+	DatabaseOperatorUpgradeAnnotation = "everest.percona.com/upgrade-operator-to"
+)
+
 type (
 	// EngineType stands for the supported database engines. Right now it's only pxc
 	// and psmdb. However, it can be ps, pg and any other source.
@@ -54,6 +62,9 @@ type (
 
 	// EngineState represents state of engine in a k8s cluster.
 	EngineState string
+
+	// UpgradePhase represents the phase of the operator upgrade.
+	UpgradePhase string
 )
 
 // DatabaseEngineSpec is a spec for a database engine.
@@ -67,6 +78,27 @@ type DatabaseEngineStatus struct {
 	State             EngineState `json:"status,omitempty"`
 	OperatorVersion   string      `json:"operatorVersion,omitempty"`
 	AvailableVersions Versions    `json:"availableVersions,omitempty"`
+
+	// OperatorUpgrade contains the status of the operator upgrade.
+	// This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
+	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
+}
+
+const (
+	// UpgradePhaseStarted represents the phase when the operator upgrade has started.
+	UpgradePhaseStarted UpgradePhase = "started"
+	// UpgradePhaseCompleted represents the phase when the operator upgrade has completed.
+	UpgradePhaseCompleted UpgradePhase = "completed"
+	// UpgradePhaseFailed represents the phase when the operator upgrade has failed.
+	UpgradePhaseFailed UpgradePhase = "failed"
+)
+
+// OperatorUpgradeStatus contains the status of the operator upgrade.
+type OperatorUpgradeStatus struct {
+	Phase         UpgradePhase `json:"phase,omitempty"`
+	StartedAt     *metav1.Time `json:"startedAt,omitempty"`
+	TargetVersion string       `json:"targetVersion,omitempty"`
+	Message       string       `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true

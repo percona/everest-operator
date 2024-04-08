@@ -17,8 +17,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
+	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,14 +32,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/version"
 )
+
+var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
@@ -52,12 +63,14 @@ type DatabaseEngineReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
+//+kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
 	engineType, ok := operatorEngine[req.NamespacedName.Name]
 	if !ok {
 		// Unknown operator, nothing to do here
@@ -70,89 +83,199 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Namespace: req.NamespacedName.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
 		dbEngine.Spec.Type = engineType
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	requeue := false
+	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
+		if !errors.Is(err, errInstallPlanNotFound) {
+			return ctrl.Result{}, err
+		}
+		// We could not find the InstallPlan for the operator upgrade,
+		// so we will fallthrough since we'd still want the engine status to be updated.
+		// We will still requeue to check for the InstallPlan later.
+		requeue = true
+		logger.Error(err, "Upgrade failed, cannot find InstallPlan")
+	} else if !done {
+		// Upgrade is not complete, we will update the status and requeue.
+		return ctrl.Result{RequeueAfter: 10 * time.Second},
+			r.Status().Update(ctx, dbEngine)
 	}
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
 	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return ctrl.Result{}, err
-		}
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
 	}
+
 	if version != "" {
 		dbEngine.Status.OperatorVersion = version
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 	}
-	if ready { //nolint:nestif
-		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
-		matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		versions := everestv1alpha1.Versions{
-			Backup: matrix.Backup,
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
-			for key := range matrix.PXC {
-				// We do not need supporting mysql 5
-				if strings.HasPrefix(key, "5") {
-					delete(matrix.PXC, key)
-				}
-			}
-			versions.Engine = matrix.PXC
-			versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
-				everestv1alpha1.ProxyTypeHAProxy:  matrix.HAProxy,
-				everestv1alpha1.ProxyTypeProxySQL: matrix.ProxySQL,
-			}
-			versions.Tools = map[string]everestv1alpha1.ComponentsMap{
-				"logCollector": matrix.LogCollector,
-			}
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
-			versions.Engine = matrix.Mongod
-		}
-		if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
-			versions.Engine = matrix.Postgresql
-			versions.Backup = matrix.PGBackRest
-			versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
-				everestv1alpha1.ProxyTypePGBouncer: matrix.PGBouncer,
-			}
-		}
-		dbEngine.Status.AvailableVersions = versions
+
+	// Not ready yet, update status and check again later.
+	if !ready {
+		return ctrl.Result{RequeueAfter: 10 * time.Second},
+			r.Status().Update(ctx, dbEngine)
 	}
+
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
+	matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	versions := everestv1alpha1.Versions{
+		Backup: matrix.Backup,
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
+		for key := range matrix.PXC {
+			// We do not need supporting mysql 5
+			if strings.HasPrefix(key, "5") {
+				delete(matrix.PXC, key)
+			}
+		}
+		versions.Engine = matrix.PXC
+		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
+			everestv1alpha1.ProxyTypeHAProxy:  matrix.HAProxy,
+			everestv1alpha1.ProxyTypeProxySQL: matrix.ProxySQL,
+		}
+		versions.Tools = map[string]everestv1alpha1.ComponentsMap{
+			"logCollector": matrix.LogCollector,
+		}
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
+		versions.Engine = matrix.Mongod
+	}
+
+	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
+		versions.Engine = matrix.Postgresql
+		versions.Backup = matrix.PGBackRest
+		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
+			everestv1alpha1.ProxyTypePGBouncer: matrix.PGBouncer,
+		}
+	}
+	dbEngine.Status.AvailableVersions = versions
 
 	if err := r.Status().Update(ctx, dbEngine); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{
+		Requeue: requeue,
+	}, nil
+}
+
+// handleOperatorUpgrade handles operator upgrades for the database engine.
+// Returns true if the upgrade is complete.
+func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
+	ctx context.Context,
+	dbEngine *everestv1alpha1.DatabaseEngine,
+) (bool, error) {
+	logger := log.FromContext(ctx)
+
+	// Check if an upgrade was requested?
+	annotations := dbEngine.GetAnnotations()
+	upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]
+	if !found {
+		// upgrade not requested, we're done.
+		dbEngine.Status.OperatorUpgrade = nil
+		return true, nil
+	}
+	upgradeTo = strings.TrimPrefix(upgradeTo, "v")
+	dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
+
+	if dbEngine.Status.OperatorUpgrade == nil {
+		dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{}
+	}
+	dbEngine.Status.OperatorUpgrade.TargetVersion = upgradeTo
+
+	//nolint:godox
+	// TODO(EVEREST-961): Expose a list of available upgrade versions in the status
+	// and check if 'upgradeTo' is listed in it.
+	// This will ensure that we're always moving to a higher version.
+
+	// List all InstallPlans in the namespace.
+	ipList := &opfwv1alpha1.InstallPlanList{}
+	if err := r.List(ctx, ipList, client.InNamespace(dbEngine.Namespace)); err != nil {
+		return false, err
+	}
+
+	// Find the InstallPlan that contains the CSV we want to upgrade to.
+	findIPWithCSV := func(targetCSVName string) *opfwv1alpha1.InstallPlan {
+		for _, ip := range ipList.Items {
+			for _, c := range ip.Spec.ClusterServiceVersionNames {
+				if c == targetCSVName {
+					return &ip
+				}
+			}
+		}
+		return nil
+	}
+	csvName := fmt.Sprintf("%s.v%s", dbEngine.GetName(), upgradeTo)
+	foundIP := findIPWithCSV(csvName)
+	if foundIP == nil {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+		dbEngine.Status.OperatorUpgrade.Message = fmt.Sprintf("InstallPlan for version '%s' not found", upgradeTo)
+		return false, errInstallPlanNotFound
+	}
+
+	// Approve the InstallPlan if not done already.
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
+		logger.Info("Upgrading operator",
+			"from", dbEngine.Status.OperatorVersion,
+			"to", upgradeTo)
+		foundIP.Spec.Approved = true
+		if err := r.Update(ctx, foundIP); err != nil {
+			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+			dbEngine.Status.OperatorUpgrade.Message = "Failed to approve InstallPlan: " + err.Error()
+			return false, err
+		}
+		now := metav1.Now()
+		dbEngine.Status.OperatorUpgrade.StartedAt = &now
+	}
+
+	dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseStarted
+	dbEngine.Status.OperatorUpgrade.Message = ""
+
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
+		if ready, version, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
+			return false, err
+		} else if !ready || version != upgradeTo {
+			return false, nil
+		}
+		// Upgrade is complete, remove the annotation and mark upgrade as complete.
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseCompleted
+		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
+		dbEngine.SetAnnotations(annotations)
+		return false, r.Update(ctx, dbEngine)
+	}
+
+	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseFailed {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+		return false, nil
+	}
+
+	return false, nil
 }
 
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	})
 	deployment := &appsv1.Deployment{}
-	if err := r.Get(ctx, name, unstructuredResource); err != nil {
-		return false, "", err
-	}
-	err := runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, deployment)
-	if err != nil {
+	if err := r.Get(ctx, name, deployment); err != nil {
 		return false, "", err
 	}
 	version := strings.Split(deployment.Spec.Template.Spec.Containers[0].Image, ":")[1]
-	ready := deployment.Status.ReadyReplicas == deployment.Status.Replicas
+	ready := deployment.Status.ReadyReplicas == deployment.Status.Replicas &&
+		deployment.Status.Replicas == deployment.Status.UpdatedReplicas &&
+		deployment.Status.UnavailableReplicas == 0 &&
+		deployment.GetGeneration() == deployment.Status.ObservedGeneration
 	return ready, version, nil
 }
 
@@ -188,8 +311,73 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 			}
 		}
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+
+	c := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
-		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
-		Complete(r)
+		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{})
+
+	if r.isOLMInstalled() {
+		err := opfwv1alpha1.AddToScheme(r.Scheme)
+		if err != nil {
+			return err
+		}
+		c.Watches(
+			&opfwv1alpha1.InstallPlan{},
+			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromInstallPlan),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+
+	return c.Complete(r)
+}
+
+func (r *DatabaseEngineReconciler) isOLMInstalled() bool {
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Kind:    "CustomResourceDefinition",
+		Version: "v1",
+	})
+	if err := r.Get(
+		context.Background(),
+		types.NamespacedName{Name: "subscriptions.operators.coreos.com"},
+		unstructuredResource); err == nil {
+		return true
+	}
+	return false
+}
+
+// getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
+// databaseengine referenced by an InstallPlan.
+func getDatabaseEngineRequestsFromInstallPlan(_ context.Context, o client.Object) []reconcile.Request {
+	result := []reconcile.Request{}
+	installPlan, ok := o.(*opfwv1alpha1.InstallPlan)
+	if !ok {
+		return result
+	}
+
+	for _, csv := range installPlan.Spec.ClusterServiceVersionNames {
+		dbEngineName, _ := parseOperatorCSVName(csv)
+		result = append(result, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      dbEngineName,
+			Namespace: installPlan.GetNamespace(),
+		}})
+	}
+	return result
+}
+
+// parseOperatorCSVName parses the CSV name to extract the operator name and version.
+// Example:
+//   - input: "percona-xtradb-cluster-operator.v1.9.0"
+//     output: "percona-xtradb-cluster-operator", "1.9.0"
+func parseOperatorCSVName(csvName string) (string, string) {
+	// Regex for matching the version part of the CSV name
+	pattern := `.v\d+\.\d+\.\d+`
+	regex := regexp.MustCompile(pattern)
+	matchIndex := regex.FindStringIndex(csvName)
+	if matchIndex != nil {
+		split := matchIndex[0]
+		return csvName[:split], csvName[split+2:]
+	}
+	return "", ""
 }

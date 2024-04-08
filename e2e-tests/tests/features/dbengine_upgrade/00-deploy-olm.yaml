@@ -1,0 +1,9 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  # CRDs
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v${OLM_VERSION}/deploy/upstream/quickstart/crds.yaml
+  # Operator
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v${OLM_VERSION}/deploy/upstream/quickstart/olm.yaml
+---

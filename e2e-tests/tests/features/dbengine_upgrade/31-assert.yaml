@@ -1,0 +1,18 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+commands:
+  # check that the annotation is removed
+  - script: >
+      test "$(kubectl get dbengine percona-xtradb-cluster-operator -n $NAMESPACE -o jsonpath='{.metadata.annotations}')" = ""
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-xtradb-cluster-operator
+spec:
+  type: pxc
+status:
+  status: installed
+  operatorVersion: 1.13.0
+

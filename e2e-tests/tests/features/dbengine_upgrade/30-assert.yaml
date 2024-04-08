@@ -1,0 +1,18 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-xtradb-cluster-operator
+  annotations:
+    everest.percona.com/upgrade-operator-to: "1.13.0"
+spec:
+  type: pxc
+status:
+  status: upgrading
+  operatorUpgrade:
+    targetVersion: 1.13.0
+    phase: started
+

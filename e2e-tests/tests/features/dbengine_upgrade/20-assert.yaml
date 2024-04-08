@@ -1,0 +1,19 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-xtradb-cluster-operator
+  annotations:
+    everest.percona.com/upgrade-operator-to: "9.9.9"
+spec:
+  type: pxc
+status:
+  status: installed
+  operatorUpgrade:
+    targetVersion: 9.9.9
+    phase: failed
+    message: "InstallPlan for version '9.9.9' not found"
+

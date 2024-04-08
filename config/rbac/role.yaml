@@ -206,6 +206,15 @@ rules:
   - get
   - update
 - apiGroups:
+  - operators.coreos.com
+  resources:
+  - installplans
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - pgv2.percona.com
   resources:
   - perconapgbackups

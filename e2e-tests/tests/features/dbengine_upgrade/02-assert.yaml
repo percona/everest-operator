@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: percona-xtradb-cluster-operator
+status:
+  state: UpgradePending
