@@ -223,7 +223,8 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	installPlan := &opfwv1alpha1.InstallPlan{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      installPlanName,
-		Namespace: dbEngine.GetNamespace()},
+		Namespace: dbEngine.GetNamespace(),
+	},
 		installPlan); err != nil {
 		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
 		dbEngine.Status.OperatorUpgrade.Message = err.Error()
