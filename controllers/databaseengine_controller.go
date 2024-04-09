@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -210,6 +211,8 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		// Upgrade has not started, find from the pending list.
 		pendingIP := dbEngine.Status.GetPendingUpgrade(upgradeTo)
 		if pendingIP == nil {
+			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+			dbEngine.Status.OperatorUpgrade.Message = fmt.Sprintf("InstallPlan for version '%s' not found", upgradeTo)
 			return false, errInstallPlanNotFound
 		}
 		installPlanName = pendingIP.InstallPlanRef.Name
