@@ -1,6 +1,10 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 300
+commands:
+  # check that there are no pending upgrades
+  - script: >
+      test "$(kubectl get dbengine percona-xtradb-cluster-operator -n $NAMESPACE -o jsonpath='{.status.pendingOperatorUpgrades}')" = ""
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
