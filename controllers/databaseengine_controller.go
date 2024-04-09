@@ -18,13 +18,14 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
 
 	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -89,6 +90,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	pendingUpgrades, err := r.listPendingOperatorUpgrades(ctx, dbEngine)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	dbEngine.Status.PendingOperatorUpgrades = pendingUpgrades
 
 	requeue := false
 	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
@@ -197,43 +204,37 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	}
 	dbEngine.Status.OperatorUpgrade.TargetVersion = upgradeTo
 
-	//nolint:godox
-	// TODO(EVEREST-961): Expose a list of available upgrade versions in the status
-	// and check if 'upgradeTo' is listed in it.
-	// This will ensure that we're always moving to a higher version.
+	// Find the name of the InstallPlan for the upgrade.
+	installPlanName := dbEngine.Status.OperatorUpgrade.InstallPlanRef.Name
+	if installPlanName == "" {
+		// Upgrade has not started, find from the pending list.
+		pendingIP := dbEngine.Status.GetPendingUpgrade(upgradeTo)
+		if pendingIP == nil {
+			return false, errInstallPlanNotFound
+		}
+		installPlanName = pendingIP.InstallPlanRef.Name
+		dbEngine.Status.OperatorUpgrade.InstallPlanRef = pendingIP.InstallPlanRef
+	}
 
-	// List all InstallPlans in the namespace.
-	ipList := &opfwv1alpha1.InstallPlanList{}
-	if err := r.List(ctx, ipList, client.InNamespace(dbEngine.Namespace)); err != nil {
+	// Get the InstallPlan.
+	installPlan := &opfwv1alpha1.InstallPlan{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      installPlanName,
+		Namespace: dbEngine.GetNamespace()},
+		installPlan); err != nil {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+		dbEngine.Status.OperatorUpgrade.Message = err.Error()
 		return false, err
 	}
 
-	// Find the InstallPlan that contains the CSV we want to upgrade to.
-	findIPWithCSV := func(targetCSVName string) *opfwv1alpha1.InstallPlan {
-		for _, ip := range ipList.Items {
-			for _, c := range ip.Spec.ClusterServiceVersionNames {
-				if c == targetCSVName {
-					return &ip
-				}
-			}
-		}
-		return nil
-	}
-	csvName := fmt.Sprintf("%s.v%s", dbEngine.GetName(), upgradeTo)
-	foundIP := findIPWithCSV(csvName)
-	if foundIP == nil {
-		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
-		dbEngine.Status.OperatorUpgrade.Message = fmt.Sprintf("InstallPlan for version '%s' not found", upgradeTo)
-		return false, errInstallPlanNotFound
-	}
-
 	// Approve the InstallPlan if not done already.
-	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
+	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
 		logger.Info("Upgrading operator",
 			"from", dbEngine.Status.OperatorVersion,
 			"to", upgradeTo)
-		foundIP.Spec.Approved = true
-		if err := r.Update(ctx, foundIP); err != nil {
+
+		installPlan.Spec.Approved = true
+		if err := r.Update(ctx, installPlan); err != nil {
 			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
 			dbEngine.Status.OperatorUpgrade.Message = "Failed to approve InstallPlan: " + err.Error()
 			return false, err
@@ -245,7 +246,9 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 	dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseStarted
 	dbEngine.Status.OperatorUpgrade.Message = ""
 
-	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
+	// Check if InstallPlan is complete?
+	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
+		// Check if Deployment rollout is complete?
 		if ready, version, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
 			return false, err
 		} else if !ready || version != upgradeTo {
@@ -258,12 +261,63 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		return false, r.Update(ctx, dbEngine)
 	}
 
-	if foundIP.Status.Phase == opfwv1alpha1.InstallPlanPhaseFailed {
+	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseFailed {
 		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
 		return false, nil
 	}
-
 	return false, nil
+}
+
+func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
+	ctx context.Context,
+	dbEngine *everestv1alpha1.DatabaseEngine,
+) ([]everestv1alpha1.OperatorUpgrade, error) {
+	// If OLM is not installed, we cannot check for pending upgrades.
+	if !r.isOLMInstalled() {
+		return nil, nil
+	}
+	// We need some version to be reported first.
+	currentVersion := dbEngine.Status.OperatorVersion
+	if currentVersion == "" {
+		return nil, nil
+	}
+
+	// List install plans in this namespace.
+	installPlans := &opfwv1alpha1.InstallPlanList{}
+	if err := r.List(ctx, installPlans, client.InNamespace(dbEngine.GetNamespace())); err != nil {
+		return nil, err
+	}
+
+	upgradeStatus := dbEngine.Status.OperatorUpgrade
+	result := []everestv1alpha1.OperatorUpgrade{}
+	for _, ip := range installPlans.Items {
+		for _, csvName := range ip.Spec.ClusterServiceVersionNames {
+			operatorName, version := parseOperatorCSVName(csvName)
+			// Not our operator, skip.
+			if operatorName != dbEngine.GetName() {
+				continue
+			}
+			// Skip the current version.
+			if version == currentVersion {
+				continue
+			}
+			// Skip the version we're upgrading to (if any).
+			if upgradeStatus != nil && upgradeStatus.TargetVersion == version {
+				continue
+			}
+			// Check if the version is greater than the current version.
+			if semver.Compare("v"+version, "v"+currentVersion) > 0 {
+				result = append(result, everestv1alpha1.OperatorUpgrade{
+					TargetVersion: version,
+					InstallPlanRef: corev1.LocalObjectReference{
+						Name: ip.GetName(),
+					},
+				})
+			}
+
+		}
+	}
+	return result, nil
 }
 
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {

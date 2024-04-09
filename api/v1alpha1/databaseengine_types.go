@@ -94,6 +94,15 @@ type OperatorUpgrade struct {
 	InstallPlanRef corev1.LocalObjectReference `json:"installPlanRef,omitempty"`
 }
 
+func (s *DatabaseEngineStatus) GetPendingUpgrade(targetVersion string) *OperatorUpgrade {
+	for _, upgrade := range s.PendingOperatorUpgrades {
+		if upgrade.TargetVersion == targetVersion {
+			return &upgrade
+		}
+	}
+	return nil
+}
+
 const (
 	// UpgradePhaseStarted represents the phase when the operator upgrade has started.
 	UpgradePhaseStarted UpgradePhase = "started"
