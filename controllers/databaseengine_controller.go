@@ -277,7 +277,7 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 	dbEngine *everestv1alpha1.DatabaseEngine,
 ) ([]everestv1alpha1.OperatorUpgrade, error) {
 	// If OLM is not installed, we cannot check for pending upgrades.
-	if !r.isOLMInstalled() {
+	if !r.isOLMInstalled(ctx) {
 		return nil, nil
 	}
 	// We need some version to be reported first.
@@ -318,7 +318,6 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 					},
 				})
 			}
-
 		}
 	}
 	return result, nil
@@ -374,7 +373,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{})
 
-	if r.isOLMInstalled() {
+	if r.isOLMInstalled(context.Background()) {
 		err := opfwv1alpha1.AddToScheme(r.Scheme)
 		if err != nil {
 			return err
@@ -389,7 +388,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	return c.Complete(r)
 }
 
-func (r *DatabaseEngineReconciler) isOLMInstalled() bool {
+func (r *DatabaseEngineReconciler) isOLMInstalled(ctx context.Context) bool {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -397,7 +396,7 @@ func (r *DatabaseEngineReconciler) isOLMInstalled() bool {
 		Version: "v1",
 	})
 	if err := r.Get(
-		context.Background(),
+		ctx,
 		types.NamespacedName{Name: "subscriptions.operators.coreos.com"},
 		unstructuredResource); err == nil {
 		return true

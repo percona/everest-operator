@@ -94,6 +94,7 @@ type OperatorUpgrade struct {
 	InstallPlanRef corev1.LocalObjectReference `json:"installPlanRef,omitempty"`
 }
 
+// GetPendingUpgrade gets a reference to the pending OperatorUpgrade for the given targetVersion.
 func (s *DatabaseEngineStatus) GetPendingUpgrade(targetVersion string) *OperatorUpgrade {
 	for _, upgrade := range s.PendingOperatorUpgrades {
 		if upgrade.TargetVersion == targetVersion {
