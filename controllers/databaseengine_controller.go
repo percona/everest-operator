@@ -66,6 +66,7 @@ type DatabaseEngineReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
+//+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
