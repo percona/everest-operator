@@ -19,6 +19,7 @@ import (
 	"sort"
 
 	goversion "github.com/hashicorp/go-version"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,13 +76,32 @@ type DatabaseEngineSpec struct {
 
 // DatabaseEngineStatus defines the observed state of DatabaseEngine.
 type DatabaseEngineStatus struct {
-	State             EngineState `json:"status,omitempty"`
-	OperatorVersion   string      `json:"operatorVersion,omitempty"`
-	AvailableVersions Versions    `json:"availableVersions,omitempty"`
+	State                   EngineState       `json:"status,omitempty"`
+	OperatorVersion         string            `json:"operatorVersion,omitempty"`
+	AvailableVersions       Versions          `json:"availableVersions,omitempty"`
+	PendingOperatorUpgrades []OperatorUpgrade `json:"pendingOperatorUpgrades,omitempty"`
 
 	// OperatorUpgrade contains the status of the operator upgrade.
 	// This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
 	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
+}
+
+// OperatorUpgrade contains the information about the operator upgrade.
+type OperatorUpgrade struct {
+	// TargetVersion is the version to which the operator should be upgraded.
+	TargetVersion string `json:"targetVersion,omitempty"`
+	// InstallPlanRef is a reference to the InstallPlan object created for the operator upgrade.
+	InstallPlanRef corev1.LocalObjectReference `json:"installPlanRef,omitempty"`
+}
+
+// GetPendingUpgrade gets a reference to the pending OperatorUpgrade for the given targetVersion.
+func (s *DatabaseEngineStatus) GetPendingUpgrade(targetVersion string) *OperatorUpgrade {
+	for _, upgrade := range s.PendingOperatorUpgrades {
+		if upgrade.TargetVersion == targetVersion {
+			return &upgrade
+		}
+	}
+	return nil
 }
 
 const (
@@ -95,10 +115,10 @@ const (
 
 // OperatorUpgradeStatus contains the status of the operator upgrade.
 type OperatorUpgradeStatus struct {
-	Phase         UpgradePhase `json:"phase,omitempty"`
-	StartedAt     *metav1.Time `json:"startedAt,omitempty"`
-	TargetVersion string       `json:"targetVersion,omitempty"`
-	Message       string       `json:"message,omitempty"`
+	OperatorUpgrade `json:",inline"`
+	Phase           UpgradePhase `json:"phase,omitempty"`
+	StartedAt       *metav1.Time `json:"startedAt,omitempty"`
+	Message         string       `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true

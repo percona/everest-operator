@@ -19,3 +19,5 @@ spec:
 status:
   status: installed
   operatorVersion: 1.12.0
+  pendingOperatorUpgrades:
+  - targetVersion: 1.13.0
