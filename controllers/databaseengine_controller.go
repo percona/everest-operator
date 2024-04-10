@@ -304,6 +304,7 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 	upgradeStatus := dbEngine.Status.OperatorUpgrade
 	result := []everestv1alpha1.OperatorUpgrade{}
 	for _, ip := range installPlans.Items {
+		ip := ip
 		for _, csvName := range ip.Spec.ClusterServiceVersionNames {
 			operatorName, version := parseOperatorCSVName(csvName)
 			// Not our operator, skip.
