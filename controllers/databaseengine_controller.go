@@ -286,6 +286,15 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 		return nil, nil
 	}
 
+	// Get the Subscription for this operator.
+	subscription := &opfwv1alpha1.Subscription{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      dbEngine.GetName(),
+		Namespace: dbEngine.GetNamespace(),
+	}, subscription); err != nil {
+		return nil, err
+	}
+
 	// List install plans in this namespace.
 	installPlans := &opfwv1alpha1.InstallPlanList{}
 	if err := r.List(ctx, installPlans, client.InNamespace(dbEngine.GetNamespace())); err != nil {
@@ -307,6 +316,10 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 			}
 			// Skip the version we're upgrading to (if any).
 			if upgradeStatus != nil && upgradeStatus.TargetVersion == version {
+				continue
+			}
+			// Skip if not owned by current Subscription.
+			if !common.IsOwnedBy(&ip, subscription) {
 				continue
 			}
 			// Check if the version is greater than the current version.
