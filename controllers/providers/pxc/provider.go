@@ -145,6 +145,11 @@ func (p *Provider) handlePXCOperatorVersion(ctx context.Context) error {
 	if pxc.Spec.CRVersion != "" {
 		crVersion = pxc.Spec.CRVersion
 	}
+	// Check if a different crVersion is requested?
+	if desiredCRVersion := pointer.GetString(p.DB.Spec.Engine.CRVersion); desiredCRVersion != "" &&
+		desiredCRVersion != crVersion {
+		crVersion = desiredCRVersion
+	}
 	pxc.Spec.CRVersion = crVersion
 	return nil
 }
@@ -211,6 +216,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Size = pxc.Status.Size
 	status.Message = strings.Join(pxc.Status.Messages, ";")
 	status.Port = 3306
+	status.CRVersion = pxc.Spec.CRVersion
 
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
