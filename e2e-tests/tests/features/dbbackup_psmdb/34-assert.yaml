@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDBBackup
+metadata:
+  name: test-db-backup-cleanup
+  finalizers:
+  - delete-backup
+---
+
