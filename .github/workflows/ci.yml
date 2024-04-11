@@ -210,6 +210,8 @@ jobs:
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+          kubectl delete ns operators olm || true
+          kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
 
       - name: Scale down cluster
         if: always()

@@ -648,3 +648,14 @@ func deleteBackupsForDatabase(
 	}
 	return false, nil
 }
+
+// IsOwnedBy checks if the child object is owned by the parent object.
+// Returns true if child has an owner reference to the parents.
+func IsOwnedBy(child, parent metav1.Object) bool {
+	for _, owner := range child.GetOwnerReferences() {
+		if owner.UID == parent.GetUID() {
+			return true
+		}
+	}
+	return false
+}
