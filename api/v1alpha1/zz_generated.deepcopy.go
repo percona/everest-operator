@@ -156,6 +156,11 @@ func (in *BackupStorageSpec) DeepCopyInto(out *BackupStorageSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ForcePathStyle != nil {
+		in, out := &in.ForcePathStyle, &out.ForcePathStyle
+		*out = new(bool)
+		**out = **in
+	}
 	if in.AllowedNamespaces != nil {
 		in, out := &in.AllowedNamespaces, &out.AllowedNamespaces
 		*out = make([]string, len(*in))
