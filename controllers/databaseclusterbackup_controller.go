@@ -482,7 +482,7 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 }
 
 // Reconcile PXC.
-// Returns: (requeue(bool), error)
+// Returns: (requeue(bool), error).
 func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
@@ -564,7 +564,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 }
 
 // Reconcile PSMDB.
-// Returns: (requeue(bool), error)
+// Returns: (requeue(bool), error).
 func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
@@ -697,7 +697,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 }
 
 // Reconcile PG.
-// Returns: (requeue(bool), error
+// Returns: (requeue(bool), error.
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
