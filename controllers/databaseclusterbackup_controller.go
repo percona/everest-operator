@@ -504,12 +504,9 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		return false, err
 	}
 
-	if !backup.GetDeletionTimestamp().IsZero() &&
-		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
-		if err := r.handleStorageCleanup(ctx, backup, pxcCR, deletePXCBackupFinalizer); err != nil {
-			return false, err
-		}
-		return true, nil
+	// Handle cleanup.
+	if !backup.GetDeletionTimestamp().IsZero() {
+		return true, r.handleStorageCleanup(ctx, backup, pxcCR, deletePXCBackupFinalizer)
 	}
 
 	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
@@ -586,12 +583,9 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 		return false, err
 	}
 
-	if !backup.GetDeletionTimestamp().IsZero() &&
-		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
-		if err := r.handleStorageCleanup(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer); err != nil {
-			return false, err
-		}
-		return true, nil
+	// Handle cleanup.
+	if !backup.GetDeletionTimestamp().IsZero() {
+		return true, r.handleStorageCleanup(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer)
 	}
 
 	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
@@ -811,6 +805,9 @@ func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 	childBackup client.Object,
 	storageFinalizer string,
 ) error {
+	if !controllerutil.ContainsFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer) {
+		return nil
+	}
 	// Add finalizer to the child backup if it doesn't exist.
 	if controllerutil.AddFinalizer(childBackup, storageFinalizer) {
 		if err := r.Update(ctx, childBackup); err != nil {
@@ -818,10 +815,9 @@ func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 		}
 	}
 	// Remove the everest finalizer from the DatabaseClusterBackup.
-	if controllerutil.RemoveFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer) {
-		if err := r.Update(ctx, dbcBackup); err != nil {
-			return err
-		}
+	controllerutil.RemoveFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer)
+	if err := r.Update(ctx, dbcBackup); err != nil {
+		return err
 	}
 	return nil
 }
