@@ -711,15 +711,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		return false, err
 	}
 
-	if !backup.GetDeletionTimestamp().IsZero() &&
-		controllerutil.ContainsFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
-		// We can't handle this finalizer in PG yet.
+	if !backup.GetDeletionTimestamp().IsZero() {
+		// We can't handle this finalizer in PG yet, so we will simply remove it (if present).
 		// See: https://perconadev.atlassian.net/browse/K8SPG-538
-		controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer)
-		if err := r.Update(ctx, backup); err != nil {
-			return false, err
+		if controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
+			return true, r.Update(ctx, backup)
 		}
-		return true, nil
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
