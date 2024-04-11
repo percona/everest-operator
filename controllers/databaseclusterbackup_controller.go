@@ -485,7 +485,8 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 // Returns: (requeue(bool), error)
 func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	ctx context.Context,
-	backup *everestv1alpha1.DatabaseClusterBackup) (bool, error) {
+	backup *everestv1alpha1.DatabaseClusterBackup,
+) (bool, error) {
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -566,7 +567,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 // Returns: (requeue(bool), error)
 func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	ctx context.Context,
-	backup *everestv1alpha1.DatabaseClusterBackup) (bool, error) {
+	backup *everestv1alpha1.DatabaseClusterBackup,
+) (bool, error) {
 	psmdbCR := &psmdbv1.PerconaServerMongoDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
