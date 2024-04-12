@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 400
+commands:
+  # check that there is no dbb/pg-backup CRs left
+  - script: >
+      test "$(kubectl -n $NAMESPACE get dbb  -o jsonpath='{.items}')" = "[]"
+  - script: >
+      test "$(kubectl -n $NAMESPACE get pg-backup -o jsonpath='{range .items[*]}{.spec.pgCluster} repo:{.spec.repoName}{"\n"}{end}' | grep -v repo:repo1 | grep -c test-pg-cluster)" = "0"
+
