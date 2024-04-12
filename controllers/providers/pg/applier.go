@@ -46,9 +46,11 @@ const (
 	pgBackupTypeDate      = "time"
 	pgBackupTypeImmediate = "immediate"
 
-	pgBackRestPathTmpl          = "%s-path"
-	pgBackRestRetentionTmpl     = "%s-retention-full"
-	pgBackRestStorageVerifyTmpl = "%s-storage-verify-tls"
+	pgBackRestPathTmpl             = "%s-path"
+	pgBackRestRetentionTmpl        = "%s-retention-full"
+	pgBackRestStorageVerifyTmpl    = "%s-storage-verify-tls"
+	pgBackRestStorageForcePathTmpl = "%s-s3-uri-style"
+	pgBackRestStoragePathStyle     = "path"
 )
 
 type applier struct {
@@ -1081,6 +1083,10 @@ func reconcilePGBackRestRepos(
 				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
 				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 			}
+			if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
+				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
+				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
+			}
 
 			err = addBackupStorageCredentialsToPGBackrestSecretIni(
 				sType,
@@ -1142,6 +1148,10 @@ func reconcilePGBackRestRepos(
 				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
 					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
 					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+				}
+				if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
+					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
+					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
 				}
 
 				sType, err := backupStorageTypeFromBackrestRepo(repo)
@@ -1206,6 +1216,10 @@ func reconcilePGBackRestRepos(
 			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
 			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
 		}
+		if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
+		}
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {
 			return []crunchyv1beta1.PGBackRestRepo{},
@@ -1258,6 +1272,10 @@ func reconcilePGBackRestRepos(
 		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
 			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
 			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
+		}
+		if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
+			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
+			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
 		}
 		sType, err := backupStorageTypeFromBackrestRepo(repo)
 		if err != nil {

@@ -45,6 +45,11 @@ type BackupStorageSpec struct {
 	//
 	// +kubebuilder:default:=true
 	VerifyTLS *bool `json:"verifyTLS,omitempty"`
+	// ForcePathStyle is set to use path-style URLs.
+	// If unspecified, the default value is false.
+	//
+	// +kubebuilder:default:=false
+	ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
 
 	// Description stores description of a backup storage.
 	Description string `json:"description,omitempty"`
