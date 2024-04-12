@@ -181,11 +181,11 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
-	if recVer, err := common.GetReccomendedCRVersion(ctx, p.C, common.PXCDeploymentName, p.DB.GetNamespace(), pxc.Spec.CRVersion); err != nil {
+	recCRVer, err := common.GetReccomendedCRVersion(ctx, p.C, common.PXCDeploymentName, p.DB.GetNamespace(), pxc.Spec.CRVersion)
+	if err != nil {
 		return status, err
-	} else {
-		status.ReccomendedCRVersion = recVer
 	}
+	status.ReccomendedCRVersion = recCRVer
 	return status, nil
 }
 

@@ -32,8 +32,6 @@ import (
 )
 
 const (
-	pgAPIGroup = "pgv2.percona.com"
-
 	finalizerDeletePGPVC = "percona.com/delete-pvc"
 	finalizerDeletePGSSL = "percona.com/delete-ssl"
 )

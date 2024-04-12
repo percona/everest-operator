@@ -153,7 +153,7 @@ func (r *DatabaseClusterReconciler) setCustomResourceGVK(
 		gvk.Group = common.PGAPIGroup
 		gvk.Version = "v2"
 	default:
-		return fmt.Errorf("unknown engine type")
+		return fmt.Errorf("unknown engine type '%s'", engineType)
 	}
 	dbObject.SetGroupVersionKind(gvk)
 	return nil
