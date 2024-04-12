@@ -23,7 +23,6 @@ import (
 	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -86,16 +85,17 @@ func New(
 		ProviderOptions:      opts,
 	}
 
+	// Get cluster type.
+	ct, err := common.GetClusterType(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+	p.clusterType = ct
+
 	if err := p.ensureDefaults(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handlePXCOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
 	if err := p.handlePXCRestores(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -109,44 +109,6 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 		Provider: p,
 		ctx:      ctx,
 	}
-}
-
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	ct, err := common.GetClusterType(ctx, p.C)
-	if err != nil {
-		return err
-	}
-	p.clusterType = ct
-	if ct == common.ClusterTypeEKS {
-		affinity := &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString(common.TopologyKeyHostname),
-		}
-		p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
-	}
-	return nil
-}
-
-func (p *Provider) handlePXCOperatorVersion(ctx context.Context) error {
-	pxc := p.PerconaXtraDBCluster
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PXCDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	pxc.TypeMeta = metav1.TypeMeta{
-		APIVersion: v.ToAPIVersion(common.PXCAPIGroup),
-		Kind:       common.PerconaXtraDBClusterKind,
-	}
-	crVersion := v.ToCRVersion()
-	if pxc.Spec.CRVersion != "" {
-		crVersion = pxc.Spec.CRVersion
-	}
-	pxc.Spec.CRVersion = crVersion
-	return nil
 }
 
 // handlePXCRestores is a helper for watching PXC restores and reconciling the db.Paused.
