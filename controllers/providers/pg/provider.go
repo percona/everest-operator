@@ -129,6 +129,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	status.Port = 5432
+	status.CRVersion = pg.Spec.CRVersion
 
 	// If a restore is running for this database, set the database status to restoring
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, c, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
@@ -136,6 +137,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
+
+	recCRVer, err := common.GetReccomendedCRVersion(ctx, p.C, common.PGDeploymentName, p.DB.GetNamespace(), pg.Spec.CRVersion)
+	if err != nil {
+		return status, err
+	}
+	status.ReccomendedCRVersion = recCRVer
 	return status, nil
 }
 

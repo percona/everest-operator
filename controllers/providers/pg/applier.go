@@ -73,6 +73,13 @@ func (p *applier) Engine() error {
 	if database.Spec.Engine.Version == "" {
 		database.Spec.Engine.Version = engine.BestEngineVersion()
 	}
+
+	// Update CRVersion, if specified.
+	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	if desiredCR != "" {
+		pg.Spec.CRVersion = desiredCR
+	}
+
 	pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 	if !ok {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
