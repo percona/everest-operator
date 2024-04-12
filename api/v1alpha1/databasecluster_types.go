@@ -151,7 +151,8 @@ type Engine struct {
 	// CRVersion is the desired version of the CR to use with the
 	// underlying operator.
 	// If unspecified, everest-operator will use the same version as the operator.
-	// Updating this property after the cluster is running may potentially lead to a restart.
+	//
+	// NOTE: Updating this property post installation may lead to a restart of the cluster.
 	// +optional
 	CRVersion *string `json:"crVersion,omitempty"`
 }
@@ -346,6 +347,10 @@ type DatabaseClusterStatus struct {
 	ActiveStorage string `json:"activeStorage,omitempty"`
 	// CRVersion is the observed version of the CR used with the underlying operator.
 	CRVersion string `json:"crVersion,omitempty"`
+	// ReccomendedCRVersion is the recommended version of the CR to use.
+	// If set, the CR needs to be updated to this version before upgrading the operator.
+	// If unset, the CR is already at the recommended version.
+	ReccomendedCRVersion *string `json:"reccomendedCRVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

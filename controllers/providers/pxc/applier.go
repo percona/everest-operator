@@ -56,6 +56,12 @@ func (p *applier) Engine() error {
 
 	pxc := p.PerconaXtraDBCluster
 
+	// Update CRVersion, if specified.
+	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	if desiredCR != "" {
+		pxc.Spec.CRVersion = desiredCR
+	}
+
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
 	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
 

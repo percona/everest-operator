@@ -145,11 +145,6 @@ func (p *Provider) handlePXCOperatorVersion(ctx context.Context) error {
 	if pxc.Spec.CRVersion != "" {
 		crVersion = pxc.Spec.CRVersion
 	}
-	// Check if a different crVersion is requested?
-	if desiredCRVersion := pointer.GetString(p.DB.Spec.Engine.CRVersion); desiredCRVersion != "" &&
-		desiredCRVersion != crVersion {
-		crVersion = desiredCRVersion
-	}
 	pxc.Spec.CRVersion = crVersion
 	return nil
 }
@@ -223,6 +218,18 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
+	}
+
+	// Check for reccomended CR Version.
+	operatorVersion, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
+		Name:      common.PXCDeploymentName,
+		Namespace: p.DB.GetNamespace(),
+	})
+	if err != nil {
+		return status, err
+	}
+	if operatorVersion.ToCRVersion() != pxc.Spec.CRVersion {
+		status.ReccomendedCRVersion = pointer.To(operatorVersion.ToCRVersion())
 	}
 	return status, nil
 }
