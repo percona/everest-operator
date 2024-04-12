@@ -4,5 +4,5 @@ timeout: 400
 commands:
   # check that there is no dbb/pg-backup CRs left
   - script: >
-      test "$(kubectl -n $NAMESPACE get dbb test-db-backup-cleanup --ignore-not-found=true" = ""
+      test "$(kubectl -n $NAMESPACE get dbb test-db-backup-cleanup --ignore-not-found=true)" = ""
 
