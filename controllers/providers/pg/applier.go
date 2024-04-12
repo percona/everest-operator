@@ -74,9 +74,22 @@ func (p *applier) Engine() error {
 		database.Spec.Engine.Version = engine.BestEngineVersion()
 	}
 
-	// Update CRVersion, if specified.
+	// Set a CRVersion.
+	observedCRVersion := p.DB.Status.CRVersion
 	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
-	if desiredCR != "" {
+	if observedCRVersion == "" && desiredCR == "" {
+		// During the initial installation, a CRVersion may not be provided.
+		// So we will use the operator version.
+		v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
+			Name:      common.PGDeploymentName,
+			Namespace: p.DB.GetNamespace(),
+		})
+		if err != nil {
+			return err
+		}
+		pg.Spec.CRVersion = v.ToCRVersion()
+	} else if desiredCR != "" {
+		// Otherwise, we always use the one provided.
 		pg.Spec.CRVersion = desiredCR
 	}
 
