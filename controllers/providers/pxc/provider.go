@@ -20,7 +20,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -182,16 +181,10 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
-	// Check for reccomended CR Version.
-	operatorVersion, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PXCDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
+	if recVer, err := common.GetReccomendedCRVersion(ctx, p.C, common.PXCDeploymentName, p.DB.GetNamespace(), pxc.Spec.CRVersion); err != nil {
 		return status, err
-	}
-	if operatorVersion.ToCRVersion() != pxc.Spec.CRVersion {
-		status.ReccomendedCRVersion = pointer.To(operatorVersion.ToCRVersion())
+	} else {
+		status.ReccomendedCRVersion = recVer
 	}
 	return status, nil
 }

@@ -59,6 +59,12 @@ func (p *applier) Engine() error {
 	database := p.DB
 	engine := p.DBEngine
 
+	// Update CRVersion, if specified.
+	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	if desiredCR != "" {
+		psmdb.Spec.CRVersion = desiredCR
+	}
+
 	if database.Spec.Engine.Version == "" {
 		database.Spec.Engine.Version = engine.BestEngineVersion()
 	}
@@ -77,6 +83,13 @@ func (p *applier) Engine() error {
 	if psmdb.Spec.Replsets[0].Configuration == "" {
 		// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
 		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
+	}
+
+	if p.clusterType == common.ClusterTypeEKS {
+		affinity := &psmdbv1.PodAffinity{
+			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+		}
+		psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
 	}
 
 	psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas

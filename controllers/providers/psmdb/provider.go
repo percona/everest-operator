@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +43,7 @@ const (
 type Provider struct {
 	*psmdbv1.PerconaServerMongoDB
 	providers.ProviderOptions
+	clusterType common.ClusterType
 }
 
 // New returns a new provider for Percona Server for MongoDB.
@@ -84,50 +84,12 @@ func New(
 		PerconaServerMongoDB: psmdb,
 		ProviderOptions:      opts,
 	}
-	if err := p.handleOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-
-func (p *Provider) handleOperatorVersion(ctx context.Context) error {
-	psmdb := p.PerconaServerMongoDB
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PSMDBDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	psmdb.TypeMeta = metav1.TypeMeta{
-		APIVersion: v.ToAPIVersion(common.PSMDBAPIGroup),
-		Kind:       common.PerconaServerMongoDBKind,
-	}
-	crVersion := v.ToCRVersion()
-	if psmdb.Spec.CRVersion != "" {
-		crVersion = psmdb.Spec.CRVersion
-	}
-	psmdb.Spec.CRVersion = crVersion
-	return nil
-}
-
-// handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	psmdb := p.PerconaServerMongoDB
 	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if ct == common.ClusterTypeEKS {
-		affinity := &psmdbv1.PodAffinity{
-			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
-		}
-		psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
-	}
-	return nil
+	p.clusterType = ct
+	return p, nil
 }
 
 // Apply returns the applier for Percona Server for MongoDB.
@@ -158,11 +120,18 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Message = message
 	status.Port = 27017
 	status.ActiveStorage = activeStorage
+	status.CRVersion = psmdb.Spec.CRVersion
+
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
+	}
+	if recVer, err := common.GetReccomendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB.GetNamespace(), psmdb.Spec.CRVersion); err != nil {
+		return status, err
+	} else {
+		status.ReccomendedCRVersion = recVer
 	}
 	return status, nil
 }

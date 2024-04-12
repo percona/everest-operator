@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -658,4 +659,23 @@ func IsOwnedBy(child, parent metav1.Object) bool {
 		}
 	}
 	return false
+}
+
+func GetReccomendedCRVersion(
+	ctx context.Context,
+	c client.Client,
+	operatorName, operatorNs string,
+	currentCRVersion string,
+) (*string, error) {
+	v, err := GetOperatorVersion(ctx, c, types.NamespacedName{
+		Name:      operatorName,
+		Namespace: operatorNs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if v.ToCRVersion() != currentCRVersion {
+		return pointer.To(v.ToCRVersion()), nil
+	}
+	return nil, nil
 }
