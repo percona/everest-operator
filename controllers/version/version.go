@@ -18,7 +18,6 @@
 package version
 
 import (
-	"fmt"
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
@@ -56,11 +55,17 @@ func (v *Version) ToSemver() string {
 	return "v" + v.String()
 }
 
-// ToAPIVersion returns version that can be used as K8s APIVersion parameter.
-func (v *Version) ToAPIVersion(apiRoot string) string {
+// ToK8sVersion returns a version that can be used in the CR's GVK.
+func (v *Version) ToK8sVersion() string {
 	ver, _ := goversion.NewVersion("v1.12.0")
 	if v.version.GreaterThan(ver) {
-		return apiRoot + "/v1"
+		return "v1"
 	}
-	return fmt.Sprintf("%s/v%s", apiRoot, strings.ReplaceAll(v.String(), ".", "-"))
+	return "v" + strings.ReplaceAll(v.String(), ".", "-")
+}
+
+// ToAPIVersion returns version that can be used as K8s APIVersion parameter.
+func (v *Version) ToAPIVersion(apiRoot string) string {
+	ver := v.ToK8sVersion()
+	return apiRoot + "/" + ver
 }

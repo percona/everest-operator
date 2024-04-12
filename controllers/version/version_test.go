@@ -30,5 +30,6 @@ func TestVersion(t *testing.T) {
 	assert.Equal(t, "1.11.0", v.ToCRVersion())
 	assert.Equal(t, "1.11.0", v.String())
 	assert.Equal(t, "v1.11.0", v.ToSemver())
+	assert.Equal(t, "v1-11-0", v.ToK8sVersion())
 	assert.Equal(t, "pxc.percona.com/v1-11-0", v.ToAPIVersion("pxc.percona.com"))
 }

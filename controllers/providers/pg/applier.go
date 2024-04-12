@@ -110,6 +110,9 @@ func (p *applier) Engine() error {
 			},
 		},
 	}
+	if p.clusterType == common.ClusterTypeEKS {
+		pg.Spec.InstanceSets[0].Affinity = hostnameAffinity.DeepCopy()
+	}
 	return nil
 }
 
@@ -162,6 +165,9 @@ func (p *applier) Proxy() error {
 			Name:       "postgres",
 			SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 		},
+	}
+	if p.clusterType == common.ClusterTypeEKS {
+		pg.Spec.Proxy.PGBouncer.Affinity = hostnameAffinity.DeepCopy()
 	}
 	return nil
 }

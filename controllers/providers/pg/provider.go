@@ -22,7 +22,6 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,10 +38,21 @@ const (
 	finalizerDeletePGSSL = "percona.com/delete-ssl"
 )
 
+var hostnameAffinity = &corev1.Affinity{
+	PodAntiAffinity: &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			{
+				TopologyKey: "kubernetes.io/hostname",
+			},
+		},
+	},
+}
+
 // Provider is a provider for Percona PostgreSQL.
 type Provider struct {
 	*pgv2.PerconaPGCluster
 	providers.ProviderOptions
+	clusterType common.ClusterType
 }
 
 // New returns a new provider for Percona PostgreSQL.
@@ -77,13 +87,12 @@ func New(
 		PerconaPGCluster: pg,
 		ProviderOptions:  opts,
 	}
+	ct, err := common.GetClusterType(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+	p.clusterType = ct
 
-	if err := p.handlePGOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
-		return nil, err
-	}
 	if err := p.ensureDataSourceRemoved(ctx, opts.DB); err != nil {
 		return nil, err
 	}
@@ -97,49 +106,6 @@ func (p *Provider) ensureDataSourceRemoved(ctx context.Context, db *everestv1alp
 		db.Spec.DataSource != nil {
 		db.Spec.DataSource = nil
 		return p.C.Update(ctx, db)
-	}
-	return nil
-}
-
-func (p *Provider) handlePGOperatorVersion(ctx context.Context) error {
-	pg := p.PerconaPGCluster
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PGDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	pg.TypeMeta = metav1.TypeMeta{
-		APIVersion: pgAPIGroup + "/v2",
-		Kind:       common.PerconaPGClusterKind,
-	}
-	crVersion := v.ToCRVersion()
-	if pg.Spec.CRVersion != "" {
-		crVersion = pg.Spec.CRVersion
-	}
-	pg.Spec.CRVersion = crVersion
-	return nil
-}
-
-// handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	ct, err := common.GetClusterType(ctx, p.C)
-	if err != nil {
-		return err
-	}
-	if ct == common.ClusterTypeEKS {
-		affinity := &corev1.Affinity{
-			PodAntiAffinity: &corev1.PodAntiAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-					{
-						TopologyKey: "kubernetes.io/hostname",
-					},
-				},
-			},
-		}
-		p.PerconaPGCluster.Spec.InstanceSets[0].Affinity = affinity
-		p.PerconaPGCluster.Spec.Proxy.PGBouncer.Affinity = affinity
 	}
 	return nil
 }
