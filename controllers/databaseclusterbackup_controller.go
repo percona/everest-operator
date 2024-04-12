@@ -799,15 +799,15 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 	ctx context.Context,
 	dbcBackup *everestv1alpha1.DatabaseClusterBackup,
-	childBackup client.Object,
+	upstreamBackup client.Object,
 	storageFinalizer string,
 ) error {
 	if !controllerutil.ContainsFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer) {
 		return nil
 	}
-	// Add finalizer to the child backup if it doesn't exist.
-	if controllerutil.AddFinalizer(childBackup, storageFinalizer) {
-		if err := r.Update(ctx, childBackup); err != nil {
+	// Add finalizer to the upstream backup if it doesn't exist.
+	if controllerutil.AddFinalizer(upstreamBackup, storageFinalizer) {
+		if err := r.Update(ctx, upstreamBackup); err != nil {
 			return err
 		}
 	}
