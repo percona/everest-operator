@@ -22,6 +22,7 @@ import (
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -29,6 +30,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/providers"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 const (
@@ -43,7 +45,9 @@ const (
 type Provider struct {
 	providers.ProviderOptions
 	*pxcv1.PerconaXtraDBCluster
-	clusterType common.ClusterType
+
+	clusterType     common.ClusterType
+	operatorVersion *version.Version
 }
 
 // New returns a new provider for Percona XtraDB Cluster.
@@ -77,11 +81,21 @@ func New(
 	}
 	opts.DBEngine = dbEngine
 
+	// Get operator version.
+	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
+		Name:      common.PXCDeploymentName,
+		Namespace: opts.DB.GetNamespace(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	pxc.Spec = defaultSpec()
 
 	p := &Provider{
 		PerconaXtraDBCluster: pxc,
 		ProviderOptions:      opts,
+		operatorVersion:      v,
 	}
 
 	// Get cluster type.
@@ -198,5 +212,10 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
+	p.PerconaXtraDBCluster.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   common.PXCAPIGroup,
+		Version: p.operatorVersion.ToK8sVersion(),
+		Kind:    common.PerconaXtraDBClusterKind,
+	})
 	return p.PerconaXtraDBCluster
 }

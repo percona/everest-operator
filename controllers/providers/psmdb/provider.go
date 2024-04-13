@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/providers"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 const (
@@ -43,7 +45,9 @@ const (
 type Provider struct {
 	*psmdbv1.PerconaServerMongoDB
 	providers.ProviderOptions
-	clusterType common.ClusterType
+
+	clusterType     common.ClusterType
+	operatorVersion *version.Version
 }
 
 // New returns a new provider for Percona Server for MongoDB.
@@ -79,10 +83,20 @@ func New(
 	}
 	opts.DBEngine = dbEngine
 
+	// Get operator version.
+	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
+		Name:      common.PSMDBDeploymentName,
+		Namespace: opts.DB.GetNamespace(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	psmdb.Spec = defaultSpec()
 	p := &Provider{
 		PerconaServerMongoDB: psmdb,
 		ProviderOptions:      opts,
+		operatorVersion:      v,
 	}
 	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
@@ -146,6 +160,11 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
+	p.PerconaServerMongoDB.SetGroupVersionKind(schema.GroupVersionKind{
+		Version: p.operatorVersion.ToK8sVersion(),
+		Group:   common.PSMDBAPIGroup,
+		Kind:    common.PerconaServerMongoDBKind,
+	})
 	return p.PerconaServerMongoDB
 }
 

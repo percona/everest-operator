@@ -123,55 +123,6 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
-func (r *DatabaseClusterReconciler) setCustomResourceGVK(
-	ctx context.Context,
-	dbObject schema.ObjectKind,
-	operatorName, operatorNs string,
-	engineType everestv1alpha1.EngineType,
-) error {
-	// Get operator version.
-	v, err := common.GetOperatorVersion(ctx, r.Client, types.NamespacedName{
-		Name:      operatorName,
-		Namespace: operatorNs,
-	})
-	if err != nil {
-		return err
-	}
-	// Set GVK based on engine type.
-	gvk := schema.GroupVersionKind{}
-	switch engineType {
-	case everestv1alpha1.DatabaseEnginePXC:
-		gvk.Kind = common.PerconaXtraDBClusterKind
-		gvk.Group = common.PXCAPIGroup
-		gvk.Version = v.ToK8sVersion()
-	case everestv1alpha1.DatabaseEnginePSMDB:
-		gvk.Kind = common.PerconaServerMongoDBKind
-		gvk.Group = common.PSMDBAPIGroup
-		gvk.Version = v.ToK8sVersion()
-	case everestv1alpha1.DatabaseEnginePostgresql:
-		gvk.Kind = common.PerconaPGClusterKind
-		gvk.Group = common.PGAPIGroup
-		gvk.Version = "v2"
-	default:
-		return fmt.Errorf("unknown engine type '%s'", engineType)
-	}
-	dbObject.SetGroupVersionKind(gvk)
-	return nil
-}
-
-func dbOperatorName(engineType everestv1alpha1.EngineType) string {
-	switch engineType {
-	case everestv1alpha1.DatabaseEnginePXC:
-		return common.PXCDeploymentName
-	case everestv1alpha1.DatabaseEnginePSMDB:
-		return common.PSMDBDeploymentName
-	case everestv1alpha1.DatabaseEnginePostgresql:
-		return common.PGDeploymentName
-	default:
-		return ""
-	}
-}
-
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
@@ -194,13 +145,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 
 	// Mutate the spec and update with kube-api.
 	mutate := func() error {
-		// Set object type meta.
-		operatorDeplName := dbOperatorName(db.Spec.Engine.Type)
-		if err := r.setCustomResourceGVK(ctx, p.DBObject().GetObjectKind(), operatorDeplName,
-			db.GetNamespace(), db.Spec.Engine.Type); err != nil {
-			return err
-		}
-
 		applier := p.Apply(ctx)
 		applier.Paused(db.Spec.Paused)
 		applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
