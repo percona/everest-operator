@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 500
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  status: ready
+
