@@ -63,6 +63,11 @@ func BackupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
 
 // GetOperatorVersion returns the version of the operator running in the cluster
 // for the specified deployment name and namespace.
+//
+// TODO: Read the operator version from the DatabaseEngine status rather than fetching the Deployment,
+// since DatabaseEngines are cached in the controller's client.
+//
+//nolint:godox
 func GetOperatorVersion(
 	ctx context.Context,
 	c client.Client,
