@@ -143,7 +143,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
-	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB.GetNamespace(), psmdb.Spec.CRVersion)
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB)
 	if err != nil {
 		return status, err
 	}

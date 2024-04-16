@@ -670,17 +670,17 @@ func IsOwnedBy(child, parent metav1.Object) bool {
 func GetRecommendedCRVersion(
 	ctx context.Context,
 	c client.Client,
-	operatorName, operatorNs string,
-	currentCRVersion string,
+	operatorName string,
+	db *everestv1alpha1.DatabaseCluster,
 ) (*string, error) {
 	v, err := GetOperatorVersion(ctx, c, types.NamespacedName{
 		Name:      operatorName,
-		Namespace: operatorNs,
+		Namespace: db.GetNamespace(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	if v.ToCRVersion() != currentCRVersion {
+	if v.ToCRVersion() != db.Status.CRVersion {
 		return pointer.To(v.ToCRVersion()), nil
 	}
 	return nil, nil //nolint:nilnil
