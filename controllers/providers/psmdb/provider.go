@@ -144,7 +144,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	}
 
 	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB)
-	if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
