@@ -8,8 +8,8 @@ commands:
   # check that there are no pending upgrades
   - script: >
       test "$(kubectl get dbengine percona-xtradb-cluster-operator -n $NAMESPACE -o jsonpath='{.status.pendingOperatorUpgrades}')" = ""
-  # check that there is a new reccomended CR Version
-  - command: kubectl wait --for=jsonpath='{.status.reccomendedCRVersion}'=${PXC_OPERATOR_VERSION} db/test-pxc-cluster -n "${NAMESPACE}"
+  # check that there is a new recommended CR Version
+  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=${PXC_OPERATOR_VERSION} db/test-pxc-cluster -n "${NAMESPACE}"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine

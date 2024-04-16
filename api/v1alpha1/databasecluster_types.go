@@ -347,7 +347,7 @@ type DatabaseClusterStatus struct {
 	ActiveStorage string `json:"activeStorage,omitempty"`
 	// CRVersion is the observed version of the CR used with the underlying operator.
 	CRVersion string `json:"crVersion,omitempty"`
-	// ReccomendedCRVersion is the recommended version of the CR to use.
+	// RecommendedCRVersion is the recommended version of the CR to use.
 	// If set, the CR needs to be updated to this version before upgrading the operator.
 	// If unset, the CR is already at the recommended version.
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`

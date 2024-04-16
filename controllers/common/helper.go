@@ -666,8 +666,8 @@ func IsOwnedBy(child, parent metav1.Object) bool {
 	return false
 }
 
-// GetReccomendedCRVersion returns the recommended CR version for the operator.
-func GetReccomendedCRVersion(
+// GetRecommendedCRVersion returns the recommended CR version for the operator.
+func GetRecommendedCRVersion(
 	ctx context.Context,
 	c client.Client,
 	operatorName, operatorNs string,
