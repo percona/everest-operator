@@ -350,7 +350,7 @@ type DatabaseClusterStatus struct {
 	// ReccomendedCRVersion is the recommended version of the CR to use.
 	// If set, the CR needs to be updated to this version before upgrading the operator.
 	// If unset, the CR is already at the recommended version.
-	ReccomendedCRVersion *string `json:"reccomendedCRVersion,omitempty"`
+	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true
