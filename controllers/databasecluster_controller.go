@@ -588,6 +588,17 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 
+	// We watch DBEngines since they contain the result of the operator upgrades.
+	// We subscribe to the operator upgrades so that we're able to update status/metadata on the
+	// cluster, such as CRVersion and RecommendedCRVersion.
+	controller.Watches(
+		&everestv1alpha1.DatabaseEngine{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return r.databaseClustersInObjectNamespace(ctx, obj)
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
 	controller.Owns(&everestv1alpha1.MonitoringConfig{})
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
@@ -641,6 +652,24 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+}
+
+func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
+	result := []reconcile.Request{}
+	dbs := &everestv1alpha1.DatabaseClusterList{}
+	err := r.List(ctx, dbs, client.InNamespace(obj.GetNamespace()))
+	if err != nil {
+		return result
+	}
+	for _, db := range dbs.Items {
+		result = append(result, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      db.GetName(),
+				Namespace: db.GetNamespace(),
+			},
+		})
+	}
+	return result
 }
 
 // databaseClustersThatReferenceObject returns a list of reconcile
