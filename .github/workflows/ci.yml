@@ -210,8 +210,9 @@ jobs:
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
           kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+          kubectl delete ns operators olm --ignore-not-found=true --wait=false
+          sleep 10
           kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true
-          kubectl delete ns operators olm --ignore-not-found=true
           kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
 
       - name: Scale down cluster
