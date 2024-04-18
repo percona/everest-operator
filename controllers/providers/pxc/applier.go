@@ -56,6 +56,12 @@ func (p *applier) Engine() error {
 
 	pxc := p.PerconaXtraDBCluster
 
+	// Update CRVersion, if specified.
+	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	if desiredCR != "" {
+		pxc.Spec.CRVersion = desiredCR
+	}
+
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
 	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
 
@@ -114,6 +120,17 @@ func (p *applier) Backup() error {
 
 func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
+
+	// Set affinity based on cluster type.
+	if p.clusterType == common.ClusterTypeEKS {
+		affinity := &pxcv1.PodAffinity{
+			TopologyKey: pointer.ToString(common.TopologyKeyHostname),
+		}
+		p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
+		p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
+		p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
+	}
+	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
 		if err := p.applyHAProxyCfg(); err != nil {

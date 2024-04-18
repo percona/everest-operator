@@ -20,10 +20,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -31,6 +30,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/providers"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 const (
@@ -45,7 +45,9 @@ const (
 type Provider struct {
 	providers.ProviderOptions
 	*pxcv1.PerconaXtraDBCluster
-	clusterType common.ClusterType
+
+	clusterType     common.ClusterType
+	operatorVersion *version.Version
 }
 
 // New returns a new provider for Percona XtraDB Cluster.
@@ -79,23 +81,34 @@ func New(
 	}
 	opts.DBEngine = dbEngine
 
+	// Get operator version.
+	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
+		Name:      common.PXCDeploymentName,
+		Namespace: opts.DB.GetNamespace(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	pxc.Spec = defaultSpec()
 
 	p := &Provider{
 		PerconaXtraDBCluster: pxc,
 		ProviderOptions:      opts,
+		operatorVersion:      v,
 	}
+
+	// Get cluster type.
+	ct, err := common.GetClusterType(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+	p.clusterType = ct
 
 	if err := p.ensureDefaults(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handlePXCOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
 	if err := p.handlePXCRestores(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -109,44 +122,6 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 		Provider: p,
 		ctx:      ctx,
 	}
-}
-
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	ct, err := common.GetClusterType(ctx, p.C)
-	if err != nil {
-		return err
-	}
-	p.clusterType = ct
-	if ct == common.ClusterTypeEKS {
-		affinity := &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString(common.TopologyKeyHostname),
-		}
-		p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
-	}
-	return nil
-}
-
-func (p *Provider) handlePXCOperatorVersion(ctx context.Context) error {
-	pxc := p.PerconaXtraDBCluster
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PXCDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	pxc.TypeMeta = metav1.TypeMeta{
-		APIVersion: v.ToAPIVersion(common.PXCAPIGroup),
-		Kind:       common.PerconaXtraDBClusterKind,
-	}
-	crVersion := v.ToCRVersion()
-	if pxc.Spec.CRVersion != "" {
-		crVersion = pxc.Spec.CRVersion
-	}
-	pxc.Spec.CRVersion = crVersion
-	return nil
 }
 
 // handlePXCRestores is a helper for watching PXC restores and reconciling the db.Paused.
@@ -211,6 +186,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Size = pxc.Status.Size
 	status.Message = strings.Join(pxc.Status.Messages, ";")
 	status.Port = 3306
+	status.CRVersion = pxc.Spec.CRVersion
 
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
@@ -218,6 +194,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
+
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PXCDeploymentName, p.DB)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return status, err
+	}
+	status.RecommendedCRVersion = recCRVer
 	return status, nil
 }
 
@@ -230,5 +212,10 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
+	p.PerconaXtraDBCluster.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   common.PXCAPIGroup,
+		Version: p.operatorVersion.ToK8sVersion(),
+		Kind:    common.PerconaXtraDBClusterKind,
+	})
 	return p.PerconaXtraDBCluster
 }

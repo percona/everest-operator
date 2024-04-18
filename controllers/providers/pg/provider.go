@@ -22,7 +22,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -33,16 +33,25 @@ import (
 )
 
 const (
-	pgAPIGroup = "pgv2.percona.com"
-
 	finalizerDeletePGPVC = "percona.com/delete-pvc"
 	finalizerDeletePGSSL = "percona.com/delete-ssl"
 )
+
+var hostnameAffinity = &corev1.Affinity{
+	PodAntiAffinity: &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			{
+				TopologyKey: "kubernetes.io/hostname",
+			},
+		},
+	},
+}
 
 // Provider is a provider for Percona PostgreSQL.
 type Provider struct {
 	*pgv2.PerconaPGCluster
 	providers.ProviderOptions
+	clusterType common.ClusterType
 }
 
 // New returns a new provider for Percona PostgreSQL.
@@ -77,13 +86,12 @@ func New(
 		PerconaPGCluster: pg,
 		ProviderOptions:  opts,
 	}
+	ct, err := common.GetClusterType(ctx, p.C)
+	if err != nil {
+		return nil, err
+	}
+	p.clusterType = ct
 
-	if err := p.handlePGOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
-		return nil, err
-	}
 	if err := p.ensureDataSourceRemoved(ctx, opts.DB); err != nil {
 		return nil, err
 	}
@@ -97,49 +105,6 @@ func (p *Provider) ensureDataSourceRemoved(ctx context.Context, db *everestv1alp
 		db.Spec.DataSource != nil {
 		db.Spec.DataSource = nil
 		return p.C.Update(ctx, db)
-	}
-	return nil
-}
-
-func (p *Provider) handlePGOperatorVersion(ctx context.Context) error {
-	pg := p.PerconaPGCluster
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PGDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	pg.TypeMeta = metav1.TypeMeta{
-		APIVersion: pgAPIGroup + "/v2",
-		Kind:       common.PerconaPGClusterKind,
-	}
-	crVersion := v.ToCRVersion()
-	if pg.Spec.CRVersion != "" {
-		crVersion = pg.Spec.CRVersion
-	}
-	pg.Spec.CRVersion = crVersion
-	return nil
-}
-
-// handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	ct, err := common.GetClusterType(ctx, p.C)
-	if err != nil {
-		return err
-	}
-	if ct == common.ClusterTypeEKS {
-		affinity := &corev1.Affinity{
-			PodAntiAffinity: &corev1.PodAntiAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-					{
-						TopologyKey: "kubernetes.io/hostname",
-					},
-				},
-			},
-		}
-		p.PerconaPGCluster.Spec.InstanceSets[0].Affinity = affinity
-		p.PerconaPGCluster.Spec.Proxy.PGBouncer.Affinity = affinity
 	}
 	return nil
 }
@@ -165,6 +130,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
 	status.Port = 5432
+	status.CRVersion = pg.Spec.CRVersion
 
 	// If a restore is running for this database, set the database status to restoring
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, c, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
@@ -172,6 +138,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
+
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PGDeploymentName, p.DB)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return status, err
+	}
+	status.RecommendedCRVersion = recCRVer
 	return status, nil
 }
 
@@ -184,5 +156,10 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
+	p.PerconaPGCluster.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   common.PGAPIGroup,
+		Version: "v2",
+		Kind:    common.PerconaPGClusterKind,
+	})
 	return p.PerconaPGCluster
 }

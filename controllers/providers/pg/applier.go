@@ -73,6 +73,27 @@ func (p *applier) Engine() error {
 	if database.Spec.Engine.Version == "" {
 		database.Spec.Engine.Version = engine.BestEngineVersion()
 	}
+
+	// Set a CRVersion.
+	observedCRVersion := p.DB.Status.CRVersion
+	desiredCRVersion := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	pg.Spec.CRVersion = observedCRVersion
+	if observedCRVersion == "" && desiredCRVersion == "" {
+		// During the initial installation, a CRVersion may not be provided.
+		// So we will use the operator version.
+		v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
+			Name:      common.PGDeploymentName,
+			Namespace: p.DB.GetNamespace(),
+		})
+		if err != nil {
+			return err
+		}
+		pg.Spec.CRVersion = v.ToCRVersion()
+	} else if desiredCRVersion != "" {
+		// Otherwise, we always use the one provided.
+		pg.Spec.CRVersion = desiredCRVersion
+	}
+
 	pgEngineVersion, ok := engine.Status.AvailableVersions.Engine[database.Spec.Engine.Version]
 	if !ok {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
@@ -109,6 +130,9 @@ func (p *applier) Engine() error {
 				corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
 			},
 		},
+	}
+	if p.clusterType == common.ClusterTypeEKS {
+		pg.Spec.InstanceSets[0].Affinity = hostnameAffinity.DeepCopy()
 	}
 	return nil
 }
@@ -162,6 +186,9 @@ func (p *applier) Proxy() error {
 			Name:       "postgres",
 			SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 		},
+	}
+	if p.clusterType == common.ClusterTypeEKS {
+		pg.Spec.Proxy.PGBouncer.Affinity = hostnameAffinity.DeepCopy()
 	}
 	return nil
 }

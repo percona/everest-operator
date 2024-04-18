@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -62,6 +63,11 @@ func BackupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
 
 // GetOperatorVersion returns the version of the operator running in the cluster
 // for the specified deployment name and namespace.
+//
+// TODO: Read the operator version from the DatabaseEngine status rather than fetching the Deployment,
+// since DatabaseEngines are cached in the controller's client.
+//
+//nolint:godox
 func GetOperatorVersion(
 	ctx context.Context,
 	c client.Client,
@@ -658,4 +664,24 @@ func IsOwnedBy(child, parent metav1.Object) bool {
 		}
 	}
 	return false
+}
+
+// GetRecommendedCRVersion returns the recommended CR version for the operator.
+func GetRecommendedCRVersion(
+	ctx context.Context,
+	c client.Client,
+	operatorName string,
+	db *everestv1alpha1.DatabaseCluster,
+) (*string, error) {
+	v, err := GetOperatorVersion(ctx, c, types.NamespacedName{
+		Name:      operatorName,
+		Namespace: db.GetNamespace(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if v.ToCRVersion() != db.Status.CRVersion {
+		return pointer.To(v.ToCRVersion()), nil
+	}
+	return nil, nil //nolint:nilnil
 }

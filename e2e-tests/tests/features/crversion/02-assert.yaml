@@ -1,0 +1,57 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+commands:
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PREVIOUS_PXC_OPERATOR_VERSION pxc/test-pxc-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PREVIOUS_PG_OPERATOR_VERSION pg/test-pg-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PREVIOUS_PSMDB_OPERATOR_VERSION psmdb/test-psmdb-cluster -n $NAMESPACE
+
+  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=$PXC_OPERATOR_VERSION db/test-pxc-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=$PG_OPERATOR_VERSION db/test-pg-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=$PSMDB_OPERATOR_VERSION db/test-psmdb-cluster -n $NAMESPACE
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+status:
+  status: ready
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+status:
+  state: ready
+---
+kind: DatabaseCluster
+apiVersion: everest.percona.com/v1alpha1
+metadata:
+  name: test-pxc-cluster
+status:
+  status: ready
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+status:
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+status:
+  replsets:
+    rs0:
+      initialized: true
+      status: ready
+  state: ready

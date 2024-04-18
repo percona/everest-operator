@@ -148,6 +148,13 @@ type Engine struct {
 	Config string `json:"config,omitempty"`
 	// UserSecretsName is the name of the secret containing the user secrets
 	UserSecretsName string `json:"userSecretsName,omitempty"`
+	// CRVersion is the desired version of the CR to use with the
+	// underlying operator.
+	// If unspecified, everest-operator will use the same version as the operator.
+	//
+	// NOTE: Updating this property post installation may lead to a restart of the cluster.
+	// +optional
+	CRVersion *string `json:"crVersion,omitempty"`
 }
 
 // Size returns the size of the engine.
@@ -338,6 +345,12 @@ type DatabaseClusterStatus struct {
 	Message string `json:"message,omitempty"`
 	// ActiveStorage is the storage used in cluster (psmdb only)
 	ActiveStorage string `json:"activeStorage,omitempty"`
+	// CRVersion is the observed version of the CR used with the underlying operator.
+	CRVersion string `json:"crVersion,omitempty"`
+	// RecommendedCRVersion is the recommended version of the CR to use.
+	// If set, the CR needs to be updated to this version before upgrading the operator.
+	// If unset, the CR is already at the recommended version.
+	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,6 +33,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/providers"
+	"github.com/percona/everest-operator/controllers/version"
 )
 
 const (
@@ -44,6 +45,9 @@ const (
 type Provider struct {
 	*psmdbv1.PerconaServerMongoDB
 	providers.ProviderOptions
+
+	clusterType     common.ClusterType
+	operatorVersion *version.Version
 }
 
 // New returns a new provider for Percona Server for MongoDB.
@@ -79,55 +83,27 @@ func New(
 	}
 	opts.DBEngine = dbEngine
 
+	// Get operator version.
+	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
+		Name:      common.PSMDBDeploymentName,
+		Namespace: opts.DB.GetNamespace(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	psmdb.Spec = defaultSpec()
 	p := &Provider{
 		PerconaServerMongoDB: psmdb,
 		ProviderOptions:      opts,
+		operatorVersion:      v,
 	}
-	if err := p.handleOperatorVersion(ctx); err != nil {
-		return nil, err
-	}
-	if err := p.handleClusterTypeConfig(ctx); err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-
-func (p *Provider) handleOperatorVersion(ctx context.Context) error {
-	psmdb := p.PerconaServerMongoDB
-	v, err := common.GetOperatorVersion(ctx, p.C, types.NamespacedName{
-		Name:      common.PSMDBDeploymentName,
-		Namespace: p.DB.GetNamespace(),
-	})
-	if err != nil {
-		return err
-	}
-	psmdb.TypeMeta = metav1.TypeMeta{
-		APIVersion: v.ToAPIVersion(common.PSMDBAPIGroup),
-		Kind:       common.PerconaServerMongoDBKind,
-	}
-	crVersion := v.ToCRVersion()
-	if psmdb.Spec.CRVersion != "" {
-		crVersion = psmdb.Spec.CRVersion
-	}
-	psmdb.Spec.CRVersion = crVersion
-	return nil
-}
-
-// handleClusterTypeConfig cluster type specific configuration (if any).
-func (p *Provider) handleClusterTypeConfig(ctx context.Context) error {
-	psmdb := p.PerconaServerMongoDB
 	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if ct == common.ClusterTypeEKS {
-		affinity := &psmdbv1.PodAffinity{
-			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
-		}
-		psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
-	}
-	return nil
+	p.clusterType = ct
+	return p, nil
 }
 
 // Apply returns the applier for Percona Server for MongoDB.
@@ -158,12 +134,20 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Message = message
 	status.Port = 27017
 	status.ActiveStorage = activeStorage
+	status.CRVersion = psmdb.Spec.CRVersion
+
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
+
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return status, err
+	}
+	status.RecommendedCRVersion = recCRVer
 	return status, nil
 }
 
@@ -176,6 +160,11 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
+	p.PerconaServerMongoDB.SetGroupVersionKind(schema.GroupVersionKind{
+		Version: p.operatorVersion.ToK8sVersion(),
+		Group:   common.PSMDBAPIGroup,
+		Kind:    common.PerconaServerMongoDBKind,
+	})
 	return p.PerconaServerMongoDB
 }
 
