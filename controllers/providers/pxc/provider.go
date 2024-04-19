@@ -61,6 +61,8 @@ func New(
 		pxc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
+	} else if k8serrors.IsNotFound(err) {
+		pxc.Spec = defaultSpec()
 	}
 
 	// Add necessary finalizers.
@@ -78,8 +80,6 @@ func New(
 		return nil, err
 	}
 	opts.DBEngine = dbEngine
-
-	pxc.Spec = defaultSpec()
 
 	p := &Provider{
 		PerconaXtraDBCluster: pxc,
