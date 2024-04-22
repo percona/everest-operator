@@ -24,6 +24,8 @@ const (
 	BackupStorageTypeS3 BackupStorageType = "s3"
 	// BackupStorageTypeAzure is a type of azure blob storage.
 	BackupStorageTypeAzure BackupStorageType = "azure"
+	// BackupStorageTypeLocal is a type of PVC based local storage.
+	BackupStorageTypeLocal BackupStorageType = "local-storage"
 )
 
 // BackupStorageType is a type of backup storage.
@@ -34,6 +36,9 @@ type BackupStorageSpec struct {
 	// Type is a type of backup storage.
 	// +kubebuilder:validation:Enum=s3;azure
 	Type BackupStorageType `json:"type"`
+	// LocalStorage is the specification for the PVC.
+	// Used only when Type is set to local-storage.
+	LocalStorage *Storage `json:"localStorage,omitempty"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
 	// Region is a region where the bucket is located.

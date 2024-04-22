@@ -272,6 +272,30 @@ func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
 	}}
 }
 
+func (r *DatabaseClusterBackupReconciler) createOrUpdatePGInitLocalBackupStorage(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	localStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-init-local", database.GetName()),
+			Namespace: r.systemNamespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, localStorage, func() error {
+		localStorage.Spec = everestv1alpha1.BackupStorageSpec{
+			Type: everestv1alpha1.BackupStorageTypeLocal,
+			LocalStorage: &everestv1alpha1.Storage{
+				Size: database.Spec.Engine.Storage.Size,
+			},
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj client.Object) error {
 	pgBackup := &pgv2.PerconaPGBackup{}
 	namespacedName := types.NamespacedName{
@@ -285,13 +309,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 			return nil
 		}
 		return err
-	}
-
-	// We want to ignore backups that are done to the hardcoded PVC-based repo1.
-	// This repo only exists to allow users to spin up a PG cluster without specifying a backup storage.
-	// Therefore, we don't want to allow users to restore from these backups so shouldn't create a DBB CR from repo1.
-	if pgBackup.Spec.RepoName == "repo1" {
-		return nil
 	}
 
 	backup := &everestv1alpha1.DatabaseClusterBackup{
@@ -317,9 +334,18 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	if err != nil {
 		return err
 	}
+
 	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
 	if nErr != nil {
 		return nErr
+	}
+
+	// Create local storage for the backup if the repo name is "repo1".
+	if pgBackup.Spec.RepoName == "repo1" {
+		if err := r.createOrUpdatePGInitLocalBackupStorage(ctx, cluster); err != nil {
+			return err
+		}
+		name = fmt.Sprintf("%s-init-local", cluster.GetName())
 	}
 
 	backup.Spec.BackupStorageName = name
@@ -768,8 +794,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			Namespace: backup.Namespace,
 		}, db); err != nil {
 			logger.Error(err, "could not get database cluster ")
-		}
-		if err == nil {
+		} else {
 			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
 		}
 	}
