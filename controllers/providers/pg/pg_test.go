@@ -32,17 +32,15 @@ import (
 	"github.com/percona/everest-operator/controllers/common"
 )
 
-var (
-	localBackupStoragePVCSpec = corev1.PersistentVolumeClaimSpec{
-		StorageClassName: pointer.To("someSC"),
-		Resources: corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("15G"),
-			},
+var localBackupStoragePVCSpec = corev1.PersistentVolumeClaimSpec{
+	StorageClassName: pointer.To("someSC"),
+	Resources: corev1.VolumeResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceStorage: resource.MustParse("15G"),
 		},
-		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-	}
-)
+	},
+	AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+}
 
 func TestPGConfigParser_ParsePGConfig(t *testing.T) {
 	t.Parallel()

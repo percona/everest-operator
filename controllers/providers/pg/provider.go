@@ -22,6 +22,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -91,6 +92,10 @@ func New(
 		return nil, err
 	}
 	p.clusterType = ct
+
+	if err := p.createInitPGLocalBackupStorage(ctx, opts.DB); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -147,4 +152,38 @@ func (p *Provider) DBObject() client.Object {
 		Kind:    common.PerconaPGClusterKind,
 	})
 	return p.PerconaPGCluster
+}
+
+// createInitPGLocalBackupStorage creates a local backup storage for the initial PG backup
+// needed for bootstrapping PG clusters.
+func (p *Provider) createInitPGLocalBackupStorage(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	backupStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
+			Namespace: p.SystemNs,
+			Finalizers: []string{
+				everestv1alpha1.BackupProtectionFinalizer,
+			},
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, p.C, backupStorage, func() error {
+		backupStorage.Spec = everestv1alpha1.BackupStorageSpec{
+			Type: everestv1alpha1.BackupStorageTypeLocal,
+			PVCSpec: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: database.Spec.Engine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
+					},
+				},
+			},
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }

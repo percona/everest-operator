@@ -321,9 +321,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	// For this repo, we will create a reserved local backup storage that will be used for the
 	// initial backup.
 	if pgBackup.Spec.RepoName == "repo1" {
-		if err := r.createInitPGLocalBackupStorage(ctx, cluster); err != nil {
-			return err
-		}
 		name = everestv1alpha1.PGInitLocalBackupStorageName
 	}
 
@@ -833,40 +830,6 @@ func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 	return nil
 }
 
-// createInitPGLocalBackupStorage creates a local backup storage for the initial PG backup
-// needed for bootstrapping PG clusters.
-func (r *DatabaseClusterBackupReconciler) createInitPGLocalBackupStorage(
-	ctx context.Context,
-	database *everestv1alpha1.DatabaseCluster,
-) error {
-	backupStorage := &everestv1alpha1.BackupStorage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
-			Namespace: r.systemNamespace,
-			Finalizers: []string{
-				everestv1alpha1.BackupProtectionFinalizer,
-			},
-		},
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, backupStorage, func() error {
-		backupStorage.Spec = everestv1alpha1.BackupStorageSpec{
-			Type: everestv1alpha1.BackupStorageTypeLocal,
-			PVCSpec: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.Engine.Storage.Class,
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
-					},
-				},
-			},
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
 // handlePGInitBackupFinalizer handles the removal of the init backup protection finalizer.
 // Returns true if the clean-up is complete.
 func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
@@ -882,7 +845,8 @@ func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      backup.Spec.DBClusterName,
-		Namespace: backup.Namespace}, cluster)
+		Namespace: backup.Namespace,
+	}, cluster)
 	if client.IgnoreNotFound(err) != nil {
 		return false, err
 	}

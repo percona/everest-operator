@@ -41,7 +41,7 @@ const (
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {
 	// Type is a type of backup storage.
-	// +kubebuilder:validation:Enum=s3;azure
+	// +kubebuilder:validation:Enum=s3;azure;local
 	Type BackupStorageType `json:"type"`
 	// PVCSpec is a spec of PVC for local storage.
 	// Ignored if Type is not local.
