@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	// PGInitBackupProtectionFinalizer is the finalizer for preventing the deletion
-	// of the local backup created for bootstrapping PG clusters.
-	PGInitBackupProtectionFinalizer = "everest.percona.com/pg-init-backup-protection"
+	// BackupProtectionFinalizer is a type of finalizer that prevents
+	// a backup from being deleted until the database cluser is deleted.
+	BackupProtectionFinalizer = "everest.percona.com/backup-protection"
 )
 
 // BackupState is used to represent the backup's state.

@@ -844,7 +844,7 @@ func (r *DatabaseClusterBackupReconciler) createInitPGLocalBackupStorage(
 			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
 			Namespace: r.systemNamespace,
 			Finalizers: []string{
-				everestv1alpha1.PGInitBackupProtectionFinalizer,
+				everestv1alpha1.BackupProtectionFinalizer,
 			},
 		},
 	}
@@ -873,8 +873,8 @@ func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
 ) (bool, error) {
-	if !controllerutil.ContainsFinalizer(backup, everestv1alpha1.PGInitBackupProtectionFinalizer) {
-		// Backup doesn't contain the init backup protection finalizer, so we're done.
+	if !controllerutil.ContainsFinalizer(backup, everestv1alpha1.BackupProtectionFinalizer) {
+		// Finalizer is gone, we're done.
 		return true, nil
 	}
 
@@ -886,9 +886,11 @@ func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
 	if client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
+
 	// Remove the finalizer if the cluster is deleted, or being deleted.
 	if k8serrors.IsNotFound(err) || !cluster.GetDeletionTimestamp().IsZero() {
-		controllerutil.RemoveFinalizer(backup, everestv1alpha1.PGInitBackupProtectionFinalizer)
+		controllerutil.RemoveFinalizer(backup, everestv1alpha1.BackupProtectionFinalizer)
+		return false, r.Update(ctx, backup)
 	}
-	return false, r.Update(ctx, backup)
+	return false, nil
 }
