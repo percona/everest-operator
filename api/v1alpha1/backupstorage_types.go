@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,6 +25,8 @@ const (
 	BackupStorageTypeS3 BackupStorageType = "s3"
 	// BackupStorageTypeAzure is a type of azure blob storage.
 	BackupStorageTypeAzure BackupStorageType = "azure"
+	// BackupStorageTypeLocal is a type of local storage.
+	BackupStorageTypeLocal BackupStorageType = "local"
 )
 
 // BackupStorageType is a type of backup storage.
@@ -34,6 +37,9 @@ type BackupStorageSpec struct {
 	// Type is a type of backup storage.
 	// +kubebuilder:validation:Enum=s3;azure
 	Type BackupStorageType `json:"type"`
+	// PVCSpec is a spec of PVC for local storage.
+	// Ignored if Type is not local.
+	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec,omitempty"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`
 	// Region is a region where the bucket is located.
