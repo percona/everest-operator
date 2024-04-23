@@ -459,6 +459,15 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 	}
 
+	// We will not allow restoring from the initial local backup.
+	if backupStorageName == everestv1alpha1.PGInitLocalBackupStorageName {
+		restore.Status = everestv1alpha1.DatabaseClusterRestoreStatus{
+			State:   everestv1alpha1.RestoreState(pgv2.RestoreFailed),
+			Message: "cannot restore from initial local backup",
+		}
+		return r.Status().Update(ctx, restore)
+	}
+
 	// We need to check if the storage used by the backup is defined in the
 	// PerconaPGCluster CR. If not, we requeue the restore to give the
 	// DatabaseCluster controller a chance to update the PG cluster CR.

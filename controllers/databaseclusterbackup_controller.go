@@ -730,6 +730,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		if controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
+		return r.handlePGInitBackupFinalizer(ctx, backup)
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
@@ -842,6 +843,9 @@ func (r *DatabaseClusterBackupReconciler) createInitPGLocalBackupStorage(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
 			Namespace: r.systemNamespace,
+			Finalizers: []string{
+				everestv1alpha1.PGInitBackupProtectionFinalizer,
+			},
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, backupStorage, func() error {
@@ -861,4 +865,30 @@ func (r *DatabaseClusterBackupReconciler) createInitPGLocalBackupStorage(
 		return err
 	}
 	return nil
+}
+
+// handlePGInitBackupFinalizer handles the removal of the init backup protection finalizer.
+// Returns true if the clean-up is complete.
+func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
+	ctx context.Context,
+	backup *everestv1alpha1.DatabaseClusterBackup,
+) (bool, error) {
+	if !controllerutil.ContainsFinalizer(backup, everestv1alpha1.PGInitBackupProtectionFinalizer) {
+		// Backup doesn't contain the init backup protection finalizer, so we're done.
+		return true, nil
+	}
+
+	// Get the cluster.
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      backup.Spec.DBClusterName,
+		Namespace: backup.Namespace}, cluster)
+	if client.IgnoreNotFound(err) != nil {
+		return false, err
+	}
+	// Remove the finalizer if the cluster is deleted, or being deleted.
+	if k8serrors.IsNotFound(err) || !cluster.GetDeletionTimestamp().IsZero() {
+		controllerutil.RemoveFinalizer(backup, everestv1alpha1.PGInitBackupProtectionFinalizer)
+	}
+	return false, r.Update(ctx, backup)
 }

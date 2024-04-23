@@ -19,6 +19,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// PGInitBackupProtectionFinalizer is the finalizer for preventing the deletion
+	// of the local backup created for bootstrapping PG clusters.
+	PGInitBackupProtectionFinalizer = "everest.percona.com/pg-init-backup-protection"
+)
+
 // BackupState is used to represent the backup's state.
 type BackupState string
 
