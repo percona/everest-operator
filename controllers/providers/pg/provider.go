@@ -97,7 +97,7 @@ func New(
 		return nil, err
 	}
 	// Add finalizer for cleanup of local backup storage.
-	if !p.DB.GetDeletionTimestamp().IsZero() {
+	if p.DB.GetDeletionTimestamp().IsZero() {
 		controllerutil.AddFinalizer(p.DB, everestv1alpha1.PGInitLocalBackupStorgeCleanupFinalizer)
 	}
 	return p, nil

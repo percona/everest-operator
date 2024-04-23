@@ -3,6 +3,10 @@ kind: TestAssert
 timeout: 120
 commands:
   - command: kubectl wait --for=jsonpath='{.status.crVersion}'=${PG_OPERATOR_VERSION} db/test-pg-cluster -n "${NAMESPACE}"
+  - script: >
+      test "$(kubectl get dbbackup -n $NAMESPACE -ojsonpath='{.items[0].spec.backupStorageName}')" = "test-pg-cluster-pg-init"
+  - script: >
+      test "$(kubectl get dbbackup -n $NAMESPACE -ojsonpath='{.items[0].metadata.finalizers}')" = '["everest.percona.com/backup-protection"]'
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -10,6 +14,7 @@ metadata:
   name: test-pg-cluster
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - everest.percona.com/pg-init-local-backup-storage-cleanup
 spec:
   engine:
     type: postgresql
@@ -90,3 +95,19 @@ status:
     ready: 3
     size: 3
   state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-pg-cluster-pg-init
+  labels:
+    everest.percona.com/pg-init: test-pg-cluster
+spec:
+  type: local
+  pvcSpec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 15G
+---
