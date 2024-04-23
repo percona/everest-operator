@@ -313,12 +313,13 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		return err
 	}
 
-	name := everestv1alpha1.PGInitLocalBackupStorageName
-	if pgBackup.Spec.RepoName != "repo1" {
-		name, err = backupStorageName(pgBackup.Spec.RepoName, cluster)
-		if err != nil {
-			return err
-		}
+	name, err := backupStorageName(pgBackup.Spec.RepoName, cluster)
+	if err != nil {
+		return err
+	}
+	finalizers := []string{}
+	if pgBackup.Spec.RepoName == "repo1" {
+		finalizers = append(finalizers, everestv1alpha1.BackupProtectionFinalizer)
 	}
 
 	backup.Spec.BackupStorageName = name
@@ -333,6 +334,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		UID:                pgBackup.UID,
 		BlockOwnerDeletion: pointer.ToBool(true),
 	}})
+	backup.SetFinalizers(finalizers)
 
 	return r.Create(ctx, backup)
 }
@@ -777,14 +779,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		}, db); err != nil {
 			logger.Error(err, "could not get database cluster ")
 		}
-		if err == nil {
-			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
-		}
+		backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
 	}
 	return false, r.Status().Update(ctx, backup)
 }
 
 func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {
+	if repoName == "repo1" {
+		return everestv1alpha1.LocalBackupStorageName(cluster.GetName()), nil
+	}
 	// repoNames in a PG cluster are in form "repo1", "repo2" etc.
 	// which is mapped to the DatabaseCluster schedules list.
 	// So here we figure out the BackupStorageName of the corresponding schedule.

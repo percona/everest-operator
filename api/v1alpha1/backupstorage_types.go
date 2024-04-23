@@ -16,6 +16,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,10 +35,15 @@ const (
 type BackupStorageType string
 
 const (
-	// PGInitLocalBackupStorageName is the name of the local backupstorage
+	// PGInitLocalBackupStorageNameTmpl is a template for the name of the local backupstorage
 	// created for bootstrapping PG clusters.
-	PGInitLocalBackupStorageName = "pg-init"
+	PGInitLocalBackupStorageNameTmpl = "%s-pg-init"
 )
+
+// LocalBackupStorageName returns the name of the local backupstorage.
+func LocalBackupStorageName(clusterName string) string {
+	return fmt.Sprintf(PGInitLocalBackupStorageNameTmpl, clusterName)
+}
 
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {

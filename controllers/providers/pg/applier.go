@@ -918,7 +918,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	}
 	// Remove the init backup.
 	backupList.Items = slices.DeleteFunc(backupList.Items, func(backup everestv1alpha1.DatabaseClusterBackup) bool {
-		return backup.Spec.BackupStorageName == everestv1alpha1.PGInitLocalBackupStorageName
+		return backup.Spec.BackupStorageName == everestv1alpha1.LocalBackupStorageName(p.DB.GetName())
 	})
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
@@ -950,7 +950,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 		return crunchyv1beta1.Backups{}, err
 	}
 
-	pgInitLocalBackupStorage, err := common.GetBackupStorage(ctx, c, everestv1alpha1.PGInitLocalBackupStorageName, p.SystemNs)
+	pgInitLocalBackupStorage, err := common.GetBackupStorage(ctx, c, everestv1alpha1.LocalBackupStorageName(p.DB.GetName()), p.SystemNs)
 	if err != nil {
 		return crunchyv1beta1.Backups{},
 			fmt.Errorf("cannot get initial local backup storage for Postgres: %w", err)
@@ -963,7 +963,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 		backupStorages,
 		backupStoragesSecrets,
 		database,
-		*pgInitLocalBackupStorage.Spec.PVCSpec, // Creation of this BackupStorage is handled by us, so we can guarentee that it won't be nil.
+		*pgInitLocalBackupStorage.Spec.PVCSpec, // Creation of this BackupStorage is handled by us, so we can guarantee that it won't be nil.
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err

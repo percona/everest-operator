@@ -162,11 +162,8 @@ func (p *Provider) createInitPGLocalBackupStorage(
 ) error {
 	backupStorage := &everestv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
+			Name:      everestv1alpha1.LocalBackupStorageName(database.GetName()),
 			Namespace: p.SystemNs,
-			Finalizers: []string{
-				everestv1alpha1.BackupProtectionFinalizer,
-			},
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, p.C, backupStorage, func() error {

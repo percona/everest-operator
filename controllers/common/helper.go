@@ -618,6 +618,10 @@ func GetBackupStorageIndexInPGBackrestRepo(
 		if repo.Azure != nil && repo.Azure.Container == backupStorage.Spec.Bucket {
 			return idx
 		}
+		localInitBSSuffix := strings.TrimPrefix(everestv1alpha1.PGInitLocalBackupStorageNameTmpl, "%s")
+		if repo.Name == "repo1" && strings.Contains(backupStorage.GetName(), localInitBSSuffix) {
+			return idx
+		}
 	}
 	return -1
 }

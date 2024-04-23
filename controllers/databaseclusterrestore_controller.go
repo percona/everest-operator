@@ -460,7 +460,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	}
 
 	// We will not allow restoring from the initial local backup.
-	if backupStorageName == everestv1alpha1.PGInitLocalBackupStorageName {
+	if backupStorageName == everestv1alpha1.LocalBackupStorageName(pgDBCR.GetName()) {
 		restore.Status = everestv1alpha1.DatabaseClusterRestoreStatus{
 			State:   everestv1alpha1.RestoreState(pgv2.RestoreFailed),
 			Message: "cannot restore from initial local backup",
