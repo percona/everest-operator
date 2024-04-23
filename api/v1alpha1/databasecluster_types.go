@@ -31,6 +31,12 @@ var (
 )
 
 const (
+	// PGInitLocalBackupStorgeCleanupFinalizer is a finalizer to handle cleanup the local backup storages created
+	// for initializing PG clusters.
+	PGInitLocalBackupStorgeCleanupFinalizer = "everest.percona.com/pg-init-local-backup-storage-cleanup"
+)
+
+const (
 	// AppStateUnknown is an unknown state.
 	AppStateUnknown AppState = "unknown"
 	// AppStateInit is a initializing state.

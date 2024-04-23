@@ -96,6 +96,10 @@ func New(
 	if err := p.createInitPGLocalBackupStorage(ctx, opts.DB); err != nil {
 		return nil, err
 	}
+	// Add finalizer for cleanup of local backup storage.
+	if !p.DB.GetDeletionTimestamp().IsZero() {
+		controllerutil.AddFinalizer(p.DB, everestv1alpha1.PGInitLocalBackupStorgeCleanupFinalizer)
+	}
 	return p, nil
 }
 
@@ -139,7 +143,14 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleDBBackupsCleanup(ctx, p.C, database)
+	// Cleanup DB Backups.
+	if done, err := common.HandleDBBackupsCleanup(ctx, p.C, database); err != nil {
+		return false, err
+	} else if !done {
+		return false, nil
+	}
+	// Cleanup init local backup storage.
+	return p.cleanupInitLocalBackupStorage(ctx)
 }
 
 // DBObject returns the PerconaPGCluster object.
@@ -184,4 +195,23 @@ func (p *Provider) createInitPGLocalBackupStorage(
 		return err
 	}
 	return nil
+}
+
+// cleanupInitLocalBackupStorage removes the local backup storage for the initial PG backup.
+func (p *Provider) cleanupInitLocalBackupStorage(ctx context.Context) (bool, error) {
+	backupStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      everestv1alpha1.LocalBackupStorageName(p.DB.GetName()),
+			Namespace: p.SystemNs,
+		},
+	}
+	if err := p.C.Delete(ctx, backupStorage); err != nil && !k8serrors.IsNotFound(err) {
+		return false, err
+	} else if k8serrors.IsNotFound(err) {
+		return true, nil
+	}
+	if controllerutil.RemoveFinalizer(p.DB, everestv1alpha1.PGInitLocalBackupStorgeCleanupFinalizer) {
+		return false, p.C.Update(ctx, p.DB)
+	}
+	return false, nil
 }
