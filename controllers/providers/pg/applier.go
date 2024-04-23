@@ -918,7 +918,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	}
 	// Remove the init backup.
 	backupList.Items = slices.DeleteFunc(backupList.Items, func(backup everestv1alpha1.DatabaseClusterBackup) bool {
-		return backup.Spec.BackupStorageName == everestv1alpha1.LocalBackupStorageName(p.DB.GetName())
+		return backup.Spec.BackupStorageName == everestv1alpha1.LocalBackupStorageName(database.GetName())
 	})
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}

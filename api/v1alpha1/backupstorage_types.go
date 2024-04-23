@@ -16,8 +16,6 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,21 +33,15 @@ const (
 type BackupStorageType string
 
 const (
-	// PGInitLocalBackupStorageNameTmpl is a template for the name of the local backupstorage
-	// created for bootstrapping PG clusters.
-	PGInitLocalBackupStorageNameTmpl = "%s-pg-init"
-)
-
-const (
 	// PGInitLocalBackupStorageReferenceLabel is a label set on a backup storage to indicate
-	// that it was created for bootstrapping PG a cluster.
+	// that it was created for setting up a local PVC for bootstrapping a PG cluster.
 	// The value of this label is the name of the PG cluster that owns this backup storage.
 	PGInitLocalBackupStorageReferenceLabel = "everest.percona.com/pg-init"
 )
 
 // LocalBackupStorageName returns the name of the local backupstorage.
 func LocalBackupStorageName(clusterName string) string {
-	return fmt.Sprintf(PGInitLocalBackupStorageNameTmpl, clusterName)
+	return clusterName + "-pg-init"
 }
 
 // BackupStorageSpec defines the desired state of BackupStorage.
@@ -59,6 +51,7 @@ type BackupStorageSpec struct {
 	Type BackupStorageType `json:"type"`
 	// PVCSpec is a spec of PVC for local storage.
 	// Ignored if Type is not local.
+	// +optional
 	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec,omitempty"`
 	// Bucket is a name of bucket.
 	Bucket string `json:"bucket"`

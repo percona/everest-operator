@@ -31,8 +31,8 @@ var (
 )
 
 const (
-	// PGInitLocalBackupStorgeCleanupFinalizer is a finalizer to handle cleanup the local backup storages created
-	// for initializing PG clusters.
+	// PGInitLocalBackupStorgeCleanupFinalizer is a finalizer set on Postgres clusters
+	// to handle cleanup the local backup storages created for initializing PG clusters.
 	PGInitLocalBackupStorgeCleanupFinalizer = "everest.percona.com/pg-init-local-backup-storage-cleanup"
 )
 

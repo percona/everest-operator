@@ -318,6 +318,9 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		return err
 	}
 	finalizers := []string{}
+
+	// We don't want users to be able to delete the backup referenced by repo1.
+	// This backup is taken initially on a PVC based backupstorage to boostrap the cluster.
 	if pgBackup.Spec.RepoName == "repo1" {
 		finalizers = append(finalizers, everestv1alpha1.BackupProtectionFinalizer)
 	}
