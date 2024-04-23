@@ -173,6 +173,7 @@ func (p *Provider) createInitPGLocalBackupStorage(
 		backupStorage.Spec = everestv1alpha1.BackupStorageSpec{
 			Type: everestv1alpha1.BackupStorageTypeLocal,
 			PVCSpec: &corev1.PersistentVolumeClaimSpec{
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				StorageClassName: database.Spec.Engine.Storage.Class,
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{

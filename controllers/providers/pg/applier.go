@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -915,6 +916,10 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
 	}
+	// Remove the init backup.
+	backupList.Items = slices.DeleteFunc(backupList.Items, func(backup everestv1alpha1.DatabaseClusterBackup) bool {
+		return backup.Spec.BackupStorageName == everestv1alpha1.PGInitLocalBackupStorageName
+	})
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
 	backupStoragesSecrets := map[string]*corev1.Secret{}

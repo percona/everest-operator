@@ -312,16 +312,13 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	if err != nil {
 		return err
 	}
-	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
-	if nErr != nil {
-		return nErr
-	}
 
-	// repo1 is reserved for the initial backup taken for bootstrapping the cluster.
-	// For this repo, we will create a reserved local backup storage that will be used for the
-	// initial backup.
-	if pgBackup.Spec.RepoName == "repo1" {
-		name = everestv1alpha1.PGInitLocalBackupStorageName
+	name := everestv1alpha1.PGInitLocalBackupStorageName
+	if pgBackup.Spec.RepoName != "repo1" {
+		name, err = backupStorageName(pgBackup.Spec.RepoName, cluster)
+		if err != nil {
+			return err
+		}
 	}
 
 	backup.Spec.BackupStorageName = name
