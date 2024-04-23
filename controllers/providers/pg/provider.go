@@ -190,6 +190,9 @@ func (p *Provider) createInitPGLocalBackupStorage(
 				},
 			},
 		}
+		backupStorage.SetLabels(map[string]string{
+			everestv1alpha1.PGInitLocalBackupStorageReferenceLabel: database.GetName(),
+		})
 		return nil
 	}); err != nil {
 		return err

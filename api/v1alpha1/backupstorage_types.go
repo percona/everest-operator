@@ -40,6 +40,13 @@ const (
 	PGInitLocalBackupStorageNameTmpl = "%s-pg-init"
 )
 
+const (
+	// PGInitLocalBackupStorageReferenceLabel is a label set on a backup storage to indicate
+	// that it was created for bootstrapping PG a cluster.
+	// The value of this label is the name of the PG cluster that owns this backup storage.
+	PGInitLocalBackupStorageReferenceLabel = "everest.percona.com/pg-init"
+)
+
 // LocalBackupStorageName returns the name of the local backupstorage.
 func LocalBackupStorageName(clusterName string) string {
 	return fmt.Sprintf(PGInitLocalBackupStorageNameTmpl, clusterName)
