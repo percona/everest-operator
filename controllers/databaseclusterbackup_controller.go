@@ -289,13 +289,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		return err
 	}
 
-	// We want to ignore backups that are done to the hardcoded PVC-based repo1.
-	// This repo only exists to allow users to spin up a PG cluster without specifying a backup storage.
-	// Therefore, we don't want to allow users to restore from these backups so shouldn't create a DBB CR from repo1.
-	if pgBackup.Spec.RepoName == "repo1" {
-		return nil
-	}
-
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
@@ -322,6 +315,16 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
 	if nErr != nil {
 		return nErr
+	}
+
+	// repo1 is reserved for the initial backup taken for bootstrapping the cluster.
+	// For this repo, we will create a reserved local backup storage that will be used for the
+	// initial backup.
+	if pgBackup.Spec.RepoName == "repo1" {
+		if err := r.createInitPGLocalBackupStorage(ctx, cluster); err != nil {
+			return err
+		}
+		name = everestv1alpha1.PGInitLocalBackupStorageName
 	}
 
 	backup.Spec.BackupStorageName = name
@@ -824,6 +827,37 @@ func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 	// Remove the everest finalizer from the DatabaseClusterBackup.
 	controllerutil.RemoveFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer)
 	if err := r.Update(ctx, dbcBackup); err != nil {
+		return err
+	}
+	return nil
+}
+
+// createInitPGLocalBackupStorage creates a local backup storage for the initial PG backup
+// needed for bootstrapping PG clusters.
+func (r *DatabaseClusterBackupReconciler) createInitPGLocalBackupStorage(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	backupStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      everestv1alpha1.PGInitLocalBackupStorageName,
+			Namespace: r.systemNamespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, backupStorage, func() error {
+		backupStorage.Spec = everestv1alpha1.BackupStorageSpec{
+			Type: everestv1alpha1.BackupStorageTypeLocal,
+			PVCSpec: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: database.Spec.Engine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
+					},
+				},
+			},
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 	return nil

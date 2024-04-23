@@ -32,6 +32,12 @@ const (
 // BackupStorageType is a type of backup storage.
 type BackupStorageType string
 
+const (
+	// PGInitLocalBackupStorageName is the name of the local backupstorage
+	// created for bootstrapping PG clusters.
+	PGInitLocalBackupStorageName = "pg-init"
+)
+
 // BackupStorageSpec defines the desired state of BackupStorage.
 type BackupStorageSpec struct {
 	// Type is a type of backup storage.

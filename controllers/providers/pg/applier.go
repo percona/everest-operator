@@ -945,14 +945,20 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 		return crunchyv1beta1.Backups{}, err
 	}
 
+	pgInitLocalBackupStorage, err := common.GetBackupStorage(ctx, c, everestv1alpha1.PGInitLocalBackupStorageName, p.SystemNs)
+	if err != nil {
+		return crunchyv1beta1.Backups{},
+			fmt.Errorf("cannot get initial local backup storage for Postgres: %w", err)
+	}
+
 	pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err := reconcilePGBackRestRepos(
 		oldBackups.PGBackRest.Repos,
 		backupSchedules,
 		backupList.Items,
 		backupStorages,
 		backupStoragesSecrets,
-		database.Spec.Engine.Storage,
 		database,
+		*pgInitLocalBackupStorage.Spec.PVCSpec, // Creation of this BackupStorage is handled by us, so we can guarentee that it won't be nil.
 	)
 	if err != nil {
 		return crunchyv1beta1.Backups{}, err
@@ -1032,8 +1038,8 @@ func reconcilePGBackRestRepos(
 	backupRequests []everestv1alpha1.DatabaseClusterBackup,
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
-	engineStorage everestv1alpha1.Storage,
 	db *everestv1alpha1.DatabaseCluster,
+	pgInitPVCSpec corev1.PersistentVolumeClaimSpec,
 ) (
 	[]crunchyv1beta1.PGBackRestRepo,
 	map[string]string,
@@ -1349,17 +1355,7 @@ func reconcilePGBackRestRepos(
 		{
 			Name: "repo1",
 			Volume: &crunchyv1beta1.RepoPVC{
-				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					StorageClassName: engineStorage.Class,
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: engineStorage.Size,
-						},
-					},
-				},
+				VolumeClaimSpec: pgInitPVCSpec,
 			},
 		},
 	}
