@@ -211,6 +211,16 @@ func (p *applier) DataSource() error {
 	if err != nil {
 		return err
 	}
+	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
+	p.C.Get(p.ctx, types.NamespacedName{
+		Namespace: p.DB.Namespace,
+		Name:      p.DB.Name,
+	}, dbRestore)
+	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
+		p.DB.Spec.DataSource = nil
+		p.PerconaPGCluster.Spec.DataSource = nil
+		return nil
+	}
 	p.PerconaPGCluster.Spec.DataSource = spec
 	return nil
 }

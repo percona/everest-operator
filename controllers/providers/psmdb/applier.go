@@ -150,6 +150,15 @@ func (p *applier) DataSource() error {
 		// Wait for the cluster to be ready.
 		return nil
 	}
+	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
+	p.C.Get(p.ctx, types.NamespacedName{
+		Namespace: database.Namespace,
+		Name:      database.Name,
+	}, dbRestore)
+	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
+		p.DB.Spec.DataSource = nil
+		return nil
+	}
 	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
