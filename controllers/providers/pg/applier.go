@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -212,10 +213,13 @@ func (p *applier) DataSource() error {
 		return err
 	}
 	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
-	p.C.Get(p.ctx, types.NamespacedName{
+	err = p.C.Get(p.ctx, types.NamespacedName{
 		Namespace: p.DB.Namespace,
 		Name:      p.DB.Name,
 	}, dbRestore)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
 	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
 		p.DB.Spec.DataSource = nil
 		p.PerconaPGCluster.Spec.DataSource = nil
