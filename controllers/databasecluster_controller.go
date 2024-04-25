@@ -312,6 +312,12 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		Namespace: db.Namespace,
 	}, dbb)
 	if err != nil {
+		// It is possible that the source backup is deleted, for example, if the cluster itself was deleted.
+		// If this happens, we have no way of copying the source credential secrets. So we will return from here,
+		// and let the caller controller take care of failures (if any) resulting from the missing backup/secret.
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
 	}
 
