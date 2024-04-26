@@ -16,8 +16,14 @@
 package pxc
 
 import (
+	goversion "github.com/hashicorp/go-version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+)
+
+var (
+	// minVersionForOptimizedConfig is the version below which we will not apply optimized configuration.
+	minVersionForOptimizedConfig, _ = goversion.NewVersion("8.0.31")
 )
 
 const (
