@@ -21,10 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var (
-	// minVersionForOptimizedConfig is the version below which we will not apply optimized configuration.
-	minVersionForOptimizedConfig, _ = goversion.NewVersion("8.0.31")
-)
+// minVersionForOptimizedConfig is the version below which we will not apply optimized configuration.
+var minVersionForOptimizedConfig, _ = goversion.NewVersion("8.0.31")
 
 const (
 	// A pxcConfigSizeSmall is the configuration for PXC cluster with the dimension of 1 vCPU and 2GB RAM.
