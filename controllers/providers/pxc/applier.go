@@ -167,7 +167,7 @@ func (p *applier) DataSource() error {
 		p.DB.Spec.DataSource = nil
 		return nil
 	}
-	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB, p.C.Get)
+	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
 func (p *applier) Monitoring() error {

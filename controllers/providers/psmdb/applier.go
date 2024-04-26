@@ -150,7 +150,7 @@ func (p *applier) DataSource() error {
 		// Wait for the cluster to be ready.
 		return nil
 	}
-	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB, p.C.Get)
+	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
 func (p *applier) Monitoring() error {

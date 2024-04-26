@@ -306,10 +306,9 @@ func ReconcileDBRestoreFromDataSource(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
-	clientGet func(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error,
 ) error {
 	dbr := &everestv1alpha1.DatabaseClusterRestore{}
-	err := clientGet(ctx, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: database.Namespace,
 		Name:      database.Name,
 	}, dbr)
