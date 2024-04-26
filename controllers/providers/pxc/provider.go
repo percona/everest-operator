@@ -172,8 +172,8 @@ func (p *Provider) ensureDefaults(ctx context.Context) error {
 		return errors.Join(err, errors.New("cannot parse engine version"))
 	}
 
-	db.Spec.Engine.Config = ""
-	if engineSemVer.GreaterThanOrEqual(minVersionForOptimizedConfig) {
+	if db.Spec.Engine.Config == "" &&
+		engineSemVer.GreaterThanOrEqual(minVersionForOptimizedConfig) {
 		switch db.Spec.Engine.Size() {
 		case everestv1alpha1.EngineSizeSmall:
 			db.Spec.Engine.Config = pxcConfigSizeSmall
