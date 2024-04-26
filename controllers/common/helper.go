@@ -306,7 +306,21 @@ func ReconcileDBRestoreFromDataSource(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
+	clientGet func(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error,
 ) error {
+	dbr := &everestv1alpha1.DatabaseClusterRestore{}
+	err := clientGet(ctx, types.NamespacedName{
+		Namespace: database.Namespace,
+		Name:      database.Name,
+	}, dbr)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	if dbr.IsComplete(database.Spec.Engine.Type) {
+		database.Spec.DataSource = nil
+		return nil
+	}
+
 	if (database.Spec.DataSource.DBClusterBackupName == "" && database.Spec.DataSource.BackupSource == nil) ||
 		(database.Spec.DataSource.DBClusterBackupName != "" && database.Spec.DataSource.BackupSource != nil) {
 		return errors.New("either DBClusterBackupName or BackupSource must be specified in the DataSource field")
@@ -321,7 +335,7 @@ func ReconcileDBRestoreFromDataSource(
 	if err := controllerutil.SetControllerReference(database, dbRestore, c.Scheme()); err != nil {
 		return err
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, c, dbRestore, func() error {
+	_, err = controllerutil.CreateOrUpdate(ctx, c, dbRestore, func() error {
 		dbRestore.Spec.DBClusterName = database.Name
 		dbRestore.Spec.DataSource = getRestoreDataSource(ctx, c, database)
 		return nil

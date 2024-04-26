@@ -26,7 +26,6 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"github.com/percona/percona-server-mongodb-operator/pkg/util/numstr"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -151,19 +150,7 @@ func (p *applier) DataSource() error {
 		// Wait for the cluster to be ready.
 		return nil
 	}
-	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
-	err := p.C.Get(p.ctx, types.NamespacedName{
-		Namespace: database.Namespace,
-		Name:      database.Name,
-	}, dbRestore)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
-	}
-	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
-		p.DB.Spec.DataSource = nil
-		return nil
-	}
-	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
+	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB, p.C.Get)
 }
 
 func (p *applier) Monitoring() error {
