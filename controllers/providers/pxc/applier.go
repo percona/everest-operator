@@ -155,18 +155,6 @@ func (p *applier) DataSource() error {
 	if p.DB.Status.Status != everestv1alpha1.AppStateReady {
 		return nil
 	}
-	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
-	err := p.C.Get(p.ctx, types.NamespacedName{
-		Namespace: p.DB.Namespace,
-		Name:      p.DB.Name,
-	}, dbRestore)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
-	}
-	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
-		p.DB.Spec.DataSource = nil
-		return nil
-	}
 	return common.ReconcileDBRestoreFromDataSource(p.ctx, p.C, p.DB)
 }
 
