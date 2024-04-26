@@ -758,21 +758,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
-	// XXX: Until https://jira.percona.com/browse/K8SPG-411 is done
-	// we work around not having the destination in the
-	// PerconaPGBackup CR by getting this info directly from S3
-	if backup.Status.State == everestv1alpha1.BackupState(pgv2.BackupSucceeded) && backup.Status.Destination == nil {
-		db := &everestv1alpha1.DatabaseCluster{}
-		if err := r.Get(ctx, types.NamespacedName{
-			Name:      backup.Spec.DBClusterName,
-			Namespace: backup.Namespace,
-		}, db); err != nil {
-			logger.Error(err, "could not get database cluster ")
-		}
-		if err == nil {
-			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
-		}
-	}
+	backup.Status.Destination = &pgCR.Status.Destination
+
 	return false, r.Status().Update(ctx, backup)
 }
 
