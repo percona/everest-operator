@@ -58,10 +58,8 @@ func (p *applier) Engine() error {
 
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
 	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
+	pxc.Spec.PXC.PodSpec.Configuration = p.DB.Spec.Engine.Config
 
-	if p.DB.Spec.Engine.Config != "" {
-		pxc.Spec.PXC.PodSpec.Configuration = p.DB.Spec.Engine.Config
-	}
 	pxcEngineVersion, ok := engine.Status.AvailableVersions.Engine[p.DB.Spec.Engine.Version]
 	if !ok {
 		return fmt.Errorf("engine version %s not available", p.DB.Spec.Engine.Version)

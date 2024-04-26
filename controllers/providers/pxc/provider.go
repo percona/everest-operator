@@ -18,9 +18,11 @@ package pxc
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	goversion "github.com/hashicorp/go-version"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,6 +176,14 @@ func (p *Provider) handlePXCRestores(ctx context.Context) error {
 	return nil
 }
 
+func (p *Provider) dbEngineVersionOrDefault() string {
+	engineVersion := p.DB.Spec.Engine.Version
+	if engineVersion == "" {
+		engineVersion = p.DBEngine.BestEngineVersion()
+	}
+	return engineVersion
+}
+
 func (p *Provider) ensureDefaults(ctx context.Context) error {
 	db := p.DB
 	updated := false
@@ -182,7 +192,13 @@ func (p *Provider) ensureDefaults(ctx context.Context) error {
 		updated = true
 	}
 
-	if db.Spec.Engine.Config == "" {
+	engineSemVer, err := goversion.NewVersion(p.dbEngineVersionOrDefault())
+	if err != nil {
+		return errors.Join(err, errors.New("cannot parse engine version"))
+	}
+
+	if db.Spec.Engine.Config == "" &&
+		engineSemVer.GreaterThanOrEqual(minVersionForOptimizedConfig) {
 		switch db.Spec.Engine.Size() {
 		case everestv1alpha1.EngineSizeSmall:
 			db.Spec.Engine.Config = pxcConfigSizeSmall
