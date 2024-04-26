@@ -261,7 +261,9 @@ func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
 		}
 		// Upgrade is complete, remove the annotation and mark upgrade as complete.
 		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseCompleted
+		// These annotations are set by the everest backend.
 		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
+		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
 		dbEngine.SetAnnotations(annotations)
 		return false, r.Update(ctx, dbEngine)
 	}
