@@ -39,7 +39,6 @@ import (
 
 const (
 	cleanupSecretsFinalizer = "percona.com/cleanup-secrets" //nolint:gosec
-	labelBackupStorageName  = "percona.com/backup-storage-name"
 )
 
 // BackupStorageReconciler reconciles a BackupStorage object.
@@ -148,7 +147,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
 	// List all secrets with the label backup-storage-name.
 	secretList := &corev1.SecretList{}
-	err := r.List(ctx, secretList, client.MatchingLabels{labelBackupStorageName: bs.Name})
+	err := r.List(ctx, secretList, client.MatchingLabels{common.LabelBackupStorageName: bs.Name})
 	if err != nil {
 		return false, err
 	}
@@ -235,13 +234,16 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNames
 	return c.Complete(r)
 }
 
-// given a secret, enqueue a request for its backupstorage (if any)
-func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+// given a secret, enqueue a request for its backupstorage (if any).
+func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Context, obj client.Object) []reconcile.Request {
 	secret, ok := obj.(*corev1.Secret)
 	if !ok {
 		return nil
 	}
 	backupStorageName, ok := secret.Labels[common.LabelBackupStorageName]
+	if !ok {
+		return nil
+	}
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
 			Name:      backupStorageName,
