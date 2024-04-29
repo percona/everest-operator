@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -179,13 +180,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr, systemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
-		os.Exit(1)
-	}
-	if err = (&controllers.SecretReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
 	}
 	if err = (&controllers.MonitoringConfigReconciler{

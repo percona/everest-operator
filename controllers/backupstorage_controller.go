@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,12 +131,50 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	if needsUpdate, err := r.reconcileUsedNamespaces(ctx, bs); err != nil {
+		return ctrl.Result{}, err
+	} else if needsUpdate {
+		if err := r.Status().Update(ctx, bs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	if bs.UpdateNamespacesList(defaultSecret.Namespace) {
 		if err := r.Status().Update(ctx, bs); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
+	// List all secrets with the label backup-storage-name.
+	secretList := &corev1.SecretList{}
+	err := r.List(ctx, secretList, client.MatchingLabels{labelBackupStorageName: bs.Name})
+	if err != nil {
+		return false, err
+	}
+	updated := false
+	for _, secret := range secretList.Items {
+		if !secret.DeletionTimestamp.IsZero() {
+			continue
+		}
+		val, found := bs.Status.UsedNamespaces[secret.GetNamespace()]
+		if !found || !val {
+			bs.Status.UsedNamespaces[secret.GetNamespace()] = true
+			updated = true
+		}
+	}
+	for ns, _ := range bs.Status.UsedNamespaces {
+		contains := slices.ContainsFunc(secretList.Items, func(s corev1.Secret) bool {
+			return s.GetNamespace() == ns
+		})
+		if !contains {
+			delete(bs.Status.UsedNamespaces, ns)
+			updated = true
+		}
+	}
+	return updated, nil
 }
 
 func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv1alpha1.BackupStorage) error {
@@ -206,10 +245,6 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNames
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
 	return c.Complete(r)
-}
-
-func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
-	return false, nil
 }
 
 // given a secret, enqueue a request for its backupstorage (if any)
