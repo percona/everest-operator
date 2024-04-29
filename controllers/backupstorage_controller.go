@@ -20,6 +20,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -104,11 +105,6 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("updating secrets in used namespaces")
-	if err := r.handleSecretUpdate(ctx, bs, defaultSecret); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	if req.NamespacedName.Namespace != r.systemNamespace {
 		return ctrl.Result{}, nil
 	}
@@ -131,19 +127,21 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if needsUpdate, err := r.reconcileUsedNamespaces(ctx, bs); err != nil {
+	needStatusUpdate, err := r.reconcileUsedNamespaces(ctx, bs)
+	if err != nil {
 		return ctrl.Result{}, err
-	} else if needsUpdate {
+	}
+	if bs.UpdateNamespacesList(defaultSecret.Namespace) || needStatusUpdate {
 		if err := r.Status().Update(ctx, bs); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if bs.UpdateNamespacesList(defaultSecret.Namespace) {
-		if err := r.Status().Update(ctx, bs); err != nil {
-			return ctrl.Result{}, err
-		}
+	logger.Info("updating secrets in used namespaces")
+	if err := r.handleSecretUpdate(ctx, bs, defaultSecret); err != nil {
+		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -154,6 +152,8 @@ func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, b
 	if err != nil {
 		return false, err
 	}
+	log := log.FromContext(ctx)
+	log.Info("found secrets", "len", len(secretList.Items))
 	updated := false
 	for _, secret := range secretList.Items {
 		if !secret.DeletionTimestamp.IsZero() {
@@ -165,7 +165,8 @@ func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, b
 			updated = true
 		}
 	}
-	for ns, _ := range bs.Status.UsedNamespaces {
+	// Clean-up unused/stale namespaces
+	for ns := range bs.Status.UsedNamespaces {
 		contains := slices.ContainsFunc(secretList.Items, func(s corev1.Secret) bool {
 			return s.GetNamespace() == ns
 		})
@@ -185,6 +186,10 @@ func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv
 		secret := &corev1.Secret{}
 		err := r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				// Already deleted.
+				return nil
+			}
 			return err
 		}
 		err = r.Delete(ctx, secret)
