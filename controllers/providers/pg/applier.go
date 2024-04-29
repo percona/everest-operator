@@ -857,7 +857,7 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 		if err != nil {
 			return err
 		}
-		if database.GetName() != p.SystemNs {
+		if database.GetNamespace() != p.SystemNs {
 			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
 				return err
 			}

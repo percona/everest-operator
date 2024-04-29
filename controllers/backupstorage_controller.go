@@ -19,15 +19,20 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/controllers/common"
 )
 
 const (
@@ -97,32 +102,39 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return ctrl.Result{}, err
 	}
-	var needsUpdate bool
-	if req.NamespacedName.Namespace == r.systemNamespace {
-		logger.Info("setting controller references for the secret")
-		needsUpdate, err = r.reconcileBackupStorage(ctx, bs, defaultSecret)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if !controllerutil.ContainsFinalizer(bs, cleanupSecretsFinalizer) {
-			controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer)
-			if err := r.Update(ctx, bs); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
 
 	logger.Info("updating secrets in used namespaces")
 	if err := r.handleSecretUpdate(ctx, bs, defaultSecret); err != nil {
 		return ctrl.Result{}, err
 	}
-	if needsUpdate {
-		err := r.Status().Update(ctx, bs)
-		if err != nil {
+
+	if req.NamespacedName.Namespace != r.systemNamespace {
+		return ctrl.Result{}, nil
+	}
+
+	// Set controllerRef on the defaultSecret.
+	if !metav1.IsControlledBy(defaultSecret, bs) {
+		logger.Info("setting controller reference for the secret")
+		if err := controllerutil.SetControllerReference(bs, defaultSecret, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.Update(ctx, defaultSecret); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	// Add finalizer.
+	if controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer) {
+		if err := r.Update(ctx, bs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if bs.UpdateNamespacesList(defaultSecret.Namespace) {
+		if err := r.Status().Update(ctx, bs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -185,8 +197,32 @@ func (r *BackupStorageReconciler) reconcileBackupStorage(ctx context.Context, bs
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	r.systemNamespace = systemNamespace
-	return ctrl.NewControllerManagedBy(mgr).
+	c := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
-		Complete(r)
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageForSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	return c.Complete(r)
+}
+
+func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
+	return false, nil
+}
+
+// given a secret, enqueue a request for its backupstorage (if any)
+func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		return nil
+	}
+	backupStorageName, ok := secret.Labels[common.LabelBackupStorageName]
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name:      backupStorageName,
+			Namespace: r.systemNamespace,
+		},
+	}}
 }
