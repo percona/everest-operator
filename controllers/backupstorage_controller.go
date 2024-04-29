@@ -151,8 +151,6 @@ func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, b
 	if err != nil {
 		return false, err
 	}
-	log := log.FromContext(ctx)
-	log.Info("found secrets", "len", len(secretList.Items))
 	updated := false
 	for _, secret := range secretList.Items {
 		if !secret.DeletionTimestamp.IsZero() {
@@ -186,7 +184,6 @@ func (r *BackupStorageReconciler) handleDelete(ctx context.Context, bs *everestv
 		err := r.Get(ctx, types.NamespacedName{Name: bs.Name, Namespace: namespace}, secret)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				// Already deleted.
 				return nil
 			}
 			return err
@@ -223,18 +220,16 @@ func (r *BackupStorageReconciler) handleSecretUpdate(ctx context.Context, bs *ev
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	r.systemNamespace = systemNamespace
-	c := ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageForSecret),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
-	return c.Complete(r)
+		).Complete(r)
 }
 
-// given a secret, enqueue a request for its backupstorage (if any).
 func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Context, obj client.Object) []reconcile.Request {
 	secret, ok := obj.(*corev1.Secret)
 	if !ok {
