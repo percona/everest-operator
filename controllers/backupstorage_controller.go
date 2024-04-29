@@ -221,23 +221,6 @@ func (r *BackupStorageReconciler) handleSecretUpdate(ctx context.Context, bs *ev
 	return nil
 }
 
-func (r *BackupStorageReconciler) reconcileBackupStorage(ctx context.Context, bs *everestv1alpha1.BackupStorage, defaultSecret *corev1.Secret) (bool, error) {
-	err := controllerutil.SetControllerReference(bs, defaultSecret, r.Client.Scheme())
-	if err != nil {
-		return false, err
-	}
-	if err = r.Update(ctx, defaultSecret); err != nil {
-		return false, err
-	}
-
-	if bs.UpdateNamespacesList(defaultSecret.Namespace) {
-		if err := r.Status().Update(ctx, bs); err != nil {
-			return false, err
-		}
-	}
-	return true, err
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	r.systemNamespace = systemNamespace
