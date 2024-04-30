@@ -65,8 +65,6 @@ func New(
 		pxc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
-	} else if k8serrors.IsNotFound(err) {
-		pxc.Spec = defaultSpec()
 	}
 
 	// Add necessary finalizers.
@@ -94,6 +92,8 @@ func New(
 		return nil, err
 	}
 
+	pxc.Spec = defaultSpec()
+
 	p := &Provider{
 		PerconaXtraDBCluster: pxc,
 		ProviderOptions:      opts,
@@ -110,7 +110,7 @@ func New(
 	if err := p.ensureDefaults(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handlePXCRestores(ctx); err != nil {
+	if err := p.handlePauseForPXCRestore(ctx); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -129,10 +129,9 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 // During the restore process, the PXC cluster will be paused/unpause by the PXC operator.
 // The pause may be overwritten since the Everest operator will also fight for the desired pause state
 // set by the user.
-// To avoid this race condition, we will inspect the restore status, and set the DatabaseCluster pause
-// from Everest.
-func (p *Provider) handlePXCRestores(ctx context.Context) error {
-	restores, err := common.ListDatabaseClusterRestores(ctx, p.C, p.DB.GetNamespace(), p.DB.GetName())
+// To avoid this race condition, we will explicitly inspect every phase of the restore, and set pause accordingly.
+func (p *Provider) handlePauseForPXCRestore(ctx context.Context) error {
+	restores, err := common.ListDatabaseClusterRestores(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace())
 	if err != nil {
 		return err
 	}
