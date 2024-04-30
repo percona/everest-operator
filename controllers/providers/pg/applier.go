@@ -206,6 +206,7 @@ func (p *applier) Backup() error {
 func (p *applier) DataSource() error {
 	if p.DB.Spec.DataSource == nil {
 		// Nothing to do.
+		p.PerconaPGCluster.Spec.DataSource = nil
 		return nil
 	}
 	spec, err := p.genPGDataSourceSpec()
