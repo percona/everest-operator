@@ -119,7 +119,6 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Add finalizer.
 	if controllerutil.AddFinalizer(bs, cleanupSecretsFinalizer) {
 		if err := r.Update(ctx, bs); err != nil {
 			return ctrl.Result{}, err
