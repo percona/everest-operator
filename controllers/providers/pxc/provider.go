@@ -126,26 +126,30 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 	}
 }
 
-// handlePXCRestores is a helper for watching PXC restores and reconciling the db.Paused.
-// During the restoration of PXC clusters
-// They need to be shutted down
-//
-// It's not a good idea to shutdown them from DatabaseCluster object perspective
-// hence we have this piece of the migration of spec.pause field
-// from PerconaXtraDBCluster object to a DatabaseCluster object.
+// During the restore process, the PXC cluster will be paused/unpause by the PXC operator.
+// The pause may be overwritten since the Everest operator will also fight for the desired pause state
+// set by the user.
+// To avoid this race condition, we will inspect the restore status, and set the DatabaseCluster pause
+// from Everest.
 func (p *Provider) handlePXCRestores(ctx context.Context) error {
-	db := p.DB
-	pxc := p.PerconaXtraDBCluster
-	if pxc.Spec.Pause != db.Spec.Paused {
-		restores, err := common.ListDatabaseClusterRestores(ctx, p.C, db.GetName(), db.GetNamespace())
-		if err != nil {
-			return err
+	restores, err := common.ListDatabaseClusterRestores(ctx, p.C, p.DB.GetNamespace(), p.DB.GetName())
+	if err != nil {
+		return err
+	}
+	if len(restores.Items) == 0 {
+		return nil
+	}
+	for _, restore := range restores.Items {
+		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreSucceeded) {
+			continue
 		}
-		for _, restore := range restores.Items {
-			if !restore.IsComplete(db.Spec.Engine.Type) {
-				db.Spec.Paused = pxc.Spec.Pause
-				return p.C.Update(ctx, db)
-			}
+		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreStopCluster) {
+			p.DB.Spec.Paused = true
+			return p.C.Update(ctx, p.DB)
+		}
+		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreStartCluster) {
+			p.DB.Spec.Paused = false
+			return p.C.Update(ctx, p.DB)
 		}
 	}
 	return nil
