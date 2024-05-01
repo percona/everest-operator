@@ -84,21 +84,7 @@ func New(
 	if err := p.handleClusterTypeConfig(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.ensureDataSourceRemoved(ctx, opts.DB); err != nil {
-		return nil, err
-	}
 	return p, nil
-}
-
-// DataSource is not needed anymore when db is ready.
-// Deleting it to prevent the future restoration conflicts.
-func (p *Provider) ensureDataSourceRemoved(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
-	if db.Status.Status == everestv1alpha1.AppStateReady &&
-		db.Spec.DataSource != nil {
-		db.Spec.DataSource = nil
-		return p.C.Update(ctx, db)
-	}
-	return nil
 }
 
 func (p *Provider) handlePGOperatorVersion(ctx context.Context) error {
