@@ -32,7 +32,6 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -205,25 +204,21 @@ func (p *applier) Backup() error {
 
 func (p *applier) DataSource() error {
 	if p.DB.Spec.DataSource == nil {
-		// Nothing to do.
+		p.PerconaPGCluster.Spec.DataSource = nil
 		return nil
 	}
-	spec, err := p.genPGDataSourceSpec()
-	if err != nil {
-		return err
-	}
-	dbRestore := &everestv1alpha1.DatabaseClusterRestore{}
-	err = p.C.Get(p.ctx, types.NamespacedName{
-		Namespace: p.DB.Namespace,
-		Name:      p.DB.Name,
-	}, dbRestore)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
-	}
-	if dbRestore.IsComplete(p.DB.Spec.Engine.Type) {
+
+	// If the Database is ready, we will remove the DataSource.
+	// This will prevent the restore from happening again.
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		p.DB.Spec.DataSource = nil
 		p.PerconaPGCluster.Spec.DataSource = nil
 		return nil
+	}
+
+	spec, err := p.genPGDataSourceSpec()
+	if err != nil {
+		return err
 	}
 	p.PerconaPGCluster.Spec.DataSource = spec
 	return nil
