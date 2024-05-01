@@ -7,5 +7,9 @@ kind: PerconaPGRestore
 metadata:
   name: test-db-restore
 spec:
+  options:
+    - --set=
+    - --type=time
+    - --target="2023-12-06 14:24:42"
   pgCluster: test-pg-cluster
 
