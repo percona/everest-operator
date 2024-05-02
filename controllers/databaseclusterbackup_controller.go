@@ -19,13 +19,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -626,12 +633,71 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	return false, r.Status().Update(ctx, backup)
 }
 
+// Get the last performed PG backup directly from S3.
+func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
+	ctx context.Context,
+	backupStorage *everestv1alpha1.BackupStorage,
+	db *everestv1alpha1.DatabaseCluster,
+) *string {
+	logger := log.FromContext(ctx)
+	backupStorageSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
+	if err != nil {
+		logger.Error(err, "unable to get backup storage secret")
+		return nil
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(backupStorage.Spec.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			string(backupStorageSecret.Data["AWS_ACCESS_KEY_ID"]),
+			string(backupStorageSecret.Data["AWS_SECRET_ACCESS_KEY"]),
+			"",
+		)),
+	)
+	if err != nil {
+		logger.Error(err, "unable to load AWS configuration")
+		return nil
+	}
+
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(backupStorage.Spec.EndpointURL)
+	})
+	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(backupStorage.Spec.Bucket),
+		Prefix: aws.String(common.BackupStoragePrefix(db) + "/backup/db/backup.history/"),
+	})
+	if err != nil {
+		logger.Error(err, "unable to list objects in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	if len(result.Contents) == 0 {
+		logger.Error(err, "no backup found in bucket", "bucket", backupStorage.Spec.Bucket)
+		return nil
+	}
+
+	var lastBackup string
+	var lastModified time.Time
+	for _, content := range result.Contents {
+		if lastModified.Before(*content.LastModified) {
+			lastModified = *content.LastModified
+			lastBackup = strings.Split(filepath.Base(*content.Key), ".")[0]
+		}
+	}
+
+	destination := fmt.Sprintf("s3://%s/%s/backup/db/%s", backupStorage.Spec.Bucket, common.BackupStoragePrefix(db), lastBackup)
+	return &destination
+}
+
 // Reconcile PG.
 // Returns: (requeue(bool), error.
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
 ) (bool, error) {
+	logger := log.FromContext(ctx)
+
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
@@ -692,8 +758,21 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
-	backup.Status.Destination = &pgCR.Status.Destination
-
+	// XXX: Until https://jira.percona.com/browse/K8SPG-411 is done
+	// we work around not having the destination in the
+	// PerconaPGBackup CR by getting this info directly from S3
+	if backup.Status.State == everestv1alpha1.BackupState(pgv2.BackupSucceeded) && backup.Status.Destination == nil {
+		db := &everestv1alpha1.DatabaseCluster{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      backup.Spec.DBClusterName,
+			Namespace: backup.Namespace,
+		}, db); err != nil {
+			logger.Error(err, "could not get database cluster ")
+		}
+		if err == nil {
+			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
+		}
+	}
 	return false, r.Status().Update(ctx, backup)
 }
 
