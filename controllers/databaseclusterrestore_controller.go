@@ -136,13 +136,13 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
+	switch dbCR.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
 		if err := r.restorePXC(ctx, cr, dbCR); err != nil {
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
-	}
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
+	case everestv1alpha1.DatabaseEnginePSMDB:
 		if err := r.restorePSMDB(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
@@ -156,8 +156,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 			logger.Error(err, "unable to restore PSMDB Cluster")
 			return reconcile.Result{}, err
 		}
-	}
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePostgresql {
+	case everestv1alpha1.DatabaseEnginePostgresql:
 		if err := r.restorePG(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
