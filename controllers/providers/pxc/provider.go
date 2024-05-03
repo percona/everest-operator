@@ -199,6 +199,7 @@ func (p *Provider) ensureDefaults(ctx context.Context) error {
 	if err != nil {
 		return errors.Join(err, errors.New("cannot parse engine version"))
 	}
+	engineSemVer = engineSemVer.Core()
 
 	if db.Spec.Engine.Config == "" &&
 		engineSemVer.GreaterThanOrEqual(minVersionForOptimizedConfig) {
