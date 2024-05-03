@@ -111,6 +111,9 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	status := p.DB.Status
 	status.Status = everestv1alpha1.AppState(pg.Status.State)
+	if !p.DB.DeletionTimestamp.IsZero() {
+		status.Status = everestv1alpha1.AppStateDeleting
+	}
 	status.Hostname = pg.Status.Host
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
@@ -134,7 +137,10 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleDBBackupsCleanup(ctx, p.C, database)
+	if _, err := common.HandleDBBackupsCleanup(ctx, p.C, database); err != nil {
+		return false, err
+	}
+	return common.HandleDBDeletion(ctx, p.C, database)
 }
 
 // DBObject returns the PerconaPGCluster object.

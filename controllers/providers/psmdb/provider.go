@@ -123,6 +123,9 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	activeStorage := getActiveStorage(psmdb)
 	status.Status = everestv1alpha1.AppState(psmdb.Status.State)
+	if !p.DB.DeletionTimestamp.IsZero() {
+		status.Status = everestv1alpha1.AppStateDeleting
+	}
 	status.Hostname = psmdb.Status.Host
 	status.Ready = psmdb.Status.Ready
 	status.Size = psmdb.Status.Size
@@ -153,7 +156,10 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleDBBackupsCleanup(ctx, p.C, database)
+	if _, err := common.HandleDBBackupsCleanup(ctx, p.C, database); err != nil {
+		return false, err
+	}
+	return common.HandleDBDeletion(ctx, p.C, database)
 }
 
 // DBObject returns the PerconaServerMongoDB object.
