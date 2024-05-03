@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -126,13 +127,22 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC {
+	// Ensure that the DatabaseCluster CR is the owner of the
+	// DatabaseClusterRestore CR. This will ensure that the
+	// DatabaseClusterRestore CR is deleted when the DatabaseCluster CR is
+	// deleted.
+	if err := r.ensureOwnerReference(ctx, cr, dbCR); err != nil {
+		logger.Error(err, "unable to set owner reference")
+		return reconcile.Result{}, err
+	}
+
+	switch dbCR.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
 		if err := r.restorePXC(ctx, cr, dbCR); err != nil {
 			logger.Error(err, "unable to restore PXC Cluster")
 			return reconcile.Result{}, err
 		}
-	}
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePSMDB {
+	case everestv1alpha1.DatabaseEnginePSMDB:
 		if err := r.restorePSMDB(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
@@ -146,8 +156,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 			logger.Error(err, "unable to restore PSMDB Cluster")
 			return reconcile.Result{}, err
 		}
-	}
-	if dbCR.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePostgresql {
+	case everestv1alpha1.DatabaseEnginePostgresql:
 		if err := r.restorePG(ctx, cr); err != nil {
 			// The DatabaseCluster controller is responsible for updating the
 			// upstream DB cluster with the necessary storage definition. If
@@ -164,6 +173,28 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) ensureOwnerReference(
+	ctx context.Context,
+	restore *everestv1alpha1.DatabaseClusterRestore,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	if len(restore.GetOwnerReferences()) == 0 {
+		restore.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion:         db.APIVersion,
+				Kind:               db.Kind,
+				Name:               db.Name,
+				UID:                db.UID,
+				BlockOwnerDeletion: pointer.ToBool(true),
+			},
+		})
+		if err := r.Update(ctx, restore); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
