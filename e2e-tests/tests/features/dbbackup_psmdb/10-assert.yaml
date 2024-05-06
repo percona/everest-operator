@@ -8,6 +8,7 @@ metadata:
   name: test-psmdb-cluster
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - everest.percona.com/db-cleanup
 spec:
   engine:
     replicas: 1

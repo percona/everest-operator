@@ -8,6 +8,7 @@ metadata:
   name: pg-mc
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - everest.percona.com/db-cleanup
 spec:
   monitoring:
     monitoringConfigName: test-mc
