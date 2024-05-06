@@ -705,8 +705,14 @@ func HandleDBDeletion(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
+	status everestv1alpha1.DatabaseClusterStatus,
 ) (bool, error) {
 	if controllerutil.ContainsFinalizer(database, DBDeleteFinalizer) {
+		// updating the status to make the AppStateDeleting effective
+		database.Status = status
+		if err := c.Status().Update(ctx, database); err != nil {
+			return false, err
+		}
 		if done, err := checkDatabaseDeletion(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
 			return false, err
 		} else if !done {

@@ -140,7 +140,11 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 	if _, err := common.HandleDBBackupsCleanup(ctx, p.C, database); err != nil {
 		return false, err
 	}
-	return common.HandleDBDeletion(ctx, p.C, database)
+	status, err := p.Status(ctx)
+	if err != nil {
+		return false, err
+	}
+	return common.HandleDBDeletion(ctx, p.C, database, status)
 }
 
 // DBObject returns the PerconaPGCluster object.
