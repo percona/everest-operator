@@ -7,8 +7,8 @@ kind: DatabaseCluster
 metadata:
   name: mongo-mc
   finalizers:
-  - everest.percona.com/dbb-cleanup
   - everest.percona.com/db-delete
+  - everest.percona.com/dbb-cleanup
 spec:
   monitoring:
     monitoringConfigName: test-mc
