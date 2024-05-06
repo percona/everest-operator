@@ -155,6 +155,13 @@ jobs:
           do
             kubectl -n $namespace get pg -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pg -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
+
+          namespaces=$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
           kubectl delete db --all-namespaces --all --cascade=foreground
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
@@ -206,6 +213,13 @@ jobs:
           do
             kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
           done
+
+          namespaces=$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
           kubectl delete db --all-namespaces --all --cascade=foreground
           kubectl delete pvc --all-namespaces --all
           kubectl delete backupstorage --all-namespaces --all
