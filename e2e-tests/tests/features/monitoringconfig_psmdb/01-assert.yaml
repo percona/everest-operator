@@ -8,7 +8,7 @@ metadata:
   name: mongo-mc
   finalizers:
   - everest.percona.com/dbb-cleanup
-  - everest.percona.com/db-cleanup
+  - everest.percona.com/db-delete
 spec:
   monitoring:
     monitoringConfigName: test-mc
