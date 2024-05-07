@@ -6,7 +6,6 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
   finalizers:
-  - everest.percona.com/db-delete
   - everest.percona.com/dbb-cleanup
 spec:
   engine:

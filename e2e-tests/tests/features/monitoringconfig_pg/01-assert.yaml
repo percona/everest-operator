@@ -7,7 +7,6 @@ kind: DatabaseCluster
 metadata:
   name: pg-mc
   finalizers:
-  - everest.percona.com/db-delete
   - everest.percona.com/dbb-cleanup
 spec:
   monitoring:

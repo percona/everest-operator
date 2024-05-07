@@ -7,7 +7,6 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
   finalizers:
-  - everest.percona.com/db-delete
   - everest.percona.com/dbb-cleanup
 spec:
   engine:
