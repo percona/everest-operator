@@ -664,7 +664,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	httpClient := http.DefaultClient
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
+			InsecureSkipVerify: !pointer.Get(backupStorage.Spec.VerifyTLS), //nolint:gosec
 		},
 	}
 
