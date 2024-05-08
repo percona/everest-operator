@@ -111,9 +111,6 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	status := p.DB.Status
 	status.Status = everestv1alpha1.AppState(pg.Status.State)
-	if !p.DB.DeletionTimestamp.IsZero() {
-		status.Status = everestv1alpha1.AppStateDeleting
-	}
 	status.Hostname = pg.Status.Host
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size

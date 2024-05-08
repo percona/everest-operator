@@ -201,9 +201,6 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	pxc := p.PerconaXtraDBCluster
 
 	status.Status = everestv1alpha1.AppState(p.PerconaXtraDBCluster.Status.Status)
-	if !p.DB.DeletionTimestamp.IsZero() {
-		status.Status = everestv1alpha1.AppStateDeleting
-	}
 	status.Hostname = pxc.Status.Host
 	status.Ready = pxc.Status.Ready
 	status.Size = pxc.Status.Size

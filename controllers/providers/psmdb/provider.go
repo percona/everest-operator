@@ -123,9 +123,6 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	activeStorage := getActiveStorage(psmdb)
 	status.Status = everestv1alpha1.AppState(psmdb.Status.State)
-	if !p.DB.DeletionTimestamp.IsZero() {
-		status.Status = everestv1alpha1.AppStateDeleting
-	}
 	status.Hostname = psmdb.Status.Host
 	status.Ready = psmdb.Status.Ready
 	status.Size = psmdb.Status.Size
