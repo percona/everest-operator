@@ -589,7 +589,8 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 func getPGRestoreOptions(
 	dataSource everestv1alpha1.DataSource,
 	backupStorage *everestv1alpha1.BackupStorage,
-	backupBaseName, repoName string) ([]string, error) {
+	backupBaseName, repoName string,
+) ([]string, error) {
 	options := []string{
 		"--set=" + backupBaseName,
 	}
