@@ -17,8 +17,10 @@ package controllers
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -659,9 +661,17 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 		logger.Error(err, "unable to load AWS configuration")
 		return nil
 	}
+	httpClient := http.DefaultClient
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
+		},
+	}
 
 	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(backupStorage.Spec.EndpointURL)
+		o.HTTPClient = httpClient
+		o.UsePathStyle = pointer.Get(backupStorage.Spec.ForcePathStyle)
 	})
 	result, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(backupStorage.Spec.Bucket),
