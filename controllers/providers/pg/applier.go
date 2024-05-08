@@ -158,9 +158,6 @@ func (p *applier) Proxy() error {
 	} else {
 		pg.Spec.Proxy.PGBouncer.Replicas = database.Spec.Proxy.Replicas
 	}
-	//nolint:godox
-	// TODO add support for database.Spec.LoadBalancer.LoadBalancerSourceRanges
-	// https://jira.percona.com/browse/K8SPG-311
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
@@ -168,7 +165,8 @@ func (p *applier) Proxy() error {
 		}
 	case everestv1alpha1.ExposeTypeExternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
-			Type: string(corev1.ServiceTypeLoadBalancer),
+			Type:                     string(corev1.ServiceTypeLoadBalancer),
+			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
