@@ -10,6 +10,7 @@ metadata:
   name: test-pxc-cluster
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - foregroundDeletion
 spec:
   engine:
     type: pxc

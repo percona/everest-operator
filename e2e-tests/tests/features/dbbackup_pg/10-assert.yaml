@@ -8,6 +8,7 @@ metadata:
   name: test-pg-cluster
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - foregroundDeletion
 spec:
   engine:
     replicas: 1
