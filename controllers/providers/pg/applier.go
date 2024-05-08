@@ -522,7 +522,7 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	}
 
 	repoName := "repo1"
-	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupBaseName)
+	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupStorage, backupBaseName, repoName)
 	if err != nil {
 		return nil, err
 	}
@@ -561,9 +561,20 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	return pgDataSource, nil
 }
 
-func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName string) ([]string, error) {
+func getPGRestoreOptions(
+	dataSource everestv1alpha1.DataSource,
+	backupStorage *everestv1alpha1.BackupStorage,
+	backupBaseName, repoName string,
+) ([]string, error) {
 	options := []string{
 		"--set=" + backupBaseName,
+	}
+
+	if pointer.Get(backupStorage.Spec.ForcePathStyle) {
+		options = append(options, "--"+fmt.Sprintf(pgBackRestStorageForcePathTmpl, repoName)+"="+pgBackRestStoragePathStyle)
+	}
+	if !pointer.Get(backupStorage.Spec.VerifyTLS) {
+		options = append(options, "--no-"+fmt.Sprintf(pgBackRestStorageVerifyTmpl, repoName))
 	}
 
 	if dataSource.PITR != nil {
