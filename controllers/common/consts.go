@@ -64,6 +64,9 @@ const (
 
 	// DBBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
 	DBBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
+
+	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
+	ForegroundDeletionFinalizer = "foregroundDeletion"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
