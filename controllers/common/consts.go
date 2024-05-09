@@ -59,7 +59,7 @@ const (
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
 
-	// DBBackupCleanupFinalizer is set on DatabaseClusterBackup to ensure that storage is NOT cleaned up.
+	// DBBackupStorageProtectionFinalizer is set on DatabaseClusterBackup to ensure that storage is NOT cleaned up.
 	DBBackupStorageProtectionFinalizer = "everest.percona.com/dbb-storage-protection"
 
 	// DBBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
