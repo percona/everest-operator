@@ -782,6 +782,9 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 ) error {
+	if !database.DeletionTimestamp.IsZero() {
+		return nil
+	}
 	// Combine everest finalizers and finalizers applied by the user.
 	desiredFinalizers := append([]string{}, everestFinalizers...)
 	desiredFinalizers = append(desiredFinalizers, database.GetFinalizers()...)
