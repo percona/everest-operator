@@ -19,6 +19,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// BackupProtectionFinalizer is a type of finalizer that prevents
+	// a backup from being deleted until the database cluser is deleted.
+	BackupProtectionFinalizer = "everest.percona.com/backup-protection"
+)
+
 // BackupState is used to represent the backup's state.
 type BackupState string
 

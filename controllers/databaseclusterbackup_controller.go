@@ -289,13 +289,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		return err
 	}
 
-	// We want to ignore backups that are done to the hardcoded PVC-based repo1.
-	// This repo only exists to allow users to spin up a PG cluster without specifying a backup storage.
-	// Therefore, we don't want to allow users to restore from these backups so shouldn't create a DBB CR from repo1.
-	if pgBackup.Spec.RepoName == "repo1" {
-		return nil
-	}
-
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
@@ -319,9 +312,17 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	if err != nil {
 		return err
 	}
-	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
-	if nErr != nil {
-		return nErr
+
+	name, err := backupStorageName(pgBackup.Spec.RepoName, cluster)
+	if err != nil {
+		return err
+	}
+	finalizers := []string{}
+
+	// We don't want users to be able to delete the backup referenced by repo1.
+	// This backup is taken initially on a PVC based backupstorage to boostrap the cluster.
+	if pgBackup.Spec.RepoName == "repo1" {
+		finalizers = append(finalizers, everestv1alpha1.BackupProtectionFinalizer)
 	}
 
 	backup.Spec.BackupStorageName = name
@@ -336,6 +337,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		UID:                pgBackup.UID,
 		BlockOwnerDeletion: pointer.ToBool(true),
 	}})
+	backup.SetFinalizers(finalizers)
 
 	return r.Create(ctx, backup)
 }
@@ -727,6 +729,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		if controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
+		return r.handlePGInitBackupFinalizer(ctx, backup)
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
@@ -779,14 +782,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		}, db); err != nil {
 			logger.Error(err, "could not get database cluster ")
 		}
-		if err == nil {
-			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
-		}
+		backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
 	}
 	return false, r.Status().Update(ctx, backup)
 }
 
 func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {
+	if repoName == "repo1" {
+		return everestv1alpha1.LocalBackupStorageName(cluster.GetName()), nil
+	}
 	// repoNames in a PG cluster are in form "repo1", "repo2" etc.
 	// which is mapped to the DatabaseCluster schedules list.
 	// So here we figure out the BackupStorageName of the corresponding schedule.
@@ -827,4 +831,33 @@ func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
 		return err
 	}
 	return nil
+}
+
+// handlePGInitBackupFinalizer handles the removal of the init backup protection finalizer.
+// Returns true if the clean-up is complete.
+func (r *DatabaseClusterBackupReconciler) handlePGInitBackupFinalizer(
+	ctx context.Context,
+	backup *everestv1alpha1.DatabaseClusterBackup,
+) (bool, error) {
+	if !controllerutil.ContainsFinalizer(backup, everestv1alpha1.BackupProtectionFinalizer) {
+		// Finalizer is gone, we're done.
+		return true, nil
+	}
+
+	// Get the cluster.
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      backup.Spec.DBClusterName,
+		Namespace: backup.Namespace,
+	}, cluster)
+	if client.IgnoreNotFound(err) != nil {
+		return false, err
+	}
+
+	// Remove the finalizer if the cluster is deleted, or being deleted.
+	if k8serrors.IsNotFound(err) || !cluster.GetDeletionTimestamp().IsZero() {
+		controllerutil.RemoveFinalizer(backup, everestv1alpha1.BackupProtectionFinalizer)
+		return false, r.Update(ctx, backup)
+	}
+	return false, nil
 }

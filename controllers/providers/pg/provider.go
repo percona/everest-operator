@@ -22,6 +22,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -91,6 +92,14 @@ func New(
 		return nil, err
 	}
 	p.clusterType = ct
+
+	if err := p.createInitPGLocalBackupStorage(ctx, opts.DB); err != nil {
+		return nil, err
+	}
+	// Add finalizer for cleanup of local backup storage.
+	if p.DB.GetDeletionTimestamp().IsZero() {
+		controllerutil.AddFinalizer(p.DB, everestv1alpha1.PGInitLocalBackupStorgeCleanupFinalizer)
+	}
 	return p, nil
 }
 
@@ -134,7 +143,14 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleDBBackupsCleanup(ctx, p.C, database)
+	// Cleanup DB Backups.
+	if done, err := common.HandleDBBackupsCleanup(ctx, p.C, database); err != nil {
+		return false, err
+	} else if !done {
+		return false, nil
+	}
+	// Cleanup init local backup storage.
+	return p.cleanupInitLocalBackupStorage(ctx)
 }
 
 // DBObject returns the PerconaPGCluster object.
@@ -147,4 +163,58 @@ func (p *Provider) DBObject() client.Object {
 		Kind:    common.PerconaPGClusterKind,
 	})
 	return p.PerconaPGCluster
+}
+
+// createInitPGLocalBackupStorage creates a local backup storage for the initial PG backup
+// needed for bootstrapping PG clusters.
+func (p *Provider) createInitPGLocalBackupStorage(
+	ctx context.Context,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	backupStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      everestv1alpha1.LocalBackupStorageName(database.GetName()),
+			Namespace: p.SystemNs,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, p.C, backupStorage, func() error {
+		backupStorage.Spec = everestv1alpha1.BackupStorageSpec{
+			Type: everestv1alpha1.BackupStorageTypeLocal,
+			PVCSpec: &corev1.PersistentVolumeClaimSpec{
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				StorageClassName: database.Spec.Engine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
+					},
+				},
+			},
+		}
+		backupStorage.SetLabels(map[string]string{
+			everestv1alpha1.PGInitLocalBackupStorageReferenceLabel: database.GetName(),
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// cleanupInitLocalBackupStorage removes the local backup storage for the initial PG backup.
+func (p *Provider) cleanupInitLocalBackupStorage(ctx context.Context) (bool, error) {
+	backupStorage := &everestv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      everestv1alpha1.LocalBackupStorageName(p.DB.GetName()),
+			Namespace: p.SystemNs,
+		},
+	}
+	if err := p.C.Delete(ctx, backupStorage); err != nil && !k8serrors.IsNotFound(err) {
+		return false, err
+	} else if k8serrors.IsNotFound(err) {
+		return true, nil
+	}
+	if controllerutil.RemoveFinalizer(p.DB, everestv1alpha1.PGInitLocalBackupStorgeCleanupFinalizer) {
+		return false, p.C.Update(ctx, p.DB)
+	}
+	return false, nil
 }

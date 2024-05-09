@@ -618,6 +618,10 @@ func GetBackupStorageIndexInPGBackrestRepo(
 		if repo.Azure != nil && repo.Azure.Container == backupStorage.Spec.Bucket {
 			return idx
 		}
+		_, isPGInitLocalBackupStorge := backupStorage.GetLabels()[everestv1alpha1.PGInitLocalBackupStorageReferenceLabel]
+		if repo.Name == "repo1" && isPGInitLocalBackupStorge {
+			return idx
+		}
 	}
 	return -1
 }
