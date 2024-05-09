@@ -7,6 +7,7 @@ metadata:
   name: test-psmdb-cluster
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - foregroundDeletion
 spec:
   engine:
     type: psmdb

@@ -47,6 +47,8 @@ const (
 	AppStateError AppState = "error"
 	// AppStateRestoring is a restoring state.
 	AppStateRestoring AppState = "restoring"
+	// AppStateDeleting is a deleting state.
+	AppStateDeleting AppState = "deleting"
 
 	// ExposeTypeInternal is an internal expose type.
 	ExposeTypeInternal ExposeType = "internal"

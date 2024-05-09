@@ -71,6 +71,7 @@ const (
 
 var everestFinalizers = []string{
 	common.DBBackupCleanupFinalizer,
+	common.ForegroundDeletionFinalizer,
 }
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
@@ -130,12 +131,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 ) (ctrl.Result, error) {
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
-		if done, err := p.Cleanup(ctx, db); err != nil {
+		done, err := p.Cleanup(ctx, db)
+		if err != nil {
 			return ctrl.Result{}, err
-		} else if !done {
-			return ctrl.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{}, nil
+		db.Status.Status = everestv1alpha1.AppStateDeleting
+		return ctrl.Result{Requeue: !done}, r.Status().Update(ctx, db)
 	}
 
 	// Set metadata.
@@ -781,6 +782,9 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	ctx context.Context,
 	database *everestv1alpha1.DatabaseCluster,
 ) error {
+	if !database.DeletionTimestamp.IsZero() {
+		return nil
+	}
 	// Combine everest finalizers and finalizers applied by the user.
 	desiredFinalizers := append([]string{}, everestFinalizers...)
 	desiredFinalizers = append(desiredFinalizers, database.GetFinalizers()...)

@@ -8,6 +8,7 @@ metadata:
   name: pxc-mc
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - foregroundDeletion
 spec:
   monitoring:
     monitoringConfigName: test-mc
