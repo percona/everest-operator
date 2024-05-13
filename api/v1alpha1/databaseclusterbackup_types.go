@@ -74,11 +74,18 @@ type DatabaseClusterBackupList struct {
 	Items           []DatabaseClusterBackup `json:"items"`
 }
 
-// IsComplete returns true if the backup has completed.
-func (b DatabaseClusterBackup) IsComplete() bool {
+// HasSucceeded returns true if the backup has succeeded.
+func (b DatabaseClusterBackup) HasSucceeded() bool {
 	return b.Status.State == BackupState(pxcv1.BackupSucceeded) ||
 		b.Status.State == BackupState(pgv2.BackupSucceeded) ||
 		b.Status.State == BackupState(psmdbv1.BackupStateReady)
+}
+
+// HasFailed returns true if the backup has failed.
+func (b DatabaseClusterBackup) HasFailed() bool {
+	return b.Status.State == BackupState(pxcv1.BackupFailed) ||
+		b.Status.State == BackupState(pgv2.BackupFailed) ||
+		b.Status.State == BackupState(psmdbv1.BackupStateError)
 }
 
 func init() {

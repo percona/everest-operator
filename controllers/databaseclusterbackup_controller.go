@@ -116,7 +116,8 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
-	if backup.IsComplete() && backup.GetDeletionTimestamp().IsZero() {
+	if (backup.HasSucceeded() || backup.HasFailed()) &&
+		backup.GetDeletionTimestamp().IsZero() {
 		return reconcile.Result{}, err
 	}
 
