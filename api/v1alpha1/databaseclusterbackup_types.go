@@ -16,6 +16,9 @@
 package v1alpha1
 
 import (
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -69,6 +72,20 @@ type DatabaseClusterBackupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DatabaseClusterBackup `json:"items"`
+}
+
+// HasSucceeded returns true if the backup has succeeded.
+func (b DatabaseClusterBackup) HasSucceeded() bool {
+	return b.Status.State == BackupState(pxcv1.BackupSucceeded) ||
+		b.Status.State == BackupState(pgv2.BackupSucceeded) ||
+		b.Status.State == BackupState(psmdbv1.BackupStateReady)
+}
+
+// HasFailed returns true if the backup has failed.
+func (b DatabaseClusterBackup) HasFailed() bool {
+	return b.Status.State == BackupState(pxcv1.BackupFailed) ||
+		b.Status.State == BackupState(pgv2.BackupFailed) ||
+		b.Status.State == BackupState(psmdbv1.BackupStateError)
 }
 
 func init() {
