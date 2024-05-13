@@ -115,6 +115,11 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		}
 		return reconcile.Result{}, err
 	}
+
+	if backup.IsComplete() && backup.GetDeletionTimestamp().IsZero() {
+		return reconcile.Result{}, err
+	}
+
 	if len(backup.ObjectMeta.Labels) == 0 {
 		backup.ObjectMeta.Labels = map[string]string{
 			databaseClusterNameLabel: backup.Spec.DBClusterName,
