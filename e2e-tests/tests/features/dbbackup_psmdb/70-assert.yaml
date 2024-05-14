@@ -1,6 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 100
+commands:
+  - script: >
+      kubectl patch psmdb-backup a-scheduled-backup -n "${NAMESPACE}" --type=merge --subresource status --patch 'status: {state: requested}'
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
