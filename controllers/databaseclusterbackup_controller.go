@@ -409,6 +409,13 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		return err
 	}
 
+	// Wait until the backup has progressed beyond the waiting state,
+	// otherwise we may observe duplicate backups.
+	// See: https://perconadev.atlassian.net/browse/K8SPSMDB-1088
+	if psmdbBackup.Status.State == "" || psmdbBackup.Status.State == psmdbv1.BackupStateWaiting {
+		return nil
+	}
+
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
