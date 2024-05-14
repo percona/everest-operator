@@ -714,7 +714,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	if !backup.GetDeletionTimestamp().IsZero() {
 		// We can't handle this finalizer in PG yet, so we will simply remove it (if present).
 		// See: https://perconadev.atlassian.net/browse/K8SPG-538
-		if controllerutil.RemoveFinalizer(backup, common.DBBackupStorageProtectionFinalizer) {
+		if controllerutil.RemoveFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
 	}
@@ -801,7 +801,7 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	upstreamBackup client.Object,
 	storageFinalizer string,
 ) error {
-	if !controllerutil.ContainsFinalizer(dbcBackup, common.DBBackupStorageProtectionFinalizer) {
+	if !controllerutil.ContainsFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return nil
 	}
 	// Ensure that S3 finalizer is removed from the upstream backup.
@@ -809,7 +809,7 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 		return r.Update(ctx, upstreamBackup)
 	}
 	// Finalizer is gone from upstream object, remove from DatabaseClusterBackup.
-	if controllerutil.RemoveFinalizer(dbcBackup, common.DBBackupStorageProtectionFinalizer) {
+	if controllerutil.RemoveFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return r.Update(ctx, dbcBackup)
 	}
 	return nil
