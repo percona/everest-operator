@@ -6,6 +6,8 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
+  finalizers:
+  - everest.percona.com/dbb-storage-protection
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pxc-cluster
@@ -22,6 +24,8 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
   name: test-db-backup
+  finalizers:
+  - delete-s3-backup
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
@@ -34,6 +38,8 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
   name: test-db-backup-azure
+  finalizers:
+  - delete-s3-backup
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup

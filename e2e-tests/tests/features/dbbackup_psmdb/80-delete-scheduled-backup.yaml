@@ -1,8 +1,7 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
-delete:
-  - apiVersion: psmdb.percona.com/v1
-    kind: PerconaServerMongoDBBackup
-    name: a-scheduled-backup
+commands:
+  - command: kubectl patch dbb a-scheduled-backup -n $NAMESPACE -p '{"metadata":{"finalizers":["everest.percona.com/dbb-storage-protection"]}}' --type merge
+  - command: kubectl delete dbb a-scheduled-backup -n $NAMESPACE
 

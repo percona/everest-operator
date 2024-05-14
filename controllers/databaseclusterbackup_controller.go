@@ -521,7 +521,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 
 	// Handle cleanup.
 	if !backup.GetDeletionTimestamp().IsZero() {
-		return true, r.handleStorageCleanup(ctx, backup, pxcCR, deletePXCBackupFinalizer)
+		return true, r.handleStorageProtectionFinalizer(ctx, backup, pxcCR, deletePXCBackupFinalizer)
 	}
 
 	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
@@ -533,14 +533,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		return false, ErrBackupStorageUndefined
 	}
 
-	// We don't want any backups to be deleted so let's remove the finalizer
-	if controllerutil.ContainsFinalizer(pxcCR, deletePXCBackupFinalizer) {
-		controllerutil.RemoveFinalizer(pxcCR, deletePXCBackupFinalizer)
-		if err := r.Update(ctx, pxcCR); err != nil {
-			return false, err
-		}
-	}
-
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.TypeMeta = metav1.TypeMeta{
 			APIVersion: pxcAPIVersion,
@@ -548,7 +540,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		}
 		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
 		pxcCR.Spec.StorageName = backup.Spec.BackupStorageName
-
 		pxcCR.SetOwnerReferences([]metav1.OwnerReference{{
 			APIVersion:         everestAPIVersion,
 			Kind:               databaseClusterBackupKind,
@@ -556,6 +547,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 			UID:                backup.UID,
 			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
+		controllerutil.AddFinalizer(pxcCR, deletePXCBackupFinalizer)
 		return nil
 	})
 	if err != nil {
@@ -600,7 +592,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 
 	// Handle cleanup.
 	if !backup.GetDeletionTimestamp().IsZero() {
-		return true, r.handleStorageCleanup(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer)
+		return true, r.handleStorageProtectionFinalizer(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer)
 	}
 
 	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
@@ -610,15 +602,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	}
 	if _, ok := psmdbDBCR.Spec.Backup.Storages[backup.Spec.BackupStorageName]; !ok {
 		return false, ErrBackupStorageUndefined
-	}
-
-	// We don't want any backups to be deleted so let's remove the finalizer
-	if controllerutil.ContainsFinalizer(psmdbCR, deletePSMDBBackupFinalizer) {
-		controllerutil.RemoveFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
-		if err := r.Update(ctx, psmdbCR); err != nil {
-			return false, err
-		}
-		return true, nil
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
@@ -636,6 +619,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			UID:                backup.UID,
 			BlockOwnerDeletion: pointer.ToBool(true),
 		}})
+		controllerutil.AddFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
 		return nil
 	})
 	if err != nil {
@@ -737,7 +721,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	if !backup.GetDeletionTimestamp().IsZero() {
 		// We can't handle this finalizer in PG yet, so we will simply remove it (if present).
 		// See: https://perconadev.atlassian.net/browse/K8SPG-538
-		if controllerutil.RemoveFinalizer(backup, common.DBBBackupStorageCleanupFinalizer) {
+		if controllerutil.RemoveFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
 	}
@@ -818,26 +802,22 @@ func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster
 	return cluster.Spec.Backup.Schedules[scheduleInd-2].BackupStorageName, nil
 }
 
-// handleCleanup handles the cleanup of the DatabaseClusterBackup.
-func (r *DatabaseClusterBackupReconciler) handleStorageCleanup(
+func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	ctx context.Context,
 	dbcBackup *everestv1alpha1.DatabaseClusterBackup,
 	upstreamBackup client.Object,
 	storageFinalizer string,
 ) error {
-	if !controllerutil.ContainsFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer) {
+	if !controllerutil.ContainsFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return nil
 	}
-	// Add finalizer to the upstream backup if it doesn't exist.
-	if controllerutil.AddFinalizer(upstreamBackup, storageFinalizer) {
-		if err := r.Update(ctx, upstreamBackup); err != nil {
-			return err
-		}
+	// Ensure that S3 finalizer is removed from the upstream backup.
+	if controllerutil.RemoveFinalizer(upstreamBackup, storageFinalizer) {
+		return r.Update(ctx, upstreamBackup)
 	}
-	// Remove the everest finalizer from the DatabaseClusterBackup.
-	controllerutil.RemoveFinalizer(dbcBackup, common.DBBBackupStorageCleanupFinalizer)
-	if err := r.Update(ctx, dbcBackup); err != nil {
-		return err
+	// Finalizer is gone from upstream object, remove from DatabaseClusterBackup.
+	if controllerutil.RemoveFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
+		return r.Update(ctx, dbcBackup)
 	}
 	return nil
 }

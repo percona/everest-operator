@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-commands:
-  - command: kubectl patch pxc-backup test-db-backup-cleanup -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-    ignoreFailure: true
-

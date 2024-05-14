@@ -22,6 +22,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// DBBackupStorageProtectionFinalizer must be set on DatabaseClusterBackup to ensure that storage is NOT cleaned up.
+	// By default, this finalizer is not set, and the storage is cleaned up when the backup is deleted.
+	DBBackupStorageProtectionFinalizer = "everest.percona.com/dbb-storage-protection"
+)
+
 // BackupState is used to represent the backup's state.
 type BackupState string
 
