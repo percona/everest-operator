@@ -297,7 +297,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 					Region:                backupStorage.Spec.Region,
 					EndpointURL:           backupStorage.Spec.EndpointURL,
 					Prefix:                parsePrefixFromDestination(restore.Spec.DataSource.BackupSource.Path),
-					InsecureSkipTLSVerify: !*backupStorage.Spec.VerifyTLS,
+					InsecureSkipTLSVerify: !pointer.Get(backupStorage.Spec.VerifyTLS),
 				}
 			case everestv1alpha1.BackupStorageTypeAzure:
 				psmdbCR.Spec.BackupSource.Azure = &psmdbv1.BackupStorageAzureSpec{
