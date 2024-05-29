@@ -116,11 +116,6 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
-	if (backup.HasSucceeded() || backup.HasFailed()) &&
-		backup.GetDeletionTimestamp().IsZero() {
-		return reconcile.Result{}, nil
-	}
-
 	if len(backup.ObjectMeta.Labels) == 0 {
 		backup.ObjectMeta.Labels = map[string]string{
 			databaseClusterNameLabel: backup.Spec.DBClusterName,
@@ -155,13 +150,14 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	requeue := false
+	isComplete := (backup.HasSucceeded() || backup.HasFailed()) && backup.GetDeletionTimestamp().IsZero()
 	switch cluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
-		requeue, err = r.reconcilePXC(ctx, backup)
+		requeue, err = r.reconcilePXC(ctx, backup, isComplete)
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		requeue, err = r.reconcilePSMDB(ctx, backup)
+		requeue, err = r.reconcilePSMDB(ctx, backup, isComplete)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		requeue, err = r.reconcilePG(ctx, backup)
+		requeue, err = r.reconcilePG(ctx, backup, isComplete)
 	}
 
 	// The DatabaseCluster controller is responsible for updating the
@@ -501,6 +497,7 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
+	isComplete bool,
 ) (bool, error) {
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -533,25 +530,27 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		return false, ErrBackupStorageUndefined
 	}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
-		pxcCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: pxcAPIVersion,
-			Kind:       pxcBackupKind,
+	if !isComplete {
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
+			pxcCR.TypeMeta = metav1.TypeMeta{
+				APIVersion: pxcAPIVersion,
+				Kind:       pxcBackupKind,
+			}
+			pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
+			pxcCR.Spec.StorageName = backup.Spec.BackupStorageName
+			pxcCR.SetOwnerReferences([]metav1.OwnerReference{{
+				APIVersion:         everestAPIVersion,
+				Kind:               databaseClusterBackupKind,
+				Name:               backup.Name,
+				UID:                backup.UID,
+				BlockOwnerDeletion: pointer.ToBool(true),
+			}})
+			controllerutil.AddFinalizer(pxcCR, deletePXCBackupFinalizer)
+			return nil
+		})
+		if err != nil {
+			return false, err
 		}
-		pxcCR.Spec.PXCCluster = backup.Spec.DBClusterName
-		pxcCR.Spec.StorageName = backup.Spec.BackupStorageName
-		pxcCR.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion:         everestAPIVersion,
-			Kind:               databaseClusterBackupKind,
-			Name:               backup.Name,
-			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.ToBool(true),
-		}})
-		controllerutil.AddFinalizer(pxcCR, deletePXCBackupFinalizer)
-		return nil
-	})
-	if err != nil {
-		return false, err
 	}
 
 	backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
@@ -572,6 +571,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
+	isComplete bool,
 ) (bool, error) {
 	psmdbCR := &psmdbv1.PerconaServerMongoDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -604,26 +604,28 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 		return false, ErrBackupStorageUndefined
 	}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
-		psmdbCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: psmdbAPIVersion,
-			Kind:       psmdbBackupKind,
-		}
-		psmdbCR.Spec.ClusterName = backup.Spec.DBClusterName
-		psmdbCR.Spec.StorageName = backup.Spec.BackupStorageName
+	if !isComplete {
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
+			psmdbCR.TypeMeta = metav1.TypeMeta{
+				APIVersion: psmdbAPIVersion,
+				Kind:       psmdbBackupKind,
+			}
+			psmdbCR.Spec.ClusterName = backup.Spec.DBClusterName
+			psmdbCR.Spec.StorageName = backup.Spec.BackupStorageName
 
-		psmdbCR.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion:         everestAPIVersion,
-			Kind:               databaseClusterBackupKind,
-			Name:               backup.Name,
-			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.ToBool(true),
-		}})
-		controllerutil.AddFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
-		return nil
-	})
-	if err != nil {
-		return false, err
+			psmdbCR.SetOwnerReferences([]metav1.OwnerReference{{
+				APIVersion:         everestAPIVersion,
+				Kind:               databaseClusterBackupKind,
+				Name:               backup.Name,
+				UID:                backup.UID,
+				BlockOwnerDeletion: pointer.ToBool(true),
+			}})
+			controllerutil.AddFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
+			return nil
+		})
+		if err != nil {
+			return false, err
+		}
 	}
 	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
@@ -702,6 +704,7 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
+	isComplete bool,
 ) (bool, error) {
 	logger := log.FromContext(ctx)
 
@@ -739,28 +742,30 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		return false, ErrBackupStorageUndefined
 	}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
-		pgCR.TypeMeta = metav1.TypeMeta{
-			APIVersion: pgAPIVersion,
-			Kind:       pgBackupKind,
-		}
-		pgCR.Spec.PGCluster = backup.Spec.DBClusterName
-		pgCR.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion:         everestAPIVersion,
-			Kind:               databaseClusterBackupKind,
-			Name:               backup.Name,
-			UID:                backup.UID,
-			BlockOwnerDeletion: pointer.ToBool(true),
-		}})
+	if !isComplete {
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
+			pgCR.TypeMeta = metav1.TypeMeta{
+				APIVersion: pgAPIVersion,
+				Kind:       pgBackupKind,
+			}
+			pgCR.Spec.PGCluster = backup.Spec.DBClusterName
+			pgCR.SetOwnerReferences([]metav1.OwnerReference{{
+				APIVersion:         everestAPIVersion,
+				Kind:               databaseClusterBackupKind,
+				Name:               backup.Name,
+				UID:                backup.UID,
+				BlockOwnerDeletion: pointer.ToBool(true),
+			}})
 
-		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
-		pgCR.Spec.Options = []string{
-			"--type=full",
+			pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
+			pgCR.Spec.Options = []string{
+				"--type=full",
+			}
+			return nil
+		})
+		if err != nil {
+			return false, err
 		}
-		return nil
-	})
-	if err != nil {
-		return false, err
 	}
 	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
