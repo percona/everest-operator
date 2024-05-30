@@ -101,6 +101,6 @@ status:
         imagePath: percona/percona-server-mongodb:6.0.5-4
         status: available
       6.0.9-7:
-        imageHash: ef1caec49cc5ea6652731d65ebef468b11da607f2aab11360a47d90aeee5dde5
+        imageHash: 5ef8404e200a680a67f0a94599963e17c029ebe5e0045b60b45062bba127c505
         imagePath: percona/percona-server-mongodb:6.0.9-7
         status: recommended
