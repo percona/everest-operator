@@ -157,6 +157,9 @@ func (r *BackupStorageReconciler) reconcileUsedNamespaces(ctx context.Context, b
 		}
 		val, found := bs.Status.UsedNamespaces[secret.GetNamespace()]
 		if !found || !val {
+			if bs.Status.UsedNamespaces == nil {
+				bs.Status.UsedNamespaces = make(map[string]bool)
+			}
 			bs.Status.UsedNamespaces[secret.GetNamespace()] = true
 			updated = true
 		}
