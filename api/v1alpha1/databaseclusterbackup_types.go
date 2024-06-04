@@ -33,11 +33,11 @@ const (
 type BackupState string
 
 const (
-	BackupNew       BackupState = ""
-	BackupStarting  BackupState = "Starting"
-	BackupRunning   BackupState = "Running"
-	BackupFailed    BackupState = "Failed"
-	BackupSucceeded BackupState = "Succeeded"
+	BackupNew       BackupState = ""          //nolint:revive
+	BackupStarting  BackupState = "Starting"  //nolint:revive
+	BackupRunning   BackupState = "Running"   //nolint:revive
+	BackupFailed    BackupState = "Failed"    //nolint:revive
+	BackupSucceeded BackupState = "Succeeded" //nolint:revive
 )
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
