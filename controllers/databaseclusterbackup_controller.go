@@ -150,14 +150,13 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	requeue := false
-	isComplete := (backup.HasSucceeded() || backup.HasFailed()) && backup.GetDeletionTimestamp().IsZero()
 	switch cluster.Spec.Engine.Type {
 	case everestv1alpha1.DatabaseEnginePXC:
-		requeue, err = r.reconcilePXC(ctx, backup, isComplete)
+		requeue, err = r.reconcilePXC(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePSMDB:
-		requeue, err = r.reconcilePSMDB(ctx, backup, isComplete)
+		requeue, err = r.reconcilePSMDB(ctx, backup)
 	case everestv1alpha1.DatabaseEnginePostgresql:
-		requeue, err = r.reconcilePG(ctx, backup, isComplete)
+		requeue, err = r.reconcilePG(ctx, backup)
 	}
 
 	// The DatabaseCluster controller is responsible for updating the
@@ -497,7 +496,6 @@ func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme
 func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
-	isComplete bool,
 ) (bool, error) {
 	pxcCR := &pxcv1.PerconaXtraDBClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -505,13 +503,16 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 			Namespace: backup.Namespace,
 		},
 	}
-	err := r.Get(ctx, types.NamespacedName{Name: backup.Name, Namespace: backup.Namespace}, pxcCR)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err := r.Get(ctx,
+		types.NamespacedName{
+			Name:      backup.Name,
+			Namespace: backup.Namespace},
+		pxcCR); client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
 
 	pxcDBCR := &pxcv1.PerconaXtraDBCluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pxcDBCR)
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, pxcDBCR)
 	if err != nil {
 		return false, err
 	}
@@ -530,7 +531,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		return false, ErrBackupStorageUndefined
 	}
 
-	if !isComplete {
+	if !backup.HasCompleted() {
 		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 			pxcCR.TypeMeta = metav1.TypeMeta{
 				APIVersion: pxcAPIVersion,
@@ -571,7 +572,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
-	isComplete bool,
 ) (bool, error) {
 	psmdbCR := &psmdbv1.PerconaServerMongoDBBackup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -579,13 +579,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			Namespace: backup.Namespace,
 		},
 	}
-	err := r.Get(ctx, types.NamespacedName{Name: backup.Name, Namespace: backup.Namespace}, psmdbCR)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      backup.Name,
+		Namespace: backup.Namespace},
+		psmdbCR); client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
 
 	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
 	if err != nil {
 		return false, err
 	}
@@ -604,7 +606,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 		return false, ErrBackupStorageUndefined
 	}
 
-	if !isComplete {
+	if !backup.HasCompleted() {
 		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 			psmdbCR.TypeMeta = metav1.TypeMeta{
 				APIVersion: psmdbAPIVersion,
@@ -704,15 +706,19 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	ctx context.Context,
 	backup *everestv1alpha1.DatabaseClusterBackup,
-	isComplete bool,
 ) (bool, error) {
 	logger := log.FromContext(ctx)
-
 	pgCR := &pgv2.PerconaPGBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      backup.Name,
 			Namespace: backup.Namespace,
 		},
+	}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      backup.GetName(),
+		Namespace: backup.GetNamespace()},
+		pgCR); client.IgnoreNotFound(err) != nil {
+		return false, err
 	}
 
 	pgDBCR := &pgv2.PerconaPGCluster{}
@@ -742,7 +748,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		return false, ErrBackupStorageUndefined
 	}
 
-	if !isComplete {
+	if !backup.HasCompleted() {
 		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 			pgCR.TypeMeta = metav1.TypeMeta{
 				APIVersion: pgAPIVersion,

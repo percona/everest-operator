@@ -94,6 +94,11 @@ func (b DatabaseClusterBackup) HasFailed() bool {
 		b.Status.State == BackupState(psmdbv1.BackupStateError)
 }
 
+// HasCompleted returns true if the backup has completed.
+func (b DatabaseClusterBackup) HasCompleted() bool {
+	return (b.HasSucceeded() || b.HasFailed()) && b.GetDeletionTimestamp().IsZero()
+}
+
 func init() {
 	SchemeBuilder.Register(&DatabaseClusterBackup{}, &DatabaseClusterBackupList{})
 }
