@@ -506,7 +506,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	if err := r.Get(ctx,
 		types.NamespacedName{
 			Name:      backup.Name,
-			Namespace: backup.Namespace},
+			Namespace: backup.Namespace,
+		},
 		pxcCR); client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
@@ -581,7 +582,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      backup.Name,
-		Namespace: backup.Namespace},
+		Namespace: backup.Namespace,
+	},
 		psmdbCR); client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
@@ -716,7 +718,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      backup.GetName(),
-		Namespace: backup.GetNamespace()},
+		Namespace: backup.GetNamespace(),
+	},
 		pgCR); client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
