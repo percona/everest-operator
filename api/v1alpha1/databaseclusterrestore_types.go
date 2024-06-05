@@ -23,10 +23,19 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // RestoreState represents state of restoration.
 type RestoreState string
+
+const (
+	RestoreNew       RestoreState = ""          //nolint:revive
+	RestoreStarting  RestoreState = "Starting"  //nolint:revive
+	RestoreRunning   RestoreState = "Restoring" //nolint:revive
+	RestoreFailed    RestoreState = "Failed"    //nolint:revive
+	RestoreSucceeded RestoreState = "Succeeded" //nolint:revive
+)
 
 // PITRType represents type of Point-in-time recovery.
 type PITRType string
@@ -217,4 +226,62 @@ func isPGRestoreStatusComplete(status pgv2.PGRestoreState) bool {
 		return true
 	}
 	return true
+}
+
+// GetDBRestoreState returns the restore state from the upstream restore object.
+func GetDBRestoreState(upstream client.Object) RestoreState {
+	switch bkp := upstream.(type) {
+	case *pxcv1.PerconaXtraDBClusterRestore:
+		return dbRestoreStateFromPXC(bkp)
+	case *pgv2.PerconaPGRestore:
+		return dbRestoreStateFromPG(bkp)
+	case *psmdbv1.PerconaServerMongoDBRestore:
+		return dbRestoreStateFromPSMDB(bkp)
+	}
+	return RestoreNew
+}
+
+func dbRestoreStateFromPXC(bkp *pxcv1.PerconaXtraDBClusterRestore) RestoreState {
+	switch bkp.Status.State {
+	case pxcv1.RestoreSucceeded:
+		return RestoreSucceeded
+	case pxcv1.RestoreFailed:
+		return RestoreFailed
+	case pxcv1.RestoreRestore, pxcv1.RestorePITR, pxcv1.RestoreStartCluster:
+		return RestoreRunning
+	case pxcv1.RestoreStarting, pxcv1.RestoreStopCluster:
+		return RestoreStarting
+	default:
+		return RestoreNew
+	}
+}
+
+func dbRestoreStateFromPG(bkp *pgv2.PerconaPGRestore) RestoreState {
+	switch bkp.Status.State {
+	case pgv2.RestoreSucceeded:
+		return RestoreSucceeded
+	case pgv2.RestoreFailed:
+		return RestoreFailed
+	case pgv2.RestoreRunning:
+		return RestoreRunning
+	case pgv2.RestoreStarting:
+		return RestoreStarting
+	default:
+		return RestoreNew
+	}
+}
+
+func dbRestoreStateFromPSMDB(bkp *psmdbv1.PerconaServerMongoDBRestore) RestoreState {
+	switch bkp.Status.State {
+	case psmdbv1.RestoreStateReady:
+		return RestoreSucceeded
+	case psmdbv1.RestoreStateError, psmdbv1.RestoreStateRejected:
+		return RestoreFailed
+	case psmdbv1.RestoreStateRunning:
+		return RestoreRunning
+	case psmdbv1.RestoreStateWaiting, psmdbv1.RestoreStateRequested:
+		return RestoreStarting
+	default:
+		return RestoreNew
+	}
 }
