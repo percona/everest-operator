@@ -555,7 +555,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 		}
 	}
 
-	backup.Status.State = everestv1alpha1.BackupState(pxcCR.Status.State)
+	backup.Status.State = everestv1alpha1.GetDBBackupState(pxcCR)
 	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
 	backup.Status.Destination = &pxcCR.Status.Destination
@@ -631,7 +631,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			return false, err
 		}
 	}
-	backup.Status.State = everestv1alpha1.BackupState(psmdbCR.Status.State)
+	backup.Status.State = everestv1alpha1.GetDBBackupState(psmdbCR)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
 	backup.Status.Destination = &psmdbCR.Status.Destination
@@ -776,7 +776,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			return false, err
 		}
 	}
-	backup.Status.State = everestv1alpha1.BackupState(pgCR.Status.State)
+	backup.Status.State = everestv1alpha1.GetDBBackupState(pgCR)
 	backup.Status.CompletedAt = pgCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pgCR.CreationTimestamp
 	// XXX: Until https://jira.percona.com/browse/K8SPG-411 is done

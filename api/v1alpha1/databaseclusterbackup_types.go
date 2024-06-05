@@ -20,6 +20,7 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -30,6 +31,14 @@ const (
 
 // BackupState is used to represent the backup's state.
 type BackupState string
+
+const (
+	BackupNew       BackupState = ""          //nolint:revive
+	BackupStarting  BackupState = "Starting"  //nolint:revive
+	BackupRunning   BackupState = "Running"   //nolint:revive
+	BackupFailed    BackupState = "Failed"    //nolint:revive
+	BackupSucceeded BackupState = "Succeeded" //nolint:revive
+)
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
 type DatabaseClusterBackupSpec struct {
@@ -97,6 +106,65 @@ func (b DatabaseClusterBackup) HasFailed() bool {
 // HasCompleted returns true if the backup has completed.
 func (b DatabaseClusterBackup) HasCompleted() bool {
 	return (b.HasSucceeded() || b.HasFailed()) && b.GetDeletionTimestamp().IsZero()
+}
+
+// GetDBBackupState returns the backup state from the upstream backup object.
+func GetDBBackupState(upstreamBkp client.Object) BackupState {
+	switch bkp := upstreamBkp.(type) {
+	case *pxcv1.PerconaXtraDBClusterBackup:
+		return dbbackupStateFromPXC(bkp)
+	case *pgv2.PerconaPGBackup:
+		return dbbackupStateFromPG(bkp)
+	case *psmdbv1.PerconaServerMongoDBBackup:
+		return dbbackupStateFromPSMDB(bkp)
+	default:
+		return ""
+	}
+}
+
+func dbbackupStateFromPXC(bkp *pxcv1.PerconaXtraDBClusterBackup) BackupState {
+	switch bkp.Status.State {
+	case pxcv1.BackupSucceeded:
+		return BackupSucceeded
+	case pxcv1.BackupFailed:
+		return BackupFailed
+	case pxcv1.BackupRunning:
+		return BackupRunning
+	case pxcv1.BackupStarting:
+		return BackupStarting
+	default:
+		return BackupNew
+	}
+}
+
+func dbbackupStateFromPG(bkp *pgv2.PerconaPGBackup) BackupState {
+	switch bkp.Status.State {
+	case pgv2.BackupSucceeded:
+		return BackupSucceeded
+	case pgv2.BackupFailed:
+		return BackupFailed
+	case pgv2.BackupRunning:
+		return BackupRunning
+	case pgv2.BackupStarting:
+		return BackupStarting
+	default:
+		return BackupNew
+	}
+}
+
+func dbbackupStateFromPSMDB(bkp *psmdbv1.PerconaServerMongoDBBackup) BackupState {
+	switch bkp.Status.State {
+	case psmdbv1.BackupStateReady:
+		return BackupSucceeded
+	case psmdbv1.BackupStateError, psmdbv1.BackupStateRejected:
+		return BackupFailed
+	case psmdbv1.BackupStateRunning:
+		return BackupRunning
+	case psmdbv1.BackupStateWaiting, psmdbv1.BackupStateRequested:
+		return BackupStarting
+	default:
+		return BackupNew
+	}
 }
 
 func init() {

@@ -333,7 +333,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		return err
 	}
 
-	restore.Status.State = everestv1alpha1.RestoreState(psmdbCR.Status.State)
+	restore.Status.State = everestv1alpha1.GetDBRestoreState(psmdbCR)
 	restore.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	restore.Status.Message = psmdbCR.Status.Error
 
@@ -417,7 +417,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 		return err
 	}
 
-	restore.Status.State = everestv1alpha1.RestoreState(pxcCR.Status.State)
+	restore.Status.State = everestv1alpha1.GetDBRestoreState(pxcCR)
 	restore.Status.CompletedAt = pxcCR.Status.CompletedAt
 	restore.Status.Message = pxcCR.Status.Comments
 
@@ -493,7 +493,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		return err
 	}
 
-	restore.Status.State = everestv1alpha1.RestoreState(pgCR.Status.State)
+	restore.Status.State = everestv1alpha1.GetDBRestoreState(pgCR)
 	restore.Status.CompletedAt = pgCR.Status.CompletedAt
 
 	return r.Status().Update(ctx, restore)
