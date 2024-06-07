@@ -369,8 +369,9 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
 
+			dest := fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, dataSource.BackupSource.Path)
 			pxcCR.Spec.BackupSource = &pxcv1.PXCBackupStatus{
-				Destination: fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, dataSource.BackupSource.Path),
+				Destination: pxcv1.PXCBackupDestination(dest),
 				VerifyTLS:   backupStorage.Spec.VerifyTLS,
 			}
 			switch backupStorage.Spec.Type {

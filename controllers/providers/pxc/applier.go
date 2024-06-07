@@ -224,21 +224,24 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 				LivenessProbes:  corev1.Probe{TimeoutSeconds: 30},
 			},
 		},
-		ProxySQL: &pxcv1.PodSpec{
-			Enabled: false,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("1G"),
-					corev1.ResourceCPU:    resource.MustParse("600m"),
+		ProxySQL: &pxcv1.ProxySQLSpec{
+			PodSpec: pxcv1.PodSpec{
+				Enabled: false,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1G"),
+						corev1.ResourceCPU:    resource.MustParse("600m"),
+					},
 				},
 			},
 		},
 	}
 }
 
+//nolint:staticcheck,godox
 func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
@@ -257,6 +260,7 @@ func (p *applier) applyHAProxyCfg() error {
 		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
+	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeClusterIP
@@ -270,6 +274,13 @@ func (p *applier) applyHAProxyCfg() error {
 			haProxy.PodSpec.ServiceAnnotations = annotations
 			haProxy.PodSpec.ReplicasServiceAnnotations = annotations
 		}
+		expose := pxcv1.ServiceExpose{
+			Enabled:                  true,
+			Type:                     corev1.ServiceTypeLoadBalancer,
+			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+			Annotations:              annotations,
+		}
+		haProxy.ExposePrimary = expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
@@ -319,6 +330,7 @@ func (p *applier) applyHAProxyCfg() error {
 	return nil
 }
 
+//nolint:staticcheck,godox
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
@@ -329,6 +341,7 @@ func (p *applier) applyProxySQLCfg() error {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
+	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		proxySQL.ServiceType = corev1.ServiceTypeClusterIP
@@ -337,6 +350,12 @@ func (p *applier) applyProxySQLCfg() error {
 		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.LoadBalancerSourceRanges = p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		expose := pxcv1.ServiceExpose{
+			Enabled:                  true,
+			Type:                     corev1.ServiceTypeLoadBalancer,
+			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+		}
+		proxySQL.Expose = expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
