@@ -241,7 +241,7 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 	}
 }
 
-//nolint:staticcheck
+//nolint:staticcheck,godox
 func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
@@ -260,6 +260,7 @@ func (p *applier) applyHAProxyCfg() error {
 		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
+	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		haProxy.PodSpec.ServiceType = corev1.ServiceTypeClusterIP
@@ -329,7 +330,7 @@ func (p *applier) applyHAProxyCfg() error {
 	return nil
 }
 
-//nolint:staticcheck
+//nolint:staticcheck,godox
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
@@ -340,6 +341,7 @@ func (p *applier) applyProxySQLCfg() error {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
+	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		proxySQL.ServiceType = corev1.ServiceTypeClusterIP
