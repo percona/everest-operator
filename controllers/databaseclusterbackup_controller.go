@@ -558,7 +558,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 	backup.Status.State = everestv1alpha1.GetDBBackupState(pxcCR)
 	backup.Status.CompletedAt = pxcCR.Status.CompletedAt
 	backup.Status.CreatedAt = &pxcCR.CreationTimestamp
-	backup.Status.Destination = &pxcCR.Status.Destination
+	backup.Status.Destination = pointer.To(string(pxcCR.Status.Destination))
 	for _, condition := range pxcCR.Status.Conditions {
 		if condition.Reason == pxcGapsReasonString {
 			backup.Status.Gaps = true

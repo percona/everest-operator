@@ -224,15 +224,17 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 				LivenessProbes:  corev1.Probe{TimeoutSeconds: 30},
 			},
 		},
-		ProxySQL: &pxcv1.PodSpec{
-			Enabled: false,
-			Affinity: &pxcv1.PodAffinity{
-				TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-			},
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("1G"),
-					corev1.ResourceCPU:    resource.MustParse("600m"),
+		ProxySQL: &pxcv1.ProxySQLSpec{
+			PodSpec: pxcv1.PodSpec{
+				Enabled: false,
+				Affinity: &pxcv1.PodAffinity{
+					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1G"),
+						corev1.ResourceCPU:    resource.MustParse("600m"),
+					},
 				},
 			},
 		},
