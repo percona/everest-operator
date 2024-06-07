@@ -1,6 +1,7 @@
 module github.com/percona/everest-operator
 
 go 1.21
+toolchain go1.22.3
 
 require (
 	github.com/AlekSi/pointer v1.2.0
@@ -21,7 +22,7 @@ require (
 	golang.org/x/mod v0.15.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
+	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.29.3
 	sigs.k8s.io/controller-runtime v0.17.2
 )
@@ -126,7 +127,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.29.2 // indirect
 	k8s.io/component-base v0.29.2 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20240221221325-2ac9dc51f3f1 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/mcs-api v0.1.0 // indirect
