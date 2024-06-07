@@ -241,6 +241,7 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 	}
 }
 
+//nolint:staticcheck
 func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
@@ -328,6 +329,7 @@ func (p *applier) applyHAProxyCfg() error {
 	return nil
 }
 
+//nolint:staticcheck
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
