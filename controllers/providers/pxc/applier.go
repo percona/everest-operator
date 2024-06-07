@@ -272,6 +272,13 @@ func (p *applier) applyHAProxyCfg() error {
 			haProxy.PodSpec.ServiceAnnotations = annotations
 			haProxy.PodSpec.ReplicasServiceAnnotations = annotations
 		}
+		expose := pxcv1.ServiceExpose{
+			Enabled:                  true,
+			Type:                     corev1.ServiceTypeLoadBalancer,
+			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+			Annotations:              annotations,
+		}
+		haProxy.ExposePrimary = expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
@@ -339,6 +346,12 @@ func (p *applier) applyProxySQLCfg() error {
 		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
 		proxySQL.LoadBalancerSourceRanges = p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		expose := pxcv1.ServiceExpose{
+			Enabled:                  true,
+			Type:                     corev1.ServiceTypeLoadBalancer,
+			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+		}
+		proxySQL.Expose = expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
