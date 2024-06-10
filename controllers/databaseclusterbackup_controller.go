@@ -20,8 +20,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"k8s.io/client-go/util/workqueue"
 	"net/http"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"strconv"
 	"strings"
 	"time"
@@ -219,9 +221,8 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 		if err := r.addPXCToScheme(r.Scheme); err == nil {
 			controller.Watches(
 				&pxcv1.PerconaXtraDBClusterBackup{},
-				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePXC)
-				}))
+				r.watchHandler(r.tryCreatePXC),
+			)
 		}
 	}
 
@@ -230,9 +231,8 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
 			controller.Watches(
 				&psmdbv1.PerconaServerMongoDBBackup{},
-				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePSMDB)
-				}))
+				r.watchHandler(r.tryCreatePSMDB),
+			)
 		}
 	}
 
@@ -241,9 +241,8 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 		if err := r.addPGToScheme(r.Scheme); err == nil {
 			controller.Watches(
 				&pgv2.PerconaPGBackup{},
-				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-					return r.tryCreateDBBackups(ctx, obj, r.tryCreatePG)
-				}))
+				r.watchHandler(r.tryCreatePG),
+			)
 		}
 	}
 
@@ -252,11 +251,60 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 	return controller.Complete(r)
 }
 
+func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+	return handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
+			r.tryCreateDBBackups(ctx, e.Object, creationFunc)
+			q.Add(reconcileRequestFromObject(e.Object))
+		},
+		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			q.Add(reconcileRequestFromObject(e.ObjectNew))
+		},
+		DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+			r.tryDeleteDBBackup(ctx, e.Object)
+			q.Add(reconcileRequestFromObject(e.Object))
+		},
+	}
+}
+
+func reconcileRequestFromObject(obj client.Object) ctrl.Request {
+	return ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
+		},
+	}
+}
+
+func (r *DatabaseClusterBackupReconciler) tryDeleteDBBackup(ctx context.Context, obj client.Object) {
+	logger := log.FromContext(ctx)
+	dbb := &everestv1alpha1.DatabaseClusterBackup{}
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	if err := r.Get(ctx, namespacedName, dbb); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+		logger.Error(err, "Failed to get the DatabaseClusterBackup", "name", obj.GetName())
+		return
+	}
+
+	if err := r.Delete(ctx, dbb); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+		logger.Error(err, "Failed to delete the DatabaseClusterBackup", "name", obj.GetName())
+	}
+}
+
 func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
 	ctx context.Context,
 	obj client.Object,
 	createBackupFunc func(ctx context.Context, obj client.Object) error,
-) []reconcile.Request {
+) {
 	logger := log.FromContext(ctx)
 	if len(obj.GetOwnerReferences()) == 0 {
 		err := createBackupFunc(ctx, obj)
@@ -264,15 +312,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreateDBBackups(
 			logger.Error(err, "Failed to create DatabaseClusterBackup "+obj.GetName())
 		}
 	}
-
-	// needed to reconcile the DatabaseClusterBackup
-	// which has the same name and namespace as the upstream backup
-	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		},
-	}}
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj client.Object) error {
@@ -330,13 +369,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
 		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
 	}
-	backup.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion:         pgAPIVersion,
-		Kind:               pgBackupKind,
-		Name:               pgBackup.Name,
-		UID:                pgBackup.UID,
-		BlockOwnerDeletion: pointer.ToBool(true),
-	}})
 
 	return r.Create(ctx, backup)
 }
@@ -379,13 +411,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
 		fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
 	}
-	backup.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion:         pxcAPIVersion,
-		Kind:               pxcBackupKind,
-		Name:               pxcBackup.Name,
-		UID:                pxcBackup.UID,
-		BlockOwnerDeletion: pointer.ToBool(true),
-	}})
 	return r.Create(ctx, backup)
 }
 
@@ -438,14 +463,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		databaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
 		fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
 	}
-	backup.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion:         psmdbAPIVersion,
-		Kind:               psmdbBackupKind,
-		Name:               psmdbBackup.Name,
-		UID:                psmdbBackup.UID,
-		BlockOwnerDeletion: pointer.ToBool(true),
-	}})
-
 	return r.Create(ctx, backup)
 }
 
