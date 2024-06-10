@@ -258,6 +258,9 @@ func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx con
 			q.Add(reconcileRequestFromObject(e.Object))
 		},
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+			// remove the r.tryCreateDBBackups call below once https://perconadev.atlassian.net/browse/K8SPSMDB-1088 is fixed.
+			r.tryCreateDBBackups(ctx, e.ObjectNew, creationFunc)
+
 			q.Add(reconcileRequestFromObject(e.ObjectNew))
 		},
 		DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
