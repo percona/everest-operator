@@ -736,6 +736,19 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		if controllerutil.RemoveFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
+
+		// For the scheduled backups, need to requeue reconciliation one more time
+		// because the circular OwnerReferences dependency between dbb and pg-backup
+		// along with the foreground deletion (which gets propagated to the owned resources)
+		// may make the deletion stuck. The backward OwnerReference "pg-backup owns dbb" can be
+		// safely deleted since the dbb already has the deletion timestamp.
+		// The problem doesn't show up for pxc and psmdb bc the additional reconciliation requeue happens
+		// when the storage cleanup finalizer is deleted from the upstream backup.
+		if len(backup.GetOwnerReferences()) > 0 {
+			// Custom resources may have only one OwnerReference, so cleaning up the list.
+			backup.SetOwnerReferences([]metav1.OwnerReference{})
+			return true, r.Update(ctx, backup)
+		}
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
