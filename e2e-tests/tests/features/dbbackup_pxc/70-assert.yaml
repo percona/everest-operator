@@ -9,10 +9,6 @@ metadata:
   labels:
     backupStorage-test-storage-scheduled: used
     clusterName: test-pxc-cluster
-  ownerReferences:
-    - apiVersion: pxc.percona.com/v1
-      kind: PerconaXtraDBClusterBackup
-      name: a-scheduled-backup
 spec:
   backupStorageName: test-storage-scheduled
   dbClusterName: test-pxc-cluster
