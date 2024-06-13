@@ -102,7 +102,7 @@ func (p *applier) Engine() error {
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
 		FindStringSubmatch(database.Spec.Engine.Version)
-	if len(pgMajorVersionMatch) < 2 {
+	if len(pgMajorVersionMatch) < 2 { //nolint:mnd
 		return fmt.Errorf("failed to extract the major version from %s", database.Spec.Engine.Version)
 	}
 	pgMajorVersion, err := strconv.Atoi(pgMajorVersionMatch[1])
