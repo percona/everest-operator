@@ -139,7 +139,6 @@ func main() {
 		Version: "v1",
 	})
 	for _, namespaceName := range dbNamespaces {
-		namespaceName := namespaceName
 		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
 		if err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
