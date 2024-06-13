@@ -1,6 +1,7 @@
 module github.com/percona/everest-operator
 
 go 1.22
+toolchain go1.22.3
 
 require (
 	github.com/AlekSi/pointer v1.2.0
@@ -20,10 +21,10 @@ require (
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.18.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
-	k8s.io/client-go v0.29.3
-	sigs.k8s.io/controller-runtime v0.17.2
+	k8s.io/api v0.30.1
+	k8s.io/apimachinery v0.30.1
+	k8s.io/client-go v0.30.1
+	sigs.k8s.io/controller-runtime v0.18.4
 )
 
 require (
@@ -52,7 +53,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch v5.7.0+incompatible // indirect
-	github.com/evanphx/json-patch/v5 v5.8.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/flosch/pongo2/v6 v6.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
@@ -123,10 +124,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.29.2 // indirect
-	k8s.io/component-base v0.29.2 // indirect
+	k8s.io/apiextensions-apiserver v0.30.1 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20240221221325-2ac9dc51f3f1 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/mcs-api v0.1.0 // indirect
