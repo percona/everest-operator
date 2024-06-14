@@ -92,7 +92,6 @@ func (m *MonitoringConfig) IsNamespaceAllowed(namespace string) bool {
 		return true
 	}
 	for _, ns := range m.Spec.AllowedNamespaces {
-		ns := ns
 		if ns == namespace {
 			return true
 		}

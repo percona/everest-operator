@@ -47,7 +47,6 @@ func TestDatabaseClusterReconciler_toCIDR(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -92,7 +91,6 @@ func TestDatabaseCluster_Size(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc := tc
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
 			if tc.engine.Size() != tc.expectedSize {

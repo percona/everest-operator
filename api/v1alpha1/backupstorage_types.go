@@ -119,7 +119,6 @@ func (b *BackupStorage) IsNamespaceAllowed(namespace string) bool {
 		return true
 	}
 	for _, ns := range b.Spec.AllowedNamespaces {
-		ns := ns
 		if ns == namespace {
 			return true
 		}

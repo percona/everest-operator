@@ -125,6 +125,9 @@ func (p *applier) Proxy() error {
 		psmdb.Spec.Replsets[0].Expose.Enabled = true
 		psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+			psmdb.Spec.Replsets[0].Expose.ServiceAnnotations = annotations
+		}
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
