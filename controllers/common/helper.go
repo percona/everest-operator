@@ -622,27 +622,6 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	return -1
 }
 
-// HandleDBBackupsCleanup handles the cleanup of the dbbackup objects.
-// Returns true if cleanup is complete.
-func HandleDBBackupsCleanup(
-	ctx context.Context,
-	c client.Client,
-	database *everestv1alpha1.DatabaseCluster,
-) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
-		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
-		if err != nil {
-			return false, err
-		}
-		if len(backupList.Items) != 0 {
-			return false, nil
-		}
-		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
-		return true, c.Update(ctx, database)
-	}
-	return true, nil
-}
-
 // HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
 // Returns true if cleanup is complete.
 func HandleUpstreamClusterCleanup(
@@ -652,7 +631,16 @@ func HandleUpstreamClusterCleanup(
 	upstream client.Object,
 ) (bool, error) {
 	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
-		err := c.Get(ctx, types.NamespacedName{
+		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
+		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+		if err != nil {
+			return false, err
+		}
+		if len(backupList.Items) != 0 {
+			return false, nil
+		}
+
+		err = c.Get(ctx, types.NamespacedName{
 			Name:      database.Name,
 			Namespace: database.Namespace,
 		}, upstream)

@@ -160,13 +160,6 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 	if err != nil {
 		return false, err
 	}
-	done, err := common.HandleDBBackupsCleanup(ctx, p.C, database)
-	if err != nil {
-		return false, err
-	}
-	if !done {
-		return true, nil
-	}
 	return common.HandleUpstreamClusterCleanup(ctx, p.C, database, &psmdbv1.PerconaServerMongoDB{})
 }
 

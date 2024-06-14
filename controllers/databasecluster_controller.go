@@ -70,7 +70,6 @@ const (
 )
 
 var everestFinalizers = []string{
-	common.DBBackupCleanupFinalizer,
 	common.UpstreamClusterCleanupFinalizer,
 	common.ForegroundDeletionFinalizer,
 }

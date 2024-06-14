@@ -119,22 +119,16 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
-	if len(backup.ObjectMeta.Labels) == 0 {
-		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: backup.Spec.DBClusterName,
-			fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
-		}
-		if err := r.Update(ctx, backup); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, cluster)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch DatabaseCluster")
 		}
+		return reconcile.Result{}, err
+	}
+
+	if err := r.reconcileMeta(ctx, backup, cluster); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -184,6 +178,32 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 
 	logger.Info("Reconciled", "request", req)
 	return ctrl.Result{Requeue: requeue}, nil
+}
+
+func (r *DatabaseClusterBackupReconciler) reconcileMeta(
+	ctx context.Context,
+	backup *everestv1alpha1.DatabaseClusterBackup,
+	cluster *everestv1alpha1.DatabaseCluster,
+) error {
+	var needUpdate bool
+	if len(backup.ObjectMeta.Labels) == 0 {
+		backup.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: backup.Spec.DBClusterName,
+			fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
+		}
+		needUpdate = true
+	}
+	if len(backup.ObjectMeta.OwnerReferences) == 0 {
+		if err := controllerutil.SetControllerReference(cluster, backup, r.Client.Scheme()); err != nil {
+			return err
+		}
+		needUpdate = true
+	}
+
+	if needUpdate {
+		return r.Update(ctx, backup)
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -373,19 +393,11 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
 		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
 	}
-	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
+	if err = controllerutil.SetControllerReference(cluster, backup, r.Scheme); err != nil {
+		return err
+	}
 
 	return r.Create(ctx, backup)
-}
-
-func dbOwnerRefMeta(db *everestv1alpha1.DatabaseCluster) []metav1.OwnerReference {
-	return []metav1.OwnerReference{{
-		APIVersion:         everestAPIVersion,
-		Kind:               databaseClusterKind,
-		Name:               db.Name,
-		UID:                db.UID,
-		BlockOwnerDeletion: pointer.ToBool(true),
-	}}
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error {
@@ -431,7 +443,9 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 	if err != nil {
 		return err
 	}
-	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
+	if err = controllerutil.SetControllerReference(cluster, backup, r.Scheme); err != nil {
+		return err
+	}
 
 	return r.Create(ctx, backup)
 }
@@ -490,7 +504,9 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 	if err != nil {
 		return err
 	}
-	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
+	if err = controllerutil.SetControllerReference(cluster, backup, r.Scheme); err != nil {
+		return err
+	}
 	return r.Create(ctx, backup)
 }
 
