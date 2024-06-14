@@ -23,6 +23,7 @@ import (
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -92,13 +93,15 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("setting controller references for the secret")
-	err = controllerutil.SetControllerReference(mc, credentialsSecret, r.Client.Scheme())
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if err = r.Update(ctx, credentialsSecret); err != nil {
-		return ctrl.Result{}, err
+	if metav1.GetControllerOf(credentialsSecret) == nil {
+		logger.Info("setting controller references for the secret")
+		err = controllerutil.SetControllerReference(mc, credentialsSecret, r.Client.Scheme())
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if err = r.Update(ctx, credentialsSecret); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	logger.Info("reconciling VMAgent")
