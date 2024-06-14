@@ -720,8 +720,11 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	if err == nil {
 		var items []client.Object
 		for _, i := range bsList.Items {
-			i := i
-			items = append(items, &i)
+			// With the move to go 1.22 it's safe to reuse the same variable,
+			// see https://go.dev/blog/loopvar-preview. However, gosec and
+			// exportloopref linters don't like it. Let's disable them for this
+			// line until they are updated to support go 1.22.
+			items = append(items, &i) //nolint:gosec,exportloopref
 		}
 		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, backupStorageNameField)...)
 	}
@@ -735,8 +738,11 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	if err == nil {
 		var items []client.Object
 		for _, i := range mcList.Items {
-			i := i
-			items = append(items, &i)
+			// With the move to go 1.22 it's safe to reuse the same variable,
+			// see https://go.dev/blog/loopvar-preview. However, gosec and
+			// exportloopref linters don't like it. Let's disable them for this
+			// line until they are updated to support go 1.22.
+			items = append(items, &i) //nolint:gosec,exportloopref
 		}
 		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, monitoringConfigNameField)...)
 	}

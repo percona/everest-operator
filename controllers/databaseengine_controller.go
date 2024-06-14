@@ -307,7 +307,6 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 	upgradeStatus := dbEngine.Status.OperatorUpgrade
 	result := []everestv1alpha1.OperatorUpgrade{}
 	for _, ip := range installPlans.Items {
-		ip := ip
 		for _, csvName := range ip.Spec.ClusterServiceVersionNames {
 			operatorName, version := parseOperatorCSVName(csvName)
 			// Not our operator, skip.
@@ -323,7 +322,11 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 				continue
 			}
 			// Skip if not owned by current Subscription.
-			if !common.IsOwnedBy(&ip, subscription) {
+			// With the move to go 1.22 it's safe to reuse the same variable,
+			// see https://go.dev/blog/loopvar-preview. However, gosec linter
+			// doesn't like it. Let's disable it for this line until they are
+			// updated to support go 1.22.
+			if !common.IsOwnedBy(&ip, subscription) { //nolint:gosec
 				continue
 			}
 			// Check if the version is greater than the current version.
@@ -361,7 +364,6 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	clientReader := mgr.GetAPIReader()
 	r.versionService = version.NewVersionService()
 	for _, namespaceName := range namespaces {
-		namespaceName := namespaceName
 		for operatorName, engineType := range operatorEngine {
 			dbEngine := &everestv1alpha1.DatabaseEngine{
 				ObjectMeta: metav1.ObjectMeta{
