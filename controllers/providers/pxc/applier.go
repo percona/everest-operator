@@ -465,7 +465,8 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 
 	// Initialize PXCScheduledBackup object
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
-		Image: backupVersion.ImagePath,
+		AllowParallel: pointer.ToBool(false),
+		Image:         backupVersion.ImagePath,
 		PITR: pxcv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
