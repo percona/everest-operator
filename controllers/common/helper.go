@@ -630,9 +630,11 @@ func HandleDBBackupsCleanup(
 	database *everestv1alpha1.DatabaseCluster,
 ) (bool, error) {
 	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
-		if done, err := deleteBackupsForDatabase(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
+		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+		if err != nil {
 			return false, err
-		} else if !done {
+		}
+		if len(backupList.Items) != 0 {
 			return false, nil
 		}
 		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
@@ -641,31 +643,37 @@ func HandleDBBackupsCleanup(
 	return true, nil
 }
 
-// Delete all dbbackups for the given database.
-// Returns true if no dbbackups are found.
-func deleteBackupsForDatabase(
+// HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
+// Returns true if cleanup is complete.
+func HandleUpstreamClusterCleanup(
 	ctx context.Context,
 	c client.Client,
-	dbName, dbNs string,
+	database *everestv1alpha1.DatabaseCluster,
+	upstream client.Object,
 ) (bool, error) {
-	backupList, err := ListDatabaseClusterBackups(ctx, c, dbName, dbNs)
-	if err != nil {
-		return false, err
-	}
-	if len(backupList.Items) == 0 {
-		return true, nil
-	}
-	for _, backup := range backupList.Items {
-		backup := backup
-		if !backup.GetDeletionTimestamp().IsZero() {
-			// Already deleting, continue to next.
-			continue
-		}
-		if err := c.Delete(ctx, &backup); err != nil {
+	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) {
+		err := c.Get(ctx, types.NamespacedName{
+			Name:      database.Name,
+			Namespace: database.Namespace,
+		}, upstream)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
 			return false, err
 		}
+
+		err = c.Delete(ctx, upstream)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+		return true, c.Update(ctx, database)
 	}
-	return false, nil
+	return true, nil
 }
 
 // IsOwnedBy checks if the child object is owned by the parent object.

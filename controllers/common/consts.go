@@ -62,6 +62,9 @@ const (
 	// DBBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
 	DBBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
 
+	// UpstreamClusterCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
+	UpstreamClusterCleanupFinalizer = "everest.percona.com/upstream-cluster-cleanup"
+
 	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 )

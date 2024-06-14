@@ -8,6 +8,7 @@ metadata:
   name: mongo-mc
   finalizers:
   - everest.percona.com/dbb-cleanup
+  - everest.percona.com/upstream-cluster-cleanup
   - foregroundDeletion
 spec:
   monitoring:

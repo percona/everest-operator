@@ -71,6 +71,7 @@ const (
 
 var everestFinalizers = []string{
 	common.DBBackupCleanupFinalizer,
+	common.UpstreamClusterCleanupFinalizer,
 	common.ForegroundDeletionFinalizer,
 }
 
@@ -162,9 +163,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 			return err
 		}
 		if err := applier.DataSource(); err != nil {
-			return err
-		}
-		if err := controllerutil.SetControllerReference(db, p.DBObject(), r.Client.Scheme()); err != nil {
 			return err
 		}
 		return nil
@@ -652,6 +650,49 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 				{
 					NamespacedName: types.NamespacedName{
 						Name:      dbClusterRestore.Spec.DBClusterName,
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	controller.Watches(
+		&psmdbv1.PerconaServerMongoDB{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.GetName(),
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+	controller.Watches(
+		&pgv2.PerconaPGCluster{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.GetName(),
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+	controller.Watches(
+		&pxcv1.PerconaXtraDBCluster{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.GetName(),
 						Namespace: obj.GetNamespace(),
 					},
 				},

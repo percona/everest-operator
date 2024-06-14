@@ -153,7 +153,40 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleDBBackupsCleanup(ctx, p.C, database)
+	// as a first step of the psmdb cleanup we need to ensure that psmdb pitr is disabled, otherwise the
+	// "failed to delete backup: unable to delete the last backup while PITR is on"
+	// appears when trying to delete the last backup.
+	err := ensurePSMDBPitrDisabled(ctx, p.C, database)
+	if err != nil {
+		return false, err
+	}
+	done, err := common.HandleDBBackupsCleanup(ctx, p.C, database)
+	if err != nil {
+		return false, err
+	}
+	if !done {
+		return true, nil
+	}
+	return common.HandleUpstreamClusterCleanup(ctx, p.C, database, &psmdbv1.PerconaServerMongoDB{})
+}
+
+func ensurePSMDBPitrDisabled(ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) error {
+	psmdb := &psmdbv1.PerconaServerMongoDB{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      database.Name,
+		Namespace: database.Namespace,
+	}, psmdb)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	if !psmdb.Spec.Backup.PITR.Enabled {
+		return nil
+	}
+	psmdb.Spec.Backup.PITR.Enabled = false
+	return client.IgnoreNotFound(c.Update(ctx, psmdb))
 }
 
 // DBObject returns the PerconaServerMongoDB object.

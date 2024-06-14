@@ -55,6 +55,7 @@ import (
 )
 
 const (
+	databaseClusterKind       = "DatabaseCluster"
 	databaseClusterBackupKind = "DatabaseClusterBackup"
 	everestAPIVersion         = "everest.percona.com/v1alpha1"
 
@@ -372,8 +373,19 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
 		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
 	}
+	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
 
 	return r.Create(ctx, backup)
+}
+
+func dbOwnerRefMeta(db *everestv1alpha1.DatabaseCluster) []metav1.OwnerReference {
+	return []metav1.OwnerReference{{
+		APIVersion:         everestAPIVersion,
+		Kind:               databaseClusterKind,
+		Name:               db.Name,
+		UID:                db.UID,
+		BlockOwnerDeletion: pointer.ToBool(true),
+	}}
 }
 
 func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj client.Object) error {
@@ -414,6 +426,13 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 		databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
 		fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
 	}
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
+
 	return r.Create(ctx, backup)
 }
 
@@ -466,6 +485,12 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		databaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
 		fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
 	}
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.ClusterName, Namespace: psmdbBackup.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	backup.SetOwnerReferences(dbOwnerRefMeta(cluster))
 	return r.Create(ctx, backup)
 }
 
