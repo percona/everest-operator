@@ -651,7 +651,7 @@ func HandleUpstreamClusterCleanup(
 	database *everestv1alpha1.DatabaseCluster,
 	upstream client.Object,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) {
+	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
 		err := c.Get(ctx, types.NamespacedName{
 			Name:      database.Name,
 			Namespace: database.Namespace,

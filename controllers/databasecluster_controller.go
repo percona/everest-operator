@@ -660,7 +660,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 	controller.Watches(
 		&psmdbv1.PerconaServerMongoDB{},
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
@@ -674,7 +674,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	)
 	controller.Watches(
 		&pgv2.PerconaPGCluster{},
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
@@ -688,7 +688,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	)
 	controller.Watches(
 		&pxcv1.PerconaXtraDBCluster{},
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
