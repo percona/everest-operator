@@ -660,11 +660,7 @@ func deleteBackupsForDatabase(
 			// Already deleting, continue to next.
 			continue
 		}
-		// With the move to go 1.22 it's safe to reuse the same variable, see
-		// https://go.dev/blog/loopvar-preview. However, gosec linter doesn't
-		// like it. Let's disable it for this line until they are updated to
-		// support go 1.22.
-		if err := c.Delete(ctx, &backup); err != nil { //nolint:gosec
+		if err := c.Delete(ctx, &backup); err != nil {
 			return false, err
 		}
 	}

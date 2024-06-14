@@ -47,6 +47,10 @@ import (
 	"github.com/percona/everest-operator/controllers/version"
 )
 
+const (
+	requeueAfter = 10 * time.Second
+)
+
 var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
@@ -111,7 +115,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logger.Error(err, "Upgrade failed, cannot find InstallPlan")
 	} else if !done {
 		// Upgrade is not complete, we will update the status and requeue.
-		return ctrl.Result{RequeueAfter: 10 * time.Second},
+		return ctrl.Result{RequeueAfter: requeueAfter},
 			r.Status().Update(ctx, dbEngine)
 	}
 
@@ -129,7 +133,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Not ready yet, update status and check again later.
 	if !ready {
-		return ctrl.Result{RequeueAfter: 10 * time.Second},
+		return ctrl.Result{RequeueAfter: requeueAfter},
 			r.Status().Update(ctx, dbEngine)
 	}
 
@@ -322,11 +326,7 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 				continue
 			}
 			// Skip if not owned by current Subscription.
-			// With the move to go 1.22 it's safe to reuse the same variable,
-			// see https://go.dev/blog/loopvar-preview. However, gosec linter
-			// doesn't like it. Let's disable it for this line until they are
-			// updated to support go 1.22.
-			if !common.IsOwnedBy(&ip, subscription) { //nolint:gosec
+			if !common.IsOwnedBy(&ip, subscription) {
 				continue
 			}
 			// Check if the version is greater than the current version.

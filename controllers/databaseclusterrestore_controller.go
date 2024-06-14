@@ -48,7 +48,7 @@ const (
 	psmdbRestoreCRDName = "perconaservermongodbrestores.psmdb.percona.com"
 	pxcRestoreCRDName   = "perconaxtradbclusterrestores.pxc.percona.com"
 	pgRestoreCRDName    = "perconapgrestores.pgv2.percona.com"
-	clusterReadyTimeout = 10 * time.Minute
+	clusterReadyTimeout = 15 * time.Minute
 
 	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
 	pgBackupTypeDate                   = "time"
@@ -198,7 +198,7 @@ func (r *DatabaseClusterRestoreReconciler) ensureOwnerReference(
 }
 
 func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	timeoutCtx, cancel := context.WithTimeout(ctx, clusterReadyTimeout)
 	defer cancel()
 	for {
 		select {
