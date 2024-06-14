@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
@@ -493,7 +494,8 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		interval := database.Spec.Backup.PITR.UploadIntervalSec
 		if interval != nil {
 			// the integer amount of minutes. default 10
-			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(strconv.Itoa(*interval / 60))
+			intervalMinutes := *interval / int(time.Minute.Seconds())
+			psmdbBackupSpec.PITR.OplogSpanMin = numstr.NumberString(strconv.Itoa(intervalMinutes))
 		}
 	}
 

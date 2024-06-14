@@ -35,6 +35,10 @@ import (
 	"github.com/percona/everest-operator/controllers/common"
 )
 
+const (
+	haProxyProbesTimeout = 30
+)
+
 type applier struct {
 	*Provider
 	ctx context.Context //nolint:containedctx
@@ -220,8 +224,8 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
 				},
-				ReadinessProbes: corev1.Probe{TimeoutSeconds: 30},
-				LivenessProbes:  corev1.Probe{TimeoutSeconds: 30},
+				ReadinessProbes: corev1.Probe{TimeoutSeconds: haProxyProbesTimeout},
+				LivenessProbes:  corev1.Probe{TimeoutSeconds: haProxyProbesTimeout},
 			},
 		},
 		ProxySQL: &pxcv1.ProxySQLSpec{
