@@ -80,7 +80,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	systemNamespace, found := os.LookupEnv(systemNamespaceEnvVar)
 	if !found || systemNamespace == "" {
-		setupLog.Error(errors.New("failed to get the system namespace"), systemNamespaceEnvVar+" must be set") //nolint:goconst
+		setupLog.Error(errors.New("failed to get the system namespace"), systemNamespaceEnvVar+" must be set")
 
 		os.Exit(1)
 	}

@@ -78,11 +78,13 @@ const (
       mode http
       http-request use-service prometheus-exporter if { path /metrics }
 `
+
+	haConnectionTimeout = 5000
 )
 
 // A haProxyEnvVars contains the environment variables to be set in the HAProxy container.
 var haProxyEnvVars = map[string][]byte{
-	"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(5000)),
+	"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(haConnectionTimeout)),
 }
 
 var ( //nolint:dupl
