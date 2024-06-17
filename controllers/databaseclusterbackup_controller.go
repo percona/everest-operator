@@ -193,7 +193,7 @@ func (r *DatabaseClusterBackupReconciler) reconcileMeta(
 		}
 		needUpdate = true
 	}
-	if len(backup.ObjectMeta.OwnerReferences) == 0 {
+	if metav1.GetControllerOf(backup) == nil {
 		if err := controllerutil.SetControllerReference(cluster, backup, r.Client.Scheme()); err != nil {
 			return err
 		}
