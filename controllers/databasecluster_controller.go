@@ -672,7 +672,6 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		&handler.EnqueueRequestForObject{},
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
-
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
