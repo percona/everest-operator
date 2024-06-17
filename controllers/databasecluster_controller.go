@@ -659,46 +659,20 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 	controller.Watches(
 		&psmdbv1.PerconaServerMongoDB{},
-		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.GetName(),
-						Namespace: obj.GetNamespace(),
-					},
-				},
-			}
-		}),
+		&handler.EnqueueRequestForObject{},
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 	controller.Watches(
 		&pgv2.PerconaPGCluster{},
-		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.GetName(),
-						Namespace: obj.GetNamespace(),
-					},
-				},
-			}
-		}),
+		&handler.EnqueueRequestForObject{},
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 	controller.Watches(
 		&pxcv1.PerconaXtraDBCluster{},
-		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.GetName(),
-						Namespace: obj.GetNamespace(),
-					},
-				},
-			}
-		}),
+		&handler.EnqueueRequestForObject{},
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
