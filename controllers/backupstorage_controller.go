@@ -108,8 +108,8 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	// Set controllerRef on the defaultSecret.
-	if !metav1.IsControlledBy(defaultSecret, bs) {
+	// If the default secret is not owned/controlled by anyone, we will adopt it.
+	if controller := metav1.GetControllerOf(defaultSecret); controller == nil {
 		logger.Info("setting controller reference for the secret")
 		if err := controllerutil.SetControllerReference(bs, defaultSecret, r.Scheme); err != nil {
 			return ctrl.Result{}, err
