@@ -315,7 +315,7 @@ func ReconcileDBRestoreFromDataSource(
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
-	if dbr.IsComplete(database.Spec.Engine.Type) {
+	if dbr.IsComplete() {
 		database.Spec.DataSource = nil
 		return nil
 	}
@@ -585,7 +585,6 @@ func GetDBMonitoringConfig(
 func IsDatabaseClusterRestoreRunning(
 	ctx context.Context,
 	c client.Client,
-	engineType everestv1alpha1.EngineType,
 	dbName, dbNs string,
 ) (bool, error) {
 	// List restores for this database.
@@ -595,7 +594,7 @@ func IsDatabaseClusterRestoreRunning(
 	}
 	// Check if any are not yet complete?
 	for _, restore := range restoreList.Items {
-		if !restore.IsComplete(engineType) {
+		if !restore.IsComplete() {
 			return true, nil
 		}
 	}

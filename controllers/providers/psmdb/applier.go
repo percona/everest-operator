@@ -219,7 +219,7 @@ func (p *applier) addBackupStoragesByRestores(
 	// Add used restore backup storages to the list
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.IsComplete(database.Spec.Engine.Type) {
+		if restore.IsComplete() {
 			continue
 		}
 		// Restores using the BackupSource field instead of the
