@@ -736,7 +736,7 @@ func (p *applier) addBackupStoragesByRestores(
 	c := p.C
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
-		if restore.IsComplete(database.Spec.Engine.Type) {
+		if restore.IsComplete() {
 			continue
 		}
 

@@ -209,7 +209,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.CRVersion = pxc.Spec.CRVersion
 
 	// If a restore is running for this database, set the database status to restoring.
-	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.Spec.Engine.Type, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
