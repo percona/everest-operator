@@ -1,6 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
+commands:
+  - command: kubectl patch psmdb-backup test-db-backup -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
 delete:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseClusterBackup
