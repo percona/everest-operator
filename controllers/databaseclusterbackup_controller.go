@@ -129,7 +129,8 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// DBBackups are always deleted in foreground.
-	if controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer) {
+	if backup.GetDeletionTimestamp().IsZero() &&
+		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer) {
 		if err := r.Update(ctx, backup); err != nil {
 			return reconcile.Result{}, err
 		}
