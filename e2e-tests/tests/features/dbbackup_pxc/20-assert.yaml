@@ -18,6 +18,7 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup-azure
   finalizers:
+  - everest.percona.com/dbb-storage-protection
   - foregroundDeletion
 spec:
   backupStorageName: test-storage-azure

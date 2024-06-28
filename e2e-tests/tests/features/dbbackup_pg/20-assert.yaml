@@ -6,7 +6,7 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
-  finalizer:
+  finalizers:
   - foregroundDeletion
 spec:
   backupStorageName: test-storage
@@ -16,7 +16,7 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup-azure
-  finalizer:
+  finalizers:
   - foregroundDeletion
 spec:
   backupStorageName: test-storage-azure
