@@ -70,7 +70,7 @@ const (
 )
 
 var everestFinalizers = []string{
-	common.DBBackupCleanupFinalizer,
+	common.UpstreamClusterCleanupFinalizer,
 	common.ForegroundDeletionFinalizer,
 }
 
@@ -162,9 +162,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 			return err
 		}
 		if err := applier.DataSource(); err != nil {
-			return err
-		}
-		if err := controllerutil.SetControllerReference(db, p.DBObject(), r.Client.Scheme()); err != nil {
 			return err
 		}
 		return nil
@@ -657,6 +654,22 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 				},
 			}
 		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	controller.Watches(
+		&psmdbv1.PerconaServerMongoDB{},
+		&handler.EnqueueRequestForObject{},
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+	controller.Watches(
+		&pgv2.PerconaPGCluster{},
+		&handler.EnqueueRequestForObject{},
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+	controller.Watches(
+		&pxcv1.PerconaXtraDBCluster{},
+		&handler.EnqueueRequestForObject{},
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 }

@@ -2,6 +2,8 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
   - command: kubectl -n $NAMESPACE delete db test-pg-cluster
+  - command: kubectl patch db test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
   - command: kubectl patch postgresclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
   - command: kubectl delete monitoringconfig test-mc -n $NAMESPACE

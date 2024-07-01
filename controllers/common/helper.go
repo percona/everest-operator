@@ -621,49 +621,47 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	return -1
 }
 
-// HandleDBBackupsCleanup handles the cleanup of the dbbackup objects.
+// HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
 // Returns true if cleanup is complete.
-func HandleDBBackupsCleanup(
+func HandleUpstreamClusterCleanup(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
+	upstream client.Object,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
-		if done, err := deleteBackupsForDatabase(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
+	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
+		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
+		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+		if err != nil {
 			return false, err
-		} else if !done {
+		}
+		if len(backupList.Items) != 0 {
 			return false, nil
 		}
-		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
+
+		err = c.Get(ctx, types.NamespacedName{
+			Name:      database.Name,
+			Namespace: database.Namespace,
+		}, upstream)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+				return true, c.Update(ctx, database)
+			}
+			return false, err
+		}
+
+		err = c.Delete(ctx, upstream)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
 		return true, c.Update(ctx, database)
 	}
 	return true, nil
-}
-
-// Delete all dbbackups for the given database.
-// Returns true if no dbbackups are found.
-func deleteBackupsForDatabase(
-	ctx context.Context,
-	c client.Client,
-	dbName, dbNs string,
-) (bool, error) {
-	backupList, err := ListDatabaseClusterBackups(ctx, c, dbName, dbNs)
-	if err != nil {
-		return false, err
-	}
-	if len(backupList.Items) == 0 {
-		return true, nil
-	}
-	for _, backup := range backupList.Items {
-		if !backup.GetDeletionTimestamp().IsZero() {
-			// Already deleting, continue to next.
-			continue
-		}
-		if err := c.Delete(ctx, &backup); err != nil {
-			return false, err
-		}
-	}
-	return false, nil
 }
 
 // IsOwnedBy checks if the child object is owned by the parent object.
