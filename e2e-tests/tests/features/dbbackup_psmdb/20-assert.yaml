@@ -8,6 +8,7 @@ metadata:
   name: test-db-backup
   finalizers:
   - everest.percona.com/dbb-storage-protection
+  - foregroundDeletion
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
