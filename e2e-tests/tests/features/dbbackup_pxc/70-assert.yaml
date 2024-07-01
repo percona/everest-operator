@@ -9,6 +9,8 @@ metadata:
   labels:
     backupStorage-test-storage-scheduled: used
     clusterName: test-pxc-cluster
+  finalizers:
+  - foregroundDeletion
 spec:
   backupStorageName: test-storage-scheduled
   dbClusterName: test-pxc-cluster

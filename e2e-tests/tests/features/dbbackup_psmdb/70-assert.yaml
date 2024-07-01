@@ -12,6 +12,8 @@ metadata:
   labels:
     backupStorage-test-storage: used
     clusterName: test-psmdb-cluster
+  finalizers:
+  - foregroundDeletion
 spec:
   backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster

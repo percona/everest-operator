@@ -119,6 +119,15 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, err
 	}
 
+	// DBBackups are always deleted in foreground.
+	if backup.GetDeletionTimestamp().IsZero() &&
+		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer) {
+		if err := r.Update(ctx, backup); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil // Requeue so that we get an updated copy.
+	}
+
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, cluster)
 	if err != nil {

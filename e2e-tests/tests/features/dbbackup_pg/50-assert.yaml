@@ -6,6 +6,8 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
+  finalizers:
+  - foregroundDeletion
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pg-cluster
