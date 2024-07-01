@@ -646,7 +646,8 @@ func HandleUpstreamClusterCleanup(
 		}, upstream)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return true, nil
+				controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+				return true, c.Update(ctx, database)
 			}
 			return false, err
 		}
