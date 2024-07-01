@@ -581,7 +581,11 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 
 	// Handle cleanup.
 	if !backup.GetDeletionTimestamp().IsZero() {
-		return true, r.handleStorageProtectionFinalizer(ctx, backup, pxcCR, deletePXCBackupFinalizer)
+		if err := r.handleStorageProtectionFinalizer(ctx, backup, pxcCR, deletePXCBackupFinalizer); err != nil {
+			return false, err
+		}
+		backup.Status.State = everestv1alpha1.BackupDeleting
+		return true, r.Status().Update(ctx, backup)
 	}
 
 	// If the backup storage is not defined in the PerconaXtraDBCluster CR, we
@@ -657,7 +661,11 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 
 	// Handle cleanup.
 	if !backup.GetDeletionTimestamp().IsZero() {
-		return true, r.handleStorageProtectionFinalizer(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer)
+		if err := r.handleStorageProtectionFinalizer(ctx, backup, psmdbCR, deletePSMDBBackupFinalizer); err != nil {
+			return false, err
+		}
+		backup.Status.State = everestv1alpha1.BackupDeleting
+		return true, r.Status().Update(ctx, backup)
 	}
 
 	// If the backup storage is not defined in the PerconaServerMongoDB CR, we
@@ -797,6 +805,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		if controllerutil.RemoveFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
+		backup.Status.State = everestv1alpha1.BackupDeleting
+		return true, r.Status().Update(ctx, backup)
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}

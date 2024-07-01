@@ -285,6 +285,7 @@ func (p *applier) applyHAProxyCfg() error {
 			Annotations:              annotations,
 		}
 		haProxy.ExposePrimary = expose
+		haProxy.ExposeReplicas = &expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
@@ -465,7 +466,8 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 
 	// Initialize PXCScheduledBackup object
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
-		Image: backupVersion.ImagePath,
+		AllowParallel: pointer.ToBool(false),
+		Image:         backupVersion.ImagePath,
 		PITR: pxcv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},

@@ -38,6 +38,7 @@ const (
 	BackupRunning   BackupState = "Running"   //nolint:revive
 	BackupFailed    BackupState = "Failed"    //nolint:revive
 	BackupSucceeded BackupState = "Succeeded" //nolint:revive
+	BackupDeleting  BackupState = "Deleting"  //nolint:revive
 )
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
