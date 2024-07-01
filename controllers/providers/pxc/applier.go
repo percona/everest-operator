@@ -285,6 +285,7 @@ func (p *applier) applyHAProxyCfg() error {
 			Annotations:              annotations,
 		}
 		haProxy.ExposePrimary = expose
+		haProxy.ExposeReplicas = &expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
