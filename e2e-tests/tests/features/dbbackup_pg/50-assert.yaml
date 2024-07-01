@@ -7,7 +7,7 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup
   finalizers:
-  - foregrounddeletion
+  - foregroundDeletion
 spec:
   backupStorageName: test-storage
   dbClusterName: test-pg-cluster
