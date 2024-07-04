@@ -15,6 +15,8 @@
 
 package common
 
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
 const (
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
@@ -72,3 +74,13 @@ var ExposeAnnotationsMap = map[ClusterType]map[string]string{
 		"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
 	},
 }
+
+//noling:gochecknoglobals
+var (
+	// PXCGVK is the GroupVersionKind for Percona XtraDB Cluster.
+	PXCGVK = schema.GroupVersionKind{Group: PXCAPIGroup, Version: "v1", Kind: PerconaXtraDBClusterKind}
+	// PSMDBGVK is the GroupVersionKind for Percona Server for MongoDB.
+	PSMDBGVK = schema.GroupVersionKind{Group: PSMDBAPIGroup, Version: "v1", Kind: PerconaServerMongoDBKind}
+	// PGGVK is the GroupVersionKind for Percona PostgreSQL.
+	PGGVK = schema.GroupVersionKind{Group: PGAPIGroup, Version: "v2", Kind: PerconaPGClusterKind}
+)
