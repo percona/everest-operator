@@ -657,21 +657,27 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 
-	controller.Watches(
-		&psmdbv1.PerconaServerMongoDB{},
-		&handler.EnqueueRequestForObject{},
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-	)
-	controller.Watches(
-		&pgv2.PerconaPGCluster{},
-		&handler.EnqueueRequestForObject{},
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-	)
-	controller.Watches(
-		&pxcv1.PerconaXtraDBCluster{},
-		&handler.EnqueueRequestForObject{},
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-	)
+	if r.Scheme.Recognizes(common.PSMDBGVK) {
+		controller.Watches(
+			&psmdbv1.PerconaServerMongoDB{},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+	if r.Scheme.Recognizes(common.PGGVK) {
+		controller.Watches(
+			&pgv2.PerconaPGCluster{},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
+	if r.Scheme.Recognizes(common.PXCGVK) {
+		controller.Watches(
+			&pxcv1.PerconaXtraDBCluster{},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
