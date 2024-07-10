@@ -699,7 +699,8 @@ func GetRecommendedCRVersion(
 
 // ConvertToBinarySI converts a given quantity from decimal (base10) to binary (base2) SI.
 // Example: 1G -> 1Gi, 2T -> 2Ti, etc.
-func ConvertToBinarySI(q resource.Quantity) resource.Quantity {
+// Returns true if the quantity was changed.
+func ConvertToBinarySI(q resource.Quantity) (resource.Quantity, bool) {
 	// Check if the format is a power of 10 unit (DecimalSI)
 	if q.Format == resource.DecimalSI {
 		value := q.Value() // byte value of the quantity.
@@ -709,7 +710,7 @@ func ConvertToBinarySI(q resource.Quantity) resource.Quantity {
 		scaled := value / int64(math.Pow(1000, float64(c)))
 		// Multiply value by 1024 `c` times.
 		scaled = scaled * int64(math.Pow(1024, float64(c)))
-		return *resource.NewQuantity(scaled, resource.BinarySI)
+		return *resource.NewQuantity(scaled, resource.BinarySI), true
 	}
-	return q
+	return q, false
 }

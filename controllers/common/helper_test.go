@@ -189,7 +189,7 @@ func TestConvertToBinarySI(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
-			result := ConvertToBinarySI(tc.in)
+			result, _ := ConvertToBinarySI(tc.in)
 			assert.Equal(t, tc.out.String(), result.String())
 		})
 	}
