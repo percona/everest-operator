@@ -17,12 +17,14 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -153,4 +155,42 @@ func TestMergeMapError(t *testing.T) {
 	}
 	err := mergeMap(testDst, src)
 	require.Error(t, err)
+}
+
+func TestConvertToBinarySI(t *testing.T) {
+	testCases := []struct {
+		in  resource.Quantity
+		out resource.Quantity
+	}{
+		{
+			in:  resource.MustParse("1G"),
+			out: resource.MustParse("1Gi"),
+		},
+		{
+			in:  resource.MustParse("43G"),
+			out: resource.MustParse("43Gi"),
+		},
+		{
+			in:  resource.MustParse("17M"),
+			out: resource.MustParse("17Mi"),
+		},
+		{
+			in:  resource.MustParse("127T"),
+			out: resource.MustParse("127Ti"),
+		},
+		{
+			in:  resource.MustParse("1Gi"),
+			out: resource.MustParse("1Gi"),
+		},
+		{
+			in:  resource.MustParse("9Mi"),
+			out: resource.MustParse("9Mi"),
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
+			result := ConvertToBinarySI(tc.in)
+			assert.Equal(t, tc.out.String(), result.String())
+		})
+	}
 }

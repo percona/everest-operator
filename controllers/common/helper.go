@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -693,4 +695,21 @@ func GetRecommendedCRVersion(
 		return pointer.To(v.ToCRVersion()), nil
 	}
 	return nil, nil //nolint:nilnil
+}
+
+// ConvertToBinarySI converts a given quantity from decimal (base10) to binary (base2) SI.
+// Example: 1G -> 1Gi, 2T -> 2Ti, etc.
+func ConvertToBinarySI(q resource.Quantity) resource.Quantity {
+	// Check if the format is a power of 10 unit (DecimalSI)
+	if q.Format == resource.DecimalSI {
+		value := q.Value() // byte value of the quantity.
+		// c is the count of how many times `value` can be divided by 1000.
+		c := int(math.Log(float64(value)) / math.Log(1000))
+		// Divide value by 1000 `c` times.
+		scaled := value / int64(math.Pow(1000, float64(c)))
+		// Multiply value by 1024 `c` times.
+		scaled = scaled * int64(math.Pow(1024, float64(c)))
+		return *resource.NewQuantity(scaled, resource.BinarySI)
+	}
+	return q
 }
