@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/AlekSi/pointer"
+	goversion "github.com/hashicorp/go-version"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -103,7 +104,34 @@ func New(
 		return nil, err
 	}
 	p.clusterType = ct
+	if err := p.ensureStorageInGi(ctx); err != nil {
+		return nil, err
+	}
 	return p, nil
+}
+
+// ensures that storage is in the binary (power of 2, example, Gi) SI format.
+// We need to do this because PSMDBO 1.16 has the volume resizer feature that requires
+// storage to be in the binary format, otherwise the cluster does not come up correctly.
+func (p *Provider) ensureStorageInGi(ctx context.Context) error {
+	db := p.DB
+	if db.Status.CRVersion == "" {
+		return nil
+	}
+	// If CRVersion is less than 1.15.0, we don't need to do anything.
+	crVersion := goversion.Must(goversion.NewVersion(db.Status.CRVersion))
+	if crVersion.LessThanOrEqual(
+		goversion.Must(goversion.NewVersion("1.15.0")),
+	) {
+		return nil
+	}
+	size := db.Spec.Engine.Storage.Size
+	if size.Format == resource.BinarySI {
+		return nil
+	}
+	converted, _ := common.ConvertToBinarySI(size)
+	db.Spec.Engine.Storage.Size = converted
+	return p.C.Update(ctx, db)
 }
 
 // Apply returns the applier for Percona Server for MongoDB.
