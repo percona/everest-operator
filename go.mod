@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-version v1.7.0
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
-	github.com/operator-framework/api v0.23.0
+	github.com/operator-framework/api v0.26.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20231220140959-ad5eef722609
 	github.com/percona/percona-server-mongodb-operator v1.15.0
 	github.com/percona/percona-xtradb-cluster-operator v1.14.0
