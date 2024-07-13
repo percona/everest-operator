@@ -18,7 +18,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -38,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -77,7 +75,6 @@ type DatabaseEngineReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
 	engineType, ok := operatorEngine[req.NamespacedName.Name]
 	if !ok {
 		// Unknown operator, nothing to do here
@@ -103,22 +100,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	dbEngine.Status.PendingOperatorUpgrades = pendingUpgrades
 
-	requeue := false
-	if done, err := r.handleOperatorUpgrade(ctx, dbEngine); err != nil {
-		if !errors.Is(err, errInstallPlanNotFound) {
-			return ctrl.Result{}, err
-		}
-		// We could not find the InstallPlan for the operator upgrade,
-		// so we will fallthrough since we'd still want the engine status to be updated.
-		// We will still requeue to check for the InstallPlan later.
-		requeue = true
-		logger.Error(err, "Upgrade failed, cannot find InstallPlan")
-	} else if !done {
-		// Upgrade is not complete, we will update the status and requeue.
-		return ctrl.Result{RequeueAfter: requeueAfter},
-			r.Status().Update(ctx, dbEngine)
-	}
-
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
 	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
@@ -133,8 +114,17 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Not ready yet, update status and check again later.
 	if !ready {
+		if upgrading, err := r.isOperatorUpgrading(ctx, dbEngine); err != nil {
+			return ctrl.Result{}, err
+		} else if upgrading {
+			dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
+		}
 		return ctrl.Result{RequeueAfter: requeueAfter},
 			r.Status().Update(ctx, dbEngine)
+	}
+
+	if err := r.tryUnlockDBEngine(ctx, dbEngine); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
@@ -181,102 +171,61 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{
-		Requeue: requeue,
-	}, nil
+	return ctrl.Result{}, nil
 }
 
-// handleOperatorUpgrade handles operator upgrades for the database engine.
-// Returns true if the upgrade is complete.
-func (r *DatabaseEngineReconciler) handleOperatorUpgrade(
+func (r *DatabaseEngineReconciler) isOperatorUpgrading(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
 ) (bool, error) {
-	logger := log.FromContext(ctx)
-
-	// Check if an upgrade was requested?
-	annotations := dbEngine.GetAnnotations()
-	upgradeTo, found := annotations[everestv1alpha1.DatabaseOperatorUpgradeAnnotation]
-	if !found {
-		// upgrade not requested, we're done.
-		dbEngine.Status.OperatorUpgrade = nil
-		return true, nil
-	}
-	upgradeTo = strings.TrimPrefix(upgradeTo, "v")
-	dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
-
-	if dbEngine.Status.OperatorUpgrade == nil {
-		dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{}
-	}
-	dbEngine.Status.OperatorUpgrade.TargetVersion = upgradeTo
-
-	// Find the name of the InstallPlan for the upgrade.
-	installPlanName := dbEngine.Status.OperatorUpgrade.InstallPlanRef.Name
-	if installPlanName == "" {
-		// Upgrade has not started, find from the pending list.
-		pendingIP := dbEngine.Status.GetPendingUpgrade(upgradeTo)
-		if pendingIP == nil {
-			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
-			dbEngine.Status.OperatorUpgrade.Message = fmt.Sprintf("InstallPlan for version '%s' not found", upgradeTo)
-			return false, errInstallPlanNotFound
-		}
-		installPlanName = pendingIP.InstallPlanRef.Name
-		dbEngine.Status.OperatorUpgrade.InstallPlanRef = pendingIP.InstallPlanRef
-	}
-
-	// Get the InstallPlan.
-	installPlan := &opfwv1alpha1.InstallPlan{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      installPlanName,
-		Namespace: dbEngine.GetNamespace(),
-	},
-		installPlan); err != nil {
-		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
-		dbEngine.Status.OperatorUpgrade.Message = err.Error()
-		return false, err
-	}
-
-	// Approve the InstallPlan if not done already.
-	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseRequiresApproval {
-		logger.Info("Upgrading operator",
-			"from", dbEngine.Status.OperatorVersion,
-			"to", upgradeTo)
-
-		installPlan.Spec.Approved = true
-		if err := r.Update(ctx, installPlan); err != nil {
-			dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
-			dbEngine.Status.OperatorUpgrade.Message = "Failed to approve InstallPlan: " + err.Error()
-			return false, err
-		}
-		now := metav1.Now()
-		dbEngine.Status.OperatorUpgrade.StartedAt = &now
-	}
-
-	dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseStarted
-	dbEngine.Status.OperatorUpgrade.Message = ""
-
-	// Check if InstallPlan is complete?
-	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseComplete {
-		// Check if Deployment rollout is complete?
-		if ready, version, err := r.getOperatorStatus(ctx, client.ObjectKey{Name: dbEngine.GetName(), Namespace: dbEngine.GetNamespace()}); err != nil {
-			return false, err
-		} else if !ready || version != upgradeTo {
-			return false, nil
-		}
-		// Upgrade is complete, remove the annotation and mark upgrade as complete.
-		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseCompleted
-		// These annotations are set by the everest backend.
-		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeAnnotation)
-		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
-		dbEngine.SetAnnotations(annotations)
-		return false, r.Update(ctx, dbEngine)
-	}
-
-	if installPlan.Status.Phase == opfwv1alpha1.InstallPlanPhaseFailed {
-		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
+	if !r.isOLMInstalled(ctx) {
 		return false, nil
 	}
-	return false, nil
+
+	csv := &opfwv1alpha1.ClusterServiceVersion{}
+	csvKey := types.NamespacedName{
+		Name:      dbEngine.GetName() + "v" + dbEngine.Status.OperatorVersion,
+		Namespace: dbEngine.GetNamespace(),
+	}
+	if err := r.Get(ctx, csvKey, csv); err != nil {
+		return false, err
+	}
+	return csv.Status.Phase == opfwv1alpha1.CSVPhaseReplacing, nil
+}
+
+func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
+	ctx context.Context,
+	dbEngine *everestv1alpha1.DatabaseEngine) error {
+	annotations := dbEngine.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+	locked, ok := annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation]
+	if !ok || locked != "true" {
+		return nil
+	}
+
+	// If there's a pending upgrade, we cannot yet remove the lock.
+	if len(dbEngine.Status.PendingOperatorUpgrades) > 0 {
+		return nil
+	}
+
+	// If the CSV has not yet succeeded, we cannot yet remove the lock.
+	csv := &opfwv1alpha1.ClusterServiceVersion{}
+	csvKey := types.NamespacedName{
+		Name:      dbEngine.GetName() + "v" + dbEngine.Status.OperatorVersion,
+		Namespace: dbEngine.GetNamespace(),
+	}
+	if err := r.Get(ctx, csvKey, csv); err != nil {
+		return err
+	}
+	if csv.Status.Phase != opfwv1alpha1.CSVPhaseSucceeded {
+		return nil
+	}
+
+	delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
+	dbEngine.SetAnnotations(annotations)
+	return r.Update(ctx, dbEngine)
 }
 
 func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
