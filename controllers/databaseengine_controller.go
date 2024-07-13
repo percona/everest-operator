@@ -114,10 +114,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Not ready yet, update status and check again later.
 	if !ready {
-		if upgrading, err := r.isOperatorUpgrading(ctx, dbEngine); err != nil {
+		if err := r.reconcileOperatorUpgradeStatus(ctx, dbEngine); err != nil {
 			return ctrl.Result{}, err
-		} else if upgrading {
-			dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
 		}
 		return ctrl.Result{RequeueAfter: requeueAfter},
 			r.Status().Update(ctx, dbEngine)
@@ -128,6 +126,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalled
+	dbEngine.Status.OperatorUpgrade = nil
 	matrix, err := r.versionService.GetVersions(engineType, dbEngine.Status.OperatorVersion)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -174,12 +173,14 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseEngineReconciler) isOperatorUpgrading(
+func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
-) (bool, error) {
+) error {
+	// We depend on reading CSV status for upgrades,
+	// so if OLM is not installed, we cannot check for upgrades.
 	if !r.isOLMInstalled(ctx) {
-		return false, nil
+		return nil
 	}
 
 	csv := &opfwv1alpha1.ClusterServiceVersion{}
@@ -188,9 +189,12 @@ func (r *DatabaseEngineReconciler) isOperatorUpgrading(
 		Namespace: dbEngine.GetNamespace(),
 	}
 	if err := r.Get(ctx, csvKey, csv); err != nil {
-		return false, err
+		return err
 	}
-	return csv.Status.Phase == opfwv1alpha1.CSVPhaseReplacing, nil
+	if csv.Status.Phase == opfwv1alpha1.CSVPhaseReplacing {
+		dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
+	}
+	return nil
 }
 
 func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
@@ -201,7 +205,7 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 		return nil
 	}
 	locked, ok := annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation]
-	if !ok || locked != "true" {
+	if !ok || locked != everestv1alpha1.DatabaseOperatorUpgradeLockAnnotationValueTrue {
 		return nil
 	}
 
@@ -351,6 +355,11 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromInstallPlan),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
+		c.Watches(
+			&opfwv1alpha1.ClusterServiceVersion{},
+			handler.EnqueueRequestsFromMapFunc(getDatabaseEngineRequestsFromCSV),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
 	}
 
 	return c.Complete(r)
@@ -370,6 +379,21 @@ func (r *DatabaseEngineReconciler) isOLMInstalled(ctx context.Context) bool {
 		return true
 	}
 	return false
+}
+
+func getDatabaseEngineRequestsFromCSV(_ context.Context, o client.Object) []reconcile.Request {
+	result := []reconcile.Request{}
+	csv, ok := o.(*opfwv1alpha1.ClusterServiceVersion)
+	if !ok {
+		return result
+	}
+
+	dbEngineName, _ := parseOperatorCSVName(csv.GetName())
+	result = append(result, reconcile.Request{NamespacedName: types.NamespacedName{
+		Name:      dbEngineName,
+		Namespace: csv.GetNamespace(),
+	}})
+	return result
 }
 
 // getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
