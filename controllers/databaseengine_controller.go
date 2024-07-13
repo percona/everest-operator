@@ -199,7 +199,8 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 
 func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 	ctx context.Context,
-	dbEngine *everestv1alpha1.DatabaseEngine) error {
+	dbEngine *everestv1alpha1.DatabaseEngine,
+) error {
 	annotations := dbEngine.GetAnnotations()
 	if annotations == nil {
 		return nil
