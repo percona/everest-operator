@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	"slices"
 	"sort"
 
 	goversion "github.com/hashicorp/go-version"
@@ -87,7 +88,25 @@ type DatabaseEngineStatus struct {
 
 	// OperatorUpgrade contains the status of the operator upgrade.
 	// This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
+	//
+	// Deprecated: everest-operator no longer controls upgrades, so this field is not used anymore.
 	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
+}
+
+// GetNextUpgradeVersion gets the next version of the operator to upgrade to.
+func (s *DatabaseEngineStatus) GetNextUpgradeVersion() string {
+	if len(s.PendingOperatorUpgrades) == 0 {
+		return ""
+	}
+	if len(s.PendingOperatorUpgrades) == 1 {
+		return s.PendingOperatorUpgrades[0].TargetVersion
+	}
+	next := slices.MinFunc(s.PendingOperatorUpgrades, func(a, b OperatorUpgrade) int {
+		v1 := goversion.Must(goversion.NewVersion(a.TargetVersion))
+		v2 := goversion.Must(goversion.NewVersion(b.TargetVersion))
+		return v1.Core().Compare(v2.Core())
+	})
+	return next.TargetVersion
 }
 
 // OperatorUpgrade contains the information about the operator upgrade.
