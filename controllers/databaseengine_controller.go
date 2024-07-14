@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,6 +51,8 @@ const (
 	requeueAfter   = 10 * time.Second
 	upgradeTimeout = 5 * time.Minute
 )
+
+var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
@@ -181,7 +183,7 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 		return nil
 	}
 
-	// get the CSV for the current version.
+	// get the CSV for the current installed version.
 	csv := &opfwv1alpha1.ClusterServiceVersion{}
 	csvKey := types.NamespacedName{
 		Name:      dbEngine.GetName() + ".v" + dbEngine.Status.OperatorVersion,
@@ -191,30 +193,34 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 		return err
 	}
 
-	// Find the new CSV.
+	// Try to find the new CSV that replaces the current version.
 	newCSV := opfwv1alpha1.ClusterServiceVersion{}
 	csvs := &opfwv1alpha1.ClusterServiceVersionList{}
 	if err := r.List(ctx, csvs, client.InNamespace(dbEngine.GetNamespace())); err != nil {
 		return err
 	}
-	for _, c := range csvs.Items {
-		if c.Spec.Replaces == csv.GetName() {
-			newCSV = c
-			break
-		}
+	if idx := slices.IndexFunc(csvs.Items, func(c opfwv1alpha1.ClusterServiceVersion) bool {
+		return c.Spec.Replaces == csv.GetName()
+	}); idx > 0 {
+		newCSV = csvs.Items[idx]
+	} else {
+		// The upgrade might not have started yet, so we don't have the new CSV.
+		// We shall check again later.
+		return nil
 	}
 
 	// Find the InstallPlan that created the new CSV.
-	installPlan := opfwv1alpha1.InstallPlan{}
+	var installPlan *opfwv1alpha1.InstallPlan
 	ipList := &opfwv1alpha1.InstallPlanList{}
 	if err := r.List(ctx, ipList, client.InNamespace(dbEngine.GetNamespace())); err != nil {
 		return err
 	}
-	for _, ip := range ipList.Items {
-		if slices.Contains(ip.Spec.ClusterServiceVersionNames, newCSV.GetName()) {
-			installPlan = ip
-			break
-		}
+	if idx := slices.IndexFunc(ipList.Items, func(ip opfwv1alpha1.InstallPlan) bool {
+		return slices.Contains(ip.Spec.ClusterServiceVersionNames, newCSV.GetName())
+	}); idx > 0 {
+		installPlan = &ipList.Items[idx]
+	} else {
+		return errInstallPlanNotFound
 	}
 
 	if csv.Status.Phase == opfwv1alpha1.CSVPhaseReplacing {
@@ -234,6 +240,10 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 				Message:   "Upgrading operator to version " + targetVersion,
 			}
 		}
+	}
+
+	if newCSV.Status.Phase == opfwv1alpha1.CSVPhaseFailed {
+		dbEngine.Status.OperatorUpgrade.Phase = everestv1alpha1.UpgradePhaseFailed
 	}
 	return nil
 }
