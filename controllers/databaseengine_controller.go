@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -48,8 +47,6 @@ import (
 const (
 	requeueAfter = 10 * time.Second
 )
-
-var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
