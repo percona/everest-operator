@@ -155,6 +155,9 @@ spec:
                 description: |-
                   OperatorUpgrade contains the status of the operator upgrade.
                   This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
+
+
+                  Deprecated: everest-operator no longer controls upgrades, so this field is not used anymore.
                 properties:
                   installPlanRef:
                     description: InstallPlanRef is a reference to the InstallPlan

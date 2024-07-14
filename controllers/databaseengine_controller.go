@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -45,7 +47,8 @@ import (
 )
 
 const (
-	requeueAfter = 10 * time.Second
+	requeueAfter   = 10 * time.Second
+	upgradeTimeout = 5 * time.Minute
 )
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
@@ -65,6 +68,7 @@ type DatabaseEngineReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
+//+kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -182,7 +186,7 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 
 	csv := &opfwv1alpha1.ClusterServiceVersion{}
 	csvKey := types.NamespacedName{
-		Name:      dbEngine.GetName() + "v" + dbEngine.Status.OperatorVersion,
+		Name:      dbEngine.GetName() + ".v" + dbEngine.Status.OperatorVersion,
 		Namespace: dbEngine.GetNamespace(),
 	}
 	if err := r.Get(ctx, csvKey, csv); err != nil {
@@ -198,13 +202,25 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
 ) error {
+	logger := log.FromContext(ctx)
 	annotations := dbEngine.GetAnnotations()
 	if annotations == nil {
 		return nil
 	}
-	locked, ok := annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation]
-	if !ok || locked != everestv1alpha1.DatabaseOperatorUpgradeLockAnnotationValueTrue {
+	lockedAtStr, ok := annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation]
+	if !ok {
 		return nil
+	}
+	lockedAt, err := time.Parse(time.RFC3339, lockedAtStr)
+	if err != nil {
+		return errors.Join(err, errors.New("cannot parse the value of 'everest.percona.com/upgrade-lock' annotation"))
+	}
+	// Check if it has exceeded the upgrade timeout.
+	if time.Now().After(lockedAt.Add(upgradeTimeout)) {
+		logger.Info("databaseengine upgrade timeout, force unlock triggered")
+		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
+		dbEngine.SetAnnotations(annotations)
+		return r.Update(ctx, dbEngine)
 	}
 
 	// If there's a pending upgrade, we cannot yet remove the lock.

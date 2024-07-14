@@ -53,12 +53,10 @@ const (
 
 const (
 	// DatabaseOperatorUpgradeLockAnnotation is an annotation set on the database engine.
-	// If present and set to "true", Everest backend will prevent any resources from being modified in the namespace.
-	// This annotation is typically set by the Everest backend right before starting the operator upgrade.
+	// If present, the value should contain the timestamp of when the lock was set.
+	// Everest operator automatically removes this annotation (lock) after 5mins.
+	// This is done to ensure that the namespace/engine is not locked indefinitely in case an upgrade fails.
 	DatabaseOperatorUpgradeLockAnnotation = "everest.percona.com/upgrade-lock"
-	// DatabaseOperatorUpgradeLockAnnotationValueTrue is the value of the DatabaseOperatorUpgradeLockAnnotation
-	// if the database engine must be locked.
-	DatabaseOperatorUpgradeLockAnnotationValueTrue = "true"
 )
 
 type (
