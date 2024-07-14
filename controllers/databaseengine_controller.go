@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,26 +103,22 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	dbEngine.Status.PendingOperatorUpgrades = pendingUpgrades
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
-	dbEngine.Status.OperatorVersion = ""
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
-	if version != "" {
-		dbEngine.Status.OperatorVersion = version
-		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
-	}
-
 	// Not ready yet, update status and check again later.
 	if !ready {
+		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 		if err := r.reconcileOperatorUpgradeStatus(ctx, dbEngine); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{RequeueAfter: requeueAfter},
+		return ctrl.Result{},
 			r.Status().Update(ctx, dbEngine)
 	}
 
+	dbEngine.Status.OperatorVersion = version
 	if err := r.tryUnlockDBEngine(ctx, dbEngine); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -184,6 +181,7 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 		return nil
 	}
 
+	// get the CSV for the current version.
 	csv := &opfwv1alpha1.ClusterServiceVersion{}
 	csvKey := types.NamespacedName{
 		Name:      dbEngine.GetName() + ".v" + dbEngine.Status.OperatorVersion,
@@ -192,8 +190,50 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 	if err := r.Get(ctx, csvKey, csv); err != nil {
 		return err
 	}
+
+	// Find the new CSV.
+	newCSV := opfwv1alpha1.ClusterServiceVersion{}
+	csvs := &opfwv1alpha1.ClusterServiceVersionList{}
+	if err := r.List(ctx, csvs, client.InNamespace(dbEngine.GetNamespace())); err != nil {
+		return err
+	}
+	for _, c := range csvs.Items {
+		if c.Spec.Replaces == csv.GetName() {
+			newCSV = c
+			break
+		}
+	}
+
+	// Find the InstallPlan that created the new CSV.
+	installPlan := opfwv1alpha1.InstallPlan{}
+	ipList := &opfwv1alpha1.InstallPlanList{}
+	if err := r.List(ctx, ipList, client.InNamespace(dbEngine.GetNamespace())); err != nil {
+		return err
+	}
+	for _, ip := range ipList.Items {
+		if slices.Contains(ip.Spec.ClusterServiceVersionNames, newCSV.GetName()) {
+			installPlan = ip
+			break
+		}
+	}
+
 	if csv.Status.Phase == opfwv1alpha1.CSVPhaseReplacing {
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateUpgrading
+		if dbEngine.Status.OperatorUpgrade == nil {
+			_, targetVersion := parseOperatorCSVName(newCSV.GetName())
+			now := metav1.Now()
+			dbEngine.Status.OperatorUpgrade = &everestv1alpha1.OperatorUpgradeStatus{
+				OperatorUpgrade: everestv1alpha1.OperatorUpgrade{
+					TargetVersion: targetVersion,
+					InstallPlanRef: corev1.LocalObjectReference{
+						Name: installPlan.GetName(),
+					},
+				},
+				Phase:     everestv1alpha1.UpgradePhaseStarted,
+				StartedAt: &now,
+				Message:   "Upgrading operator to version " + targetVersion,
+			}
+		}
 	}
 	return nil
 }
@@ -231,7 +271,7 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 	// If the CSV has not yet succeeded, we cannot yet remove the lock.
 	csv := &opfwv1alpha1.ClusterServiceVersion{}
 	csvKey := types.NamespacedName{
-		Name:      dbEngine.GetName() + "v" + dbEngine.Status.OperatorVersion,
+		Name:      dbEngine.GetName() + ".v" + dbEngine.Status.OperatorVersion,
 		Namespace: dbEngine.GetNamespace(),
 	}
 	if err := r.Get(ctx, csvKey, csv); err != nil {
