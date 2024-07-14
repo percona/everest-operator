@@ -109,6 +109,13 @@ type OperatorUpgrade struct {
 	// TargetVersion is the version to which the operator should be upgraded.
 	TargetVersion string `json:"targetVersion,omitempty"`
 	// InstallPlanRef is a reference to the InstallPlan object created for the operator upgrade.
+	//
+	// We do not recommended approving this InstallPlan directly from the Kubernetes API.
+	// This is because this InstallPlan may also upgrade other operators in the namespace and that
+	// can have unintended consequences.
+	// This behaviour is not a bug from Everest, but an unfortunate limitation of OLM.
+	// We suggest using the Everest API/UI to handle operator upgrades, which will perform a series
+	// of checks and safely upgrade all operators in the namespace.
 	InstallPlanRef corev1.LocalObjectReference `json:"installPlanRef,omitempty"`
 }
 
