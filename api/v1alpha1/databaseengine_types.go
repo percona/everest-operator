@@ -85,14 +85,6 @@ type DatabaseEngineStatus struct {
 	PendingOperatorUpgrades []OperatorUpgrade `json:"pendingOperatorUpgrades,omitempty"`
 
 	// OperatorUpgrade contains the status of the operator upgrade.
-	// This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
-	//
-	// Deprecated: This field is not used anymore with 1.1.0, and will be removed in the future.
-	// In the first implementation of operator upgrades (in 0.10), it was assumed that OLM will allow
-	// us to upgrade individual operators/dbengines, so we allowed this by setting an annotation and letting
-	// everest-operator take care of the complete upgrade process. Later it was discovered that this assumption
-	// is in fact wrong, and we removed the ability to upgrade operators via the dbengine CR.
-	// Without this ability, this status field holds no meaning, and is not used.
 	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
 }
 
