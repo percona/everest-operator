@@ -363,7 +363,7 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 // get the status and version of the operator deployment.
 // TODO: can we instead check the status of the corresponding CSV?
 //
-//nolint:todo
+//nolint:godox
 func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name types.NamespacedName) (bool, string, error) {
 	deployment := &appsv1.Deployment{}
 	if err := r.Get(ctx, name, deployment); err != nil {
