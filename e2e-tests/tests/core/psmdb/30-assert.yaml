@@ -13,7 +13,7 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 4.4.24-23
+    version: 7.0.8-5
     config: |
      operationProfiling:
         mode: off
@@ -37,7 +37,7 @@ kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
 spec:
-  image: percona/percona-server-mongodb:4.4.24-23
+  image: percona/percona-server-mongodb:7.0.8-5
   multiCluster:
     enabled: false
   replsets:

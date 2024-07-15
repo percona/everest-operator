@@ -49,6 +49,7 @@ commands:
         namespace: $NAMESPACE
       spec:
         engine:
+          version: 6.0.9-7
           crVersion: ${PREVIOUS_PSMDB_OPERATOR_VERSION}
           type: psmdb
           replicas: 1

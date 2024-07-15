@@ -11,7 +11,7 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 4.4.24-23
+    version: 7.0.8-5
     config: |
      operationProfiling:
         mode: off
