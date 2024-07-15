@@ -17,6 +17,7 @@ package v1alpha1
 import "testing"
 
 func TestGetNextUpgradeVersion(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		status *DatabaseEngineStatus
 		want   string
