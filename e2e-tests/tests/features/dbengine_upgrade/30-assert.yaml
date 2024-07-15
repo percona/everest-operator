@@ -11,12 +11,12 @@ kind: DatabaseEngine
 metadata:
   name: percona-xtradb-cluster-operator
   annotations:
-    everest.percona.com/upgrade-operator-to: "1.13.0"
+    everest.percona.com/upgrade-operator-to: "1.14.0"
 spec:
   type: pxc
 status:
   status: upgrading
   operatorUpgrade:
-    targetVersion: 1.13.0
+    targetVersion: 1.14.0
     phase: started
 

@@ -13,14 +13,14 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 4.4.24-23
+    version: 7.0.8-5
     config: |
      operationProfiling:
         mode: off
     userSecretsName: psmdb-sample-secrets
     replicas: 3
     storage:
-      size: 15G
+      size: 15Gi
     resources:
       cpu: 300m
       memory: 500M
@@ -37,7 +37,7 @@ kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
 spec:
-  image: percona/percona-server-mongodb:4.4.24-23
+  image: percona/percona-server-mongodb:7.0.8-5
   multiCluster:
     enabled: false
   replsets:
@@ -56,7 +56,7 @@ spec:
         persistentVolumeClaim:
           resources:
             requests:
-              storage: 15G
+              storage: 15Gi
   secrets:
     users:  psmdb-sample-secrets
   sharding:
