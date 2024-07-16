@@ -1,8 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-commands:
-  # These annotations are set by the everest-backend, so we will simulate that here.
-  - command: kubectl -n "${NAMESPACE}" annotate --overwrite=true dbengine percona-xtradb-cluster-operator everest.percona.com/upgrade-operator-to=$PXC_OPERATOR_VERSION
-  - command: kubectl -n "${NAMESPACE}" annotate --overwrite=true dbengine percona-xtradb-cluster-operator everest.percona.com/upgrade-lock=true
-

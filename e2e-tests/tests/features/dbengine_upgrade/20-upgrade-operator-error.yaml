@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-commands:
-  - command: kubectl -n "${NAMESPACE}" annotate dbengine percona-xtradb-cluster-operator everest.percona.com/upgrade-operator-to=9.9.9
-
