@@ -10,7 +10,7 @@ spec:
     type: psmdb
     replicas: 1
     storage:
-      size: 1G
+      size: 1Gi
   proxy:
     type: mongos
     replicas: 1

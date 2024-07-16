@@ -11,14 +11,14 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 4.4.24-23
+    version: 7.0.8-5
     config: |
      operationProfiling:
         mode: slowOp
     userSecretsName: psmdb-sample-secrets
     replicas: 3
     storage:
-      size: 15G
+      size: 15Gi
     resources:
       cpu: 300m
       memory: 500M
