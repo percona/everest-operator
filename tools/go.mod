@@ -9,7 +9,7 @@ require (
 	github.com/apache/skywalking-eyes v0.6.0
 	github.com/daixiang0/gci v0.13.4
 	github.com/golangci/golangci-lint v1.59.1
-	github.com/reviewdog/reviewdog v0.20.0
+	github.com/reviewdog/reviewdog v0.20.1
 	golang.org/x/tools v0.23.0
 	mvdan.cc/gofumpt v0.6.0
 )
@@ -221,7 +221,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/build v0.0.0-20240703214439-7bd85afa0cc0 // indirect
+	golang.org/x/build v0.0.0-20240712162709-0b82a206aadf // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
 	golang.org/x/exp/typeparams v0.0.0-20240314144324-c7f7c6466f7f // indirect
