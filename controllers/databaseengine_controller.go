@@ -106,7 +106,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	dbEngine.Status.State = everestv1alpha1.DBEngineStateNotInstalled
 	ready, version, err := r.getOperatorStatus(ctx, req.NamespacedName)
-	if client.IgnoreNotFound(err) != nil {
+	if err != nil {
+		// Operator not installed, upgrade the status and return.
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{},
+				r.Status().Update(ctx, dbEngine)
+		}
 		return ctrl.Result{}, err
 	}
 
