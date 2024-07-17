@@ -301,6 +301,52 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 	return r.Update(ctx, dbEngine)
 }
 
+func getInstallPlanRefsForUpgrade(
+	dbEngine *everestv1alpha1.DatabaseEngine,
+	subscription *opfwv1alpha1.Subscription,
+	installPlans *opfwv1alpha1.InstallPlanList,
+) map[string]string {
+	currentVersion := dbEngine.Status.OperatorVersion
+	upgradeStatus := dbEngine.Status.OperatorUpgrade
+	result := make(map[string]string)
+
+	// Sort installPlans such that the newest is first
+	// For a given version, we will consider only the newest InstallPlan.
+	slices.SortFunc(installPlans.Items, func(a, b opfwv1alpha1.InstallPlan) int {
+		return b.GetCreationTimestamp().Time.Compare(a.GetCreationTimestamp().Time)
+	})
+
+	for _, ip := range installPlans.Items {
+		for _, csvName := range ip.Spec.ClusterServiceVersionNames {
+			operatorName, version := parseOperatorCSVName(csvName)
+			// Not our operator, skip.
+			if operatorName != dbEngine.GetName() {
+				continue
+			}
+			// Skip the current version.
+			if version == currentVersion {
+				continue
+			}
+			// Skip the version we're upgrading to (if any).
+			if upgradeStatus != nil && upgradeStatus.TargetVersion == version {
+				continue
+			}
+			// Skip if not owned by current Subscription.
+			if !common.IsOwnedBy(&ip, subscription) {
+				continue
+			}
+			// Check if the version is greater than the current version.
+			if semver.Compare("v"+version, "v"+currentVersion) > 0 {
+				if _, ok := result[version]; ok {
+					continue // we already have this version, with the newest IP
+				}
+				result[version] = ip.GetName()
+			}
+		}
+	}
+	return result
+}
+
 func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
@@ -330,37 +376,13 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 		return nil, err
 	}
 
-	upgradeStatus := dbEngine.Status.OperatorUpgrade
+	installPlanRefs := getInstallPlanRefsForUpgrade(dbEngine, subscription, installPlans)
 	result := []everestv1alpha1.OperatorUpgrade{}
-	for _, ip := range installPlans.Items {
-		for _, csvName := range ip.Spec.ClusterServiceVersionNames {
-			operatorName, version := parseOperatorCSVName(csvName)
-			// Not our operator, skip.
-			if operatorName != dbEngine.GetName() {
-				continue
-			}
-			// Skip the current version.
-			if version == currentVersion {
-				continue
-			}
-			// Skip the version we're upgrading to (if any).
-			if upgradeStatus != nil && upgradeStatus.TargetVersion == version {
-				continue
-			}
-			// Skip if not owned by current Subscription.
-			if !common.IsOwnedBy(&ip, subscription) {
-				continue
-			}
-			// Check if the version is greater than the current version.
-			if semver.Compare("v"+version, "v"+currentVersion) > 0 {
-				result = append(result, everestv1alpha1.OperatorUpgrade{
-					TargetVersion: version,
-					InstallPlanRef: corev1.LocalObjectReference{
-						Name: ip.GetName(),
-					},
-				})
-			}
-		}
+	for v, ipName := range installPlanRefs {
+		result = append(result, everestv1alpha1.OperatorUpgrade{
+			TargetVersion:  v,
+			InstallPlanRef: corev1.LocalObjectReference{Name: ipName},
+		})
 	}
 	return result, nil
 }
