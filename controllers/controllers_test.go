@@ -21,9 +21,10 @@ import (
 	"time"
 
 	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 func Test_ParseCSVName(t *testing.T) {
