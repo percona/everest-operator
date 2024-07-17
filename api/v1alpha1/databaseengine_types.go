@@ -99,6 +99,10 @@ func (s *DatabaseEngineStatus) GetNextUpgradeVersion() string {
 	next := slices.MinFunc(s.PendingOperatorUpgrades, func(a, b OperatorUpgrade) int {
 		v1 := goversion.Must(goversion.NewVersion(a.TargetVersion))
 		v2 := goversion.Must(goversion.NewVersion(b.TargetVersion))
+		// If major minor are equal, we return the one with the higher patch version.
+		if v1.Segments()[0] == v2.Segments()[0] && v1.Segments()[1] == v2.Segments()[1] {
+			return v2.Core().Compare(v1.Core())
+		}
 		return v1.Core().Compare(v2.Core())
 	})
 	return next.TargetVersion

@@ -45,6 +45,16 @@ func TestGetNextUpgradeVersion(t *testing.T) {
 			},
 			want: "1.0.0",
 		},
+		{
+			status: &DatabaseEngineStatus{
+				PendingOperatorUpgrades: []OperatorUpgrade{
+					{TargetVersion: "1.0.0"},
+					{TargetVersion: "1.0.1"},
+					{TargetVersion: "1.1.0"},
+				},
+			},
+			want: "1.0.1",
+		},
 	}
 
 	for _, tc := range testCases {
