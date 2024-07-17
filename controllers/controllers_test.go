@@ -43,6 +43,7 @@ func Test_ParseCSVName(t *testing.T) {
 }
 
 func TestGetInstallPlanRefsForUpgrade(t *testing.T) {
+	t.Parallel()
 	dbEngine := &everestv1alpha1.DatabaseEngine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-db-operator",
@@ -117,6 +118,7 @@ func TestGetInstallPlanRefsForUpgrade(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
+			t.Parallel()
 			result := getInstallPlanRefsForUpgrade(dbEngine, subscription, tc.installplans)
 			assert.Equal(t, tc.expected, result)
 		})
