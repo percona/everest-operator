@@ -49,7 +49,7 @@ import (
 
 const (
 	requeueAfter   = 10 * time.Second
-	upgradeTimeout = 5 * time.Minute
+	upgradeTimeout = 10 * time.Minute
 )
 
 var errInstallPlanNotFound = errors.New("install plan not found")
