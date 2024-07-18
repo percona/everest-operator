@@ -276,7 +276,7 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 		return 0, errors.Join(err, errors.New("cannot parse the value of 'everest.percona.com/upgrade-lock' annotation"))
 	}
 	removeAt := lockedAt.Add(upgradeTimeout)
-	timeUntilUnlock := removeAt.Sub(time.Now())
+	timeUntilUnlock := time.Until(removeAt)
 
 	unlock := func() error {
 		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
