@@ -126,7 +126,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	dbEngine.Status.OperatorVersion = version
-	if err := r.tryUnlockDBEngine(ctx, dbEngine); err != nil {
+	timeUntilUnlock, err := r.tryUnlockDBEngine(ctx, dbEngine)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -175,7 +176,9 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{
+		RequeueAfter: timeUntilUnlock,
+	}, nil
 }
 
 func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
@@ -253,34 +256,43 @@ func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
 	return nil
 }
 
+// tryUnlockDBEngine checks if the upgrade lock can be removed.
+// If a lock is set, returns the duration after which we expect the lock to be removed.
 func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 	ctx context.Context,
 	dbEngine *everestv1alpha1.DatabaseEngine,
-) error {
+) (time.Duration, error) {
 	logger := log.FromContext(ctx)
 	annotations := dbEngine.GetAnnotations()
 	if annotations == nil {
-		return nil
+		return 0, nil
 	}
 	lockedAtStr, ok := annotations[everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation]
 	if !ok {
-		return nil
+		return 0, nil
 	}
 	lockedAt, err := time.Parse(time.RFC3339, lockedAtStr)
 	if err != nil {
-		return errors.Join(err, errors.New("cannot parse the value of 'everest.percona.com/upgrade-lock' annotation"))
+		return 0, errors.Join(err, errors.New("cannot parse the value of 'everest.percona.com/upgrade-lock' annotation"))
 	}
-	// Check if it has exceeded the upgrade timeout.
-	if time.Now().After(lockedAt.Add(upgradeTimeout)) {
-		logger.Info("databaseengine upgrade timeout, force unlock triggered")
+	removeAt := lockedAt.Add(upgradeTimeout)
+	timeUntilUnlock := removeAt.Sub(time.Now())
+
+	unlock := func() error {
 		delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
 		dbEngine.SetAnnotations(annotations)
 		return r.Update(ctx, dbEngine)
 	}
 
+	// Check if it has exceeded the upgrade timeout.
+	if timeUntilUnlock <= 0 {
+		logger.Info("databaseengine upgrade timeout, force unlock triggered")
+		return 0, unlock()
+	}
+
 	// If there's a pending upgrade, we cannot yet remove the lock.
 	if len(dbEngine.Status.PendingOperatorUpgrades) > 0 {
-		return nil
+		return timeUntilUnlock, nil
 	}
 
 	// If the CSV has not yet succeeded, we cannot yet remove the lock.
@@ -290,15 +302,12 @@ func (r *DatabaseEngineReconciler) tryUnlockDBEngine(
 		Namespace: dbEngine.GetNamespace(),
 	}
 	if err := r.Get(ctx, csvKey, csv); err != nil {
-		return err
+		return 0, err
 	}
 	if csv.Status.Phase != opfwv1alpha1.CSVPhaseSucceeded {
-		return nil
+		return timeUntilUnlock, nil
 	}
-
-	delete(annotations, everestv1alpha1.DatabaseOperatorUpgradeLockAnnotation)
-	dbEngine.SetAnnotations(annotations)
-	return r.Update(ctx, dbEngine)
+	return 0, unlock()
 }
 
 func getInstallPlanRefsForUpgrade(
