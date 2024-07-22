@@ -474,13 +474,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 		return err
 	}
 
-	// Wait until the backup has progressed beyond the waiting state,
-	// otherwise we may observe duplicate backups.
-	// See: https://perconadev.atlassian.net/browse/K8SPSMDB-1088
-	if psmdbBackup.Status.State == "" || psmdbBackup.Status.State == psmdbv1.BackupStateWaiting {
-		return nil
-	}
-
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
@@ -660,6 +653,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	},
 		psmdbCR); client.IgnoreNotFound(err) != nil {
 		return false, err
+	}
+
+	// If the psmdb-backup object exists, we will wait for it to progress beyond the waiting state.
+	// This is a known limitation in PSMSD operator, where updating the object while it is in the waiting
+	// state results in a duplicate backup being created.
+	// See: https://perconadev.atlassian.net/browse/K8SPSMDB-1088
+	if !pointer.To(psmdbCR.GetCreationTimestamp()).IsZero() &&
+		(psmdbCR.Status.State == "" || psmdbCR.Status.State == psmdbv1.BackupStateWaiting) {
+		return true, nil
 	}
 
 	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
