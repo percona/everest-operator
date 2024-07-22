@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	"slices"
 	"sort"
 
 	goversion "github.com/hashicorp/go-version"
@@ -51,16 +52,11 @@ const (
 )
 
 const (
-	// DatabaseOperatorUpgradeAnnotation indicates that the database operator needs to be upgraded.
-	// The value of the annotation is the version to upgrade to.
-	DatabaseOperatorUpgradeAnnotation = "everest.percona.com/upgrade-operator-to"
 	// DatabaseOperatorUpgradeLockAnnotation is an annotation set on the database engine.
-	// If present and set to "true", Everest backend will prevent any resources from being modified in the namespace.
-	// This annotation is typically set by the Everest backend right before starting the operator upgrade.
+	// If present, the value should contain the timestamp of when the lock was set.
+	// Everest operator automatically removes this annotation (lock) after 5mins.
+	// This is done to ensure that the namespace/engine is not locked indefinitely in case an upgrade fails.
 	DatabaseOperatorUpgradeLockAnnotation = "everest.percona.com/upgrade-lock"
-	// DatabaseOperatorUpgradeLockAnnotationValueTrue is the value of the DatabaseOperatorUpgradeLockAnnotation
-	// if the database engine must be locked.
-	DatabaseOperatorUpgradeLockAnnotationValueTrue = "true"
 )
 
 type (
@@ -89,8 +85,27 @@ type DatabaseEngineStatus struct {
 	PendingOperatorUpgrades []OperatorUpgrade `json:"pendingOperatorUpgrades,omitempty"`
 
 	// OperatorUpgrade contains the status of the operator upgrade.
-	// This is set only if the `everest.percona.com/upgrade-operator-to` annotation is present.
 	OperatorUpgrade *OperatorUpgradeStatus `json:"operatorUpgrade,omitempty"`
+}
+
+// GetNextUpgradeVersion gets the next version of the operator to upgrade to.
+func (s *DatabaseEngineStatus) GetNextUpgradeVersion() string {
+	if len(s.PendingOperatorUpgrades) == 0 {
+		return ""
+	}
+	if len(s.PendingOperatorUpgrades) == 1 {
+		return s.PendingOperatorUpgrades[0].TargetVersion
+	}
+	next := slices.MinFunc(s.PendingOperatorUpgrades, func(a, b OperatorUpgrade) int {
+		v1 := goversion.Must(goversion.NewVersion(a.TargetVersion))
+		v2 := goversion.Must(goversion.NewVersion(b.TargetVersion))
+		// If major minor are equal, we return the one with the higher patch version.
+		if v1.Segments()[0] == v2.Segments()[0] && v1.Segments()[1] == v2.Segments()[1] {
+			return v2.Core().Compare(v1.Core())
+		}
+		return v1.Core().Compare(v2.Core())
+	})
+	return next.TargetVersion
 }
 
 // OperatorUpgrade contains the information about the operator upgrade.
@@ -98,6 +113,13 @@ type OperatorUpgrade struct {
 	// TargetVersion is the version to which the operator should be upgraded.
 	TargetVersion string `json:"targetVersion,omitempty"`
 	// InstallPlanRef is a reference to the InstallPlan object created for the operator upgrade.
+	//
+	// We do not recommended approving this InstallPlan directly from the Kubernetes API.
+	// This is because this InstallPlan may also upgrade other operators in the namespace and that
+	// can have unintended consequences.
+	// This behaviour is not a bug from Everest, but an unfortunate limitation of OLM.
+	// We suggest using the Everest API/UI to handle operator upgrades, which will perform a series
+	// of checks and safely upgrade all operators in the namespace.
 	InstallPlanRef corev1.LocalObjectReference `json:"installPlanRef,omitempty"`
 }
 

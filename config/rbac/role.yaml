@@ -208,6 +208,15 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
+  - clusterserviceversions
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
   - installplans
   verbs:
   - get
