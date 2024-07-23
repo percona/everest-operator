@@ -132,9 +132,8 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 // set by the user.
 // To avoid this race condition, we will explicitly inspect every phase of the restore, and set pause accordingly.
 func (p *Provider) handlePauseForPXCRestore(ctx context.Context, opts providers.ProviderOptions) error {
-	c := opts.C
 	restores := &pxcv1.PerconaXtraDBClusterRestoreList{}
-	if err := c.List(ctx, restores); err != nil {
+	if err := opts.C.List(ctx, restores); err != nil {
 		return fmt.Errorf("failed to list pxcRestore objects: %w", err)
 	}
 	if len(restores.Items) == 0 {
