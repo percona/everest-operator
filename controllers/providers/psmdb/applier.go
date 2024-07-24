@@ -241,14 +241,9 @@ func (p *applier) addBackupStoragesByRestores(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.Namespace != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// configures the storage for S3.
@@ -304,14 +299,9 @@ func (p *applier) addBackupStoragesByDatabaseClusterBackups(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// configures the storage for S3.
@@ -365,14 +355,9 @@ func (p *applier) getBackupTasks(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return nil, err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return nil, err
-			}
 		}
 
 		// configures the storage for S3.

@@ -281,7 +281,10 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		}
 		if restore.Spec.DataSource.BackupSource != nil {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{
+				Name:      restore.Spec.DataSource.BackupSource.BackupStorageName,
+				Namespace: restore.GetNamespace(),
+			}, backupStorage)
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
@@ -364,9 +367,13 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 		dataSource := restore.Spec.DataSource
 		if dataSource.BackupSource != nil {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := r.Get(ctx, types.NamespacedName{Name: dataSource.BackupSource.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+			err := r.Get(ctx, types.NamespacedName{
+				Name:      dataSource.BackupSource.BackupStorageName,
+				Namespace: restore.GetNamespace(),
+			}, backupStorage)
 			if err != nil {
-				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
+				return errors.Join(err, fmt.Errorf("failed to get backup storage %s",
+					restore.Spec.DataSource.BackupSource.BackupStorageName))
 			}
 
 			dest := fmt.Sprintf("s3://%s/%s", backupStorage.Spec.Bucket, dataSource.BackupSource.Path)
@@ -456,7 +463,9 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backupStorageName, Namespace: r.systemNamespace}, backupStorage)
+	err = r.Get(ctx, types.NamespacedName{
+		Name: backupStorageName, Namespace: restore.GetNamespace(),
+	}, backupStorage)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to get backup storage %s", restore.Spec.DataSource.BackupSource.BackupStorageName))
 	}

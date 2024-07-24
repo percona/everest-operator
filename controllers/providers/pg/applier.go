@@ -538,15 +538,9 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 		return nil, err
 	}
 
-	backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, p.SystemNs)
+	backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, database.GetNamespace())
 	if err != nil {
 		return nil, err
-	}
-
-	if database.GetNamespace() != p.SystemNs {
-		if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-			return nil, err
-		}
 	}
 
 	repoName := "repo1"
@@ -732,7 +726,6 @@ func (p *applier) addBackupStoragesByRestores(
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
-	database := p.DB
 	c := p.C
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
@@ -762,14 +755,9 @@ func (p *applier) addBackupStoragesByRestores(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, restore.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// Get the Secret used by the BackupStorage.
@@ -823,14 +811,9 @@ func (p *applier) addBackupStoragesBySchedules(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}
@@ -852,7 +835,6 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
-	database := p.DB
 	c := p.C
 	for _, backup := range backupList.Items {
 		// Check if we already fetched that backup storage
@@ -860,14 +842,9 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, backup.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}

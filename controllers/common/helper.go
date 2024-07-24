@@ -265,40 +265,6 @@ func CreateOrUpdateSecretData(
 	return c.Create(ctx, secret)
 }
 
-// ReconcileBackupStorageSecret reconciles the backup storage secret.
-func ReconcileBackupStorageSecret(
-	ctx context.Context,
-	c client.Client,
-	systemNs string,
-	backupStorage *everestv1alpha1.BackupStorage,
-	database *everestv1alpha1.DatabaseCluster,
-) error {
-	secret := &corev1.Secret{}
-	err := c.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
-	}
-	if secret.Name != "" {
-		return nil
-	}
-
-	err = c.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: systemNs}, secret)
-	if err != nil {
-		return err
-	}
-	secret.ObjectMeta = metav1.ObjectMeta{
-		Namespace: database.Namespace,
-		Name:      backupStorage.Spec.CredentialsSecretName,
-		Labels: map[string]string{
-			LabelBackupStorageName: backupStorage.Name,
-		},
-	}
-	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
-		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
-	}
-	return c.Create(ctx, secret)
-}
-
 // ReconcileDBRestoreFromDataSource reconciles the DatabaseClusterRestore object
 // based on the DataSource field of the DatabaseCluster.
 func ReconcileDBRestoreFromDataSource(

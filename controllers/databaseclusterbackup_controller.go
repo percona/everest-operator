@@ -142,7 +142,10 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	storage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, storage)
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      backup.Spec.BackupStorageName,
+		Namespace: backup.GetNamespace(),
+	}, storage)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			logger.Error(err, "unable to fetch BackupStorage")
@@ -821,7 +824,10 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	}
 
 	backupStorage := &everestv1alpha1.BackupStorage{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: r.systemNamespace}, backupStorage)
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      backup.Spec.BackupStorageName,
+		Namespace: backup.GetNamespace(),
+	}, backupStorage)
 	if err != nil {
 		return false, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backup.Spec.BackupStorageName))
 	}
