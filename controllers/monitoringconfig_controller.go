@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"slices"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +68,10 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
 
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.monitoringNamespace}, mc)
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      req.NamespacedName.Name,
+		Namespace: req.NamespacedName.Namespace},
+		mc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
@@ -221,7 +226,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		return nil, errors.Join(err, errors.New("could not list monitoringconfigs"))
 	}
 
-	remoteWrite := []interface{}{}
+	remoteWrite := []map[string]interface{}{}
 	for _, monitoringConfig := range monitoringConfigList.Items {
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
@@ -247,6 +252,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 			"url": u.JoinPath("victoriametrics/api/v1/write").String(),
 		})
 	}
+	remoteWrite = deduplicateRemoteWrites(remoteWrite)
 	vmAgentSpec["remoteWrite"] = remoteWrite
 
 	// Use the kube-system namespace ID as the k8s_cluster_id label.
@@ -268,4 +274,18 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
 		Complete(r)
+}
+
+func deduplicateRemoteWrites(remoteWrites []map[string]interface{}) []map[string]interface{} {
+	slices.SortFunc(remoteWrites, func(a, b map[string]interface{}) int {
+		v1 := a["url"].(string)
+		v2 := b["url"].(string)
+		return strings.Compare(v1, v2)
+	})
+	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b map[string]interface{}) bool {
+		v1 := a["url"].(string)
+		v2 := b["url"].(string)
+		return v1 == v2
+	})
+	return remoteWrites
 }
