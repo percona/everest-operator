@@ -161,7 +161,7 @@ func (p *applier) DataSource() error {
 }
 
 func (p *applier) Monitoring() error {
-	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
+	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.DB)
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
 	}
 
-	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring, p.MonitoringNs)
+	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring)
 	if err != nil {
 		return err
 	}
