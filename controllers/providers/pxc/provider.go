@@ -19,6 +19,7 @@ package pxc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
@@ -110,7 +111,7 @@ func New(
 	if err := p.ensureDefaults(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handlePauseForPXCRestore(ctx); err != nil {
+	if err := p.handlePauseForPXCRestore(ctx, opts); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -130,23 +131,27 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 // The pause may be overwritten since the Everest operator will also fight for the desired pause state
 // set by the user.
 // To avoid this race condition, we will explicitly inspect every phase of the restore, and set pause accordingly.
-func (p *Provider) handlePauseForPXCRestore(ctx context.Context) error {
-	restores, err := common.ListDatabaseClusterRestores(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace())
-	if err != nil {
-		return err
+func (p *Provider) handlePauseForPXCRestore(ctx context.Context, opts providers.ProviderOptions) error {
+	restores := &pxcv1.PerconaXtraDBClusterRestoreList{}
+	if err := opts.C.List(ctx, restores); err != nil {
+		return fmt.Errorf("failed to list pxcRestore objects: %w", err)
 	}
 	if len(restores.Items) == 0 {
 		return nil
 	}
 	for _, restore := range restores.Items {
-		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreSucceeded) {
+		// since there is no index for the .spec.pxcCluster field in pxc-restore, the filter is handled manually
+		if restore.Spec.PXCCluster != opts.DB.Name {
 			continue
 		}
-		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreStopCluster) {
+		if restore.Status.State == pxcv1.RestoreSucceeded {
+			continue
+		}
+		if restore.Status.State == pxcv1.RestoreStopCluster {
 			p.DB.Spec.Paused = true
 			return p.C.Update(ctx, p.DB)
 		}
-		if restore.Status.State == everestv1alpha1.RestoreState(pxcv1.RestoreStartCluster) {
+		if restore.Status.State == pxcv1.RestoreStartCluster {
 			p.DB.Spec.Paused = false
 			return p.C.Update(ctx, p.DB)
 		}
