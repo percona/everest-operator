@@ -418,7 +418,8 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
 	pxcSchemeGroupVersion := schema.GroupVersion{Group: common.PXCAPIGroup, Version: "v1"}
 	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{})
+		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{},
+		&pxcv1.PerconaXtraDBClusterRestore{}, &pxcv1.PerconaXtraDBClusterRestoreList{})
 
 	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
 	return nil
@@ -656,6 +657,31 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
+
+	if r.Scheme.Recognizes(common.PXCRGVK) {
+		controller.Watches(
+			// need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
+			// watching the dbr is not enough since the operator merges the statuses but we need to pause the db exactly when
+			// the pxc-restore got to the pxcv1.RestoreStopCluster status
+			&pxcv1.PerconaXtraDBClusterRestore{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				pxcRestore, ok := obj.(*pxcv1.PerconaXtraDBClusterRestore)
+				if !ok {
+					return []reconcile.Request{}
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							// db name to reconcile is the same as the pxc cluster name
+							Name:      pxcRestore.Spec.PXCCluster,
+							Namespace: obj.GetNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
 
 	if r.Scheme.Recognizes(common.PSMDBGVK) {
 		controller.Watches(
