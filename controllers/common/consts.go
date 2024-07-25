@@ -49,6 +49,8 @@ const (
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 	// PerconaPGClusterKind is the kind for Percona PostgreSQL.
 	PerconaPGClusterKind = "PerconaPGCluster"
+	// PerconaXtraDBClusterRestoreKind is the kind for Percona XtraDB Cluster restore.
+	PerconaXtraDBClusterRestoreKind = "PerconaXtraDBClusterRestore"
 
 	// ClusterTypeEKS represents the EKS cluster type.
 	ClusterTypeEKS ClusterType = "eks"
@@ -79,6 +81,8 @@ var ExposeAnnotationsMap = map[ClusterType]map[string]string{
 var (
 	// PXCGVK is the GroupVersionKind for Percona XtraDB Cluster.
 	PXCGVK = schema.GroupVersionKind{Group: PXCAPIGroup, Version: "v1", Kind: PerconaXtraDBClusterKind}
+	// PXCRGVK is the GroupVersionKind for Percona PostgreSQL.
+	PXCRGVK = schema.GroupVersionKind{Group: PXCAPIGroup, Version: "v1", Kind: PerconaXtraDBClusterRestoreKind}
 	// PSMDBGVK is the GroupVersionKind for Percona Server for MongoDB.
 	PSMDBGVK = schema.GroupVersionKind{Group: PSMDBAPIGroup, Version: "v1", Kind: PerconaServerMongoDBKind}
 	// PGGVK is the GroupVersionKind for Percona PostgreSQL.
