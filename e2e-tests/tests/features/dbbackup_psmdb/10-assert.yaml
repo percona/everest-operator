@@ -13,7 +13,7 @@ spec:
   engine:
     replicas: 1
     storage:
-      size: 1Gi
+      size: 1G
     type: psmdb
   proxy:
     expose:
