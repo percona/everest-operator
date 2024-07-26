@@ -134,6 +134,29 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
+	// XXX: Until EVEREST-977 is implemented we should clean up the repo1
+	// PerconaPGBackups manually to avoid leftovers.
+	// List PG-backups and delete the repo1 backups for this DB
+	backups := &pgv2.PerconaPGBackupList{}
+	listOps := &client.ListOptions{
+		Namespace: p.DB.GetNamespace(),
+	}
+	err := p.C.List(ctx, backups, listOps)
+	if err != nil {
+		return false, err
+	}
+	for _, backup := range backups.Items {
+		// Only delete backups for this DB and repo1
+		if backup.Spec.PGCluster != p.DB.GetName() || backup.Spec.RepoName != "repo1" {
+			continue
+		}
+
+		err = p.C.Delete(ctx, &backup)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	done, err := common.HandleUpstreamClusterCleanup(ctx, p.C, database, &pgv2.PerconaPGCluster{})
 	if err != nil || !done {
 		return done, err
