@@ -135,8 +135,11 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		db.Status.Status = everestv1alpha1.AppStateDeleting
-		return ctrl.Result{Requeue: !done}, r.Status().Update(ctx, db)
+		if !done {
+			db.Status.Status = everestv1alpha1.AppStateDeleting
+			return ctrl.Result{Requeue: true}, r.Client.Status().Update(ctx, db)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// Set metadata.
