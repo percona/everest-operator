@@ -134,6 +134,24 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
+	// XXX: In order to work around a bug in PGO v2.4.0
+	// (https://perconadev.atlassian.net/browse/K8SPG-616) we restart the PGO
+	// deployment every time we delete a PG DB, see more details about this
+	// workaround near the end of this function. However, this is not enough if
+	// two or more DBs are deleted at the same time because if we request a
+	// restart while the deployment is already restarting, the PGO will get
+	// stuck again and won't issue a new restart. To avoid this, we need to
+	// wait for the deployment to be ready before processing the next DB
+	// deletion, ensuring that the deployment receives the restart request
+	// after getting stuck.
+	deployReady, err := common.DeploymentIsReady(ctx, p.C, types.NamespacedName{Name: common.PGDeploymentName, Namespace: p.DB.GetNamespace()})
+	if err != nil {
+		return false, err
+	}
+	if !deployReady {
+		return false, nil
+	}
+
 	// XXX: Until EVEREST-977 is implemented we should clean up the repo1
 	// PerconaPGBackups manually to avoid leftovers.
 	// List PG-backups and delete the repo1 backups for this DB
@@ -141,7 +159,7 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 	listOps := &client.ListOptions{
 		Namespace: p.DB.GetNamespace(),
 	}
-	err := p.C.List(ctx, backups, listOps)
+	err = p.C.List(ctx, backups, listOps)
 	if err != nil {
 		return false, err
 	}

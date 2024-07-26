@@ -697,6 +697,17 @@ func GetRecommendedCRVersion(
 	return nil, nil //nolint:nilnil
 }
 
+// DeploymentIsReady returns true if the deployment is ready.
+func DeploymentIsReady(ctx context.Context, c client.Client, name types.NamespacedName) (bool, error) {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, name, deployment)
+	if err != nil {
+		return false, err
+	}
+
+	return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
+}
+
 // RestartDeployment restarts the deployment.
 func RestartDeployment(
 	ctx context.Context,
