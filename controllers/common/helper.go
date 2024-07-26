@@ -621,7 +621,7 @@ func GetBackupStorageIndexInPGBackrestRepo(
 	return -1
 }
 
-// HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
+// HandleUpstreamClusterCleanup handles the cleanup of the upstream DB objects.
 // Returns true if cleanup is complete.
 func HandleUpstreamClusterCleanup(
 	ctx context.Context,
@@ -629,39 +629,40 @@ func HandleUpstreamClusterCleanup(
 	database *everestv1alpha1.DatabaseCluster,
 	upstream client.Object,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
-		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
-		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
-		if err != nil {
-			return false, err
-		}
-		if len(backupList.Items) != 0 {
-			return false, nil
-		}
-
-		err = c.Get(ctx, types.NamespacedName{
-			Name:      database.Name,
-			Namespace: database.Namespace,
-		}, upstream)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
-				return true, c.Update(ctx, database)
-			}
-			return false, err
-		}
-
-		err = c.Delete(ctx, upstream)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return true, nil
-			}
-			return false, err
-		}
-		controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
-		return true, c.Update(ctx, database)
+	if !controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) {
+		return true, nil
 	}
-	return true, nil
+
+	// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
+	backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	if err != nil {
+		return false, err
+	}
+	if len(backupList.Items) != 0 {
+		return false, nil
+	}
+
+	err = c.Get(ctx, types.NamespacedName{
+		Name:      database.Name,
+		Namespace: database.Namespace,
+	}, upstream)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+			return true, c.Update(ctx, database)
+		}
+		return false, err
+	}
+
+	err = c.Delete(ctx, upstream)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	return false, nil
 }
 
 // IsOwnedBy checks if the child object is owned by the parent object.
