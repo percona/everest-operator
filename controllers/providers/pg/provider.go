@@ -134,7 +134,23 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleUpstreamClusterCleanup(ctx, p.C, database, &pgv2.PerconaPGCluster{})
+	done, err := common.HandleUpstreamClusterCleanup(ctx, p.C, database, &pgv2.PerconaPGCluster{})
+	if err != nil || !done {
+		return done, err
+	}
+
+	// XXX: PGO v2.4.0 has a bug
+	// (https://perconadev.atlassian.net/browse/K8SPG-616) where the
+	// reconciliation loop gets stuck handling the percona.com/stop-watchers
+	// finalizer. In order to work around this issue, we need to wait for the
+	// DB to be deleted and then restart the PGO deployment. This is a
+	// temporary workaround until the issue is fixed in PGO.
+	err = common.RestartDeployment(ctx, p.C, types.NamespacedName{Name: common.PGDeploymentName, Namespace: p.DB.GetNamespace()})
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // DBObject returns the PerconaPGCluster object.

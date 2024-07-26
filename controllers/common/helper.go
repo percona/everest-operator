@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -694,4 +695,22 @@ func GetRecommendedCRVersion(
 		return pointer.To(v.ToCRVersion()), nil
 	}
 	return nil, nil //nolint:nilnil
+}
+
+// RestartDeployment restarts the deployment.
+func RestartDeployment(
+	ctx context.Context,
+	c client.Client,
+	name types.NamespacedName,
+) error {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, name, deployment)
+	if err != nil {
+		return err
+	}
+	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
+		deployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
+	return c.Update(ctx, deployment)
 }
