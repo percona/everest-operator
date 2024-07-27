@@ -13,7 +13,7 @@ spec:
         mode: slowOp
     replicas: 1
     storage:
-      size: 1Gi
+      size: 1G
   proxy:
     type: haproxy
     replicas: 1

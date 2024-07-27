@@ -30,7 +30,7 @@ spec:
       cpu: 500m
       memory: 1G
     storage:
-      size: 15Gi
+      size: 15G
   proxy:
     type: mongos
     replicas: 1
