@@ -17,7 +17,7 @@ spec:
     type: psmdb
     replicas: 1
     storage:
-      size: 1G
+      size: 1Gi
   proxy:
     type: haproxy
     replicas: 1
