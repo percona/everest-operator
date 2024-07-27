@@ -19,6 +19,10 @@ spec:
     type: mongos
   backup:
     enabled: false
+status:
+  ready: 1
+  size: 1
+  status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -28,3 +32,13 @@ spec:
   crVersion: 1.15.0
   multiCluster:
     enabled: false
+status:
+  replsets:
+    rs0:
+      initialized: true
+      ready: 1
+      size: 1
+      status: ready
+  ready: 1
+  size: 1
+  state: ready
