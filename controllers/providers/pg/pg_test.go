@@ -2694,6 +2694,19 @@ func TestReconcilePGBackRestReposScheduleAfterOnDemandToAnotherStorage(t *testin
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1",
+			Volume: &crunchyv1beta1.RepoPVC{
+				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					StorageClassName: &testEngineStorageClass,
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: testEngineStorageSize,
+						},
+					},
+				},
+			},
 		},
 		{
 			Name: "repo2",
