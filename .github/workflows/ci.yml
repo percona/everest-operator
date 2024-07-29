@@ -42,7 +42,7 @@ jobs:
           make test
         env:
           PXC_OPERATOR_VERSION: 1.14.0
-          PSMDB_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.16.1
           PG_OPERATOR_VERSION: 2.3.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
@@ -125,9 +125,9 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-upgrade.yml
         env:
           PXC_OPERATOR_VERSION: 1.14.0
-          PSMDB_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.16.1
           PG_OPERATOR_VERSION: 2.3.1
-          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
           PREVIOUS_PXC_OPERATOR_VERSION: 1.13.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -174,7 +174,7 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
         env:
           PXC_OPERATOR_VERSION: 1.14.0
-          PSMDB_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.16.1
           PG_OPERATOR_VERSION: 2.3.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
@@ -184,9 +184,9 @@ jobs:
           kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
         env:
           PXC_OPERATOR_VERSION: 1.14.0
-          PSMDB_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.16.1
           PG_OPERATOR_VERSION: 2.3.1
-          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
           PREVIOUS_PXC_OPERATOR_VERSION: 1.13.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
