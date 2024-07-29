@@ -10,7 +10,7 @@ spec:
     type: postgresql
     config: |
       max_connections = 2840
-    version: "16.3"
+    version: "16.1"
     replicas: 1
     storage:
       size: 15G
