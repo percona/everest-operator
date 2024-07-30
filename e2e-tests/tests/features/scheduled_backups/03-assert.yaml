@@ -19,7 +19,7 @@ metadata:
 spec:
   engine:
     type: pxc
-    version: 8.0.23-14.1
+    version: 8.0.36-28.1
     config: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
