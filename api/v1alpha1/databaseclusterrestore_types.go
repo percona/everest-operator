@@ -187,14 +187,12 @@ func dbRestoreStateFromPXC(bkp *pxcv1.PerconaXtraDBClusterRestore) RestoreState 
 		return RestoreSucceeded
 	case pxcv1.RestoreFailed:
 		return RestoreFailed
-	case pxcv1.RestoreRestore, pxcv1.RestorePITR:
+	case pxcv1.RestoreRestore, pxcv1.RestorePITR, pxcv1.RestoreStartCluster:
 		return RestoreRunning
-	case pxcv1.RestoreStarting:
+	case pxcv1.RestoreStarting, pxcv1.RestoreStopCluster:
 		return RestoreStarting
-	case pxcv1.RestoreNew:
-		return RestoreNew
 	default:
-		return RestoreState(bkp.Status.State)
+		return RestoreNew
 	}
 }
 

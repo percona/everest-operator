@@ -17,7 +17,6 @@ package pg
 
 import (
 	"bytes"
-	"container/list"
 	"context"
 	"errors"
 	"fmt"
@@ -859,7 +858,7 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 	return nil
 }
 
-func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
+func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	ctx := p.ctx
 	c := p.C
 	database := p.DB
@@ -868,11 +867,11 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 
 	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
 	if !ok {
-		return pgv2.Backups{}, fmt.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+		return crunchyv1beta1.Backups{}, fmt.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
 	}
 
-	newBackups := pgv2.Backups{
-		PGBackRest: pgv2.PGBackRestArchive{
+	newBackups := crunchyv1beta1.Backups{
+		PGBackRest: crunchyv1beta1.PGBackRestArchive{
 			Image:   pgbackrestVersion.ImagePath,
 			Manual:  oldBackups.PGBackRest.Manual,
 			Restore: oldBackups.PGBackRest.Restore,
@@ -893,7 +892,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	// List DatabaseClusterBackup objects for this database
 	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
 	if err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
@@ -901,18 +900,18 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 
 	// Add backup storages used by on-demand backups to the list
 	if err := p.addBackupStoragesByOnDemandBackups(backupList, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	// List DatabaseClusterRestore objects for this database
 	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
 	if err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	// Add backup storages used by restores to the list
 	if err := p.addBackupStoragesByRestores(backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	// Only use the backup schedules if schedules are enabled in the DBC spec
@@ -922,7 +921,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	}
 	// Add backup storages used by backup schedules to the list
 	if err := p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err := reconcilePGBackRestRepos(
@@ -935,7 +934,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		database,
 	)
 	if err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	pgBackrestSecret, err := createPGBackrestSecret(
@@ -948,7 +947,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		nil,
 	)
 	if err != nil {
-		return pgv2.Backups{}, err
+		return crunchyv1beta1.Backups{}, err
 	}
 
 	newBackups.PGBackRest.Configuration = []corev1.VolumeProjection{
@@ -1003,13 +1002,10 @@ func createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
-// TODO: needs refactor
-//
-//nolint:gocognit,gocyclo,cyclop,maintidx, godox
 func reconcilePGBackRestRepos(
 	oldRepos []crunchyv1beta1.PGBackRestRepo,
 	backupSchedules []everestv1alpha1.BackupSchedule,
-	backupRequests []everestv1alpha1.DatabaseClusterBackup,
+	backups []everestv1alpha1.DatabaseClusterBackup,
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	engineStorage everestv1alpha1.Storage,
@@ -1020,346 +1016,46 @@ func reconcilePGBackRestRepos(
 	[]byte,
 	error,
 ) {
-	backupStoragesInRepos := map[string]struct{}{}
-	pgBackRestGlobal := map[string]string{}
-	pgBackRestSecretIni, err := ini.Load([]byte{})
+	reposReconciler, err := newPGReposReconciler(oldRepos, backupSchedules)
 	if err != nil {
-		return []crunchyv1beta1.PGBackRestRepo{},
-			map[string]string{},
-			[]byte{},
-			errors.Join(err, errors.New("failed to initialize PGBackrest secret data"))
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
+			errors.Join(err, errors.New("failed to initialize PGBackrest repos reconciler"))
 	}
 
-	availableRepoNames := []string{
-		// repo1 is reserved for the PVC-based repo, see below for details on
-		// how it is handled
-		"repo2",
-		"repo3",
-		"repo4",
+	err = reposReconciler.reconcileExistingSchedules(backupStorages, backupStoragesSecrets, db)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
+			errors.Join(err, errors.New("failed to reconcile schedules"))
 	}
 
-	reposReconciled := list.New()
-	reposToBeReconciled := list.New()
-	for _, repo := range oldRepos {
-		reposToBeReconciled.PushBack(repo)
-	}
-	backupSchedulesReconciled := list.New()
-	backupSchedulesToBeReconciled := list.New()
-	for _, backupSchedule := range backupSchedules {
-		if !backupSchedule.Enabled {
-			continue
-		}
-		backupSchedulesToBeReconciled.PushBack(backupSchedule)
+	err = reposReconciler.reconcileRepos(backupStorages, backupStoragesSecrets, db)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
+			errors.Join(err, errors.New("failed to reconcile repos"))
 	}
 
-	// Move repos with set schedules which are already correct to the
-	// reconciled list
-	var ebNext *list.Element
-	var erNext *list.Element
-	for eb := backupSchedulesToBeReconciled.Front(); eb != nil; eb = ebNext {
-		// Save the next element because we might remove the current one
-		ebNext = eb.Next()
-
-		backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				fmt.Errorf("failed to cast backup schedule %v", eb.Value)
-		}
-		for er := reposToBeReconciled.Front(); er != nil; er = erNext {
-			// Save the next element because we might remove the current one
-			erNext = er.Next()
-
-			repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
-			if !ok {
-				return []crunchyv1beta1.PGBackRestRepo{},
-					map[string]string{},
-					[]byte{},
-					fmt.Errorf("failed to cast repo %v", er.Value)
-			}
-			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
-			if backupSchedule.BackupStorageName != repoBackupStorageName ||
-				repo.BackupSchedules == nil ||
-				repo.BackupSchedules.Full == nil ||
-				backupSchedule.Schedule != *repo.BackupSchedules.Full {
-				continue
-			}
-
-			reposReconciled.PushBack(repo)
-			reposToBeReconciled.Remove(er)
-			backupSchedulesReconciled.PushBack(backupSchedule)
-			backupSchedulesToBeReconciled.Remove(eb)
-			availableRepoNames = removeRepoName(availableRepoNames, repo.Name)
-
-			// Keep track of backup storages which are already in use by a repo
-			backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
-
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
-			sType, err := backupStorageTypeFromBackrestRepo(repo)
-			if err != nil {
-				return []crunchyv1beta1.PGBackRestRepo{},
-					map[string]string{},
-					[]byte{},
-					err
-			}
-			if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
-				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
-			}
-			if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
-				// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
-			}
-
-			err = addBackupStorageCredentialsToPGBackrestSecretIni(
-				sType,
-				pgBackRestSecretIni,
-				repo.Name,
-				backupStoragesSecrets[repoBackupStorageName])
-			if err != nil {
-				return []crunchyv1beta1.PGBackRestRepo{},
-					map[string]string{},
-					[]byte{},
-					fmt.Errorf("failed to add backup storage credentials to PGBackrest secret data: %w", err)
-			}
-
-			break
-		}
+	err = reposReconciler.reconcileBackups(backups, backupStorages, backupStoragesSecrets, db)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}
 
-	// Update the schedules of the repos which already exist but have the wrong
-	// schedule and move them to the reconciled list
-	for er := reposToBeReconciled.Front(); er != nil; er = erNext {
-		// Save the next element because we might remove the current one
-		erNext = er.Next()
-
-		repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				fmt.Errorf("failed to cast repo %v", er.Value)
-		}
-		repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
-		for eb := backupSchedulesToBeReconciled.Front(); eb != nil; eb = ebNext {
-			// Save the next element because we might remove the current one
-			ebNext = eb.Next()
-
-			backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
-			if !ok {
-				return []crunchyv1beta1.PGBackRestRepo{},
-					map[string]string{},
-					[]byte{},
-					fmt.Errorf("failed to cast backup schedule %v", eb.Value)
-			}
-			if backupSchedule.BackupStorageName == repoBackupStorageName {
-				repo.BackupSchedules = &crunchyv1beta1.PGBackRestBackupSchedules{
-					Full: &backupSchedule.Schedule,
-				}
-
-				reposReconciled.PushBack(repo)
-				reposToBeReconciled.Remove(er)
-				backupSchedulesReconciled.PushBack(backupSchedule)
-				backupSchedulesToBeReconciled.Remove(eb)
-				availableRepoNames = removeRepoName(availableRepoNames, repo.Name)
-
-				// Keep track of backup storages which are already in use by a repo
-				backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
-
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
-				pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
-				if verify := pointer.Get(backupStorages[repo.Name].VerifyTLS); !verify {
-					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
-				}
-				if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
-					// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
-					pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
-				}
-
-				sType, err := backupStorageTypeFromBackrestRepo(repo)
-				if err != nil {
-					return []crunchyv1beta1.PGBackRestRepo{},
-						map[string]string{},
-						[]byte{},
-						err
-				}
-
-				err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[repoBackupStorageName])
-				if err != nil {
-					return []crunchyv1beta1.PGBackRestRepo{},
-						map[string]string{},
-						[]byte{},
-						errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
-				}
-
-				break
-			}
-		}
+	err = reposReconciler.addNewSchedules(backupStorages, backupStoragesSecrets, db)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
+			errors.Join(err, errors.New("failed to add new backup schedules"))
 	}
 
-	// Add new backup schedules
-	for eb := backupSchedulesToBeReconciled.Front(); eb != nil; eb = eb.Next() {
-		backupSchedule, ok := eb.Value.(everestv1alpha1.BackupSchedule)
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				fmt.Errorf("failed to cast backup schedule %v", eb.Value)
-		}
-		backupStorage, ok := backupStorages[backupSchedule.BackupStorageName]
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				fmt.Errorf("unknown backup storage %s", backupSchedule.BackupStorageName)
-		}
-
-		if len(availableRepoNames) == 0 {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				errors.New("exceeded max number of repos")
-		}
-
-		repoName := availableRepoNames[0]
-		availableRepoNames = removeRepoName(availableRepoNames, repoName)
-		repo, err := genPGBackrestRepo(repoName, backupStorage, &backupSchedule.Schedule)
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
-		}
-		reposReconciled.PushBack(repo)
-
-		// Keep track of backup storages which are already in use by a repo
-		backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
-
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestRetentionTmpl, repo.Name)] = strconv.Itoa(getPGRetentionCopies(backupSchedule.RetentionCopies))
-		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
-			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
-		}
-		if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
-			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
-		}
-		sType, err := backupStorageTypeFromBackrestRepo(repo)
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				err
-		}
-
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupSchedule.BackupStorageName])
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
-		}
+	newRepos, err := reposReconciler.addDefaultRepo(engineStorage)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}
 
-	// Add on-demand backups whose backup storage doesn't have a schedule
-	// defined
-	// XXX some of these backups might be fake, see the XXX comment in the
-	// reconcilePGBackupsSpec function for more context. Be very careful if you
-	// decide to use fields other that the Spec.BackupStorageName.
-	for _, backupRequest := range backupRequests {
-		// Backup storage already in repos, skip
-		if _, ok := backupStoragesInRepos[backupRequest.Spec.BackupStorageName]; ok {
-			continue
-		}
-
-		backupStorage, ok := backupStorages[backupRequest.Spec.BackupStorageName]
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("unknown backup storage %s", backupRequest.Spec.BackupStorageName)
-		}
-
-		if len(availableRepoNames) == 0 {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.New("exceeded max number of repos")
-		}
-
-		repoName := availableRepoNames[0]
-		availableRepoNames = removeRepoName(availableRepoNames, repoName)
-		repo, err := genPGBackrestRepo(repoName, backupStorage, nil)
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
-		}
-		reposReconciled.PushBack(repo)
-
-		// Keep track of backup storages which are already in use by a repo
-		backupStoragesInRepos[backupRequest.Spec.BackupStorageName] = struct{}{}
-
-		pgBackRestGlobal[fmt.Sprintf(pgBackRestPathTmpl, repo.Name)] = "/" + common.BackupStoragePrefix(db)
-		if verify := pointer.Get(backupStorage.VerifyTLS); !verify {
-			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-storage-verify-tls
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageVerifyTmpl, repo.Name)] = "n"
-		}
-		if forcePathStyle := pointer.Get(backupStorages[repo.Name].ForcePathStyle); !forcePathStyle {
-			// See: https://pgbackrest.org/configuration.html#section-repository/option-repo-s3-uri-style
-			pgBackRestGlobal[fmt.Sprintf(pgBackRestStorageForcePathTmpl, repo.Name)] = pgBackRestStoragePathStyle
-		}
-		sType, err := backupStorageTypeFromBackrestRepo(repo)
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				err
-		}
-
-		err = addBackupStorageCredentialsToPGBackrestSecretIni(sType, pgBackRestSecretIni, repo.Name, backupStoragesSecrets[backupRequest.Spec.BackupStorageName])
-		if err != nil {
-			return []crunchyv1beta1.PGBackRestRepo{},
-				map[string]string{},
-				[]byte{},
-				errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
-		}
+	pgBackrestIniBytes, err := reposReconciler.pgBackRestIniBytes()
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}
 
-	// The PG operator requires a repo to be set up in order to create
-	// replicas. Without any credentials we can't set a cloud-based repo so we
-	// define a PVC-backed repo in case the user doesn't define any cloud-based
-	// repos. Moreover, we need to keep this repo in the list even if the user
-	// defines a cloud-based repo because the PG operator will restart the
-	// cluster if the only repo in the list is changed.
-	newRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1",
-			Volume: &crunchyv1beta1.RepoPVC{
-				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					StorageClassName: engineStorage.Class,
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: engineStorage.Size,
-						},
-					},
-				},
-			},
-		},
-	}
-	pgBackRestGlobal["repo1-retention-full"] = "1"
-
-	// Add the reconciled repos to the list of repos
-	for e := reposReconciled.Front(); e != nil; e = e.Next() {
-		repo, ok := e.Value.(crunchyv1beta1.PGBackRestRepo)
-		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, fmt.Errorf("failed to cast repo %v", e.Value)
-		}
-		newRepos = append(newRepos, repo)
-	}
-
-	pgBackrestSecretBuf := new(bytes.Buffer)
-	if _, err = pgBackRestSecretIni.WriteTo(pgBackrestSecretBuf); err != nil {
-		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, errors.Join(err, errors.New("failed to write PGBackrest secret data"))
-	}
-
-	return newRepos, pgBackRestGlobal, pgBackrestSecretBuf.Bytes(), nil
+	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
 }
 
 func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorageSpec, repo crunchyv1beta1.PGBackRestRepo) string {
@@ -1377,31 +1073,6 @@ func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupS
 	}
 
 	return ""
-}
-
-func removeRepoName(s []string, n string) []string {
-	for i, name := range s {
-		if name == n {
-			return removeString(s, i)
-		}
-	}
-	return s
-}
-
-func removeString(s []string, i int) []string {
-	return append(s[:i], s[i+1:]...)
-}
-
-func backupStorageTypeFromBackrestRepo(repo crunchyv1beta1.PGBackRestRepo) (everestv1alpha1.BackupStorageType, error) {
-	if repo.S3 != nil {
-		return everestv1alpha1.BackupStorageTypeS3, nil
-	}
-
-	if repo.Azure != nil {
-		return everestv1alpha1.BackupStorageTypeAzure, nil
-	}
-
-	return "", errors.New("could not determine backup storage type from repo")
 }
 
 func getPGRetentionCopies(retentionCopies int32) int {

@@ -223,8 +223,8 @@ func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 func (e Expose) IPSourceRangesStringArray() []string {
 	sourceRanges := make([]string, len(e.IPSourceRanges))
 	ranges := e.toCIDR(e.IPSourceRanges)
-	for i := range ranges {
-		sourceRanges[i] = string(e.IPSourceRanges[i])
+	for i, r := range ranges {
+		sourceRanges[i] = string(r)
 	}
 	return sourceRanges
 }

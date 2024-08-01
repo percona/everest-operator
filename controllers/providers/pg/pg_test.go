@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2633,6 +2634,215 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 		},
 	)
 	require.Error(t, err)
+	assert.Equal(t, expRepos, repos)
+}
+
+func TestReconcilePGBackRestReposScheduleAfterOnDemandToAnotherStorage(t *testing.T) {
+	t.Parallel()
+	testEngineStorageSize, _ := resource.ParseQuantity("15G")
+	testEngineStorageClass := "someSC"
+	s3Repo2 := &crunchyv1beta1.RepoS3{
+		Bucket: "bucket1",
+	}
+	testRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name: "repo1",
+		},
+		{
+			Name: "repo2",
+			S3:   s3Repo2,
+		},
+	}
+	testBackupSchedules := []everestv1alpha1.BackupSchedule{{
+		Enabled:           true,
+		Name:              "sched1",
+		Schedule:          "20 * * * *",
+		BackupStorageName: "bs2",
+	}}
+	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{{
+		Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+			BackupStorageName: "bs1",
+		},
+	}}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+		"bs1": {
+			Type:   "s3",
+			Bucket: "bucket1",
+		},
+		"bs2": {
+			Type:   "s3",
+			Bucket: "bucket2",
+		},
+	}
+	testBackupStoragesSecrets := map[string]*corev1.Secret{
+		"bs1": {
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
+				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
+			},
+		}, "bs2": {
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
+				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
+			},
+		},
+	}
+	testEngineStorage := everestv1alpha1.Storage{
+		Size:  testEngineStorageSize,
+		Class: &testEngineStorageClass,
+	}
+	expRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name: "repo1",
+			Volume: &crunchyv1beta1.RepoPVC{
+				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					StorageClassName: &testEngineStorageClass,
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: testEngineStorageSize,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "repo2",
+			S3:   s3Repo2,
+		},
+		{
+			Name: "repo3",
+			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
+				Full: pointer.To("20 * * * *"),
+			},
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket: "bucket2",
+			},
+		},
+	}
+
+	repos, _, _, _ := reconcilePGBackRestRepos( //nolint:dogsled
+		testRepos,
+		testBackupSchedules,
+		testBackupRequests,
+		testBackupStorages,
+		testBackupStoragesSecrets,
+		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
+	)
+	assert.Equal(t, expRepos, repos)
+}
+
+func TestReconcilePGBackRestReposOnDemandAfterScheduleToAnotherStorage(t *testing.T) {
+	t.Parallel()
+	testEngineStorageSize, _ := resource.ParseQuantity("15G")
+	testEngineStorageClass := "someSC"
+	s3Repo2 := &crunchyv1beta1.RepoS3{
+		Bucket: "bucket1",
+	}
+	testRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name: "repo1",
+		},
+		{
+			Name: "repo2",
+			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
+				Full: pointer.To("20 * * * *"),
+			},
+			S3: s3Repo2,
+		},
+	}
+	testBackupSchedules := []everestv1alpha1.BackupSchedule{{
+		Enabled:           true,
+		Name:              "sched1",
+		Schedule:          "20 * * * *",
+		BackupStorageName: "bs1",
+	}}
+	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{{
+		Spec: everestv1alpha1.DatabaseClusterBackupSpec{
+			BackupStorageName: "bs2",
+		},
+	}}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+		"bs1": {
+			Type:   "s3",
+			Bucket: "bucket1",
+		},
+		"bs2": {
+			Type:   "s3",
+			Bucket: "bucket2",
+		},
+	}
+	testBackupStoragesSecrets := map[string]*corev1.Secret{
+		"bs1": {
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
+				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
+			},
+		}, "bs2": {
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
+				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
+			},
+		},
+	}
+	testEngineStorage := everestv1alpha1.Storage{
+		Size:  testEngineStorageSize,
+		Class: &testEngineStorageClass,
+	}
+	expRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name: "repo1",
+			Volume: &crunchyv1beta1.RepoPVC{
+				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					StorageClassName: &testEngineStorageClass,
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: testEngineStorageSize,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "repo2",
+			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
+				Full: pointer.To("20 * * * *"),
+			},
+			S3: s3Repo2,
+		},
+		{
+			Name: "repo3",
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket: "bucket2",
+			},
+		},
+	}
+
+	repos, _, _, _ := reconcilePGBackRestRepos( //nolint:dogsled
+		testRepos,
+		testBackupSchedules,
+		testBackupRequests,
+		testBackupStorages,
+		testBackupStoragesSecrets,
+		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
+	)
 	assert.Equal(t, expRepos, repos)
 }
 

@@ -14,7 +14,7 @@ metadata:
 spec:
   engine:
     type: postgresql
-    version: "16.3"
+    version: "16.1"
     replicas: 3
     storage:
       size: 15G
@@ -36,11 +36,10 @@ metadata:
   finalizers:
     - percona.com/delete-pvc
     - percona.com/delete-ssl
-    - percona.com/stop-watchers
 spec:
   backups:
     pgbackrest:
-      image: percona/percona-postgresql-operator:2.4.0-ppg16.3-pgbackrest2.51-1
+      image: percona/percona-postgresql-operator:2.3.1-ppg16-pgbackrest
       repos:
       - name: repo1
         volume:
@@ -50,7 +49,7 @@ spec:
             resources:
               requests:
                 storage: 15G
-  image: percona/percona-postgresql-operator:2.4.0-ppg16.3-postgres
+  image: percona/percona-postgresql-operator:2.3.1-ppg16-postgres
   instances:
   - dataVolumeClaimSpec:
       accessModes:
@@ -75,7 +74,7 @@ spec:
   postgresVersion: 16
   proxy:
     pgBouncer:
-      image: percona/percona-postgresql-operator:2.4.0-ppg16.3-pgbouncer1.22.1
+      image: percona/percona-postgresql-operator:2.3.1-ppg16-pgbouncer
       port: 5432
       replicas: 3
       expose:
