@@ -286,22 +286,22 @@ func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
 		if !ok {
 			panic("cannot cast to map[string]interface{}")
 		}
-		v2, ok := a.(map[string]interface{})
+		v2, ok := b.(map[string]interface{})
 		if !ok {
 			panic("cannot cast to map[string]interface{}")
 		}
-		return strings.Compare(v1["url"].(string), v2["url"].(string))
+		return strings.Compare(v1["url"].(string), v2["url"].(string)) //nolint:forcetypeassert
 	})
 	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b interface{}) bool {
 		v1, ok := a.(map[string]interface{})
 		if !ok {
 			panic("cannot cast to map[string]interface{}")
 		}
-		v2, ok := a.(map[string]interface{})
+		v2, ok := b.(map[string]interface{})
 		if !ok {
 			panic("cannot cast to map[string]interface{}")
 		}
-		return v1["url"].(string) == v2["url"].(string)
+		return v1["url"].(string) == v2["url"].(string) //nolint:forcetypeassert
 	})
 	return remoteWrites
 }

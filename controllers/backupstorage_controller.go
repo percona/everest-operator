@@ -35,10 +35,6 @@ import (
 	"github.com/percona/everest-operator/controllers/common"
 )
 
-const (
-	cleanupSecretsFinalizer = "percona.com/cleanup-secrets" //nolint:gosec
-)
-
 // BackupStorageReconciler reconciles a BackupStorage object.
 type BackupStorageReconciler struct {
 	client.Client

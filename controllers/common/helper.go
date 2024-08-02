@@ -528,9 +528,9 @@ func GetDBMonitoringConfig(
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
 ) (*everestv1alpha1.MonitoringConfig, error) {
-	monitoring := &everestv1alpha1.MonitoringConfig{}
 	mcName := pointer.Get(database.Spec.Monitoring).MonitoringConfigName
 	if mcName != "" {
+		monitoring := &everestv1alpha1.MonitoringConfig{}
 		if err := c.Get(ctx, types.NamespacedName{
 			Name:      mcName,
 			Namespace: database.GetNamespace(),
@@ -538,7 +538,7 @@ func GetDBMonitoringConfig(
 			return nil, err
 		}
 	}
-	return monitoring, nil
+	return nil, nil //nolint:nilnil
 }
 
 // IsDatabaseClusterRestoreRunning returns true if a restore is running for the
