@@ -70,7 +70,8 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      req.NamespacedName.Name,
-		Namespace: req.NamespacedName.Namespace},
+		Namespace: req.NamespacedName.Namespace,
+	},
 		mc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "unable to fetch MonitoringConfig")
