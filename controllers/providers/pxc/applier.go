@@ -124,14 +124,12 @@ func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
 
 	// Set affinity based on cluster type.
-	if p.clusterType == common.ClusterTypeEKS {
-		affinity := &pxcv1.PodAffinity{
-			TopologyKey: pointer.ToString(common.TopologyKeyHostname),
-		}
-		p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
-		p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
+	affinity := &pxcv1.PodAffinity{
+		TopologyKey: pointer.ToString(common.TopologyKeyHostname),
 	}
+	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
+	p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
+	p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
