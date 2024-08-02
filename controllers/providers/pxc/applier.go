@@ -123,7 +123,6 @@ func (p *applier) Backup() error {
 func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
 
-	// Set affinity based on cluster type.
 	affinity := &pxcv1.PodAffinity{
 		TopologyKey: pointer.ToString(common.TopologyKeyHostname),
 	}
