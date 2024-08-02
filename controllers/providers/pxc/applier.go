@@ -165,9 +165,6 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
-	if monitoring == nil {
-		return nil
-	}
 	p.PerconaXtraDBCluster.Spec.PMM = defaultSpec().PMM
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
