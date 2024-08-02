@@ -235,7 +235,6 @@ func (p *applier) Monitoring() error {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
 		}
-	default:
 	}
 	return nil
 }

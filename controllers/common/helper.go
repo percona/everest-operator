@@ -529,16 +529,13 @@ func GetDBMonitoringConfig(
 	database *everestv1alpha1.DatabaseCluster,
 ) (*everestv1alpha1.MonitoringConfig, error) {
 	monitoring := &everestv1alpha1.MonitoringConfig{}
-	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+	mcName := pointer.Get(database.Spec.Monitoring).MonitoringConfigName
+	if mcName != "" {
 		if err := c.Get(ctx, types.NamespacedName{
+			Name:      mcName,
 			Namespace: database.GetNamespace(),
-			Name:      database.Spec.Monitoring.MonitoringConfigName,
 		}, monitoring); err != nil {
 			return nil, err
-		}
-		if !monitoring.IsNamespaceAllowed(database.Namespace) {
-			return nil,
-				fmt.Errorf("%s namespace is not allowed to use for %s monitoring config", database.Namespace, monitoring.Name)
 		}
 	}
 	return monitoring, nil

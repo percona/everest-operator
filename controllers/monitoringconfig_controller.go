@@ -92,7 +92,10 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	credentialsSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: mc.Spec.CredentialsSecretName, Namespace: r.monitoringNamespace}, credentialsSecret)
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, credentialsSecret)
 	if err != nil {
 		logger.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
@@ -226,7 +229,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		return nil, errors.Join(err, errors.New("could not list monitoringconfigs"))
 	}
 
-	remoteWrite := []map[string]interface{}{}
+	remoteWrite := []interface{}{}
 	for _, monitoringConfig := range monitoringConfigList.Items {
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
@@ -276,16 +279,28 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 		Complete(r)
 }
 
-func deduplicateRemoteWrites(remoteWrites []map[string]interface{}) []map[string]interface{} {
-	slices.SortFunc(remoteWrites, func(a, b map[string]interface{}) int {
-		v1 := a["url"].(string)
-		v2 := b["url"].(string)
-		return strings.Compare(v1, v2)
+func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
+	slices.SortFunc(remoteWrites, func(a, b interface{}) int {
+		v1, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		v2, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		return strings.Compare(v1["url"].(string), v2["url"].(string))
 	})
-	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b map[string]interface{}) bool {
-		v1 := a["url"].(string)
-		v2 := b["url"].(string)
-		return v1 == v2
+	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b interface{}) bool {
+		v1, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		v2, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		return v1["url"].(string) == v2["url"].(string)
 	})
 	return remoteWrites
 }
