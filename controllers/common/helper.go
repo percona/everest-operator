@@ -537,6 +537,7 @@ func GetDBMonitoringConfig(
 		}, monitoring); err != nil {
 			return nil, err
 		}
+		return monitoring, nil
 	}
 	return nil, nil //nolint:nilnil
 }
