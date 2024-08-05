@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -372,6 +371,24 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 		return nil
 	}
 
+	pg := &pgv2.PerconaPGCluster{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: pgBackup.Spec.PGCluster}, pg); err != nil {
+		// if such upstream cluster is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	storages := &everestv1alpha1.BackupStorageList{}
+	if err := r.List(ctx, storages, &client.ListOptions{}); err != nil {
+		// if no backup storages found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
 	backup := &everestv1alpha1.DatabaseClusterBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedName.Name,
@@ -395,7 +412,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 	if err != nil {
 		return err
 	}
-	name, nErr := backupStorageName(pgBackup.Spec.RepoName, cluster)
+	name, nErr := backupStorageName(pgBackup.Spec.RepoName, pg, storages)
 	if nErr != nil {
 		return nErr
 	}
@@ -885,23 +902,19 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 	return false, r.Status().Update(ctx, backup)
 }
 
-func backupStorageName(repoName string, cluster *everestv1alpha1.DatabaseCluster) (string, error) {
-	// repoNames in a PG cluster are in form "repo1", "repo2" etc.
-	// which is mapped to the DatabaseCluster schedules list.
-	// So here we figure out the BackupStorageName of the corresponding schedule.
-	scheduleInd, err := strconv.Atoi(strings.TrimPrefix(repoName, "repo"))
-	if err != nil {
-		return "", fmt.Errorf("unable to get the schedule index for the repo %s", repoName)
+func backupStorageName(repoName string, pg *pgv2.PerconaPGCluster, storages *everestv1alpha1.BackupStorageList) (string, error) {
+	for _, repo := range pg.Spec.Backups.PGBackRest.Repos {
+		if repo.Name == repoName {
+			for _, storage := range storages.Items {
+				if repo.S3.Region == storage.Spec.Region &&
+					repo.S3.Bucket == storage.Spec.Bucket &&
+					repo.S3.Endpoint == storage.Spec.EndpointURL {
+					return storage.Name, nil
+				}
+			}
+		}
 	}
-	// repo1 is hardcoded in the PerconaPGCluster CR as a PVC-based repo and
-	// there is never a schedule for it, so there is always one less schedule
-	// than repos, hence the +1. Also, the repoNames for the schedules start
-	// from repo2. So we need to subtract 2 from the scheduleInd to get the
-	// correct index in the schedules list.
-	if len(cluster.Spec.Backup.Schedules)+1 < scheduleInd {
-		return "", fmt.Errorf("invalid schedule index %v in the repo %s", scheduleInd, repoName)
-	}
-	return cluster.Spec.Backup.Schedules[scheduleInd-2].BackupStorageName, nil
+	return "", fmt.Errorf("failed to find backup storage for repo %s", repoName)
 }
 
 func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
