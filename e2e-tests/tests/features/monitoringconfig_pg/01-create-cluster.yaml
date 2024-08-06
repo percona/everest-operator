@@ -33,7 +33,7 @@ spec:
     image: percona/pmm-client:latest
   engine:
     type: postgresql
-    version: "16.1"
+    version: "16.3"
     replicas: 1
     storage:
       size: 4G
