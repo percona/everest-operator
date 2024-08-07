@@ -35,7 +35,7 @@ spec:
   haproxy:
     enabled: true
     image: percona/haproxy:2.8.5
-    serviceType: ClusterIP
+    exposePrimary: {}
     size: 3
   pxc:
     configuration: |
@@ -55,7 +55,6 @@ spec:
       requests:
         cpu: 600m
         memory: 1G
-    serviceType: ClusterIP
     sidecarResources: {}
     size: 3
     volumeSpec:
