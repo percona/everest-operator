@@ -54,14 +54,14 @@ metadata:
 spec:
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
+    image: percona/haproxy:2.8.5
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.14.0-pxc8.0.36-backup-pxb8.0.35
+    image: percona/percona-xtradb-cluster-operator:1.15.0-pxc8.0-backup-pxb8.0.35
     storages:
       aws:
         type: s3

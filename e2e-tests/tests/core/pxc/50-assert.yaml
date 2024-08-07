@@ -36,7 +36,7 @@ spec:
   allowUnsafeConfigurations: true
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
+    image: percona/haproxy:2.8.5
     serviceType: ClusterIP
     size: 1
   pxc:
