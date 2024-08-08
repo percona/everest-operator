@@ -845,8 +845,8 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 
 	// If the backup storage is not defined in the PerconaPGCluster CR, we
 	// cannot proceed
-	repoIdx := common.GetBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
-	if repoIdx == -1 {
+	repoName := common.GetRepoNameByBackupStorage(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	if repoName == "" {
 		return false, ErrBackupStorageUndefined
 	}
 
@@ -865,7 +865,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 				BlockOwnerDeletion: pointer.ToBool(true),
 			}})
 
-			pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
+			pgCR.Spec.RepoName = repoName
 			pgCR.Spec.Options = []string{
 				"--type=full",
 			}

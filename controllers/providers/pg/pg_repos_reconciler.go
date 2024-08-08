@@ -20,6 +20,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
@@ -151,9 +152,34 @@ func (p *pgReposReconciler) reconcileBackups(
 			return fmt.Errorf("unknown backup storage %s", backup.Spec.BackupStorageName)
 		}
 
-		repoName, err := p.extractFirstAvailableRepoName()
-		if err != nil {
-			return err
+		// try to find the appropriate repo in the existing repos
+		var repoName string
+		var erNext *list.Element
+		for er := p.reposToBeReconciled.Front(); er != nil; er = erNext {
+			// Save the next element because we might remove the current one
+			erNext = er.Next()
+
+			repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
+			if !ok {
+				return fmt.Errorf("failed to cast repo %v", er.Value)
+			}
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			if backup.Spec.BackupStorageName != repoBackupStorageName {
+				continue
+			}
+			repoName = repo.Name
+			p.removeAvailableRepoName(repo.Name)
+			// remove the repo from the reconciled list bc it will be re-added below with the schedule string
+			p.reposReconciled.Remove(er)
+			break
+		}
+		// if there is no repo for this backup - create a new one
+		if repoName == "" {
+			var err error
+			repoName, err = p.extractFirstAvailableRepoName()
+			if err != nil {
+				return err
+			}
 		}
 
 		repo, err := genPGBackrestRepo(repoName, backupStorage, nil)
@@ -279,7 +305,7 @@ func (p *pgReposReconciler) reconcileRepos(
 	return nil
 }
 
-func (p *pgReposReconciler) addNewSchedules(
+func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
 	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	db *everestv1alpha1.DatabaseCluster,
@@ -295,9 +321,53 @@ func (p *pgReposReconciler) addNewSchedules(
 			return fmt.Errorf("unknown backup storage %s", backupSchedule.BackupStorageName)
 		}
 
-		repoName, err := p.extractFirstAvailableRepoName()
-		if err != nil {
-			return err
+		// try to reuse the repos already used by backups
+		var repoName string
+		var erNext *list.Element
+		for er := p.reposToBeReconciled.Front(); er != nil; er = erNext {
+			// Save the next element because we might remove the current one
+			erNext = er.Next()
+
+			repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
+			if !ok {
+				return fmt.Errorf("failed to cast repo %v", er.Value)
+			}
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			if backupSchedule.BackupStorageName != repoBackupStorageName ||
+				repo.BackupSchedules != nil {
+				continue
+			}
+			repoName = repo.Name
+			p.removeAvailableRepoName(repo.Name)
+			break
+		}
+		// check the freshly reconciled repos if there is already such a repo there
+		for er := p.reposReconciled.Front(); er != nil; er = erNext {
+			// Save the next element because we might remove the current one
+			erNext = er.Next()
+
+			repo, ok := er.Value.(crunchyv1beta1.PGBackRestRepo)
+			if !ok {
+				return fmt.Errorf("failed to cast repo %v", er.Value)
+			}
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			if backupSchedule.BackupStorageName != repoBackupStorageName ||
+				repo.BackupSchedules != nil {
+				continue
+			}
+			repoName = repo.Name
+			p.removeAvailableRepoName(repo.Name)
+			// remove the repo from the reconciled list bc we need to update it by adding a schedule
+			p.reposReconciled.Remove(er)
+			break
+		}
+		// if no existing repos can be reused - create a new one
+		if repoName == "" {
+			var err error
+			repoName, err = p.extractFirstAvailableRepoName()
+			if err != nil {
+				return err
+			}
 		}
 
 		repo, err := genPGBackrestRepo(repoName, backupStorage, &backupSchedule.Schedule)
@@ -360,7 +430,14 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 		}
 		newRepos = append(newRepos, repo)
 	}
+	sortByName(newRepos)
 	return newRepos, nil
+}
+
+func sortByName(repos []crunchyv1beta1.PGBackRestRepo) {
+	sort.Slice(repos, func(i, j int) bool {
+		return repos[i].Name < repos[j].Name
+	})
 }
 
 func updatePGIni(
