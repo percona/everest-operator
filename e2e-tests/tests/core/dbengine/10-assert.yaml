@@ -47,35 +47,11 @@ status:
   status: installed
   availableVersions:
     backup:
-      2.3.0:
-        imageHash: 4b0a3a8dcd12619417aea16c7349cacacb41303b7131191ef65f4adff7ca1926
-        imagePath: percona/percona-backup-mongodb:2.3.0
+      2.5.0:
+        imageHash: 7f0801c99f933fe4ac84bd3397a766e9ff7ef43c7d38babe220b34341fced353
+        imagePath: percona/percona-backup-mongodb:2.5.0
         status: recommended
     engine:
-      4.4.13-13:
-        imageHash: 059c3c9a0360d6823905e39b52bdcaf76c3929c93408c537f139cee835c2bc0f
-        imagePath: percona/percona-server-mongodb:4.4.13-13
-        status: available
-      4.4.16-16:
-        imageHash: 402b5e5b08ac73c74a47c72d002251a086f9ad28b0594fbae5c34757b294ce13
-        imagePath: percona/percona-server-mongodb:4.4.16-16
-        status: available
-      4.4.18-18:
-        imageHash: fe34309f0491f13b4b6b35503f57391e57b1a87d88f6f842b1ca3606ddaf1e14
-        imagePath: percona/percona-server-mongodb:4.4.18-18
-        status: available
-      4.4.19-19:
-        imageHash: daeed5cc326cb6393d0304c247e96eb74f7844e30e2e38df84aa4368371bff81
-        imagePath: percona/percona-server-mongodb:4.4.19-19
-        status: available
-      4.4.24-23:
-        imageHash: 87fa059b4b4460cbea9f79687e5cb158c9fc8fe75094fd6816657cef35701813
-        imagePath: percona/percona-server-mongodb:4.4.24-23
-        status: recommended
-      5.0.7-6:
-        imageHash: 3f4849a17236c3849a513f46caa39fbc6da0414f98d27e080fbe0496fa9e86a2
-        imagePath: percona/percona-server-mongodb:5.0.7-6
-        status: available
       5.0.11-10:
         imageHash: da3713525d76a354435e1ab8fda12a06407e7eca8b8e72b9ac0163a34c8eb735
         imagePath: percona/percona-server-mongodb:5.0.11-10
@@ -91,6 +67,14 @@ status:
       5.0.20-17:
         imageHash: 9d1a440f602318551b9e1003a7f01c6af3e6b3f6a633eed37ed2ad6e7d176b9d
         imagePath: percona/percona-server-mongodb:5.0.20-17
+        status: available
+      5.0.26-22:
+        imageHash: 50873aa99f36319c5590ad2bddf407b4df44728bee86025ccae1bfed9329a0d1
+        imagePath: percona/percona-server-mongodb:5.0.26-22
+        status: available
+      5.0.28-24:
+        imageHash: 7f9ac418bcd22fc8fbcf6ddba9aff3142a07ddfdfbe58efd5d55d5f7c9f43aaf
+        imagePath: percona/percona-server-mongodb:5.0.28-24
         status: recommended
       6.0.4-3:
         imageHash: df46c596e6f7339badec3b36f7f209689c3f31e5391ef714be0701deef555570
@@ -103,4 +87,20 @@ status:
       6.0.9-7:
         imageHash: 5ef8404e200a680a67f0a94599963e17c029ebe5e0045b60b45062bba127c505
         imagePath: percona/percona-server-mongodb:6.0.9-7
+        status: available
+      6.0.15-12:
+        imageHash: f12dd271d78cf3e70088fea0c420e8c03703457d8a5959b645053546bff94dea
+        imagePath: percona/percona-server-mongodb:6.0.15-12
+        status: available
+      6.0.16-13:
+        imageHash: 1497e58e39497d8425ccd053898dc323338d6eb3f0e3c4c223f9d5a468da7931
+        imagePath: percona/percona-server-mongodb:6.0.16-13
+        status: recommended
+      7.0.8-5:
+        imageHash: f81d1353d5497c5be36ee525f742d498ee6e1df9aba9502660c50f0fc98743b6
+        imagePath: percona/percona-server-mongodb:7.0.8-5
+        status: available
+      7.0.12-7:
+        imageHash: 7f00e19878bd143119772cd5468f1f0f9857dfcd2ae2f814d52ef3fa7cff6899
+        imagePath: percona/percona-server-mongodb:7.0.12-7
         status: recommended
