@@ -845,7 +845,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 
 	// If the backup storage is not defined in the PerconaPGCluster CR, we
 	// cannot proceed
-	repoName := common.GetBackupStorageNameInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	repoName := common.GetRepoNameByBackupStorage(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
 	if repoName == "" {
 		return false, ErrBackupStorageUndefined
 	}

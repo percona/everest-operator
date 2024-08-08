@@ -601,8 +601,8 @@ func IsDatabaseClusterRestoreRunning(
 	return false, nil
 }
 
-// GetBackupStorageNameInPGBackrestRepo returns the name of the backup storage in the pgbackrest repo list.
-func GetBackupStorageNameInPGBackrestRepo(
+// GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage
+func GetRepoNameByBackupStorage(
 	backupStorage *everestv1alpha1.BackupStorage,
 	repos []crunchyv1beta1.PGBackRestRepo,
 ) string {
