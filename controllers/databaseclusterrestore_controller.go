@@ -474,8 +474,8 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	// PerconaPGCluster CR. If not, we requeue the restore to give the
 	// DatabaseCluster controller a chance to update the PG cluster CR.
 	// Otherwise, the restore will fail.
-	repoIdx := common.GetBackupStorageIndexInPGBackrestRepo(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
-	if repoIdx == -1 {
+	repoName := common.GetRepoNameByBackupStorage(backupStorage, pgDBCR.Spec.Backups.PGBackRest.Repos)
+	if repoName == "" {
 		logger.Info(
 			fmt.Sprintf("Backup storage %s is not defined in the pg cluster %s, requeuing",
 				backupStorageName,
@@ -495,7 +495,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
-		pgCR.Spec.RepoName = pgDBCR.Spec.Backups.PGBackRest.Repos[repoIdx].Name
+		pgCR.Spec.RepoName = repoName
 		pgCR.Spec.Options, err = getPGRestoreOptions(restore.Spec.DataSource, backupBaseName)
 		return err
 	})
