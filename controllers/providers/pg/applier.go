@@ -225,17 +225,15 @@ func (p *applier) DataSource() error {
 }
 
 func (p *applier) Monitoring() error {
-	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
+	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.DB)
 	if err != nil {
 		return err
 	}
 	p.PerconaPGCluster.Spec.PMM = defaultSpec(p.DB).PMM
-	switch monitoring.Spec.Type {
-	case everestv1alpha1.PMMMonitoringType:
+	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
 		}
-	default:
 	}
 	return nil
 }
@@ -259,7 +257,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	pg.Spec.PMM.Image = image
 	pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
-	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring, p.MonitoringNs)
+	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring)
 	if err != nil {
 		return err
 	}
@@ -537,15 +535,9 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 		return nil, err
 	}
 
-	backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, p.SystemNs)
+	backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, database.GetNamespace())
 	if err != nil {
 		return nil, err
-	}
-
-	if database.GetNamespace() != p.SystemNs {
-		if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-			return nil, err
-		}
 	}
 
 	repoName := "repo1"
@@ -731,7 +723,6 @@ func (p *applier) addBackupStoragesByRestores(
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
-	database := p.DB
 	c := p.C
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
@@ -761,14 +752,9 @@ func (p *applier) addBackupStoragesByRestores(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backupStorageName, restore.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// Get the Secret used by the BackupStorage.
@@ -822,14 +808,9 @@ func (p *applier) addBackupStoragesBySchedules(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}
@@ -851,7 +832,6 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
-	database := p.DB
 	c := p.C
 	for _, backup := range backupList.Items {
 		// Check if we already fetched that backup storage
@@ -859,14 +839,9 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, backup.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		backupStorageSecret := &corev1.Secret{}

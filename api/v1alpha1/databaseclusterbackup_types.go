@@ -46,6 +46,7 @@ type DatabaseClusterBackupSpec struct {
 	// DBClusterName is the original database cluster name.
 	DBClusterName string `json:"dbClusterName"`
 	// BackupStorageName is the name of the BackupStorage used for backups.
+	// The BackupStorage must be created in the same namespace as the DatabaseCluster.
 	BackupStorageName string `json:"backupStorageName"`
 }
 
