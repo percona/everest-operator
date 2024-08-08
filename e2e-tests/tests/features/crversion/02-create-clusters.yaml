@@ -50,6 +50,7 @@ commands:
       spec:
         engine:
           crVersion: ${PREVIOUS_PSMDB_OPERATOR_VERSION}
+          version: 6.0.9-7
           type: psmdb
           replicas: 1
           storage:
