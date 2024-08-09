@@ -134,7 +134,64 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
 func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.DatabaseCluster) (bool, error) {
-	return common.HandleUpstreamClusterCleanup(ctx, p.C, database, &pgv2.PerconaPGCluster{})
+	// XXX: In order to work around a bug in PGO v2.4.0
+	// (https://perconadev.atlassian.net/browse/K8SPG-616) we restart the PGO
+	// deployment every time we delete a PG DB, see more details about this
+	// workaround near the end of this function. However, this is not enough if
+	// two or more DBs are deleted at the same time because if we request a
+	// restart while the deployment is already restarting, the PGO will get
+	// stuck again and won't issue a new restart. To avoid this, we need to
+	// wait for the deployment to be ready before processing the next DB
+	// deletion, ensuring that the deployment receives the restart request
+	// after getting stuck.
+	deployReady, err := common.DeploymentIsReady(ctx, p.C, types.NamespacedName{Name: common.PGDeploymentName, Namespace: p.DB.GetNamespace()})
+	if err != nil {
+		return false, err
+	}
+	if !deployReady {
+		return false, nil
+	}
+
+	// XXX: Until EVEREST-977 is implemented we should clean up the repo1
+	// PerconaPGBackups manually to avoid leftovers.
+	// List PG-backups and delete the repo1 backups for this DB
+	backups := &pgv2.PerconaPGBackupList{}
+	listOps := &client.ListOptions{
+		Namespace: p.DB.GetNamespace(),
+	}
+	err = p.C.List(ctx, backups, listOps)
+	if err != nil {
+		return false, err
+	}
+	for _, backup := range backups.Items {
+		// Only delete backups for this DB and repo1
+		if backup.Spec.PGCluster != p.DB.GetName() || backup.Spec.RepoName != "repo1" {
+			continue
+		}
+
+		err = p.C.Delete(ctx, &backup)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	done, err := common.HandleUpstreamClusterCleanup(ctx, p.C, database, &pgv2.PerconaPGCluster{})
+	if err != nil || !done {
+		return done, err
+	}
+
+	// XXX: PGO v2.4.0 has a bug
+	// (https://perconadev.atlassian.net/browse/K8SPG-616) where the
+	// reconciliation loop gets stuck handling the percona.com/stop-watchers
+	// finalizer. In order to work around this issue, we need to wait for the
+	// DB to be deleted and then restart the PGO deployment. This is a
+	// temporary workaround until the issue is fixed in PGO.
+	err = common.RestartDeployment(ctx, p.C, types.NamespacedName{Name: common.PGDeploymentName, Namespace: p.DB.GetNamespace()})
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // DBObject returns the PerconaPGCluster object.

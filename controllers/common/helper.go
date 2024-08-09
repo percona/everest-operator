@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -621,7 +622,7 @@ func GetRepoNameByBackupStorage(
 	return ""
 }
 
-// HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
+// HandleUpstreamClusterCleanup handles the cleanup of the upstream DB objects.
 // Returns true if cleanup is complete.
 func HandleUpstreamClusterCleanup(
 	ctx context.Context,
@@ -629,39 +630,40 @@ func HandleUpstreamClusterCleanup(
 	database *everestv1alpha1.DatabaseCluster,
 	upstream client.Object,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
-		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
-		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
-		if err != nil {
-			return false, err
-		}
-		if len(backupList.Items) != 0 {
-			return false, nil
-		}
-
-		err = c.Get(ctx, types.NamespacedName{
-			Name:      database.Name,
-			Namespace: database.Namespace,
-		}, upstream)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
-				return true, c.Update(ctx, database)
-			}
-			return false, err
-		}
-
-		err = c.Delete(ctx, upstream)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return true, nil
-			}
-			return false, err
-		}
-		controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
-		return true, c.Update(ctx, database)
+	if !controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) {
+		return true, nil
 	}
-	return true, nil
+
+	// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
+	backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	if err != nil {
+		return false, err
+	}
+	if len(backupList.Items) != 0 {
+		return false, nil
+	}
+
+	err = c.Get(ctx, types.NamespacedName{
+		Name:      database.Name,
+		Namespace: database.Namespace,
+	}, upstream)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+			return true, c.Update(ctx, database)
+		}
+		return false, err
+	}
+
+	err = c.Delete(ctx, upstream)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	return false, nil
 }
 
 // IsOwnedBy checks if the child object is owned by the parent object.
@@ -693,4 +695,33 @@ func GetRecommendedCRVersion(
 		return pointer.To(v.ToCRVersion()), nil
 	}
 	return nil, nil //nolint:nilnil
+}
+
+// DeploymentIsReady returns true if the deployment is ready.
+func DeploymentIsReady(ctx context.Context, c client.Client, name types.NamespacedName) (bool, error) {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, name, deployment)
+	if err != nil {
+		return false, err
+	}
+
+	return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
+}
+
+// RestartDeployment restarts the deployment.
+func RestartDeployment(
+	ctx context.Context,
+	c client.Client,
+	name types.NamespacedName,
+) error {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, name, deployment)
+	if err != nil {
+		return err
+	}
+	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
+		deployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = metav1.Now().Format(time.RFC3339)
+	return c.Update(ctx, deployment)
 }

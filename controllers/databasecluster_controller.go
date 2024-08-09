@@ -135,8 +135,11 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		db.Status.Status = everestv1alpha1.AppStateDeleting
-		return ctrl.Result{Requeue: !done}, r.Status().Update(ctx, db)
+		if !done {
+			db.Status.Status = everestv1alpha1.AppStateDeleting
+			return ctrl.Result{Requeue: true}, r.Client.Status().Update(ctx, db)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// Set metadata.
@@ -196,7 +199,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/finalizers,verbs=update
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;update;watch
 //+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 //+kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete

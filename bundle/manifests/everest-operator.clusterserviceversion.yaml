@@ -103,7 +103,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-07-16T07:47:08Z"
+    createdAt: "2024-07-26T15:02:18Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.0
@@ -168,6 +168,7 @@ spec:
           verbs:
           - get
           - list
+          - update
           - watch
         - apiGroups:
           - ""
