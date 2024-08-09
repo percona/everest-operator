@@ -264,20 +264,11 @@ func (p *applier) applyHAProxyCfg() error {
 		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
-	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		haProxy.PodSpec.ServiceType = corev1.ServiceTypeClusterIP
-		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeClusterIP
+		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
-		haProxy.PodSpec.ServiceType = corev1.ServiceTypeLoadBalancer
-		haProxy.PodSpec.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		haProxy.PodSpec.LoadBalancerSourceRanges = p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		annotations, ok := common.ExposeAnnotationsMap[p.clusterType]
-		if ok {
-			haProxy.PodSpec.ServiceAnnotations = annotations
-			haProxy.PodSpec.ReplicasServiceAnnotations = annotations
-		}
+		annotations, _ := common.ExposeAnnotationsMap[p.clusterType]
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
@@ -285,7 +276,7 @@ func (p *applier) applyHAProxyCfg() error {
 			Annotations:              annotations,
 		}
 		haProxy.ExposePrimary = expose
-		haProxy.ExposeReplicas = &expose
+		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
 	}
@@ -346,15 +337,10 @@ func (p *applier) applyProxySQLCfg() error {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
-	// TODO: Remove use of deprecated fields once 1.13.0 is not supported.
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		proxySQL.ServiceType = corev1.ServiceTypeClusterIP
-		proxySQL.ReplicasServiceType = corev1.ServiceTypeClusterIP
+		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
-		proxySQL.ServiceType = corev1.ServiceTypeLoadBalancer
-		proxySQL.ReplicasServiceType = corev1.ServiceTypeLoadBalancer
-		proxySQL.LoadBalancerSourceRanges = p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray()
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
