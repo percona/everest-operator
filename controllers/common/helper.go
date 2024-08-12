@@ -601,24 +601,24 @@ func IsDatabaseClusterRestoreRunning(
 	return false, nil
 }
 
-// GetBackupStorageIndexInPGBackrestRepo returns the index of the backup storage in the pgbackrest repo list.
-func GetBackupStorageIndexInPGBackrestRepo(
+// GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage.
+func GetRepoNameByBackupStorage(
 	backupStorage *everestv1alpha1.BackupStorage,
 	repos []crunchyv1beta1.PGBackRestRepo,
-) int {
-	for idx, repo := range repos {
+) string {
+	for _, repo := range repos {
 		if repo.S3 != nil &&
 			repo.S3.Bucket == backupStorage.Spec.Bucket &&
 			repo.S3.Region == backupStorage.Spec.Region &&
 			repo.S3.Endpoint == backupStorage.Spec.EndpointURL {
-			return idx
+			return repo.Name
 		}
 
 		if repo.Azure != nil && repo.Azure.Container == backupStorage.Spec.Bucket {
-			return idx
+			return repo.Name
 		}
 	}
-	return -1
+	return ""
 }
 
 // HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
