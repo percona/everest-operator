@@ -878,7 +878,7 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 	return nil
 }
 
-func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
+func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	ctx := p.ctx
 	c := p.C
 	database := p.DB
@@ -887,11 +887,11 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 
 	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
 	if !ok {
-		return crunchyv1beta1.Backups{}, fmt.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
+		return pgv2.Backups{}, fmt.Errorf("pgbackrest version %s not available", database.Spec.Engine.Version)
 	}
 
-	newBackups := crunchyv1beta1.Backups{
-		PGBackRest: crunchyv1beta1.PGBackRestArchive{
+	newBackups := pgv2.Backups{
+		PGBackRest: pgv2.PGBackRestArchive{
 			Image:   pgbackrestVersion.ImagePath,
 			Manual:  oldBackups.PGBackRest.Manual,
 			Restore: oldBackups.PGBackRest.Restore,
@@ -912,7 +912,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	// List DatabaseClusterBackup objects for this database
 	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
 	if err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
@@ -920,18 +920,18 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 
 	// Add backup storages used by on-demand backups to the list
 	if err := p.addBackupStoragesByOnDemandBackups(backupList, backupStorages, backupStoragesSecrets); err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	// List DatabaseClusterRestore objects for this database
 	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
 	if err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	// Add backup storages used by restores to the list
 	if err := p.addBackupStoragesByRestores(backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	// Only use the backup schedules if schedules are enabled in the DBC spec
@@ -941,7 +941,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 	}
 	// Add backup storages used by backup schedules to the list
 	if err := p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err := reconcilePGBackRestRepos(
@@ -954,7 +954,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 		database,
 	)
 	if err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	pgBackrestSecret, err := createPGBackrestSecret(
@@ -967,7 +967,7 @@ func (p *applier) reconcilePGBackupsSpec() (crunchyv1beta1.Backups, error) {
 		nil,
 	)
 	if err != nil {
-		return crunchyv1beta1.Backups{}, err
+		return pgv2.Backups{}, err
 	}
 
 	newBackups.PGBackRest.Configuration = []corev1.VolumeProjection{

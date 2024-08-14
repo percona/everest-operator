@@ -43,7 +43,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.14.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.1
+          PG_OPERATOR_VERSION: 2.4.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
 
@@ -126,8 +126,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.14.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.1
-          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
+          PG_OPERATOR_VERSION: 2.4.1
+          PREVIOUS_PG_OPERATOR_VERSION: 2.3.1
           PREVIOUS_PXC_OPERATOR_VERSION: 1.13.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -175,7 +175,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.14.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.1
+          PG_OPERATOR_VERSION: 2.4.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
@@ -185,8 +185,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.14.0
           PSMDB_OPERATOR_VERSION: 1.15.0
-          PG_OPERATOR_VERSION: 2.3.1
-          PREVIOUS_PG_OPERATOR_VERSION: 2.2.0 # TODO: Revisit it after 2.3 release
+          PG_OPERATOR_VERSION: 2.4.1
+          PREVIOUS_PG_OPERATOR_VERSION: 2.3.1
           PREVIOUS_PXC_OPERATOR_VERSION: 1.13.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.14.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
