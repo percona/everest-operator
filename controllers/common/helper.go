@@ -695,6 +695,7 @@ func GetRecommendedCRVersion(
 	return nil, nil //nolint:nilnil
 }
 
+// DefaultAffinitySettings returns the default corev1.Affinity object used in Everest.
 func DefaultAffinitySettings() *corev1.Affinity {
 	return &corev1.Affinity{
 		PodAntiAffinity: &corev1.PodAntiAffinity{
