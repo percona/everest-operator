@@ -694,3 +694,18 @@ func GetRecommendedCRVersion(
 	}
 	return nil, nil //nolint:nilnil
 }
+
+func DefaultAffinitySettings() *corev1.Affinity {
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						TopologyKey: TopologyKeyHostname,
+					},
+				},
+			},
+		},
+	}
+}

@@ -130,7 +130,7 @@ func (p *applier) Engine() error {
 			},
 		},
 	}
-	pg.Spec.InstanceSets[0].Affinity = hostnameAffinity.DeepCopy()
+	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
 	return nil
 }
 
@@ -185,7 +185,7 @@ func (p *applier) Proxy() error {
 			SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 		},
 	}
-	pg.Spec.Proxy.PGBouncer.Affinity = hostnameAffinity.DeepCopy()
+	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
 
 	return nil
 }

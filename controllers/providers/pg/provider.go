@@ -20,7 +20,6 @@ import (
 	"context"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,16 +35,6 @@ const (
 	finalizerDeletePGPVC = "percona.com/delete-pvc"
 	finalizerDeletePGSSL = "percona.com/delete-ssl"
 )
-
-var hostnameAffinity = &corev1.Affinity{
-	PodAntiAffinity: &corev1.PodAntiAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-			{
-				TopologyKey: "kubernetes.io/hostname",
-			},
-		},
-	},
-}
 
 // Provider is a provider for Percona PostgreSQL.
 type Provider struct {

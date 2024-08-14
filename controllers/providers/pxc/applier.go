@@ -122,13 +122,9 @@ func (p *applier) Backup() error {
 
 func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
-
-	affinity := &pxcv1.PodAffinity{
-		TopologyKey: pointer.ToString(common.TopologyKeyHostname),
+	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = affinity
-	p.PerconaXtraDBCluster.Spec.HAProxy.PodSpec.Affinity = affinity
-	p.PerconaXtraDBCluster.Spec.ProxySQL.Affinity = affinity
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
@@ -246,6 +242,9 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
+	haProxy.PodSpec.Affinity = &pxcv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
@@ -336,6 +335,9 @@ func (p *applier) applyHAProxyCfg() error {
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
+	proxySQL.Affinity = &pxcv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
 	if p.DB.Spec.Proxy.Replicas == nil {
 		// By default we set the same number of replicas as the engine
 		proxySQL.Size = p.DB.Spec.Engine.Replicas

@@ -87,7 +87,7 @@ func (p *applier) Engine() error {
 	}
 
 	affinity := &psmdbv1.PodAffinity{
-		TopologyKey: pointer.ToString("kubernetes.io/hostname"),
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
 	psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
 
