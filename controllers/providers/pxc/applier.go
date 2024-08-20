@@ -89,9 +89,11 @@ func (p *applier) Engine() error {
 
 	if !p.DB.Spec.Engine.Resources.CPU.IsZero() {
 		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Engine.Resources.CPU
+		pxc.Spec.PXC.PodSpec.Resources.Requests[corev1.ResourceCPU] = p.DB.Spec.Engine.Resources.CPU
 	}
 	if !p.DB.Spec.Engine.Resources.Memory.IsZero() {
 		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
+		pxc.Spec.PXC.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 	}
 
 	switch p.DB.Spec.Engine.Size() {
@@ -186,6 +188,10 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1G"),
+						corev1.ResourceCPU:    resource.MustParse("600m"),
+					},
+					Requests: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("1G"),
 						corev1.ResourceCPU:    resource.MustParse("600m"),
 					},
