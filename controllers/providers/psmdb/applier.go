@@ -86,12 +86,10 @@ func (p *applier) Engine() error {
 		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 	}
 
-	if p.clusterType == common.ClusterTypeEKS {
-		affinity := &psmdbv1.PodAffinity{
-			TopologyKey: pointer.ToString("kubernetes.io/hostname"),
-		}
-		psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
+	affinity := &psmdbv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
+	psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
 
 	psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
 	psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
