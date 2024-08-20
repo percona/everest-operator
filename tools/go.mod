@@ -11,7 +11,7 @@ require (
 	github.com/golangci/golangci-lint v1.60.1
 	github.com/reviewdog/reviewdog v0.20.1
 	golang.org/x/tools v0.24.0
-	mvdan.cc/gofumpt v0.6.0
+	mvdan.cc/gofumpt v0.7.0
 )
 
 require (
