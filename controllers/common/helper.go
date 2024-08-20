@@ -621,6 +621,51 @@ func GetRepoNameByBackupStorage(
 	return ""
 }
 
+// HandleDBBackupsCleanup handles the cleanup of the dbbackup objects.
+// Returns true if cleanup is complete.
+func HandleDBBackupsCleanup(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (bool, error) {
+	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
+		if done, err := deleteBackupsForDatabase(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
+			return false, err
+		} else if !done {
+			return false, nil
+		}
+		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
+		return true, c.Update(ctx, database)
+	}
+	return true, nil
+}
+
+// Delete all dbbackups for the given database.
+// Returns true if no dbbackups are found.
+func deleteBackupsForDatabase(
+	ctx context.Context,
+	c client.Client,
+	dbName, dbNs string,
+) (bool, error) {
+	backupList, err := ListDatabaseClusterBackups(ctx, c, dbName, dbNs)
+	if err != nil {
+		return false, err
+	}
+	if len(backupList.Items) == 0 {
+		return true, nil
+	}
+	for _, backup := range backupList.Items {
+		if !backup.GetDeletionTimestamp().IsZero() {
+			// Already deleting, continue to next.
+			continue
+		}
+		if err := c.Delete(ctx, &backup); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
 // HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
 // Returns true if cleanup is complete.
 func HandleUpstreamClusterCleanup(
