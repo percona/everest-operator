@@ -98,15 +98,12 @@ func (p *applier) Engine() error {
 	case everestv1alpha1.EngineSizeSmall:
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 450
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 450
-		pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsSmall
 	case everestv1alpha1.EngineSizeMedium:
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 451
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 451
-		pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsMedium
 	case everestv1alpha1.EngineSizeLarge:
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
-		pxc.Spec.PXC.PodSpec.Resources = pxcResourceRequirementsLarge
 	}
 	return nil
 }
