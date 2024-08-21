@@ -36,8 +36,8 @@ spec:
   allowUnsafeConfigurations: true
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
-    serviceType: ClusterIP
+    image: percona/haproxy:2.8.5
+    exposePrimary: {}
     size: 1
   pxc:
     configuration: |
@@ -57,7 +57,6 @@ spec:
       requests:
         cpu: 600m
         memory: 1G
-    serviceType: ClusterIP
     sidecarResources: {}
     size: 1
     volumeSpec:

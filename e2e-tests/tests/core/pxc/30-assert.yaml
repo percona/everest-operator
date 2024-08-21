@@ -34,8 +34,8 @@ metadata:
 spec:
   haproxy:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
-    serviceType: ClusterIP
+    image: percona/haproxy:2.8.5
+    exposePrimary: {}
     size: 3
   pxc:
     configuration: |
@@ -55,7 +55,6 @@ spec:
       requests:
         cpu: 600m
         memory: 1G
-    serviceType: ClusterIP
     sidecarResources: {}
     size: 3
     volumeSpec:
