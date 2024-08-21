@@ -54,6 +54,9 @@ spec:
       limits:
         cpu: 600m
         memory: 1G
+      requests:
+        cpu: 600m
+        memory: 1G
     serviceType: ClusterIP
     sidecarResources: {}
     size: 3

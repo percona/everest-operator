@@ -17,8 +17,6 @@ package pxc
 
 import (
 	goversion "github.com/hashicorp/go-version"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // minVersionForOptimizedConfig is the version below which we will not apply optimized configuration.
@@ -167,42 +165,4 @@ wsrep_trx_fragment_size = 1048576
 wsrep_trx_fragment_unit = bytes
 wsrep-provider-options = evs.delayed_keep_period=PT560S;evs.stats_report_period=PT1M;gcs.fc_limit=128;gmcast.peer_timeout=PT15S;gmcast.time_wait=PT18S;evs.max_install_timeouts=5;pc.recovery=true;gcache.recover=yes;gcache.size=8989366809;evs.delay_margin=PT30S;evs.user_send_window=1024;evs.inactive_check_period=PT5S;evs.join_retrans_period=PT5S;evs.suspect_timeout=PT60S;gcs.max_packet_size=131072;pc.linger=PT60S;evs.send_window=1024;evs.inactive_timeout=PT120S;pc.announce_timeout=PT60S;
 	`
-)
-
-var ( //nolint:dupl
-	// A pxcResourceRequirementsSmall is the resource requirements for PXC for small clusters.
-	pxcResourceRequirementsSmall = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("1.61Gi"),
-			corev1.ResourceCPU:    resource.MustParse("570m"),
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("1.7Gi"),
-			corev1.ResourceCPU:    resource.MustParse("600m"),
-		},
-	}
-
-	// A pxcResourceRequirementsMedium is the resource requirements for PXC for medium clusters.
-	pxcResourceRequirementsMedium = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("6.65Gi"),
-			corev1.ResourceCPU:    resource.MustParse("3040m"),
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("7Gi"),
-			corev1.ResourceCPU:    resource.MustParse("3200m"),
-		},
-	}
-
-	// A pxcResourceRequirementsLarge is the resource requirements for PXC for large clusters.
-	pxcResourceRequirementsLarge = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("26.6Gi"),
-			corev1.ResourceCPU:    resource.MustParse("3040m"),
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("28Gi"),
-			corev1.ResourceCPU:    resource.MustParse("3200m"),
-		},
-	}
 )
