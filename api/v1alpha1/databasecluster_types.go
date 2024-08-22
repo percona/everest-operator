@@ -18,7 +18,6 @@ package v1alpha1
 import (
 	"net"
 
-	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -311,12 +310,21 @@ type Monitoring struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+type ConfigServer struct {
+	// Size is the amount of configServers
+	// +kubebuilder:validation:Minimum:=1
+	Size int32 `json:"size"`
+}
+
 // Sharding are the sharding options. Available only for psmdb
 type Sharding struct {
-	Enabled      bool                 `json:"enabled"`
-	Shards       int32                `json:"shards"`
-	ConfigServer *psmdbv1.ReplsetSpec `json:"configServer,omitempty"`
-	Proxy        *psmdbv1.MongosSpec  `json:"proxy,omitempty"`
+	// Enabled defines if the sharding is enabled
+	Enabled bool `json:"enabled"`
+	// Shards defines the number of shards
+	// +kubebuilder:validation:Minimum:=1
+	Shards *int32 `json:"shards,omitempty"`
+	// ConfigServer represents the sharding configuration server settings
+	ConfigServer *ConfigServer `json:"configServer,omitempty"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
