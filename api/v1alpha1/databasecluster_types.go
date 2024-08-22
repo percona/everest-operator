@@ -18,6 +18,7 @@ package v1alpha1
 import (
 	"net"
 
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -310,6 +311,14 @@ type Monitoring struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// Sharding are the sharding options. Available only for psmdb
+type Sharding struct {
+	Enabled      bool                 `json:"enabled"`
+	Shards       int32                `json:"shards"`
+	ConfigServer *psmdbv1.ReplsetSpec `json:"configServer,omitempty"`
+	Proxy        *psmdbv1.MongosSpec  `json:"proxy,omitempty"`
+}
+
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
@@ -329,6 +338,8 @@ type DatabaseClusterSpec struct {
 	Backup Backup `json:"backup,omitempty"`
 	// Monitoring is the monitoring configuration
 	Monitoring *Monitoring `json:"monitoring,omitempty"`
+	// Sharding is the sharding configuration. PSMDB-only
+	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
