@@ -701,13 +701,13 @@ spec:
                   configServer:
                     description: ConfigServer represents the sharding configuration server settings
                     properties:
-                      size:
-                        description: Size is the amount of configServers
+                      replicas:
+                        description: Replicas is the amount of configServers
                         format: int32
                         minimum: 1
                         type: integer
                     required:
-                    - size
+                    - replicas
                     type: object
                   enabled:
                     description: Enabled defines if the sharding is enabled
@@ -718,7 +718,9 @@ spec:
                     minimum: 1
                     type: integer
                 required:
+                - configServer
                 - enabled
+                - shards
                 type: object
             required:
             - engine

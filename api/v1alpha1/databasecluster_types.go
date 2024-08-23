@@ -311,9 +311,9 @@ type Monitoring struct {
 }
 
 type ConfigServer struct {
-	// Size is the amount of configServers
+	// Replicas is the amount of configServers
 	// +kubebuilder:validation:Minimum:=1
-	Size int32 `json:"size"`
+	Replicas int32 `json:"replicas"`
 }
 
 // Sharding are the sharding options. Available only for psmdb
@@ -322,9 +322,9 @@ type Sharding struct {
 	Enabled bool `json:"enabled"`
 	// Shards defines the number of shards
 	// +kubebuilder:validation:Minimum:=1
-	Shards *int32 `json:"shards,omitempty"`
+	Shards int32 `json:"shards"`
 	// ConfigServer represents the sharding configuration server settings
-	ConfigServer *ConfigServer `json:"configServer,omitempty"`
+	ConfigServer ConfigServer `json:"configServer"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
