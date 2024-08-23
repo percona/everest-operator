@@ -84,16 +84,21 @@ func (p *applier) Engine() error {
 		for i := range database.Spec.Sharding.Shards {
 			p.configureReplSetSpec(psmdb.Spec.Replsets[i])
 		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.Sharding.ConfigServer.Replicas
-		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = &psmdbv1.PodAffinity{
-			Advanced: common.DefaultAffinitySettings().DeepCopy(),
-		}
+		p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
 	} else {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[0])
 		// ?? what to do with other Replsets if there are any?
 	}
 
 	return nil
+}
+
+func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) {
+	database := p.DB
+	configsvr.Size = database.Spec.Sharding.ConfigServer.Replicas
+	configsvr.MultiAZ.Affinity = &psmdbv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
 }
 
 func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec) {
