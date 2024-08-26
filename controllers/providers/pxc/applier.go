@@ -311,7 +311,14 @@ func (p *applier) applyHAProxyCfg() error {
 	if !ok {
 		return fmt.Errorf("haproxy version %s not available", bestHAProxyVersion)
 	}
-	haProxy.PodSpec.Image = haProxyVersion.ImagePath
+
+	// We can update the HAProxy image name only in case the CRVersions match.
+	// Otherwise we keep the image unchanged.
+	image := haProxyVersion.ImagePath
+	if p.currentPerconaXtraDBClusterSpec.HAProxy != nil && p.DBEngine.Status.OperatorVersion != p.DB.Status.CRVersion {
+		image = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Image
+	}
+	haProxy.PodSpec.Image = image
 
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		haProxy.PodSpec.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
@@ -364,7 +371,13 @@ func (p *applier) applyProxySQLCfg() error {
 		return fmt.Errorf("proxysql version %s not available", bestProxySQLVersion)
 	}
 
-	proxySQL.Image = proxySQLVersion.ImagePath
+	// We can update the image name only in case the CRVersions match.
+	// Otherwise we keep the image unchanged.
+	image := proxySQLVersion.ImagePath
+	if p.currentPerconaXtraDBClusterSpec.ProxySQL != nil && p.DBEngine.Status.OperatorVersion != p.DB.Status.CRVersion {
+		image = p.currentPerconaXtraDBClusterSpec.ProxySQL.Image
+	}
+	proxySQL.Image = image
 
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		proxySQL.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
@@ -450,9 +463,16 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 		return nil, fmt.Errorf("backup version %s not available", bestBackupVersion)
 	}
 
+	// We can update the image name only in case the CRVersions match.
+	// Otherwise we keep the image unchanged.
+	image := backupVersion.ImagePath
+	if p.currentPerconaXtraDBClusterSpec.Backup != nil && p.DBEngine.Status.OperatorVersion != p.DB.Status.CRVersion {
+		image = p.currentPerconaXtraDBClusterSpec.Backup.Image
+	}
+
 	// Initialize PXCScheduledBackup object
 	pxcBackupSpec := &pxcv1.PXCScheduledBackup{
-		Image: backupVersion.ImagePath,
+		Image: image,
 		PITR: pxcv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
