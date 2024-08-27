@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"slices"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +68,11 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
 
-	err := r.Get(ctx, types.NamespacedName{Name: req.NamespacedName.Name, Namespace: r.monitoringNamespace}, mc)
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      req.NamespacedName.Name,
+		Namespace: req.NamespacedName.Namespace,
+	},
+		mc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
@@ -87,7 +93,10 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	credentialsSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{Name: mc.Spec.CredentialsSecretName, Namespace: r.monitoringNamespace}, credentialsSecret)
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, credentialsSecret)
 	if err != nil {
 		logger.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
@@ -247,6 +256,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 			"url": u.JoinPath("victoriametrics/api/v1/write").String(),
 		})
 	}
+	remoteWrite = deduplicateRemoteWrites(remoteWrite)
 	vmAgentSpec["remoteWrite"] = remoteWrite
 
 	// Use the kube-system namespace ID as the k8s_cluster_id label.
@@ -268,4 +278,30 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
 		Complete(r)
+}
+
+func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
+	slices.SortFunc(remoteWrites, func(a, b interface{}) int {
+		v1, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		v2, ok := b.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		return strings.Compare(v1["url"].(string), v2["url"].(string)) //nolint:forcetypeassert
+	})
+	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b interface{}) bool {
+		v1, ok := a.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		v2, ok := b.(map[string]interface{})
+		if !ok {
+			panic("cannot cast to map[string]interface{}")
+		}
+		return v1["url"].(string) == v2["url"].(string) //nolint:forcetypeassert
+	})
+	return remoteWrites
 }
