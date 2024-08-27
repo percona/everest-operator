@@ -65,8 +65,9 @@ spec:
             description: DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
             properties:
               backupStorageName:
-                description: BackupStorageName is the name of the BackupStorage used
-                  for backups.
+                description: |-
+                  BackupStorageName is the name of the BackupStorage used for backups.
+                  The BackupStorage must be created in the same namespace as the DatabaseCluster.
                 type: string
               dbClusterName:
                 description: DBClusterName is the original database cluster name.

@@ -1,7 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-commands:
-  - script: SYSTEM_NAMESPACE=$NAMESPACE MONITORING_NAMESPACE=$NAMESPACE DB_NAMESPACES=$NAMESPACE,kuttl-test-psmdb ../../../../bin/manager -metrics-bind-address :8032 -health-probe-bind-address :8048
-    background: true
-    skipLogOutput: true

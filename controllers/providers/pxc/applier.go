@@ -153,18 +153,15 @@ func (p *applier) DataSource() error {
 }
 
 func (p *applier) Monitoring() error {
-	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
+	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.DB)
 	if err != nil {
 		return err
 	}
 	p.PerconaXtraDBCluster.Spec.PMM = defaultSpec().PMM
-	switch monitoring.Spec.Type {
-	case everestv1alpha1.PMMMonitoringType:
+	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
 		}
-	default:
-		return nil
 	}
 	return nil
 }
@@ -402,7 +399,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
 	}
 
-	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring, p.MonitoringNs)
+	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring)
 	if err != nil {
 		return err
 	}
@@ -503,14 +500,12 @@ func (p *applier) addBackupStorages(
 			continue
 		}
 
-		spec, backupStorage, err := p.genPXCStorageSpec(backup.Spec.BackupStorageName, p.SystemNs)
+		spec, backupStorage, err := p.genPXCStorageSpec(
+			backup.Spec.BackupStorageName,
+			database.GetNamespace(),
+		)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to get backup storage for backup %s", backup.Name))
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(p.ctx, p.C, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		storages[backup.Spec.BackupStorageName] = spec
@@ -547,7 +542,7 @@ func (p *applier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageS
 	database := p.DB
 	storageName := *database.Spec.Backup.PITR.BackupStorageName
 
-	spec, backupStorage, err := p.genPXCStorageSpec(storageName, p.SystemNs)
+	spec, backupStorage, err := p.genPXCStorageSpec(storageName, database.GetNamespace())
 	if err != nil {
 		return errors.Join(err, errors.New("failed to get pitr storage"))
 	}
@@ -571,12 +566,6 @@ func (p *applier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageS
 		return fmt.Errorf("BackupStorage of type %s is not supported. PITR only works for s3 compatible storages", backupStorage.Spec.Type)
 	}
 
-	if database.Namespace != p.SystemNs {
-		if err := common.ReconcileBackupStorageSecret(p.ctx, p.C, p.SystemNs, backupStorage, database); err != nil {
-			return err
-		}
-	}
-
 	// create a separate storage for pxc pitr as the docs recommend
 	// https://docs.percona.com/percona-operator-for-mysql/pxc/backups-pitr.html
 	storages[common.PITRStorageName(backupStorage.Name)] = spec
@@ -597,14 +586,12 @@ func (p *applier) addScheduledBackupsConfiguration(
 		// Add the storages used by the schedule backups
 		if _, ok := storages[schedule.BackupStorageName]; !ok {
 			backupStorage := &everestv1alpha1.BackupStorage{}
-			err := p.C.Get(p.ctx, types.NamespacedName{Name: schedule.BackupStorageName, Namespace: p.SystemNs}, backupStorage)
+			err := p.C.Get(p.ctx, types.NamespacedName{
+				Name:      schedule.BackupStorageName,
+				Namespace: database.GetNamespace(),
+			}, backupStorage)
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("failed to get backup storage %s", schedule.BackupStorageName))
-			}
-			if database.GetNamespace() != p.SystemNs {
-				if err := common.ReconcileBackupStorageSecret(p.ctx, p.C, p.SystemNs, backupStorage, database); err != nil {
-					return err
-				}
 			}
 
 			storages[schedule.BackupStorageName] = &pxcv1.BackupStorageSpec{
