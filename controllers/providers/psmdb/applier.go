@@ -156,17 +156,15 @@ func (p *applier) DataSource() error {
 }
 
 func (p *applier) Monitoring() error {
-	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.MonitoringNs, p.DB)
+	monitoring, err := common.GetDBMonitoringConfig(p.ctx, p.C, p.DB)
 	if err != nil {
 		return err
 	}
 	p.PerconaServerMongoDB.Spec.PMM = defaultSpec().PMM
-	switch monitoring.Spec.Type {
-	case everestv1alpha1.PMMMonitoringType:
+	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
 		}
-	default:
 	}
 	return nil
 }
@@ -191,7 +189,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	psmdb.Spec.PMM.Image = image
 	psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
-	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring, p.MonitoringNs)
+	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring)
 	if err != nil {
 		return err
 	}
@@ -239,14 +237,9 @@ func (p *applier) addBackupStoragesByRestores(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.Namespace != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// configures the storage for S3.
@@ -302,14 +295,9 @@ func (p *applier) addBackupStoragesByDatabaseClusterBackups(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, backup.Spec.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return err
-			}
 		}
 
 		// configures the storage for S3.
@@ -363,14 +351,9 @@ func (p *applier) getBackupTasks(
 			continue
 		}
 
-		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, p.SystemNs)
+		backupStorage, err := common.GetBackupStorage(ctx, c, schedule.BackupStorageName, database.GetNamespace())
 		if err != nil {
 			return nil, err
-		}
-		if database.GetNamespace() != p.SystemNs {
-			if err := common.ReconcileBackupStorageSecret(ctx, c, p.SystemNs, backupStorage, database); err != nil {
-				return nil, err
-			}
 		}
 
 		// configures the storage for S3.
