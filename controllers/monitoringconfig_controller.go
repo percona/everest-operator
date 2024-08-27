@@ -235,6 +235,12 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
 		}
+
+		secretName, err := r.reconcileSecret(ctx, &monitoringConfig)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("could not reconcile destination secret"))
+		}
+
 		u, err := url.Parse(monitoringConfig.Spec.PMM.URL)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to parse PMM URL"))
@@ -242,11 +248,11 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		remoteWrite = append(remoteWrite, map[string]interface{}{
 			"basicAuth": map[string]interface{}{
 				"password": map[string]interface{}{
-					"name": monitoringConfig.Spec.CredentialsSecretName,
+					"name": secretName,
 					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey,
 				},
 				"username": map[string]interface{}{
-					"name": monitoringConfig.Spec.CredentialsSecretName,
+					"name": secretName,
 					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretUsernameKey,
 				},
 			},
@@ -304,4 +310,37 @@ func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
 		return v1["url"].(string) == v2["url"].(string) //nolint:forcetypeassert
 	})
 	return remoteWrites
+}
+
+// reconcileSecret copies the source MonitoringConfig secret onto the monitoring namespace.
+// Returns the name of the newly created/updated secret.
+func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) (string, error) {
+	// Get the secret in the MonitoringConfig namespace.
+	secret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, secret)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a copy in the monitoring namespace.
+	secretName := secret.GetName() + "-" + secret.GetNamespace()
+	clone := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: r.monitoringNamespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, clone, func() error {
+		clone.Data = secret.DeepCopy().Data
+		if err := controllerutil.SetControllerReference(mc, clone, r.Scheme); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return "", err
+	}
+	return secretName, nil
 }
