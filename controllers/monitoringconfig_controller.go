@@ -355,41 +355,41 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *ev
 	}
 
 	// Get the secret in the MonitoringConfig namespace.
-	secret := &corev1.Secret{}
+	src := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      mc.Spec.CredentialsSecretName,
 		Namespace: mc.GetNamespace(),
-	}, secret)
+	}, src)
 	if err != nil {
 		return "", err
 	}
 
 	// Create a copy in the monitoring namespace.
-	secretName := secret.GetName() + "-" + secret.GetNamespace()
-	clone := &corev1.Secret{
+	dstSecretName := src.GetName() + "-" + src.GetNamespace()
+	dst := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
+			Name:      dstSecretName,
 			Namespace: r.monitoringNamespace,
 		},
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, clone, func() error {
-		clone.Data = secret.DeepCopy().Data
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dst, func() error {
+		dst.Data = src.DeepCopy().Data
 		// Attach labels to identify the parent MonitoringConfig.
 		// This is useful for garbage collection, since we cannot have cross-namespace OwnerRefs.
-		labels := clone.GetLabels()
+		labels := dst.GetLabels()
 		if labels == nil {
 			labels = make(map[string]string)
 		}
 		labels[monitoringConfigRefNameLabel] = mc.GetName()
 		labels[monitoringConfigRefNamespaceLabel] = mc.GetNamespace()
-		clone.SetLabels(labels)
+		dst.SetLabels(labels)
 		return nil
 	}); err != nil {
 		return "", err
 	}
 	// Add a clean-up finalizer in the parent MonitoringConfig.
 	if controllerutil.AddFinalizer(mc, monitoringConfigSecretCleanupFinalizer) {
-		return secretName, r.Update(ctx, mc)
+		return dstSecretName, r.Update(ctx, mc)
 	}
-	return secretName, nil
+	return dstSecretName, nil
 }
