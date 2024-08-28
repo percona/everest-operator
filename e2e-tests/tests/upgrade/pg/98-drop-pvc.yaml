@@ -1,5 +1,3 @@
-timeout: 300
-
 apiVersion: kuttl.dev/v1
 kind: TestStep
 delete:
