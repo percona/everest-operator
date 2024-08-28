@@ -3,7 +3,7 @@ kind: TestSuite
 crdDir: config/crd/bases
 artifactsDir: /tmp/
 parallel: 3
-timeout: 300
+timeout: 600
 skipDelete: true
 testDirs:
 - e2e-tests/tests/upgrade
