@@ -348,6 +348,12 @@ func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *eve
 // reconcileSecret copies the source MonitoringConfig secret onto the monitoring namespace.
 // Returns the name of the newly created/updated secret.
 func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) (string, error) {
+	// If the MonitoringConfig is in the monitoring namespace, we don't have to do any additional work.
+	// Use the secret as-is.
+	if mc.GetNamespace() == r.monitoringNamespace {
+		return mc.Spec.CredentialsSecretName, nil
+	}
+
 	// Get the secret in the MonitoringConfig namespace.
 	secret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{
