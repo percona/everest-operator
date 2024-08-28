@@ -17,7 +17,6 @@ package psmdb
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -80,43 +79,33 @@ func (p *applier) Engine() error {
 		EncryptionKey: database.Name + encryptionKeySuffix,
 	}
 
-	if database.Spec.Sharding != nil && database.Spec.Sharding.Enabled {
-		psmdb.Spec.Sharding.Enabled = true
-		p.configureReplSetSpec(psmdb.Spec.Replsets[0])
-		if len(psmdb.Spec.Replsets) < int(database.Spec.Sharding.Shards-1) {
-			//replsetValue := &psmdb.Spec.Replsets[0]
-			data, _ := json.Marshal(&psmdb.Spec.Replsets[0])
-			for i := 1; i < int(database.Spec.Sharding.Shards); i++ {
-				var replsetValue psmdbv1.ReplsetSpec
-				json.Unmarshal(data, &replsetValue)
-				replsetValue.Name = rsName(i)
-				psmdb.Spec.Replsets = append(psmdb.Spec.Replsets, &replsetValue)
-			}
-		}
-		if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
-			psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
-		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.Size = database.Spec.Sharding.ConfigServer.Replicas
-		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = &psmdbv1.PodAffinity{
-			Advanced: common.DefaultAffinitySettings().DeepCopy(),
-		}
-		psmdb.Spec.Sharding.ConfigsvrReplSet.VolumeSpec = &psmdbv1.VolumeSpec{
-			PersistentVolumeClaim: psmdbv1.PVCSpec{
-				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
-						},
-					},
-				},
-			},
-		}
-	} else {
-		p.configureReplSetSpec(psmdb.Spec.Replsets[0])
-		// ?? what to do with other Replsets if there are any?
-	}
+	p.configureSharding()
 
 	return nil
+}
+
+func (p *applier) configureSharding() {
+	database := p.DB
+	psmdb := p.PerconaServerMongoDB
+
+	//TODO: implement disabling
+	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
+		// keep the default configuration
+		p.configureReplSetSpec(psmdb.Spec.Replsets[0], rsName(0))
+		return
+	}
+
+	psmdb.Spec.Sharding.Enabled = database.Spec.Sharding.Enabled
+
+	// TODO: implement & test scale down
+	for i := 0; i < int(database.Spec.Sharding.Shards); i++ {
+		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
+	}
+
+	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
+		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+		p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
+	}
 }
 
 func rsName(i int) string {
@@ -129,9 +118,21 @@ func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) {
 	configsvr.MultiAZ.Affinity = &psmdbv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
+	configsvr.VolumeSpec = &psmdbv1.VolumeSpec{
+		PersistentVolumeClaim: psmdbv1.PVCSpec{
+			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
+					},
+				},
+			},
+		},
+	}
 }
 
-func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec) {
+func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
+	spec.Name = name
 	dbEngine := p.DB.Spec.Engine
 	if dbEngine.Config != "" {
 		spec.Configuration = psmdbv1.MongoConfiguration(dbEngine.Config)
@@ -145,7 +146,6 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec) {
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
 	spec.MultiAZ.Affinity = affinity
-
 	spec.Size = dbEngine.Replicas
 	spec.VolumeSpec = &psmdbv1.VolumeSpec{
 		PersistentVolumeClaim: psmdbv1.PVCSpec{
@@ -194,7 +194,6 @@ func (p *applier) Proxy() error {
 		psmdb.Spec.Replsets[0].Expose.Enabled = false
 		psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
 	} else {
-		// ?? rethink
 		err := p.exposeDefaultReplSet(&psmdb.Spec.Replsets[0].Expose)
 		if err != nil {
 			return err
