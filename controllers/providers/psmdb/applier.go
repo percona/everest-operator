@@ -172,36 +172,34 @@ func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 
-	// when sharding is enabled, configure psmdb.Spec.Sharding.Mongos according to proxy settings,
-	// otherwise, since psmdb doesn't have other proxies, expose the default replset directly
-	// as Everest did before sharding came to picture
-	if database.Spec.Sharding != nil && database.Spec.Sharding.Enabled {
-		if psmdb.Spec.Sharding.Mongos == nil {
-			var size int32 = 1
-			if database.Spec.Proxy.Replicas != nil {
-				size = *database.Spec.Proxy.Replicas
-			}
-			psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
-				Size: size,
-			}
-		}
-		expose, err := p.exposeShardedCluster(psmdb.Spec.Sharding.Mongos.Expose)
-		if err != nil {
-			return err
-		}
-		psmdb.Spec.Sharding.Mongos.Expose = expose
-
-		// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
-		psmdb.Spec.Replsets[0].Expose.Enabled = false
-		psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
-	} else {
+	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
+	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
+		psmdb.Spec.Sharding.Enabled = false
 		err := p.exposeDefaultReplSet(&psmdb.Spec.Replsets[0].Expose)
 		if err != nil {
 			return err
 		}
-		// clean up the sharding mongos(proxy) config since sharding is disabled
-		psmdb.Spec.Sharding.Mongos = nil
 	}
+
+	// otherwise configure psmdb.Spec.Sharding.Mongos according to the db proxy settings
+	if psmdb.Spec.Sharding.Mongos == nil {
+		var size int32 = 1
+		if database.Spec.Proxy.Replicas != nil {
+			size = *database.Spec.Proxy.Replicas
+		}
+		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
+			Size: size,
+		}
+	}
+	expose, err := p.exposeShardedCluster(psmdb.Spec.Sharding.Mongos.Expose)
+	if err != nil {
+		return err
+	}
+	psmdb.Spec.Sharding.Mongos.Expose = expose
+
+	// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
+	psmdb.Spec.Replsets[0].Expose.Enabled = false
+	psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
 	return nil
 }
 
