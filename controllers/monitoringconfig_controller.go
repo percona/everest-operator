@@ -27,6 +27,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,7 +40,10 @@ import (
 )
 
 const (
-	vmAgentResourceName = "everest-monitoring"
+	vmAgentResourceName                    = "everest-monitoring"
+	monitoringConfigRefNameLabel           = "everest.percona.com/monitoring-config-ref-name"
+	monitoringConfigRefNamespaceLabel      = "everest.percona.com/monitoring-config-ref-namespace"
+	monitoringConfigSecretCleanupFinalizer = "everest.percona.com/cleanup-secrets"
 )
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
@@ -76,6 +80,9 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil && !k8serrors.IsNotFound(err) {
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
+	}
+	if !mc.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, r.cleanupSecrets(ctx, mc)
 	}
 	// VerifyTLS is set to 'true' by default, if unspecified.
 	if mc.Spec.VerifyTLS == nil {
@@ -235,6 +242,12 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
 		}
+
+		secretName, err := r.reconcileSecret(ctx, &monitoringConfig)
+		if err != nil {
+			return nil, errors.Join(err, errors.New("could not reconcile destination secret"))
+		}
+
 		u, err := url.Parse(monitoringConfig.Spec.PMM.URL)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to parse PMM URL"))
@@ -242,11 +255,11 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 		remoteWrite = append(remoteWrite, map[string]interface{}{
 			"basicAuth": map[string]interface{}{
 				"password": map[string]interface{}{
-					"name": monitoringConfig.Spec.CredentialsSecretName,
+					"name": secretName,
 					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey,
 				},
 				"username": map[string]interface{}{
-					"name": monitoringConfig.Spec.CredentialsSecretName,
+					"name": secretName,
 					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretUsernameKey,
 				},
 			},
@@ -304,4 +317,79 @@ func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
 		return v1["url"].(string) == v2["url"].(string) //nolint:forcetypeassert
 	})
 	return remoteWrites
+}
+
+// cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
+func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
+	// List secrets in the monitoring namespace that belong to this MonitoringConfig.
+	secrets := &corev1.SecretList{}
+	err := r.List(ctx, secrets, &client.ListOptions{
+		Namespace: r.monitoringNamespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			monitoringConfigRefNameLabel:      mc.GetName(),
+			monitoringConfigRefNamespaceLabel: mc.GetNamespace(),
+		}),
+	})
+	if err != nil {
+		return err
+	}
+	for _, secret := range secrets.Items {
+		if err := r.Delete(ctx, &secret); err != nil {
+			return err
+		}
+	}
+	// Remove the finalizer from the MonitoringConfig.
+	if controllerutil.RemoveFinalizer(mc, monitoringConfigSecretCleanupFinalizer) {
+		return r.Update(ctx, mc)
+	}
+	return nil
+}
+
+// reconcileSecret copies the source MonitoringConfig secret onto the monitoring namespace.
+// Returns the name of the newly created/updated secret.
+func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) (string, error) {
+	// If the MonitoringConfig is in the monitoring namespace, we don't have to do any additional work.
+	// Use the secret as-is.
+	if mc.GetNamespace() == r.monitoringNamespace {
+		return mc.Spec.CredentialsSecretName, nil
+	}
+
+	// Get the secret in the MonitoringConfig namespace.
+	src := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      mc.Spec.CredentialsSecretName,
+		Namespace: mc.GetNamespace(),
+	}, src)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a copy in the monitoring namespace.
+	dstSecretName := src.GetName() + "-" + src.GetNamespace()
+	dst := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dstSecretName,
+			Namespace: r.monitoringNamespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dst, func() error {
+		dst.Data = src.DeepCopy().Data
+		// Attach labels to identify the parent MonitoringConfig.
+		// This is useful for garbage collection, since we cannot have cross-namespace OwnerRefs.
+		labels := dst.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[monitoringConfigRefNameLabel] = mc.GetName()
+		labels[monitoringConfigRefNamespaceLabel] = mc.GetNamespace()
+		dst.SetLabels(labels)
+		return nil
+	}); err != nil {
+		return "", err
+	}
+	// Add a clean-up finalizer in the parent MonitoringConfig.
+	if controllerutil.AddFinalizer(mc, monitoringConfigSecretCleanupFinalizer) {
+		return dstSecretName, r.Update(ctx, mc)
+	}
+	return dstSecretName, nil
 }
