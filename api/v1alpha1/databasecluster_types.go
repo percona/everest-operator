@@ -254,6 +254,7 @@ type BackupSource struct {
 	// Path is the path to the backup file/directory.
 	Path string `json:"path"`
 	// BackupStorageName is the name of the BackupStorage used for backups.
+	// The BackupStorage must be created in the same namespace as the DatabaseCluster.
 	BackupStorageName string `json:"backupStorageName"`
 }
 
@@ -278,7 +279,8 @@ type BackupSchedule struct {
 	// Schedule is the cron schedule
 	Schedule string `json:"schedule"`
 	// BackupStorageName is the name of the BackupStorage CR that defines the
-	// storage location
+	// storage location.
+	// The BackupStorage must be created in the same namespace as the DatabaseCluster.
 	BackupStorageName string `json:"backupStorageName"`
 }
 
@@ -297,6 +299,7 @@ type PITRSpec struct {
 	// Enabled is a flag to enable PITR
 	Enabled bool `json:"enabled"`
 	// BackupStorageName is the name of the BackupStorage where the PITR is enabled
+	// The BackupStorage must be created in the same namespace as the DatabaseCluster.
 	BackupStorageName *string `json:"backupStorageName,omitempty"`
 	// UploadIntervalSec number of seconds between the binlogs uploads
 	UploadIntervalSec *int `json:"uploadIntervalSec,omitempty"`
@@ -305,6 +308,7 @@ type PITRSpec struct {
 // Monitoring is the monitoring configuration.
 type Monitoring struct {
 	// MonitoringConfigName is the name of a monitoringConfig CR.
+	// The MonitoringConfig must be created in the same namespace as the DatabaseCluster.
 	MonitoringConfigName string `json:"monitoringConfigName,omitempty"`
 	// Resources defines resource limitations for the monitoring.
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -372,6 +376,8 @@ type DatabaseClusterStatus struct {
 	// If set, the CR needs to be updated to this version before upgrading the operator.
 	// If unset, the CR is already at the recommended version.
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
+	// Details provides full status of the upstream cluster as a plain text.
+	Details string `json:"details,omitempty"`
 }
 
 //+kubebuilder:object:root=true

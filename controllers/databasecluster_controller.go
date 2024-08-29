@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
@@ -386,13 +387,19 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 			needsUpdate = true
 		}
 	}
-	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
-		monitoringConfigName, ok := database.ObjectMeta.Labels[monitoringConfigNameLabel]
-		if !ok || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
+
+	monitoring := pointer.Get(database.Spec.Monitoring)
+	monitoringConfigName, foundMC := database.ObjectMeta.Labels[monitoringConfigNameLabel]
+	if monitoring.MonitoringConfigName != "" {
+		if !foundMC || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
 			database.ObjectMeta.Labels[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
 			needsUpdate = true
 		}
+	} else if foundMC {
+		delete(database.ObjectMeta.Labels, monitoringConfigNameLabel)
+		needsUpdate = true
 	}
+
 	for key := range database.ObjectMeta.Labels {
 		if key == databaseClusterNameLabel || key == monitoringConfigNameLabel {
 			continue

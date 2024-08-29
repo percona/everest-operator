@@ -49,6 +49,9 @@ type Provider struct {
 	providers.ProviderOptions
 	*pxcv1.PerconaXtraDBCluster
 
+	// currentPerconaXtraDBClusterSpec holds the current PXC spec.
+	currentPerconaXtraDBClusterSpec pxcv1.PerconaXtraDBClusterSpec
+
 	clusterType     common.ClusterType
 	operatorVersion *version.Version
 }
@@ -93,12 +96,14 @@ func New(
 		return nil, err
 	}
 
+	currentSpec := pxc.Spec
 	pxc.Spec = defaultSpec()
 
 	p := &Provider{
-		PerconaXtraDBCluster: pxc,
-		ProviderOptions:      opts,
-		operatorVersion:      v,
+		PerconaXtraDBCluster:            pxc,
+		ProviderOptions:                 opts,
+		operatorVersion:                 v,
+		currentPerconaXtraDBClusterSpec: currentSpec,
 	}
 
 	// Get cluster type.
@@ -212,6 +217,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Message = strings.Join(pxc.Status.Messages, ";")
 	status.Port = 3306
 	status.CRVersion = pxc.Spec.CRVersion
+	status.Details = common.StatusAsPlainTextOrEmptyString(pxc.Status)
 
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {

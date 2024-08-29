@@ -29,6 +29,7 @@ import (
 	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -169,7 +170,6 @@ func GetSecretFromMonitoringConfig(
 	ctx context.Context,
 	c client.Client,
 	monitoring *everestv1alpha1.MonitoringConfig,
-	ns string,
 ) (string, error) {
 	var secret *corev1.Secret
 	secretData := ""
@@ -178,7 +178,7 @@ func GetSecretFromMonitoringConfig(
 		secret = &corev1.Secret{}
 		err := c.Get(ctx, types.NamespacedName{
 			Name:      monitoring.Spec.CredentialsSecretName,
-			Namespace: ns,
+			Namespace: monitoring.GetNamespace(),
 		}, secret)
 		if err != nil {
 			return "", err
@@ -263,40 +263,6 @@ func CreateOrUpdateSecretData(
 		return err
 	}
 	// If the secret does not exist, create it
-	return c.Create(ctx, secret)
-}
-
-// ReconcileBackupStorageSecret reconciles the backup storage secret.
-func ReconcileBackupStorageSecret(
-	ctx context.Context,
-	c client.Client,
-	systemNs string,
-	backupStorage *everestv1alpha1.BackupStorage,
-	database *everestv1alpha1.DatabaseCluster,
-) error {
-	secret := &corev1.Secret{}
-	err := c.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: database.Namespace}, secret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return err
-	}
-	if secret.Name != "" {
-		return nil
-	}
-
-	err = c.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: systemNs}, secret)
-	if err != nil {
-		return err
-	}
-	secret.ObjectMeta = metav1.ObjectMeta{
-		Namespace: database.Namespace,
-		Name:      backupStorage.Spec.CredentialsSecretName,
-		Labels: map[string]string{
-			LabelBackupStorageName: backupStorage.Name,
-		},
-	}
-	if !backupStorage.IsNamespaceAllowed(database.Namespace) {
-		return fmt.Errorf("%s namespace is not allowed to use for %s backup storage", database.Namespace, backupStorage.Name)
-	}
 	return c.Create(ctx, secret)
 }
 
@@ -561,20 +527,16 @@ func ListDatabaseClusterRestores(
 func GetDBMonitoringConfig(
 	ctx context.Context,
 	c client.Client,
-	monitoringNs string,
 	database *everestv1alpha1.DatabaseCluster,
 ) (*everestv1alpha1.MonitoringConfig, error) {
 	monitoring := &everestv1alpha1.MonitoringConfig{}
-	if database.Spec.Monitoring != nil && database.Spec.Monitoring.MonitoringConfigName != "" {
+	mcName := pointer.Get(database.Spec.Monitoring).MonitoringConfigName
+	if mcName != "" {
 		if err := c.Get(ctx, types.NamespacedName{
-			Namespace: monitoringNs,
-			Name:      database.Spec.Monitoring.MonitoringConfigName,
+			Name:      mcName,
+			Namespace: database.GetNamespace(),
 		}, monitoring); err != nil {
 			return nil, err
-		}
-		if !monitoring.IsNamespaceAllowed(database.Namespace) {
-			return nil,
-				fmt.Errorf("%s namespace is not allowed to use for %s monitoring config", database.Namespace, monitoring.Name)
 		}
 	}
 	return monitoring, nil
@@ -754,4 +716,9 @@ func DefaultAffinitySettings() *corev1.Affinity {
 			},
 		},
 	}
+}
+
+func StatusAsPlainTextOrEmptyString(status interface{}) string {
+	result, _ := yaml.Marshal(status)
+	return string(result)
 }

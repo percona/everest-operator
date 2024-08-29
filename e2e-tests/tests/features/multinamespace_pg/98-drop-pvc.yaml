@@ -1,9 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-delete:
-- apiVersion: v1
-  kind: PersistentVolumeClaim
-- apiVersion: v1
-  kind: PersistentVolumeClaim
-  metadata:
-    namespace: kuttl-test-pg

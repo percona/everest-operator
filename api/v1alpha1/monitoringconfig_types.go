@@ -85,16 +85,3 @@ type MonitoringConfigList struct {
 func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
 }
-
-// IsNamespaceAllowed checks the namespace against allowedNamespaces and returns if it's allowed to use.
-func (m *MonitoringConfig) IsNamespaceAllowed(namespace string) bool {
-	if len(m.Spec.AllowedNamespaces) == 0 {
-		return true
-	}
-	for _, ns := range m.Spec.AllowedNamespaces {
-		if ns == namespace {
-			return true
-		}
-	}
-	return false
-}
