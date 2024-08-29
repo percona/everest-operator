@@ -357,6 +357,8 @@ type DatabaseClusterStatus struct {
 	// If set, the CR needs to be updated to this version before upgrading the operator.
 	// If unset, the CR is already at the recommended version.
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
+	// Details provides full status of the upstream cluster as a plain text.
+	Details string `json:"details,omitempty"`
 }
 
 //+kubebuilder:object:root=true

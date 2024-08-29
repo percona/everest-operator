@@ -19,6 +19,7 @@ require (
 	github.com/percona/percona-xtradb-cluster-operator v1.15.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.20.0
+	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.30.3
 	k8s.io/apimachinery v0.30.3
@@ -121,7 +122,6 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
