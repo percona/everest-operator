@@ -217,6 +217,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.Message = strings.Join(pxc.Status.Messages, ";")
 	status.Port = 3306
 	status.CRVersion = pxc.Spec.CRVersion
+	status.Details = common.StatusAsPlainTextOrEmptyString(pxc.Status)
 
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
