@@ -191,11 +191,10 @@ func (p *applier) Proxy() error {
 			Size: size,
 		}
 	}
-	expose, err := p.exposeShardedCluster(psmdb.Spec.Sharding.Mongos.Expose)
+	err := p.exposeShardedCluster(&psmdb.Spec.Sharding.Mongos.Expose)
 	if err != nil {
 		return err
 	}
-	psmdb.Spec.Sharding.Mongos.Expose = expose
 
 	// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
 	psmdb.Spec.Replsets[0].Expose.Enabled = false
@@ -203,7 +202,7 @@ func (p *applier) Proxy() error {
 	return nil
 }
 
-func (p *applier) exposeShardedCluster(expose psmdbv1.MongosExpose) (psmdbv1.MongosExpose, error) {
+func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	database := p.DB
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
@@ -215,9 +214,9 @@ func (p *applier) exposeShardedCluster(expose psmdbv1.MongosExpose) (psmdbv1.Mon
 			expose.ServiceAnnotations = annotations
 		}
 	default:
-		return expose, fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
-	return expose, nil
+	return nil
 }
 
 func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
