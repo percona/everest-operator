@@ -104,7 +104,7 @@ metadata:
       ]
     capabilities: Basic Install
     createdAt: "2024-08-23T14:55:00Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.35.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: everest-operator.v0.0.0
   namespace: placeholder

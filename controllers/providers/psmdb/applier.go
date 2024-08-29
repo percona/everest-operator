@@ -97,7 +97,8 @@ func (p *applier) configureSharding() {
 
 	psmdb.Spec.Sharding.Enabled = database.Spec.Sharding.Enabled
 
-	// TODO: implement & test scale down
+	// Configure as many identical replsets as the shards number
+	// TODO: implement scale down
 	for i := 0; i < int(database.Spec.Sharding.Shards); i++ {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
 	}
