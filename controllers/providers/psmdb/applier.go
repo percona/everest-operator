@@ -88,7 +88,7 @@ func (p *applier) configureSharding() {
 	database := p.DB
 	psmdb := p.PerconaServerMongoDB
 
-	//TODO: implement disabling
+	// TODO: implement disabling
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
 		// keep the default configuration
 		p.configureReplSetSpec(psmdb.Spec.Replsets[0], rsName(0))
