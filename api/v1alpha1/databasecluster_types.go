@@ -314,6 +314,23 @@ type Monitoring struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+type ConfigServer struct {
+	// Replicas is the amount of configServers
+	// +kubebuilder:validation:Minimum:=1
+	Replicas int32 `json:"replicas"`
+}
+
+// Sharding are the sharding options. Available only for psmdb
+type Sharding struct {
+	// Enabled defines if the sharding is enabled
+	Enabled bool `json:"enabled"`
+	// Shards defines the number of shards
+	// +kubebuilder:validation:Minimum:=1
+	Shards int32 `json:"shards"`
+	// ConfigServer represents the sharding configuration server settings
+	ConfigServer ConfigServer `json:"configServer"`
+}
+
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
@@ -333,6 +350,8 @@ type DatabaseClusterSpec struct {
 	Backup Backup `json:"backup,omitempty"`
 	// Monitoring is the monitoring configuration
 	Monitoring *Monitoring `json:"monitoring,omitempty"`
+	// Sharding is the sharding configuration. PSMDB-only
+	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.

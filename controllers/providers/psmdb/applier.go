@@ -78,54 +78,166 @@ func (p *applier) Engine() error {
 		Users:         database.Spec.Engine.UserSecretsName,
 		EncryptionKey: database.Name + encryptionKeySuffix,
 	}
-	if database.Spec.Engine.Config != "" {
-		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(database.Spec.Engine.Config)
-	}
-	if psmdb.Spec.Replsets[0].Configuration == "" {
-		// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
-		psmdb.Spec.Replsets[0].Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
+
+	p.configureSharding()
+
+	return nil
+}
+
+func (p *applier) configureSharding() {
+	database := p.DB
+	psmdb := p.PerconaServerMongoDB
+
+	// TODO: implement disabling
+	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
+		// keep the default configuration
+		p.configureReplSetSpec(psmdb.Spec.Replsets[0], rsName(0))
+		return
 	}
 
-	affinity := &psmdbv1.PodAffinity{
+	psmdb.Spec.Sharding.Enabled = database.Spec.Sharding.Enabled
+
+	// Add replsets if needed to fit the shards number
+	// TODO: implement scale down
+	shards := int(database.Spec.Sharding.Shards)
+	for i := len(psmdb.Spec.Replsets); i < shards; i++ {
+		rs0copy := *psmdb.Spec.Replsets[0]
+		psmdb.Spec.Replsets = append(psmdb.Spec.Replsets, &rs0copy)
+	}
+
+	// configure all replsets
+	for i := 0; i < shards; i++ {
+		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
+	}
+
+	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
+		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+		p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
+	}
+}
+
+func rsName(i int) string {
+	return fmt.Sprintf("rs%v", i)
+}
+
+func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) {
+	database := p.DB
+	configsvr.Size = database.Spec.Sharding.ConfigServer.Replicas
+	configsvr.MultiAZ.Affinity = &psmdbv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
-
-	psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
-	psmdb.Spec.Replsets[0].VolumeSpec = &psmdbv1.VolumeSpec{
+	configsvr.VolumeSpec = &psmdbv1.VolumeSpec{
 		PersistentVolumeClaim: psmdbv1.PVCSpec{
 			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: database.Spec.Engine.Storage.Class,
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
+						corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
 					},
 				},
 			},
 		},
 	}
-	if !database.Spec.Engine.Resources.CPU.IsZero() {
-		psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
+}
+
+func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
+	spec.Name = name
+	dbEngine := p.DB.Spec.Engine
+	if dbEngine.Config != "" {
+		spec.Configuration = psmdbv1.MongoConfiguration(dbEngine.Config)
 	}
-	if !database.Spec.Engine.Resources.Memory.IsZero() {
-		psmdb.Spec.Replsets[0].MultiAZ.Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
+	if spec.Configuration == "" {
+		// Config missing from the DatabaseCluster CR and the template (if any), apply the default one
+		spec.Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 	}
-	return nil
+
+	affinity := &psmdbv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
+	spec.MultiAZ.Affinity = affinity
+	spec.Size = dbEngine.Replicas
+	spec.VolumeSpec = &psmdbv1.VolumeSpec{
+		PersistentVolumeClaim: psmdbv1.PVCSpec{
+			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: dbEngine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: dbEngine.Storage.Size,
+					},
+				},
+			},
+		},
+	}
+	if !dbEngine.Resources.CPU.IsZero() {
+		spec.MultiAZ.Resources.Limits[corev1.ResourceCPU] = dbEngine.Resources.CPU
+	}
+	if !dbEngine.Resources.Memory.IsZero() {
+		spec.MultiAZ.Resources.Limits[corev1.ResourceMemory] = dbEngine.Resources.Memory
+	}
 }
 
 func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
+
+	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
+	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
+		psmdb.Spec.Sharding.Enabled = false
+		err := p.exposeDefaultReplSet(&psmdb.Spec.Replsets[0].Expose)
+		if err != nil {
+			return err
+		}
+	}
+
+	// otherwise configure psmdb.Spec.Sharding.Mongos according to the db proxy settings
+	if psmdb.Spec.Sharding.Mongos == nil {
+		var size int32 = 1
+		if database.Spec.Proxy.Replicas != nil {
+			size = *database.Spec.Proxy.Replicas
+		}
+		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
+			Size: size,
+		}
+	}
+	err := p.exposeShardedCluster(&psmdb.Spec.Sharding.Mongos.Expose)
+	if err != nil {
+		return err
+	}
+
+	// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
+	psmdb.Spec.Replsets[0].Expose.Enabled = false
+	psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
+	return nil
+}
+
+func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
+	database := p.DB
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		psmdb.Spec.Replsets[0].Expose.Enabled = false
-		psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ExposeType = corev1.ServiceTypeClusterIP
 	case everestv1alpha1.ExposeTypeExternal:
-		psmdb.Spec.Replsets[0].Expose.Enabled = true
-		psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeLoadBalancer
-		psmdb.Spec.Replsets[0].Expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		expose.ExposeType = corev1.ServiceTypeLoadBalancer
+		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
 		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
-			psmdb.Spec.Replsets[0].Expose.ServiceAnnotations = annotations
+			expose.ServiceAnnotations = annotations
+		}
+	default:
+		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
+	}
+	return nil
+}
+
+func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
+	database := p.DB
+	switch database.Spec.Proxy.Expose.Type {
+	case everestv1alpha1.ExposeTypeInternal:
+		expose.Enabled = false
+		expose.ExposeType = corev1.ServiceTypeClusterIP
+	case everestv1alpha1.ExposeTypeExternal:
+		expose.Enabled = true
+		expose.ExposeType = corev1.ServiceTypeLoadBalancer
+		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+			expose.ServiceAnnotations = annotations
 		}
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
