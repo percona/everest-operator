@@ -196,6 +196,11 @@ func (p *applier) Proxy() error {
 		}
 		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
 			Size: size,
+			MultiAZ: psmdbv1.MultiAZ{
+				Affinity: &psmdbv1.PodAffinity{
+					Advanced: common.DefaultAffinitySettings().DeepCopy(),
+				},
+			},
 		}
 	}
 	err := p.exposeShardedCluster(&psmdb.Spec.Sharding.Mongos.Expose)
