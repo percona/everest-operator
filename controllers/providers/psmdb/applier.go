@@ -190,7 +190,7 @@ func (p *applier) Proxy() error {
 
 	// otherwise configure psmdb.Spec.Sharding.Mongos according to the db proxy settings
 	if psmdb.Spec.Sharding.Mongos == nil {
-		var size int32 = 1
+		size := database.Spec.Engine.Replicas
 		if database.Spec.Proxy.Replicas != nil {
 			size = *database.Spec.Proxy.Replicas
 		}
