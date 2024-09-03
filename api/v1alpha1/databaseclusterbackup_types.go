@@ -62,6 +62,8 @@ type DatabaseClusterBackupStatus struct {
 	Destination *string `json:"destination,omitempty"`
 	// Gaps identifies if there are gaps detected in the PITR logs
 	Gaps bool `json:"gaps"`
+	// LatestRestorableTime is the latest time that can be used for PITR restore
+	LatestRestorableTime *metav1.Time `json:"latestRestorableTime,omitempty"`
 }
 
 //+kubebuilder:object:root=true

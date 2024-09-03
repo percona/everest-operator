@@ -899,6 +899,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
 		}
 	}
+	backup.Status.LatestRestorableTime = pgCR.Status.LatestRestorableTime.Time
 	return false, r.Status().Update(ctx, backup)
 }
 
