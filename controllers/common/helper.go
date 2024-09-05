@@ -665,8 +665,6 @@ func HandleUpstreamClusterCleanup(
 			}
 			return false, err
 		}
-		controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
-		return true, c.Update(ctx, database)
 	}
 	return true, nil
 }
