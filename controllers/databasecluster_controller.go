@@ -410,6 +410,7 @@ outer:
 	}
 
 	if !maps.Equal(updated, current) {
+		database.SetLabels(updated)
 		return r.Update(ctx, database)
 	}
 	return nil
