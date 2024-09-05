@@ -372,8 +372,8 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	if database.Spec.DataSource != nil {
 		updated[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)] = backupStorageLabelValue
 	}
-	if database.Spec.Backup.PITR.BackupStorageName != nil {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)] = backupStorageLabelValue
+	if bkpStorageName := pointer.Get(database.Spec.Backup.PITR.BackupStorageName); bkpStorageName != "" {
+		updated[fmt.Sprintf(backupStorageNameLabelTmpl, bkpStorageName)] = backupStorageLabelValue
 	}
 
 	for _, schedule := range database.Spec.Backup.Schedules {
@@ -396,17 +396,20 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 		re := regexp.MustCompile(regexPattern)
 		return re.MatchString(key)
 	}
-outer:
 	for key := range updated {
 		if !keyMatchesBackupStorageName(key) {
 			continue
 		}
+		found := false
 		for _, schedule := range database.Spec.Backup.Schedules {
 			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
-				goto outer
+				found = true
+				break
 			}
 		}
-		delete(updated, key)
+		if !found {
+			delete(updated, key)
+		}
 	}
 
 	if !maps.Equal(updated, current) {
