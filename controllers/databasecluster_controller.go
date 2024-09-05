@@ -20,7 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
@@ -361,62 +364,52 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 func (r *DatabaseClusterReconciler) reconcileLabels(
 	ctx context.Context, database *everestv1alpha1.DatabaseCluster,
 ) error {
-	needsUpdate := false
-	if len(database.ObjectMeta.Labels) == 0 {
-		database.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: database.Name,
-		}
-		needsUpdate = true
-	}
+	current := database.GetLabels()
+	updated := make(map[string]string, len(current))
+	maps.Copy(updated, current)
+
+	updated[databaseClusterNameLabel] = database.Name
 	if database.Spec.DataSource != nil {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)] = backupStorageLabelValue
-			needsUpdate = true
-		}
+		updated[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.DBClusterBackupName)] = backupStorageLabelValue
 	}
 	if database.Spec.Backup.PITR.BackupStorageName != nil {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)] = backupStorageLabelValue
-			needsUpdate = true
-		}
+		updated[fmt.Sprintf(backupStorageNameLabelTmpl, *database.Spec.Backup.PITR.BackupStorageName)] = backupStorageLabelValue
 	}
 
 	for _, schedule := range database.Spec.Backup.Schedules {
-		if _, ok := database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)]; !ok {
-			database.ObjectMeta.Labels[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-			needsUpdate = true
-		}
+		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
 	}
 
 	monitoring := pointer.Get(database.Spec.Monitoring)
-	monitoringConfigName, foundMC := database.ObjectMeta.Labels[monitoringConfigNameLabel]
+	monitoringConfigName, foundMC := updated[monitoringConfigNameLabel]
 	if monitoring.MonitoringConfigName != "" {
 		if !foundMC || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
-			database.ObjectMeta.Labels[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
-			needsUpdate = true
+			updated[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
 		}
 	} else if foundMC {
-		delete(database.ObjectMeta.Labels, monitoringConfigNameLabel)
-		needsUpdate = true
+		delete(updated, monitoringConfigNameLabel)
 	}
 
-	for key := range database.ObjectMeta.Labels {
-		if key == databaseClusterNameLabel || key == monitoringConfigNameLabel {
+	// Remove labels for backup storage that are not in the spec
+	keyMatchesBackupStorageName := func(key string) bool {
+		regexPattern := "^" + strings.Replace(backupStorageNameLabelTmpl, "%s", `\w+`, 1) + "$"
+		re := regexp.MustCompile(regexPattern)
+		return re.MatchString(key)
+	}
+outer:
+	for key := range updated {
+		if !keyMatchesBackupStorageName(key) {
 			continue
 		}
-		var found bool
 		for _, schedule := range database.Spec.Backup.Schedules {
 			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
-				found = true
-				break
+				goto outer
 			}
 		}
-		if !found {
-			delete(database.ObjectMeta.Labels, key)
-			needsUpdate = true
-		}
+		delete(updated, key)
 	}
-	if needsUpdate {
+
+	if !maps.Equal(updated, current) {
 		return r.Update(ctx, database)
 	}
 	return nil
