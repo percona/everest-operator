@@ -107,6 +107,17 @@ func (p *applier) Engine() error {
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
 	}
+	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
+	// If the DB is ready, we must preserve the affinity settings.
+	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
+	// unless it is manually restarted.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
+	}
 	return nil
 }
 
@@ -121,9 +132,6 @@ func (p *applier) Backup() error {
 
 func (p *applier) Proxy() error {
 	proxySpec := p.DB.Spec.Proxy
-	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
@@ -244,6 +252,14 @@ func (p *applier) applyHAProxyCfg() error {
 	haProxy.PodSpec.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
+	// If the DB is ready, we must preserve the affinity settings.
+	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
+	// unless it is manually restarted.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		haProxy.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Affinity
+	}
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
@@ -333,6 +349,14 @@ func (p *applier) applyProxySQLCfg() error {
 	proxySQL.Enabled = true
 	proxySQL.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
+	}
+	// If the DB is ready, we must preserve the affinity settings.
+	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
+	// unless it is manually restarted.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		proxySQL.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.ProxySQL.PodSpec.Affinity
 	}
 	if p.DB.Spec.Proxy.Replicas == nil {
 		// By default we set the same number of replicas as the engine
