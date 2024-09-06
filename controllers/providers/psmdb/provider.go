@@ -46,6 +46,9 @@ type Provider struct {
 	*psmdbv1.PerconaServerMongoDB
 	providers.ProviderOptions
 
+	// currentPSMDB holds the current PXC spec.
+	currentPSMDBSpec psmdbv1.PerconaServerMongoDBSpec
+
 	clusterType     common.ClusterType
 	operatorVersion *version.Version
 }
@@ -92,11 +95,13 @@ func New(
 		return nil, err
 	}
 
+	currentSpec := psmdb.Spec
 	psmdb.Spec = defaultSpec()
 	p := &Provider{
 		PerconaServerMongoDB: psmdb,
 		ProviderOptions:      opts,
 		operatorVersion:      v,
+		currentPSMDBSpec:     currentSpec,
 	}
 	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {
