@@ -158,11 +158,9 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
 	// unless it is manually restarted.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	// if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-	// 	affinity = &psmdbv1.PodAffinity{
-	// 		Advanced: p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity.Advanced,
-	// 	}
-	// }
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		affinity = p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity
+	}
 	spec.MultiAZ.Affinity = affinity
 	spec.Size = dbEngine.Replicas
 	spec.VolumeSpec = &psmdbv1.VolumeSpec{
