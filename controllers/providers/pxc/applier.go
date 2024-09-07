@@ -95,7 +95,9 @@ func (p *applier) Engine() error {
 		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 		pxc.Spec.PXC.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 	}
-	// Preserve the resource settings if the cluster is already running.
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pxc.Spec.PXC.PodSpec.Resources = p.currentPerconaXtraDBClusterSpec.PXC.PodSpec.Resources
 	}
