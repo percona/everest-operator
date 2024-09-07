@@ -95,6 +95,10 @@ func (p *applier) Engine() error {
 		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 		pxc.Spec.PXC.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 	}
+	// Preserve the resource settings if the cluster is already running.
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		pxc.Spec.PXC.PodSpec.Resources = p.currentPerconaXtraDBClusterSpec.PXC.PodSpec.Resources
+	}
 
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
