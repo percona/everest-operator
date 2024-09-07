@@ -114,9 +114,7 @@ func (p *applier) Engine() error {
 	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	// If the DB is ready, we must preserve the affinity settings.
-	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
-	// unless it is manually restarted.
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
@@ -256,9 +254,7 @@ func (p *applier) applyHAProxyCfg() error {
 	haProxy.PodSpec.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	// If the DB is ready, we must preserve the affinity settings.
-	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
-	// unless it is manually restarted.
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
@@ -354,9 +350,7 @@ func (p *applier) applyProxySQLCfg() error {
 	proxySQL.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	// If the DB is ready, we must preserve the affinity settings.
-	// This means that clusters created prior to 1.2.0 will not have the new affinity settings applied,
-	// unless it is manually restarted.
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
