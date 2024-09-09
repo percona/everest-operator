@@ -151,7 +151,7 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
 	}
 
 	affinity := &psmdbv1.PodAffinity{
-		Advanced: p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity.Advanced,
+		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
 	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
