@@ -132,7 +132,7 @@ func removeString(s []string, i int) []string {
 // Update repos based on the existing backups.
 func (p *pgReposReconciler) reconcileBackups(
 	backups []everestv1alpha1.DatabaseClusterBackup,
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
@@ -163,7 +163,7 @@ func (p *pgReposReconciler) reconcileBackups(
 			if !ok {
 				return fmt.Errorf("failed to cast repo %v", er.Value)
 			}
-			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo, db.Namespace)
 			if backup.Spec.BackupStorageName != repoBackupStorageName {
 				continue
 			}
@@ -182,7 +182,7 @@ func (p *pgReposReconciler) reconcileBackups(
 			}
 		}
 
-		repo, err := genPGBackrestRepo(repoName, backupStorage, nil)
+		repo, err := genPGBackrestRepo(repoName, backupStorage.Spec, nil)
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (p *pgReposReconciler) reconcileBackups(
 		// Keep track of backup storages which are already in use by a repo
 		p.backupStoragesInRepos[backup.Spec.BackupStorageName] = struct{}{}
 
-		p.addRepoToPGGlobal(backupStorage.VerifyTLS, repo.Name, backupStorages[repo.Name].ForcePathStyle, nil, db)
+		p.addRepoToPGGlobal(backupStorage.Spec.VerifyTLS, repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle, nil, db)
 		err = updatePGIni(p.pgBackRestSecretIni, backupStoragesSecrets[backup.Spec.BackupStorageName], repo)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
@@ -202,7 +202,7 @@ func (p *pgReposReconciler) reconcileBackups(
 // Update the schedules of the repos which already exist but have the wrong
 // schedule and move them to the reconciled list.
 func (p *pgReposReconciler) reconcileExistingSchedules(
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
@@ -226,7 +226,7 @@ func (p *pgReposReconciler) reconcileExistingSchedules(
 			if !ok {
 				return fmt.Errorf("failed to cast repo %v", er.Value)
 			}
-			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo, db.Namespace)
 			if backupSchedule.BackupStorageName != repoBackupStorageName ||
 				repo.BackupSchedules == nil ||
 				repo.BackupSchedules.Full == nil ||
@@ -243,7 +243,7 @@ func (p *pgReposReconciler) reconcileExistingSchedules(
 			// Keep track of backup storages which are already in use by a repo
 			p.backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-			p.addRepoToPGGlobal(backupStorages[repo.Name].VerifyTLS, repo.Name, backupStorages[repo.Name].ForcePathStyle, &backupSchedule.RetentionCopies, db)
+			p.addRepoToPGGlobal(backupStorages[repo.Name].Spec.VerifyTLS, repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle, &backupSchedule.RetentionCopies, db)
 			err := updatePGIni(p.pgBackRestSecretIni, backupStoragesSecrets[backupSchedule.BackupStorageName], repo)
 			if err != nil {
 				return errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
@@ -256,7 +256,7 @@ func (p *pgReposReconciler) reconcileExistingSchedules(
 
 // Update repos based on the schedules.
 func (p *pgReposReconciler) reconcileRepos(
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
@@ -270,7 +270,7 @@ func (p *pgReposReconciler) reconcileRepos(
 		if !ok {
 			return fmt.Errorf("failed to cast repo %v", er.Value)
 		}
-		repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+		repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo, db.Namespace)
 		for eb := p.backupSchedulesToBeReconciled.Front(); eb != nil; eb = ebNext {
 			// Save the next element because we might remove the current one
 			ebNext = eb.Next()
@@ -293,7 +293,7 @@ func (p *pgReposReconciler) reconcileRepos(
 				// Keep track of backup storages which are already in use by a repo
 				p.backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-				p.addRepoToPGGlobal(backupStorages[repo.Name].VerifyTLS, repo.Name, backupStorages[repo.Name].ForcePathStyle, &backupSchedule.RetentionCopies, db)
+				p.addRepoToPGGlobal(backupStorages[repo.Name].Spec.VerifyTLS, repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle, &backupSchedule.RetentionCopies, db)
 				err := updatePGIni(p.pgBackRestSecretIni, backupStoragesSecrets[backupSchedule.BackupStorageName], repo)
 				if err != nil {
 					return errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
@@ -306,7 +306,7 @@ func (p *pgReposReconciler) reconcileRepos(
 }
 
 func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
@@ -332,7 +332,7 @@ func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
 			if !ok {
 				return fmt.Errorf("failed to cast repo %v", er.Value)
 			}
-			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo, db.Namespace)
 			if backupSchedule.BackupStorageName != repoBackupStorageName ||
 				repo.BackupSchedules != nil {
 				continue
@@ -350,7 +350,7 @@ func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
 			if !ok {
 				return fmt.Errorf("failed to cast repo %v", er.Value)
 			}
-			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo)
+			repoBackupStorageName := backupStorageNameFromRepo(backupStorages, repo, db.Namespace)
 			if backupSchedule.BackupStorageName != repoBackupStorageName ||
 				repo.BackupSchedules != nil {
 				continue
@@ -370,7 +370,7 @@ func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
 			}
 		}
 
-		repo, err := genPGBackrestRepo(repoName, backupStorage, &backupSchedule.Schedule)
+		repo, err := genPGBackrestRepo(repoName, backupStorage.Spec, &backupSchedule.Schedule)
 		if err != nil {
 			return err
 		}
@@ -379,7 +379,7 @@ func (p *pgReposReconciler) addNewSchedules( //nolint:gocognit
 		// Keep track of backup storages which are already in use by a repo
 		p.backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-		p.addRepoToPGGlobal(backupStorage.VerifyTLS, repo.Name, backupStorages[repo.Name].ForcePathStyle, &backupSchedule.RetentionCopies, db)
+		p.addRepoToPGGlobal(backupStorage.Spec.VerifyTLS, repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle, &backupSchedule.RetentionCopies, db)
 		err = updatePGIni(p.pgBackRestSecretIni, backupStoragesSecrets[backupSchedule.BackupStorageName], repo)
 		if err != nil {
 			return errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
