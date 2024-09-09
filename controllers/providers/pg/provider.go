@@ -41,6 +41,8 @@ type Provider struct {
 	*pgv2.PerconaPGCluster
 	providers.ProviderOptions
 	clusterType common.ClusterType
+	// currentPGSpec holds the current PXC spec.
+	currentPGSpec pgv2.PerconaPGClusterSpec
 }
 
 // New returns a new provider for Percona PostgreSQL.
@@ -61,6 +63,7 @@ func New(
 	}
 	opts.DBEngine = dbEngine
 
+	currentPGSpec := pg.Spec
 	pg.Spec = defaultSpec(opts.DB)
 
 	finalizers := []string{
@@ -74,6 +77,7 @@ func New(
 	p := &Provider{
 		PerconaPGCluster: pg,
 		ProviderOptions:  opts,
+		currentPGSpec:    currentPGSpec,
 	}
 	ct, err := common.GetClusterType(ctx, p.C)
 	if err != nil {

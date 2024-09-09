@@ -131,6 +131,12 @@ func (p *applier) Engine() error {
 		},
 	}
 	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
+	}
 	return nil
 }
 
@@ -186,6 +192,12 @@ func (p *applier) Proxy() error {
 		},
 	}
 	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
+	}
 
 	return nil
 }

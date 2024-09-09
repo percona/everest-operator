@@ -89,6 +89,12 @@ func (p *applier) Engine() error {
 	affinity := &psmdbv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		affinity = p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity
+	}
 	psmdb.Spec.Replsets[0].MultiAZ.Affinity = affinity
 
 	psmdb.Spec.Replsets[0].Size = database.Spec.Engine.Replicas
