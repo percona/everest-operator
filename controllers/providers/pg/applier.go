@@ -728,7 +728,7 @@ func (p *applier) createPGBackrestSecret(
 func (p *applier) addBackupStoragesByRestores(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	restoreList *everestv1alpha1.DatabaseClusterRestoreList,
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
@@ -775,7 +775,7 @@ func (p *applier) addBackupStoragesByRestores(
 				fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
-		backupStorages[backupStorage.Name] = backupStorage.Spec
+		backupStorages[backupStorage.Name] = *backupStorage
 		backupStoragesSecrets[backupStorage.Name] = backupStorageSecret
 
 		// XXX We need to add this restore's backup storage to the list of
@@ -804,7 +804,7 @@ func (p *applier) addBackupStoragesByRestores(
 // Add backup storages used by backup schedules to the list.
 func (p *applier) addBackupStoragesBySchedules(
 	backupSchedules []everestv1alpha1.BackupSchedule,
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
@@ -828,7 +828,7 @@ func (p *applier) addBackupStoragesBySchedules(
 			return errors.Join(err, fmt.Errorf("failed to get backup storage secret %s", backupStorage.Spec.CredentialsSecretName))
 		}
 
-		backupStorages[backupStorage.Name] = backupStorage.Spec
+		backupStorages[backupStorage.Name] = *backupStorage
 		backupStoragesSecrets[backupStorage.Name] = backupStorageSecret
 	}
 	return nil
@@ -837,7 +837,7 @@ func (p *applier) addBackupStoragesBySchedules(
 // Add backup storages used by on-demand backups to the list.
 func (p *applier) addBackupStoragesByOnDemandBackups(
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
 	ctx := p.ctx
@@ -859,7 +859,7 @@ func (p *applier) addBackupStoragesByOnDemandBackups(
 			return fmt.Errorf("failed to get backup storage secret '%s': %w", backupStorage.Spec.CredentialsSecretName, err)
 		}
 
-		backupStorages[backupStorage.Name] = backupStorage.Spec
+		backupStorages[backupStorage.Name] = *backupStorage
 		backupStoragesSecrets[backupStorage.Name] = backupStorageSecret
 	}
 	return nil
@@ -902,7 +902,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		return pgv2.Backups{}, err
 	}
 
-	backupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	backupStorages := map[string]everestv1alpha1.BackupStorage{}
 	backupStoragesSecrets := map[string]*corev1.Secret{}
 
 	// Add backup storages used by on-demand backups to the list
@@ -1013,7 +1013,7 @@ func reconcilePGBackRestRepos(
 	oldRepos []crunchyv1beta1.PGBackRestRepo,
 	backupSchedules []everestv1alpha1.BackupSchedule,
 	backups []everestv1alpha1.DatabaseClusterBackup,
-	backupStorages map[string]everestv1alpha1.BackupStorageSpec,
+	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 	engineStorage everestv1alpha1.Storage,
 	db *everestv1alpha1.DatabaseCluster,
@@ -1065,16 +1065,17 @@ func reconcilePGBackRestRepos(
 	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
 }
 
-func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorageSpec, repo crunchyv1beta1.PGBackRestRepo) string {
-	for name, spec := range backupStorages {
+func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorage, repo crunchyv1beta1.PGBackRestRepo, dbNamespace string) string {
+	for name, bs := range backupStorages {
 		if repo.S3 != nil &&
-			repo.S3.Bucket == spec.Bucket &&
-			repo.S3.Region == spec.Region &&
-			repo.S3.Endpoint == spec.EndpointURL {
+			dbNamespace == bs.Namespace &&
+			repo.S3.Bucket == bs.Spec.Bucket &&
+			repo.S3.Region == bs.Spec.Region &&
+			repo.S3.Endpoint == bs.Spec.EndpointURL {
 			return name
 		}
 
-		if repo.Azure != nil && repo.Azure.Container == spec.Bucket {
+		if repo.Azure != nil && repo.Azure.Container == bs.Spec.Bucket {
 			return name
 		}
 	}
