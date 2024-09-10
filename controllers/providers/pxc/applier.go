@@ -95,10 +95,13 @@ func (p *applier) Engine() error {
 		pxc.Spec.PXC.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 		pxc.Spec.PXC.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Engine.Resources.Memory
 	}
+	hasDBSpecChanged := func() bool {
+		return p.DB.Status.ObservedGeneration > 0 && p.DB.Status.ObservedGeneration != p.DB.Generation
+	}
 	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady && !hasDBSpecChanged() {
 		pxc.Spec.PXC.PodSpec.Resources = p.currentPerconaXtraDBClusterSpec.PXC.PodSpec.Resources
 	}
 
@@ -116,14 +119,11 @@ func (p *applier) Engine() error {
 	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	hasDBSpecChanged := func() bool {
-		return p.DB.Status.ObservedGeneration > 0 && p.DB.Status.ObservedGeneration != p.DB.Generation
-	}
 	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
 	// Additionally, we also need to check for the spec changes, otherwise the user can never voluntarily change the resource setting.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady && !hasDBSpecChanged() {
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
 	}
 	return nil
