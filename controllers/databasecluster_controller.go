@@ -191,6 +191,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, err
 	}
 	db.Status = status
+	db.Status.ObservedGeneration = db.GetGeneration()
 	if err := r.Client.Status().Update(ctx, db); err != nil {
 		return ctrl.Result{}, err
 	}
