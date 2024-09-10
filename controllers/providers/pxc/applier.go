@@ -99,6 +99,7 @@ func (p *applier) Engine() error {
 		return p.DB.Status.ObservedGeneration > 0 && p.DB.Status.ObservedGeneration != p.DB.Generation
 	}
 	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// Additionally, we also need to check for the spec changes, otherwise the user can never voluntarily change the resource setting.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady && !hasDBSpecChanged() {
@@ -120,7 +121,6 @@ func (p *applier) Engine() error {
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
 	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// Additionally, we also need to check for the spec changes, otherwise the user can never voluntarily change the resource setting.
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
