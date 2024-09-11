@@ -153,6 +153,12 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
 	affinity := &psmdbv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		affinity = p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity
+	}
 	spec.MultiAZ.Affinity = affinity
 	spec.Size = dbEngine.Replicas
 	spec.VolumeSpec = &psmdbv1.VolumeSpec{
@@ -182,10 +188,10 @@ func (p *applier) Proxy() error {
 	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
 		psmdb.Spec.Sharding.Enabled = false
-		err := p.exposeDefaultReplSet(&psmdb.Spec.Replsets[0].Expose)
-		if err != nil {
+		if err := p.exposeDefaultReplSet(&psmdb.Spec.Replsets[0].Expose); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// otherwise configure psmdb.Spec.Sharding.Mongos according to the db proxy settings

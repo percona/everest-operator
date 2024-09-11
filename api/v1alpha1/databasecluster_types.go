@@ -356,6 +356,8 @@ type DatabaseClusterSpec struct {
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
+	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Status is the status of the cluster
 	Status AppState `json:"status,omitempty"`
 	// Hostname is the hostname where the cluster can be reached

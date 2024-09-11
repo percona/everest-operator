@@ -229,12 +229,14 @@ func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -309,12 +311,14 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -422,12 +426,14 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -533,12 +539,14 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -650,12 +658,14 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) 
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -768,12 +778,14 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -896,18 +908,22 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testin
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 		"backupStorage2": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket2",
-			Region:      "region2",
-			EndpointURL: "endpoint2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket2",
+				Region:      "region2",
+				EndpointURL: "endpoint2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1034,18 +1050,22 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 		"backupStorage2": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket2",
-			Region:      "region2",
-			EndpointURL: "endpoint2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket2",
+				Region:      "region2",
+				EndpointURL: "endpoint2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1175,18 +1195,22 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 		"backupStorage2": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket2",
-			Region:      "region2",
-			EndpointURL: "endpoint2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket2",
+				Region:      "region2",
+				EndpointURL: "endpoint2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1315,18 +1339,22 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t 
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 		"backupStorage2": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket2",
-			Region:      "region2",
-			EndpointURL: "endpoint2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket2",
+				Region:      "region2",
+				EndpointURL: "endpoint2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1447,12 +1475,14 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1566,12 +1596,14 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1687,12 +1719,14 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1807,12 +1841,14 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -1930,12 +1966,14 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2034,7 +2072,7 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 	}
 	testBackupSchedules := []everestv1alpha1.BackupSchedule{}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
 	testEngineStorage := everestv1alpha1.Storage{
 		Size:  testEngineStorageSize,
@@ -2109,7 +2147,7 @@ func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 	}
 	testBackupSchedules := []everestv1alpha1.BackupSchedule{}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
 	testEngineStorage := everestv1alpha1.Storage{
 		Size:  testEngineStorageSize,
@@ -2238,12 +2276,14 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2347,30 +2387,38 @@ func TestReconcilePGBackRestReposDifferentStorageThreeRequestsAddRequest(t *test
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 		"backupStorage2": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket2",
-			Region:      "region2",
-			EndpointURL: "endpoint2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket2",
+				Region:      "region2",
+				EndpointURL: "endpoint2",
+			},
 		},
 		"backupStorage3": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket3",
-			Region:      "region3",
-			EndpointURL: "endpoint3",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket3",
+				Region:      "region3",
+				EndpointURL: "endpoint3",
+			},
 		},
 		"backupStorage4": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket4",
-			Region:      "region4",
-			EndpointURL: "endpoint4",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket4",
+				Region:      "region4",
+				EndpointURL: "endpoint4",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2508,12 +2556,14 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"backupStorage1": {
-			Type:        everestv1alpha1.BackupStorageTypeS3,
-			Bucket:      "bucket1",
-			Region:      "region1",
-			EndpointURL: "endpoint1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:        everestv1alpha1.BackupStorageTypeS3,
+				Bucket:      "bucket1",
+				Region:      "region1",
+				EndpointURL: "endpoint1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2609,7 +2659,7 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
 	testEngineStorageSize, _ := resource.ParseQuantity("15G")
 	testEngineStorageClass := "someSC"
@@ -2664,14 +2714,18 @@ func TestReconcilePGBackRestReposScheduleAfterOnDemandToAnotherStorage(t *testin
 			BackupStorageName: "bs1",
 		},
 	}}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 		"bs2": {
-			Type:   "s3",
-			Bucket: "bucket2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2770,14 +2824,18 @@ func TestReconcilePGBackRestReposOnDemandAfterScheduleToAnotherStorage(t *testin
 			BackupStorageName: "bs2",
 		},
 	}}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 		"bs2": {
-			Type:   "s3",
-			Bucket: "bucket2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket2",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -2899,18 +2957,24 @@ func TestReconcilePGBackRestReposScheduleAfter3OnDemands(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 		"bs2": {
-			Type:   "s3",
-			Bucket: "bucket2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket2",
+			},
 		},
 		"bs3": {
-			Type:   "s3",
-			Bucket: "bucket3",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket3",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -3048,18 +3112,24 @@ func TestReconcilePGBackRestReposOnDemand3OnDemandsAndSchedule(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 		"bs2": {
-			Type:   "s3",
-			Bucket: "bucket2",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket2",
+			},
 		},
 		"bs3": {
-			Type:   "s3",
-			Bucket: "bucket3",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket3",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -3168,10 +3238,12 @@ func TestReconcilePGBackRestBackupAndScheduleToTheSameStorage(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -3254,10 +3326,12 @@ func TestReconcilePGBackRestNewBackupAndNewScheduleToTheSameStorage(t *testing.T
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -3344,10 +3418,12 @@ func TestReconcilePGBackRestBackupAndNewScheduleToTheSameStorage(t *testing.T) {
 			},
 		},
 	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
 		"bs1": {
-			Type:   "s3",
-			Bucket: "bucket1",
+			Spec: everestv1alpha1.BackupStorageSpec{
+				Type:   "s3",
+				Bucket: "bucket1",
+			},
 		},
 	}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{
@@ -3418,7 +3494,7 @@ func TestReconcilePGBackRestReposUnknownStorageSchedule(t *testing.T) {
 		},
 	}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
 	testEngineStorageSize, _ := resource.ParseQuantity("15G")
 	testEngineStorageClass := "someSC"
@@ -3451,7 +3527,7 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 	testRepos := []crunchyv1beta1.PGBackRestRepo{}
 	testBackupSchedules := []everestv1alpha1.BackupSchedule{}
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorageSpec{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
 	testEngineStorageSize, _ := resource.ParseQuantity("15G")
 	testEngineStorageClass := "someSC"
