@@ -17,10 +17,6 @@ status:
         imagePath: percona/percona-backup-mongodb:2.5.0
         status: recommended
     engine:
-      5.0.11-10:
-        imageHash: da3713525d76a354435e1ab8fda12a06407e7eca8b8e72b9ac0163a34c8eb735
-        imagePath: percona/percona-server-mongodb:5.0.11-10
-        status: available
       5.0.14-12:
         imageHash: 38ced404ec798d78943c234ab4f39ee237f3013095a5cd581978cfdf0fbce2f9
         imagePath: percona/percona-server-mongodb:5.0.14-12
@@ -30,7 +26,7 @@ status:
         imagePath: percona/percona-server-mongodb:5.0.15-13
         status: available
       5.0.20-17:
-        imageHash: 9d1a440f602318551b9e1003a7f01c6af3e6b3f6a633eed37ed2ad6e7d176b9d
+        imageHash: 56a19362b1082c37eb5e7069d05f7bb281a09c4788101faeea15a50bb8a49e8b
         imagePath: percona/percona-server-mongodb:5.0.20-17
         status: available
       5.0.26-22:
