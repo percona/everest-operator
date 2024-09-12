@@ -9,7 +9,7 @@ spec:
   allowUnsafeConfiguration: true
   engine:
     type: psmdb
-    version: 4.4.24-23
+    version: 7.0.12-7
     config: |
      operationProfiling:
         mode: slowOp
