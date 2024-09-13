@@ -639,7 +639,7 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	}
 	storageName := *sourceDB.Spec.Backup.PITR.BackupStorageName
 
-	key = types.NamespacedName{Name: storageName, Namespace: r.systemNamespace}
+	key = types.NamespacedName{Name: storageName, Namespace: db.GetNamespace()}
 	if err := r.Get(ctx, key, backupStorage); err != nil {
 		return nil, fmt.Errorf("failed to get backup storage '%s' for backup: %w", storageName, err)
 	}
