@@ -651,7 +651,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 			backup.Status.Gaps = true
 		}
 	}
-
+	backup.Status.LatestRestorableTime = pxcCR.Status.LatestRestorableTime
 	return false, r.Status().Update(ctx, backup)
 }
 
@@ -735,6 +735,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp
 	backup.Status.Destination = &psmdbCR.Status.Destination
+	backup.Status.LatestRestorableTime = psmdbCR.Status.LatestRestorableTime
 	return false, r.Status().Update(ctx, backup)
 }
 
@@ -899,6 +900,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
 		}
 	}
+	backup.Status.LatestRestorableTime = pgCR.Status.LatestRestorableTime.Time
 	return false, r.Status().Update(ctx, backup)
 }
 
