@@ -744,8 +744,14 @@ func (r *DatabaseClusterBackupReconciler) getLastPGBackupDestination(
 	ctx context.Context,
 	backupStorage *everestv1alpha1.BackupStorage,
 	db *everestv1alpha1.DatabaseCluster,
+	pgBackup *pgv2.PerconaPGBackup,
 ) *string {
 	logger := log.FromContext(ctx)
+	if pgBackup.Status.BackupName != "" {
+		logger.Info("using backup name from status")
+		destination := fmt.Sprintf("s3://%s/%s/backup/db/%s", backupStorage.Spec.Bucket, common.BackupStoragePrefix(db), pgBackup.Status.BackupName)
+		return &destination
+	}
 	backupStorageSecret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.Namespace}, backupStorageSecret)
 	if err != nil {
@@ -897,7 +903,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 			logger.Error(err, "could not get database cluster ")
 		}
 		if err == nil {
-			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db)
+			backup.Status.Destination = r.getLastPGBackupDestination(ctx, backupStorage, db, pgCR)
 		}
 	}
 	backup.Status.LatestRestorableTime = pgCR.Status.LatestRestorableTime.Time
