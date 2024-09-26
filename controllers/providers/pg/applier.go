@@ -137,6 +137,17 @@ func (p *applier) Engine() error {
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
+
+	image, err := common.GetOperatorImage(p.ctx, p.C, types.NamespacedName{
+		Name:      common.PGDeploymentName,
+		Namespace: p.DB.GetNamespace(),
+	})
+	if err != nil {
+		return err
+	}
+	pg.Spec.Extensions = pgv2.ExtensionsSpec{
+		Image: image,
+	}
 	return nil
 }
 

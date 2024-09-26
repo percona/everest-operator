@@ -62,6 +62,31 @@ func BackupStoragePrefix(db *everestv1alpha1.DatabaseCluster) string {
 	return fmt.Sprintf("%s/%s", db.Name, db.UID)
 }
 
+// GetOperatorImage returns the image of the operator running in the cluster
+// for the specified deployment name and namespace.
+func GetOperatorImage(
+	ctx context.Context,
+	c client.Client,
+	name types.NamespacedName,
+) (string, error) {
+	unstructuredResource := &unstructured.Unstructured{}
+	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "Deployment",
+		Version: "v1",
+	})
+	deployment := &appsv1.Deployment{}
+	if err := c.Get(ctx, name, unstructuredResource); err != nil {
+		return "", err
+	}
+	err := runtime.DefaultUnstructuredConverter.
+		FromUnstructured(unstructuredResource.Object, deployment)
+	if err != nil {
+		return "", err
+	}
+	return deployment.Spec.Template.Spec.Containers[0].Image, nil
+}
+
 // GetOperatorVersion returns the version of the operator running in the cluster
 // for the specified deployment name and namespace.
 //
@@ -74,22 +99,11 @@ func GetOperatorVersion(
 	c client.Client,
 	name types.NamespacedName,
 ) (*version.Version, error) {
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "Deployment",
-		Version: "v1",
-	})
-	deployment := &appsv1.Deployment{}
-	if err := c.Get(ctx, name, unstructuredResource); err != nil {
-		return nil, err
-	}
-	err := runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, deployment)
+	image, err := GetOperatorImage(ctx, c, name)
 	if err != nil {
 		return nil, err
 	}
-	v := strings.Split(deployment.Spec.Template.Spec.Containers[0].Image, ":")[1]
+	v := strings.Split(image, ":")[1]
 	return version.NewVersion(v)
 }
 
