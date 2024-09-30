@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/version"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -131,10 +132,12 @@ func (p *applier) Engine() error {
 		},
 	}
 	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// This is a temporary workaround to apply new affinity settings without restarting, when upgrading
+	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+	crVersion := p.currentPGSpec.CRVersion
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady && version.Compare(crVersion, "2.4.1") >= 0 {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -203,10 +206,12 @@ func (p *applier) Proxy() error {
 		},
 	}
 	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// This is a temporary workaround to apply new affinity settings without restarting, when upgrading
+	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+	crVersion := p.currentPGSpec.CRVersion
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady && version.Compare(crVersion, "2.4.1") >= 0 {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
