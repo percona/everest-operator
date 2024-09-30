@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go/version"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
+	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -136,8 +136,9 @@ func (p *applier) Engine() error {
 	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	crVersion := p.currentPGSpec.CRVersion
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady && version.Compare(crVersion, "2.4.1") >= 0 {
+	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
+		crVersion.GreaterThanOrEqual(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -210,8 +211,9 @@ func (p *applier) Proxy() error {
 	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
 	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	crVersion := p.currentPGSpec.CRVersion
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady && version.Compare(crVersion, "2.4.1") >= 0 {
+	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
+		crVersion.GreaterThanOrEqual(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
