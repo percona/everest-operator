@@ -49,6 +49,8 @@ const (
 	AppStateRestoring AppState = "restoring"
 	// AppStateDeleting is a deleting state.
 	AppStateDeleting AppState = "deleting"
+	// AppStateNew represents a newly created cluster that has not yet been reconciled.
+	AppStateNew AppState = ""
 
 	// ExposeTypeInternal is an internal expose type.
 	ExposeTypeInternal ExposeType = "internal"

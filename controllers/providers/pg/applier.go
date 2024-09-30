@@ -131,12 +131,14 @@ func (p *applier) Engine() error {
 			},
 		},
 	}
-	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
-	// This is a temporary workaround to make sure we can make this change without an automatic restart.
+	// New affinity settings (added in 1.2.0) shall be applied only for new clusters, or on existing clusters that
+	// have been upgraded to CRVersion 2.4.1.
+	// This is a temporary workaround to make sure we can apply this change without an automatic restart.
 	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
+	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
+	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -209,7 +211,8 @@ func (p *applier) Proxy() error {
 	// This is a temporary workaround to make sure we can make this change without an automatic restart.
 	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
+	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
