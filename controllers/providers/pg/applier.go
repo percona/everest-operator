@@ -28,6 +28,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
+	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -130,11 +131,14 @@ func (p *applier) Engine() error {
 			},
 		},
 	}
+	// New affinity settings (added in 1.2.0) shall be applied only for new clusters, or on existing clusters that
+	// have been upgraded to CRVersion 2.4.1.
+	// This is a temporary workaround to make sure we can apply this change without an automatic restart.
+	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
 	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
+	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -203,10 +207,12 @@ func (p *applier) Proxy() error {
 		},
 	}
 	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
+	// This is a temporary workaround to make sure we can make this change without an automatic restart.
+	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
+	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
+	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
