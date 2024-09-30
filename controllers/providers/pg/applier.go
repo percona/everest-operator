@@ -132,13 +132,11 @@ func (p *applier) Engine() error {
 		},
 	}
 	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// This is a temporary workaround to apply new affinity settings without restarting, when upgrading
-	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
+	// This is a temporary workaround to make sure we can make this change without an automatic restart.
+	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
-		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
+	if crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -207,13 +205,11 @@ func (p *applier) Proxy() error {
 		},
 	}
 	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// This is a temporary workaround to apply new affinity settings without restarting, when upgrading
-	// the Everest operator (to 1.2.0) and the PG operator (to 2.4.1)
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
+	// This is a temporary workaround to make sure we can make this change without an automatic restart.
+	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
-		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
+	if crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
