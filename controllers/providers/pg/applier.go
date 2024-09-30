@@ -138,7 +138,7 @@ func (p *applier) Engine() error {
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
-		crVersion.GreaterThanOrEqual(goversion.Must(goversion.NewVersion("2.4.1"))) {
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
 	}
 
@@ -213,7 +213,7 @@ func (p *applier) Proxy() error {
 	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
 	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
-		crVersion.GreaterThanOrEqual(goversion.Must(goversion.NewVersion("2.4.1"))) {
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
 		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
 	}
 
