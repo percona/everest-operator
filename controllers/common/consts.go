@@ -18,6 +18,8 @@ package common
 import "k8s.io/apimachinery/pkg/runtime/schema"
 
 const (
+	// Everest ...
+	Everest = "everest"
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
 
@@ -59,6 +61,8 @@ const (
 
 	// LabelBackupStorageName is the label for backup storage name.
 	LabelBackupStorageName = "percona.com/backup-storage-name"
+	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
+	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
@@ -72,12 +76,6 @@ const (
 
 	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
-
-	// WatchModeCluster is set when the operator is watching resources across all namespaces in the cluster.
-	WatchModeCluster = "cluster"
-	// WatchModeRestricted is set when the operator is watching resources resources whose
-	// namespaces are labelled with `app.kubernetes.io/managed-by=everest`.
-	WatchModeRestricted = "restricted"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.

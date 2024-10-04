@@ -499,7 +499,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 	r.initWatchers(controller)
 	r.systemNamespace = systemNamespace
 	r.monitoringNamespace = monitoringNamespace
-
+	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }
 

@@ -45,7 +45,11 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/version"
+	"github.com/percona/everest-operator/pkg/predicates"
 )
+
+// DefaultNamespaceFilter is the default namespace filter.
+var DefaultNamespaceFilter = predicates.NewNamespaceFilter()
 
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
