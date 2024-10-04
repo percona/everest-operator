@@ -20,17 +20,16 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"os"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -44,12 +43,6 @@ import (
 	"github.com/percona/everest-operator/controllers"
 )
 
-const (
-	systemNamespaceEnvVar     = "SYSTEM_NAMESPACE"
-	monitoringNamespaceEnvVar = "MONITORING_NAMESPACE"
-	dbNamespacesEnvVar        = "DB_NAMESPACES"
-)
-
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -57,65 +50,43 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	cfg, err := parseConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to parse config")
+		os.Exit(1)
+	}
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	dbNamespaces := strings.Split(cfg.DBNamespace, ",")
+	defaultCache := cache.Options{}
+	if len(dbNamespaces) > 0 {
+		defaultCache.DefaultNamespaces = make(map[string]cache.Config)
+		defaultCache.DefaultNamespaces[cfg.SystemNamespace] = cache.Config{}
+		defaultCache.DefaultNamespaces[cfg.MonitoringNamespace] = cache.Config{}
+		for _, ns := range dbNamespaces {
+			defaultCache.DefaultNamespaces[ns] = cache.Config{}
+		}
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	systemNamespace, found := os.LookupEnv(systemNamespaceEnvVar)
-	if !found || systemNamespace == "" {
-		setupLog.Error(errors.New("failed to get the system namespace"), systemNamespaceEnvVar+" must be set")
-
-		os.Exit(1)
-	}
-	monitoringNamespace, found := os.LookupEnv(monitoringNamespaceEnvVar)
-	if !found || monitoringNamespace == "" {
-		setupLog.Error(errors.New("failed to get the monitoring namespace"), monitoringNamespaceEnvVar+" must be set")
-
-		os.Exit(1)
-	}
-	dbNamespacesString, found := os.LookupEnv(dbNamespacesEnvVar)
-	if !found || dbNamespacesString == "" {
-		setupLog.Error(errors.New("failed to get db namespaces"), dbNamespacesEnvVar+" must be set")
-
-		os.Exit(1)
-	}
-	cacheConfig := map[string]cache.Config{
-		systemNamespace:     {},
-		monitoringNamespace: {},
-	}
-	dbNamespaces := strings.Split(dbNamespacesString, ",")
-	for _, ns := range dbNamespaces {
-		cacheConfig[ns] = cache.Config{}
-	}
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
+			BindAddress: cfg.MetricsAddr,
 		},
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9094838c.percona.com",
-		Cache: cache.Options{
-			DefaultNamespaces: cacheConfig,
-		},
+		HealthProbeBindAddress: cfg.ProbeAddr,
+		LeaderElection:         cfg.EnableLeaderElection,
+		LeaderElectionID:       cfg.LeaderElectionID,
+		Cache:                  defaultCache,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -132,15 +103,9 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	namespace := &unstructured.Unstructured{}
-	namespace.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Kind:    "Namespace",
-		Version: "v1",
-	})
-	for _, namespaceName := range dbNamespaces {
-		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
-		if err != nil {
+	for _, ns := range dbNamespaces {
+		namespace := &corev1.Namespace{}
+		if err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: ns}, namespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 			os.Exit(1)
 		}
@@ -148,42 +113,42 @@ func main() {
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace, monitoringNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.SystemNamespace, cfg.MonitoringNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, dbNamespaces); err != nil {
+	}).SetupWithManager(mgr, []string{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseClusterRestoreReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.SystemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterRestore")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseClusterBackupReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.SystemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
 		os.Exit(1)
 	}
 	if err = (&controllers.BackupStorageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.SystemNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
 		os.Exit(1)
 	}
 	if err = (&controllers.MonitoringConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, monitoringNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.MonitoringNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}

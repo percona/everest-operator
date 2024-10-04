@@ -72,6 +72,12 @@ const (
 
 	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
+
+	// WatchModeCluster is set when the operator is watching resources across all namespaces in the cluster.
+	WatchModeCluster = "cluster"
+	// WatchModeRestricted is set when the operator is watching resources resources whose
+	// namespaces are labelled with `app.kubernetes.io/managed-by=everest`.
+	WatchModeRestricted = "restricted"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
