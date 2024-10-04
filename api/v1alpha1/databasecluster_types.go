@@ -316,13 +316,14 @@ type Monitoring struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// ConfigServer represents the sharding configuration server settings.
 type ConfigServer struct {
 	// Replicas is the amount of configServers
 	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas"`
 }
 
-// Sharding are the sharding options. Available only for psmdb
+// Sharding are the sharding options. Available only for psmdb.
 type Sharding struct {
 	// Enabled defines if the sharding is enabled
 	Enabled bool `json:"enabled"`

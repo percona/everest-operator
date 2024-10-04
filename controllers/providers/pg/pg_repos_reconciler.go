@@ -293,7 +293,10 @@ func (p *pgReposReconciler) reconcileRepos(
 				// Keep track of backup storages which are already in use by a repo
 				p.backupStoragesInRepos[backupSchedule.BackupStorageName] = struct{}{}
 
-				p.addRepoToPGGlobal(backupStorages[repo.Name].Spec.VerifyTLS, repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle, &backupSchedule.RetentionCopies, db)
+				p.addRepoToPGGlobal(backupStorages[repo.Name].Spec.VerifyTLS,
+					repo.Name, backupStorages[repo.Name].Spec.ForcePathStyle,
+					&backupSchedule.RetentionCopies, db,
+				)
 				err := updatePGIni(p.pgBackRestSecretIni, backupStoragesSecrets[backupSchedule.BackupStorageName], repo)
 				if err != nil {
 					return errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))

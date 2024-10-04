@@ -29,7 +29,7 @@ import (
 	"github.com/AlekSi/pointer"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -730,6 +730,7 @@ func DefaultAffinitySettings() *corev1.Affinity {
 	}
 }
 
+// StatusAsPlainTextOrEmptyString returns the status as a plain text string or an empty string.
 func StatusAsPlainTextOrEmptyString(status interface{}) string {
 	result, _ := yaml.Marshal(status)
 	return string(result)

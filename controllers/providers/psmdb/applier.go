@@ -106,7 +106,7 @@ func (p *applier) configureSharding() {
 	}
 
 	// configure all replsets
-	for i := 0; i < shards; i++ {
+	for i := range shards {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
 	}
 
