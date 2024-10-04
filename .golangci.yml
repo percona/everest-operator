@@ -88,6 +88,7 @@ linters:
     - nosnakecase
     - deadcode
     - exhaustive
+    - godox
 
 run:
   timeout: 5m
