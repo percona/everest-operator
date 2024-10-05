@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -742,9 +743,23 @@ func StatusAsPlainTextOrEmptyString(status interface{}) string {
 	return string(result)
 }
 
-func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) func(context.Context, client.Object) []reconcile.Request {
-	return func(ctx context.Context, namespace client.Object) []reconcile.Request {
-		if err := c.List(ctx, list, client.InNamespace(namespace.GetName())); err != nil {
+/*
+EnqueueObjectsInNamespace returns an event handler that should be attached with Namespace watchers.
+It enqueues all objects specified by the type of list in the triggered namespace.
+
+Usage:
+ctrl.NewControllerManagerBy(manager).Watches(&corev1.Namespace{},
+
+	common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{})
+
+).Complete(r)
+*/
+func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		if _, ok := o.(*corev1.Namespace); !ok {
+			panic("EnqueueObjectsInNamespace should be called on a Namespace")
+		}
+		if err := c.List(ctx, list, client.InNamespace(o.GetName())); err != nil {
 			return nil
 		}
 		items, err := meta.ExtractList(list)
@@ -765,7 +780,7 @@ func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) func(con
 			})
 		}
 		return requests
-	}
+	})
 }
 
 func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {

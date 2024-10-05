@@ -447,7 +447,11 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
-		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{})
+		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
+		Watches(
+			&corev1.Namespace{},
+			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseEngineList{}),
+		)
 
 	if r.isOLMInstalled(context.Background()) {
 		err := opfwv1alpha1.AddToScheme(r.Scheme)

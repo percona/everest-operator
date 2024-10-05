@@ -585,7 +585,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&corev1.Namespace{},
-		handler.EnqueueRequestsFromMapFunc(common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{})),
+		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
 	)
 	// In PG reconciliation we create a backup credentials secret because the
 	// PG operator requires this secret to be encoded differently from the

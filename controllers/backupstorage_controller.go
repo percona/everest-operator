@@ -108,6 +108,10 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNames
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		WithEventFilter(common.DefaultNamespaceFilter).
+		Watches(
+			&corev1.Namespace{},
+			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.BackupStorageList{}),
+		).
 		Complete(r)
 }
 

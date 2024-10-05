@@ -27,6 +27,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -560,7 +561,11 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager, sy
 		Version: "v1",
 	})
 	controller := ctrl.NewControllerManagedBy(mgr).
-		For(&everestv1alpha1.DatabaseClusterRestore{})
+		For(&everestv1alpha1.DatabaseClusterRestore{}).
+		Watches(
+			&corev1.Namespace{},
+			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterRestoreList{}),
+		)
 	err := r.Get(context.Background(), types.NamespacedName{Name: pxcRestoreCRDName}, unstructuredResource)
 	if err == nil {
 		if err := r.addPXCToScheme(r.Scheme); err == nil {

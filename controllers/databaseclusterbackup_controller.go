@@ -245,7 +245,10 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 
 	controller := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseClusterBackup{})
-
+	controller.Watches(
+		&corev1.Namespace{},
+		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterBackupList{}),
+	)
 	ctx := context.Background()
 
 	err = r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
