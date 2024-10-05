@@ -52,9 +52,6 @@ func (p *namespacefilter) SetMatchLabels(labels map[string]string) {
 }
 
 func (p *namespacefilter) filterNamespace(namespace *corev1.Namespace) bool {
-	if !p.enabled {
-		return true
-	}
 	if slices.Contains(p.allowNamespaces, namespace.GetName()) {
 		return true
 	}
@@ -69,6 +66,12 @@ func (p *namespacefilter) filterNamespace(namespace *corev1.Namespace) bool {
 }
 
 func (p *namespacefilter) filterObject(obj client.Object) bool {
+	if !p.enabled {
+		return true
+	}
+	if obj.GetNamespace() == "" {
+		return true // cluster-scoped resource, always allow.
+	}
 	namespace := &corev1.Namespace{}
 	err := p.c.Get(context.Background(), types.NamespacedName{
 		Name: obj.GetNamespace()}, namespace)

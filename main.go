@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/strings/slices"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -96,7 +97,10 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	dbNamespaces := strings.Split(cfg.DBNamespaces, ",")
+	dbNamespaces := []string{}
+	slices.Filter(dbNamespaces, strings.Split(cfg.DBNamespaces, ","), func(s string) bool {
+		return s != ""
+	})
 	defaultCache := cache.Options{}
 	if len(dbNamespaces) > 0 {
 		defaultCache.DefaultNamespaces = make(map[string]cache.Config)
@@ -140,9 +144,10 @@ func main() {
 	common.DefaultNamespaceFilter.SetClient(mgr.GetClient())
 	common.DefaultNamespaceFilter.SetLogger(l)
 	common.DefaultNamespaceFilter.SetAllowNamespaces([]string{cfg.SystemNamespace, cfg.MonitoringNamespace})
-	common.DefaultNamespaceFilter.SetEnabled(!enableNsFilter)
+	common.DefaultNamespaceFilter.SetEnabled(enableNsFilter)
 	common.DefaultNamespaceFilter.SetMatchLabels(map[string]string{
 		common.LabelKubernetesManagedBy: common.Everest,
+		"test":                          "", // TODO
 	})
 
 	// Ensure specified DB namespaces exist.

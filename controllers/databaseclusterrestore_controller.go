@@ -593,7 +593,7 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager, sy
 	}
 
 	r.systemNamespace = systemNamespace
-
+	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }
 

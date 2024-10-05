@@ -106,7 +106,9 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNames
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageForSecret),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).Complete(r)
+		).
+		WithEventFilter(common.DefaultNamespaceFilter).
+		Complete(r)
 }
 
 func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Context, obj client.Object) []reconcile.Request {

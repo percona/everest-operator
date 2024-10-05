@@ -279,7 +279,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 	}
 
 	r.systemNamespace = systemNamespace
-
+	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }
 

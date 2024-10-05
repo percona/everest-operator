@@ -465,6 +465,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
 	}
+	c.WithEventFilter(common.DefaultNamespaceFilter)
 
 	return c.Complete(r)
 }

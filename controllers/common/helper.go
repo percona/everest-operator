@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/version"
@@ -738,4 +740,42 @@ func DefaultAffinitySettings() *corev1.Affinity {
 func StatusAsPlainTextOrEmptyString(status interface{}) string {
 	result, _ := yaml.Marshal(status)
 	return string(result)
+}
+
+func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) func(context.Context, client.Object) []reconcile.Request {
+	return func(ctx context.Context, namespace client.Object) []reconcile.Request {
+		if err := c.List(ctx, list, client.InNamespace(namespace.GetName())); err != nil {
+			return nil
+		}
+		items, err := meta.ExtractList(list)
+		if err != nil {
+			return nil
+		}
+		requests := make([]reconcile.Request, 0, len(items))
+		for _, item := range items {
+			uObj, err := toUnstructured(item)
+			if err != nil {
+				return nil
+			}
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: uObj.GetNamespace(),
+					Name:      uObj.GetName(),
+				},
+			})
+		}
+		return requests
+	}
+}
+
+func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	ud := &unstructured.Unstructured{}
+	if err := json.Unmarshal(b, ud); err != nil {
+		return nil, err
+	}
+	return ud, nil
 }
