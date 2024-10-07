@@ -78,7 +78,7 @@ type Config struct {
 	SystemNamespace string
 }
 
-var cfg *Config = &Config{}
+var cfg = &Config{}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
