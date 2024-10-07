@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -52,9 +53,7 @@ import (
 )
 
 // DefaultNamespaceFilter is the default namespace filter.
-var DefaultNamespaceFilter = predicates.NamespaceFilter{
-	Enabled: true,
-}
+var DefaultNamespaceFilter predicate.Predicate = predicates.NamespaceFilter{}
 
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {

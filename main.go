@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -44,6 +45,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers"
 	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/pkg/predicates"
 )
 
 var (
@@ -67,15 +69,16 @@ type Config struct {
 	LeaderElectionID string
 	// ProbeAddr is the address the health probe endpoint binds to.
 	ProbeAddr string
-	// WatchAllNamespaces is set to true if all namespaces should be watched.
-	// This setting is ignored if DBNamespaces is set.
-	WatchAllNamespaces bool
 	// DBNamespaces is the namespaces to watch for DB resources.
+	// If set, NamespaceLabels is ignored.
 	DBNamespaces string
 	// MonitoringNamespace is the namespace where the monitoring resources are.
 	MonitoringNamespace string
 	// SystemNamespace is the namespace where the operator is running.
 	SystemNamespace string
+	// If set, watches only those namespaces that have the specified labels.
+	// This setting is ignored if DBNamespaces is set.
+	NamespaceLabels string
 }
 
 var cfg = &Config{}
@@ -141,19 +144,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Configure the default namespace filter.
-	enableNsFilter := len(dbNamespaces) == 0 && !cfg.WatchAllNamespaces
-	common.DefaultNamespaceFilter.Enabled = enableNsFilter
-	common.DefaultNamespaceFilter.AllowNamespaces = []string{cfg.SystemNamespace, cfg.MonitoringNamespace}
-	common.DefaultNamespaceFilter.MatchLabels = map[string]string{
-		common.LabelKubernetesManagedBy: common.Everest,
-	}
-	common.DefaultNamespaceFilter.GetNamespace = func(ctx context.Context, name string) (*corev1.Namespace, error) {
-		namespace := &corev1.Namespace{}
-		if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
-			return nil, err
+	filterLabels := map[string]string{}
+	for _, label := range strings.Split(cfg.NamespaceLabels, ",") {
+		parts := strings.Split(label, "=")
+		if len(parts) != 2 {
+			setupLog.Error(fmt.Errorf("invalid label filter: %s", label), "unable to create controller", "controller", "DatabaseCluster")
+			os.Exit(1)
 		}
-		return namespace, nil
+		filterLabels[parts[0]] = parts[1]
+	}
+
+	// We filter namespaces only if no DBNamespaces are defined.
+	common.DefaultNamespaceFilter = predicates.Nop{}
+	if len(dbNamespaces) == 0 {
+		common.DefaultNamespaceFilter = predicates.NamespaceFilter{
+			AllowNamespaces: []string{cfg.SystemNamespace, cfg.MonitoringNamespace}, // system namespaces, always allow.
+			MatchLabels:     filterLabels,
+			GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
+				namespace := &corev1.Namespace{}
+				if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
+					return nil, err
+				}
+				return namespace, nil
+			},
+		}
 	}
 
 	// Ensure specified DB namespaces exist.
@@ -235,6 +249,7 @@ func parseConfig() error {
 	monitoringNamespace := os.Getenv(monitoringNamespaceEnvVar)
 	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
 
+	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&cfg.EnableLeaderElection, "leader-elect", false,
@@ -242,10 +257,10 @@ func parseConfig() error {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&cfg.LeaderElectionID, "leader-election-id", "9094838c.percona.com",
 		"The name of the leader election ID.")
-	flag.BoolVar(&cfg.WatchAllNamespaces, "watch-all-namespaces", false, "If set, watch all namespaces."+
+	flag.StringVar(&cfg.NamespaceLabels, "namespace-label-filter", defaultNamespaceLabelFilter, "If set, reconciles objects only from those namespaces that have the specified label. "+
 		"This setting is ignored if db-namespaces is set.")
 	flag.StringVar(&cfg.DBNamespaces, "db-namespaces", dbNamespacesString, "The namespaces to watch for DB resources."+
-		"Defaults to the value of the DB_NAMESPACES environment variable. If set, watch-all-namespaces is ignored.")
+		"Defaults to the value of the DB_NAMESPACES environment variable. If set, watch-namespace-labels is ignored.")
 	flag.StringVar(&cfg.SystemNamespace, "system-namespace", systemNamespace, "The namespace where the operator is running."+
 		"Defaults to the value of the SYSTEM_NAMESPACE environment variable.")
 	flag.StringVar(&cfg.MonitoringNamespace, "monitoring-namespace", monitoringNamespace, "The namespace where the monitoring resources are."+
@@ -257,6 +272,9 @@ func parseConfig() error {
 	}
 	if cfg.MonitoringNamespace == "" {
 		return fmt.Errorf("%s or --monitoring-namespace must be set", monitoringNamespaceEnvVar)
+	}
+	if cfg.DBNamespaces == "" && cfg.NamespaceLabels == "" {
+		return fmt.Errorf("either %s or --namespace-label-filter must be set", dbNamespacesEnvVar)
 	}
 	return nil
 }

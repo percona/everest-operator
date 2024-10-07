@@ -29,8 +29,6 @@ import (
 // NamespaceFilter is a predicate that filters events based on the specified
 // namespace configuration.
 type NamespaceFilter struct {
-	// Enabled is set to true if the filter is enabled.
-	Enabled bool
 	// AllowNamespaces is a list of namespaces to allow.
 	AllowNamespaces []string
 	// MatchLabels is a map of labels to match on the namespace.
@@ -57,9 +55,6 @@ func (p *NamespaceFilter) filterNamespace(namespace *corev1.Namespace) bool {
 }
 
 func (p *NamespaceFilter) filterObject(obj client.Object) bool {
-	if !p.Enabled {
-		return true
-	}
 	if obj.GetNamespace() == "" {
 		return true // cluster-scoped resource, always allow.
 	}

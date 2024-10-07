@@ -41,18 +41,12 @@ func TestNamespaceFilter(t *testing.T) {
 	}{
 		{
 			namespace: newNamespace(nil),
-			filter:    &NamespaceFilter{Enabled: false},
-			expected:  true,
-		},
-		{
-			namespace: newNamespace(nil),
-			filter:    &NamespaceFilter{Enabled: true},
+			filter:    &NamespaceFilter{},
 			expected:  true,
 		},
 		{
 			namespace: newNamespace(nil),
 			filter: &NamespaceFilter{
-				Enabled:         true,
 				AllowNamespaces: []string{"test"},
 			},
 			expected: true,
@@ -60,7 +54,6 @@ func TestNamespaceFilter(t *testing.T) {
 		{
 			namespace: newNamespace(nil),
 			filter: &NamespaceFilter{
-				Enabled:     true,
 				MatchLabels: map[string]string{"key": "value"},
 			},
 			expected: false,
@@ -68,7 +61,6 @@ func TestNamespaceFilter(t *testing.T) {
 		{
 			namespace: newNamespace(map[string]string{"key": "value"}),
 			filter: &NamespaceFilter{
-				Enabled:     true,
 				MatchLabels: map[string]string{"key": "value"},
 			},
 			expected: true,
