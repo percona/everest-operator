@@ -1,3 +1,19 @@
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package predicates provides predicates for filtering events.
 package predicates
 
 import (
@@ -11,52 +27,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
-// NewNamespaceFilter returns a predicate that filters events based on the namespace.
-func NewNamespaceFilter() *namespacefilter {
-	return &namespacefilter{
-		enabled: true,
-	}
+// NamespaceFilter is a predicate that filters events based on namespace configuration.
+type NamespaceFilter struct {
+	// Enabled is set to true if the filter is enabled.
+	Enabled bool
+	// AllowNamespaces is a list of namespaces to allow.
+	AllowNamespaces []string
+	// MatchLabels is a map of labels to match on the namespace.
+	// The labels are ANDed.
+	MatchLabels map[string]string
+	// C is the Kubernetes client.
+	C client.Client
+	// Log is the logger.
+	Log logr.Logger
 }
 
-type namespacefilter struct {
-	enabled         bool
-	allowNamespaces []string
-	matchLabels     map[string]string
-	c               client.Client
-	log             logr.Logger
-}
-
-// SetClient sets the client.
-func (p *namespacefilter) SetClient(c client.Client) {
-	p.c = c
-}
-
-// SetAllowNamespaces sets the allowed namespaces.
-func (p *namespacefilter) SetAllowNamespaces(namespaces []string) {
-	p.allowNamespaces = namespaces
-}
-
-// SetEnabled sets the enabled flag.
-func (p *namespacefilter) SetEnabled(enabled bool) {
-	p.enabled = enabled
-}
-
-// SetLogger sets the logger.
-func (p *namespacefilter) SetLogger(l logr.Logger) {
-	p.log = l
-}
-
-// SetMatchLabels sets the match labels.
-func (p *namespacefilter) SetMatchLabels(labels map[string]string) {
-	p.matchLabels = labels
-}
-
-func (p *namespacefilter) filterNamespace(namespace *corev1.Namespace) bool {
-	if slices.Contains(p.allowNamespaces, namespace.GetName()) {
+func (p *NamespaceFilter) filterNamespace(namespace *corev1.Namespace) bool {
+	if slices.Contains(p.AllowNamespaces, namespace.GetName()) {
 		return true
 	}
 	labels := namespace.GetLabels()
-	for k, v := range p.matchLabels {
+	for k, v := range p.MatchLabels {
 		val, ok := labels[k]
 		if !ok || val != v {
 			return false
@@ -65,40 +56,40 @@ func (p *namespacefilter) filterNamespace(namespace *corev1.Namespace) bool {
 	return true
 }
 
-func (p *namespacefilter) filterObject(obj client.Object) bool {
-	if !p.enabled {
+func (p *NamespaceFilter) filterObject(obj client.Object) bool {
+	if !p.Enabled {
 		return true
 	}
 	if obj.GetNamespace() == "" {
 		return true // cluster-scoped resource, always allow.
 	}
 	namespace := &corev1.Namespace{}
-	err := p.c.Get(context.Background(), types.NamespacedName{
+	err := p.C.Get(context.Background(), types.NamespacedName{
 		Name: obj.GetNamespace(),
 	}, namespace)
 	if err != nil {
-		p.log.Error(err, "failed to get namespace", "namespace", obj.GetNamespace())
+		p.Log.Error(err, "failed to get namespace", "namespace", obj.GetNamespace())
 		return false
 	}
 	return p.filterNamespace(namespace)
 }
 
 // Create returns true if the object should be created.
-func (p *namespacefilter) Create(event event.CreateEvent) bool {
+func (p NamespaceFilter) Create(event event.CreateEvent) bool {
 	return p.filterObject(event.Object)
 }
 
 // Update returns true if the object should be updated.
-func (p *namespacefilter) Update(event event.UpdateEvent) bool {
+func (p NamespaceFilter) Update(event event.UpdateEvent) bool {
 	return p.filterObject(event.ObjectNew)
 }
 
 // Delete returns true if the object should be deleted.
-func (p *namespacefilter) Delete(event event.DeleteEvent) bool {
+func (p NamespaceFilter) Delete(event event.DeleteEvent) bool {
 	return p.filterObject(event.Object)
 }
 
 // Generic returns true if the object should be processed.
-func (p *namespacefilter) Generic(event event.GenericEvent) bool {
+func (p NamespaceFilter) Generic(event event.GenericEvent) bool {
 	return p.filterObject(event.Object)
 }

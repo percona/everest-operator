@@ -52,7 +52,9 @@ import (
 )
 
 // DefaultNamespaceFilter is the default namespace filter.
-var DefaultNamespaceFilter = predicates.NewNamespaceFilter()
+var DefaultNamespaceFilter = predicates.NamespaceFilter{
+	Enabled: true,
+}
 
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
@@ -743,17 +745,10 @@ func StatusAsPlainTextOrEmptyString(status interface{}) string {
 	return string(result)
 }
 
-/*
-EnqueueObjectsInNamespace returns an event handler that should be attached with Namespace watchers.
-It enqueues all objects specified by the type of list in the triggered namespace.
-
-Usage:
-ctrl.NewControllerManagerBy(manager).Watches(&corev1.Namespace{},
-
-	common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{})
-
-).Complete(r)
-*/
+// EnqueueObjectsInNamespace returns an event handler that should be attached with Namespace watchers.
+// It enqueues all objects specified by the type of list in the triggered namespace.
+//
+//nolint:ireturn
 func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		if _, ok := o.(*corev1.Namespace); !ok {

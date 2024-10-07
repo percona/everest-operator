@@ -1,7 +1,21 @@
+// everest-operator Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package predicates
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,59 +23,61 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func newNamespace(name string, labels map[string]string) *corev1.Namespace {
+func newNamespace(labels map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
+			Name:   "test-ns",
 			Labels: labels,
 		},
 	}
 }
 
 func TestFilterNamespace(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		namespace *corev1.Namespace
-		filter    *namespacefilter
+		filter    *NamespaceFilter
 		expected  bool
 	}{
 		{
-			namespace: newNamespace("test", nil),
-			filter:    &namespacefilter{enabled: false},
+			namespace: newNamespace(nil),
+			filter:    &NamespaceFilter{Enabled: false},
 			expected:  true,
 		},
 		{
-			namespace: newNamespace("test", nil),
-			filter:    &namespacefilter{enabled: true},
+			namespace: newNamespace(nil),
+			filter:    &NamespaceFilter{Enabled: true},
 			expected:  true,
 		},
 		{
-			namespace: newNamespace("test", nil),
-			filter: &namespacefilter{
-				enabled:         true,
-				allowNamespaces: []string{"test"},
+			namespace: newNamespace(nil),
+			filter: &NamespaceFilter{
+				Enabled:         true,
+				AllowNamespaces: []string{"test"},
 			},
 			expected: true,
 		},
 		{
-			namespace: newNamespace("test", nil),
-			filter: &namespacefilter{
-				enabled:     true,
-				matchLabels: map[string]string{"key": "value"},
+			namespace: newNamespace(nil),
+			filter: &NamespaceFilter{
+				Enabled:     true,
+				MatchLabels: map[string]string{"key": "value"},
 			},
 			expected: false,
 		},
 		{
-			namespace: newNamespace("test", map[string]string{"key": "value"}),
-			filter: &namespacefilter{
-				enabled:     true,
-				matchLabels: map[string]string{"key": "value"},
+			namespace: newNamespace(map[string]string{"key": "value"}),
+			filter: &NamespaceFilter{
+				Enabled:     true,
+				MatchLabels: map[string]string{"key": "value"},
 			},
 			expected: true,
 		},
 	}
 
 	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
 			actual := tc.filter.filterNamespace(tc.namespace)
 			assert.Equal(t, tc.expected, actual)
 		})

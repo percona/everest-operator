@@ -140,14 +140,13 @@ func main() {
 
 	// Configure the default namespace filter.
 	enableNsFilter := len(dbNamespaces) == 0 && !cfg.WatchAllNamespaces
-	common.DefaultNamespaceFilter.SetClient(mgr.GetClient())
-	common.DefaultNamespaceFilter.SetLogger(l)
-	common.DefaultNamespaceFilter.SetAllowNamespaces([]string{cfg.SystemNamespace, cfg.MonitoringNamespace})
-	common.DefaultNamespaceFilter.SetEnabled(enableNsFilter)
-	common.DefaultNamespaceFilter.SetMatchLabels(map[string]string{
+	common.DefaultNamespaceFilter.Enabled = enableNsFilter
+	common.DefaultNamespaceFilter.C = mgr.GetClient()
+	common.DefaultNamespaceFilter.Log = ctrl.Log.WithName("namespace-filter")
+	common.DefaultNamespaceFilter.AllowNamespaces = []string{cfg.SystemNamespace, cfg.MonitoringNamespace}
+	common.DefaultNamespaceFilter.MatchLabels = map[string]string{
 		common.LabelKubernetesManagedBy: common.Everest,
-		"test":                          "", // TODO
-	})
+	}
 
 	// Ensure specified DB namespaces exist.
 	namespace := &unstructured.Unstructured{}
