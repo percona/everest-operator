@@ -25,16 +25,17 @@ import (
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -97,9 +98,9 @@ func main() {
 	flag.Parse()
 
 	dbNamespaces := []string{}
-	slices.Filter(dbNamespaces, strings.Split(cfg.DBNamespaces, ","), func(s string) bool {
-		return s != ""
-	})
+	if s := cfg.DBNamespaces; s != "" {
+		dbNamespaces = strings.Split(s, ",")
+	}
 	defaultCache := cache.Options{}
 	if len(dbNamespaces) > 0 {
 		defaultCache.DefaultNamespaces = make(map[string]cache.Config)
@@ -112,6 +113,7 @@ func main() {
 
 	l := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(l)
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -141,11 +143,17 @@ func main() {
 	// Configure the default namespace filter.
 	enableNsFilter := len(dbNamespaces) == 0 && !cfg.WatchAllNamespaces
 	common.DefaultNamespaceFilter.Enabled = enableNsFilter
-	common.DefaultNamespaceFilter.C = mgr.GetClient()
-	common.DefaultNamespaceFilter.Log = ctrl.Log.WithName("namespace-filter")
 	common.DefaultNamespaceFilter.AllowNamespaces = []string{cfg.SystemNamespace, cfg.MonitoringNamespace}
 	common.DefaultNamespaceFilter.MatchLabels = map[string]string{
 		common.LabelKubernetesManagedBy: common.Everest,
+		"test":                          "",
+	}
+	common.DefaultNamespaceFilter.GetNamespace = func(ctx context.Context, name string) (*corev1.Namespace, error) {
+		namespace := &corev1.Namespace{}
+		if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
+			return nil, err
+		}
+		return namespace, nil
 	}
 
 	// Ensure specified DB namespaces exist.

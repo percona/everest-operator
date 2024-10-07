@@ -32,7 +32,7 @@ func newNamespace(labels map[string]string) *corev1.Namespace {
 	}
 }
 
-func TestFilterNamespace(t *testing.T) {
+func TestNamespaceFilter(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		namespace *corev1.Namespace

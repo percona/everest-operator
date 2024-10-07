@@ -22,22 +22,22 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
-// NamespaceFilter is a predicate that filters events based on namespace configuration.
+// NamespaceFilter is a predicate that filters events based on the specified
+// namespace configuration.
 type NamespaceFilter struct {
 	// Enabled is set to true if the filter is enabled.
 	Enabled bool
 	// AllowNamespaces is a list of namespaces to allow.
 	AllowNamespaces []string
 	// MatchLabels is a map of labels to match on the namespace.
-	// The labels are ANDed.
+	// All labels specified here need to match the labels on the namespace (i.e, they're ANDed).
 	MatchLabels map[string]string
-	// C is the Kubernetes client.
-	C client.Client
+	// GetNamespace gets the namespace by name.
+	GetNamespace func(ctx context.Context, name string) (*corev1.Namespace, error)
 	// Log is the logger.
 	Log logr.Logger
 }
@@ -63,12 +63,9 @@ func (p *NamespaceFilter) filterObject(obj client.Object) bool {
 	if obj.GetNamespace() == "" {
 		return true // cluster-scoped resource, always allow.
 	}
-	namespace := &corev1.Namespace{}
-	err := p.C.Get(context.Background(), types.NamespacedName{
-		Name: obj.GetNamespace(),
-	}, namespace)
+	namespace, err := p.GetNamespace(context.Background(), obj.GetNamespace())
 	if err != nil {
-		p.Log.Error(err, "failed to get namespace", "namespace", obj.GetNamespace())
+		p.Log.Error(err, "GetNamespace failed", "namespace", obj.GetNamespace())
 		return false
 	}
 	return p.filterNamespace(namespace)
