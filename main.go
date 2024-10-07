@@ -79,6 +79,8 @@ type Config struct {
 	SystemNamespace string
 }
 
+var cfg *Config = &Config{}
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
@@ -86,7 +88,7 @@ func init() {
 }
 
 func main() {
-	cfg, err := parseConfig()
+	err := parseConfig()
 	if err != nil {
 		setupLog.Error(err, "unable to parse config")
 		os.Exit(1)
@@ -146,7 +148,6 @@ func main() {
 	common.DefaultNamespaceFilter.AllowNamespaces = []string{cfg.SystemNamespace, cfg.MonitoringNamespace}
 	common.DefaultNamespaceFilter.MatchLabels = map[string]string{
 		common.LabelKubernetesManagedBy: common.Everest,
-		"test":                          "",
 	}
 	common.DefaultNamespaceFilter.GetNamespace = func(ctx context.Context, name string) (*corev1.Namespace, error) {
 		namespace := &corev1.Namespace{}
@@ -230,9 +231,7 @@ func main() {
 	}
 }
 
-func parseConfig() (Config, error) {
-	cfg := Config{}
-
+func parseConfig() error {
 	systemNamespace := os.Getenv(systemNamespaceEnvVar)
 	monitoringNamespace := os.Getenv(monitoringNamespaceEnvVar)
 	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
@@ -255,10 +254,10 @@ func parseConfig() (Config, error) {
 	flag.Parse()
 
 	if cfg.SystemNamespace == "" {
-		return cfg, fmt.Errorf("%s or --system-namespace must be set", systemNamespaceEnvVar)
+		return fmt.Errorf("%s or --system-namespace must be set", systemNamespaceEnvVar)
 	}
 	if cfg.MonitoringNamespace == "" {
-		return cfg, fmt.Errorf("%s or --monitoring-namespace must be set", monitoringNamespaceEnvVar)
+		return fmt.Errorf("%s or --monitoring-namespace must be set", monitoringNamespaceEnvVar)
 	}
-	return cfg, nil
+	return nil
 }
