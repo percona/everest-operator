@@ -38,8 +38,7 @@ import (
 // BackupStorageReconciler reconciles a BackupStorage object.
 type BackupStorageReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	systemNamespace string
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
@@ -97,8 +96,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
-	r.systemNamespace = systemNamespace
+func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
@@ -127,7 +125,7 @@ func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Contex
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
 			Name:      backupStorageName,
-			Namespace: r.systemNamespace,
+			Namespace: secret.GetNamespace(),
 		},
 	}}
 }

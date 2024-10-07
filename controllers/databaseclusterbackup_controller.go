@@ -84,8 +84,7 @@ var ErrBackupStorageUndefined = errors.New("backup storage is not defined in the
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	systemNamespace string
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
@@ -218,7 +217,7 @@ func (r *DatabaseClusterBackupReconciler) reconcileMeta(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -281,7 +280,6 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager, sys
 		}
 	}
 
-	r.systemNamespace = systemNamespace
 	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }

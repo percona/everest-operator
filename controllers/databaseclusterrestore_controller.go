@@ -65,8 +65,7 @@ var (
 // DatabaseClusterRestoreReconciler reconciles a DatabaseClusterRestore object.
 type DatabaseClusterRestoreReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	systemNamespace string
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
@@ -553,7 +552,7 @@ func (r *DatabaseClusterRestoreReconciler) addPGToScheme(scheme *runtime.Scheme)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "apiextensions.k8s.io",
@@ -597,7 +596,6 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager, sy
 		return err
 	}
 
-	r.systemNamespace = systemNamespace
 	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }

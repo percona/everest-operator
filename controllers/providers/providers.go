@@ -24,9 +24,7 @@ import (
 
 // ProviderOptions contains options for configuring DB providers.
 type ProviderOptions struct {
-	C            client.Client
-	DB           *everestv1alpha1.DatabaseCluster
-	DBEngine     *everestv1alpha1.DatabaseEngine
-	SystemNs     string
-	MonitoringNs string
+	C        client.Client
+	DB       *everestv1alpha1.DatabaseCluster
+	DBEngine *everestv1alpha1.DatabaseEngine
 }
