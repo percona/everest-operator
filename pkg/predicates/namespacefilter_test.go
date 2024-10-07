@@ -70,7 +70,7 @@ func TestNamespaceFilter(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
-			actual := tc.filter.filterNamespace(tc.namespace)
+			actual := tc.filter.Match(tc.namespace)
 			assert.Equal(t, tc.expected, actual)
 		})
 	}

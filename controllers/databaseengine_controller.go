@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -45,6 +46,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
 	"github.com/percona/everest-operator/controllers/version"
+	"github.com/percona/everest-operator/pkg/predicates"
 )
 
 const (
@@ -413,38 +415,37 @@ func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name t
 	return ready, version, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces []string) error {
-	// There's a good chance that the reconciler's client cache is not started
-	// yet so we use the client.Reader returned from manager.GetAPIReader() to
-	// hit the API server directly and avoid an ErrCacheNotStarted.
-	clientReader := mgr.GetAPIReader()
-	r.versionService = version.NewVersionService()
-	for _, namespaceName := range namespaces {
+func (r *DatabaseEngineReconciler) ensureDBEnginesInNamespaces(ctx context.Context, namespaces []string) ([]reconcile.Request, error) {
+	requests := []reconcile.Request{}
+	for _, ns := range namespaces {
 		for operatorName, engineType := range operatorEngine {
 			dbEngine := &everestv1alpha1.DatabaseEngine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      operatorName,
-					Namespace: namespaceName,
+					Namespace: ns,
 				},
 				Spec: everestv1alpha1.DatabaseEngineSpec{
 					Type: engineType,
 				},
 			}
-
-			found := &everestv1alpha1.DatabaseEngine{}
-			err := clientReader.Get(context.Background(), types.NamespacedName{Name: dbEngine.Name, Namespace: dbEngine.Namespace}, found)
-			if err != nil && apierrors.IsNotFound(err) {
-				err = r.Create(context.Background(), dbEngine)
-				if err != nil {
-					return err
-				}
-			} else if err != nil {
-				return err
+			if err := r.Client.Create(ctx, dbEngine); client.IgnoreAlreadyExists(err) != nil {
+				return nil, err
 			}
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+				Name:      dbEngine.GetName(),
+				Namespace: dbEngine.GetNamespace(),
+			}})
 		}
 	}
+	return requests, nil
+}
 
+// SetupWithManager sets up the controller with the Manager.
+func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces []string) error {
+	if _, err := r.ensureDBEnginesInNamespaces(context.Background(), namespaces); err != nil {
+		return err
+	}
+	r.versionService = version.NewVersionService()
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
@@ -452,6 +453,31 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 			&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseEngineList{}),
 		)
+
+	// No DBNamespaces were provided during setup, so we need to watch Namespaces,
+	// and create and enqueue DBEngine requests on the fly.
+	if len(namespaces) == 0 {
+		filter, ok := common.DefaultNamespaceFilter.(*predicates.NamespaceFilter)
+		if !ok {
+			return fmt.Errorf("expected common.DefaultNamespaceFilter to be of type NamespaceFilter")
+		}
+		c.Watches(&corev1.Namespace{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+				ns, ok := o.(*corev1.Namespace)
+				if !ok {
+					return nil
+				}
+				if !filter.Match(ns) {
+					return nil
+				}
+				requests, err := r.ensureDBEnginesInNamespaces(ctx, []string{ns.GetName()})
+				if err != nil {
+					log.Log.Error(err, "failed to ensure DBEngines in namespace", "namespace", ns.GetName())
+				}
+				return requests
+			}),
+		)
+	}
 
 	if r.isOLMInstalled(context.Background()) {
 		err := opfwv1alpha1.AddToScheme(r.Scheme)

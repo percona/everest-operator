@@ -78,7 +78,7 @@ type Config struct {
 	SystemNamespace string
 	// If set, watches only those namespaces that have the specified labels.
 	// This setting is ignored if DBNamespaces is set.
-	NamespaceLabels string
+	NamespaceLabels map[string]string
 }
 
 var cfg = &Config{}
@@ -144,22 +144,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	filterLabels := map[string]string{}
-	for _, label := range strings.Split(cfg.NamespaceLabels, ",") {
-		parts := strings.Split(label, "=")
-		if len(parts) != 2 {
-			setupLog.Error(fmt.Errorf("invalid label filter: %s", label), "unable to create controller", "controller", "DatabaseCluster")
-			os.Exit(1)
-		}
-		filterLabels[parts[0]] = parts[1]
-	}
-
 	// We filter namespaces only if no DBNamespaces are defined.
-	common.DefaultNamespaceFilter = predicates.Nop{}
+	common.DefaultNamespaceFilter = &predicates.Nop{}
 	if len(dbNamespaces) == 0 {
-		common.DefaultNamespaceFilter = predicates.NamespaceFilter{
+		common.DefaultNamespaceFilter = &predicates.NamespaceFilter{
 			AllowNamespaces: []string{cfg.SystemNamespace, cfg.MonitoringNamespace}, // system namespaces, always allow.
-			MatchLabels:     filterLabels,
+			MatchLabels:     cfg.NamespaceLabels,
 			GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
 				namespace := &corev1.Namespace{}
 				if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
@@ -194,7 +184,7 @@ func main() {
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, []string{}); err != nil {
+	}).SetupWithManager(mgr, dbNamespaces); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
@@ -250,6 +240,7 @@ func parseConfig() error {
 	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
 
 	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
+	var namespaceLabelFilter string
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&cfg.EnableLeaderElection, "leader-elect", false,
@@ -257,8 +248,8 @@ func parseConfig() error {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&cfg.LeaderElectionID, "leader-election-id", "9094838c.percona.com",
 		"The name of the leader election ID.")
-	flag.StringVar(&cfg.NamespaceLabels, "namespace-label-filter", defaultNamespaceLabelFilter, "If set, reconciles objects only from those namespaces that have the specified label. "+
-		"This setting is ignored if db-namespaces is set.")
+	flag.StringVar(&namespaceLabelFilter, "namespace-label-filter", defaultNamespaceLabelFilter, "If set, reconciles objects only from those namespaces that have the specified label. "+
+		"This setting is ignored if db-namespaces is set. "+fmt.Sprintf("Default is `%s`", defaultNamespaceLabelFilter))
 	flag.StringVar(&cfg.DBNamespaces, "db-namespaces", dbNamespacesString, "The namespaces to watch for DB resources."+
 		"Defaults to the value of the DB_NAMESPACES environment variable. If set, watch-namespace-labels is ignored.")
 	flag.StringVar(&cfg.SystemNamespace, "system-namespace", systemNamespace, "The namespace where the operator is running."+
@@ -273,7 +264,17 @@ func parseConfig() error {
 	if cfg.MonitoringNamespace == "" {
 		return fmt.Errorf("%s or --monitoring-namespace must be set", monitoringNamespaceEnvVar)
 	}
-	if cfg.DBNamespaces == "" && cfg.NamespaceLabels == "" {
+
+	cfg.NamespaceLabels = make(map[string]string)
+	labels := strings.Split(namespaceLabelFilter, ",")
+	for _, label := range labels {
+		parts := strings.Split(label, "=")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid label filter: %s", label)
+		}
+		cfg.NamespaceLabels[parts[0]] = parts[1]
+	}
+	if cfg.DBNamespaces == "" && len(cfg.NamespaceLabels) == 0 {
 		return fmt.Errorf("either %s or --namespace-label-filter must be set", dbNamespacesEnvVar)
 	}
 	return nil

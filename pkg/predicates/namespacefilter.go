@@ -40,7 +40,8 @@ type NamespaceFilter struct {
 	Log logr.Logger
 }
 
-func (p *NamespaceFilter) filterNamespace(namespace *corev1.Namespace) bool {
+// Match returns true if the filter allows the namespace.
+func (p *NamespaceFilter) Match(namespace *corev1.Namespace) bool {
 	if slices.Contains(p.AllowNamespaces, namespace.GetName()) {
 		return true
 	}
@@ -63,7 +64,7 @@ func (p *NamespaceFilter) filterObject(obj client.Object) bool {
 		p.Log.Error(err, "GetNamespace failed", "namespace", obj.GetNamespace())
 		return false
 	}
-	return p.filterNamespace(namespace)
+	return p.Match(namespace)
 }
 
 // Create returns true if the object should be created.
