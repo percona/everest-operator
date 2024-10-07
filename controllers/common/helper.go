@@ -53,7 +53,7 @@ import (
 )
 
 // DefaultNamespaceFilter is the default namespace filter.
-var DefaultNamespaceFilter predicate.Predicate = predicates.NamespaceFilter{}
+var DefaultNamespaceFilter predicate.Predicate = &predicates.Nop{}
 
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {

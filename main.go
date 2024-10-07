@@ -144,7 +144,6 @@ func main() {
 	}
 
 	// We filter namespaces only if no DBNamespaces are defined.
-	common.DefaultNamespaceFilter = &predicates.Nop{}
 	if len(dbNamespaces) == 0 {
 		common.DefaultNamespaceFilter = &predicates.NamespaceFilter{
 			AllowNamespaces: []string{cfg.SystemNamespace, cfg.MonitoringNamespace}, // system namespaces, always allow.
