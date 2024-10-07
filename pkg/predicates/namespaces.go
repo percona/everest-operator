@@ -74,7 +74,8 @@ func (p *namespacefilter) filterObject(obj client.Object) bool {
 	}
 	namespace := &corev1.Namespace{}
 	err := p.c.Get(context.Background(), types.NamespacedName{
-		Name: obj.GetNamespace()}, namespace)
+		Name: obj.GetNamespace(),
+	}, namespace)
 	if err != nil {
 		p.log.Error(err, "failed to get namespace", "namespace", obj.GetNamespace())
 		return false
