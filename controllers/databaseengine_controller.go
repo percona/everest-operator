@@ -18,7 +18,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -459,7 +458,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	if len(namespaces) == 0 {
 		filter, ok := common.DefaultNamespaceFilter.(*predicates.NamespaceFilter)
 		if !ok {
-			return fmt.Errorf("expected common.DefaultNamespaceFilter to be of type NamespaceFilter")
+			return errors.New("expected common.DefaultNamespaceFilter to be of type *NamespaceFilter")
 		}
 		c.Watches(&corev1.Namespace{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {

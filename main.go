@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -248,8 +247,10 @@ func parseConfig() error {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&cfg.LeaderElectionID, "leader-election-id", "9094838c.percona.com",
 		"The name of the leader election ID.")
-	flag.StringVar(&namespaceLabelFilter, "namespace-label-filter", defaultNamespaceLabelFilter, "If set, reconciles objects only from those namespaces that have the specified label. "+
-		"This setting is ignored if db-namespaces is set. "+fmt.Sprintf("Default is `%s`", defaultNamespaceLabelFilter))
+	flag.StringVar(&namespaceLabelFilter, "namespace-label-filter", defaultNamespaceLabelFilter,
+		"If set, reconciles objects only from those namespaces that have the specified label. "+
+			"This setting is ignored if db-namespaces is set. "+
+			fmt.Sprintf("Default is `%s`", defaultNamespaceLabelFilter))
 	flag.StringVar(&cfg.DBNamespaces, "db-namespaces", dbNamespacesString, "The namespaces to watch for DB resources."+
 		"Defaults to the value of the DB_NAMESPACES environment variable. If set, watch-namespace-labels is ignored.")
 	flag.StringVar(&cfg.SystemNamespace, "system-namespace", systemNamespace, "The namespace where the operator is running."+
@@ -269,7 +270,7 @@ func parseConfig() error {
 	labels := strings.Split(namespaceLabelFilter, ",")
 	for _, label := range labels {
 		parts := strings.Split(label, "=")
-		if len(parts) != 2 {
+		if len(parts) != 2 { //nolint:mnd
 			return fmt.Errorf("invalid label filter: %s", label)
 		}
 		cfg.NamespaceLabels[parts[0]] = parts[1]
