@@ -689,7 +689,6 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	if r.Scheme.Recognizes(common.PSMDBGVK) {
 		controller.Watches(
 			&psmdbv1.PerconaServerMongoDB{},
-
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
