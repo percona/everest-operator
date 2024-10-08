@@ -18,6 +18,8 @@ package common
 import "k8s.io/apimachinery/pkg/runtime/schema"
 
 const (
+	// Everest ...
+	Everest = "everest"
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
 
@@ -59,6 +61,8 @@ const (
 
 	// LabelBackupStorageName is the label for backup storage name.
 	LabelBackupStorageName = "percona.com/backup-storage-name"
+	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
+	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"

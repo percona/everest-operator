@@ -81,9 +81,7 @@ var everestFinalizers = []string{
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
 type DatabaseClusterReconciler struct {
 	client.Client
-	Scheme              *runtime.Scheme
-	systemNamespace     string
-	monitoringNamespace string
+	Scheme *runtime.Scheme
 }
 
 // dbProvider provides an abstraction for managing the reconciliation
@@ -110,10 +108,8 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	database *everestv1alpha1.DatabaseCluster,
 ) (dbProvider, error) {
 	opts := providers.ProviderOptions{
-		C:            r.Client,
-		DB:           database,
-		SystemNs:     r.systemNamespace,
-		MonitoringNs: r.monitoringNamespace,
+		C:  r.Client,
+		DB: database,
 	}
 	engineType := database.Spec.Engine.Type
 	switch engineType {
@@ -464,7 +460,7 @@ func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace, monitoringNamespace string) error {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
@@ -497,9 +493,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 	}
 
 	r.initWatchers(controller)
-	r.systemNamespace = systemNamespace
-	r.monitoringNamespace = monitoringNamespace
-
+	controller.WithEventFilter(common.DefaultNamespaceFilter)
 	return controller.Complete(r)
 }
 
@@ -583,6 +577,10 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 }
 
 func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
+	controller.Watches(
+		&corev1.Namespace{},
+		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
+	)
 	// In PG reconciliation we create a backup credentials secret because the
 	// PG operator requires this secret to be encoded differently from the
 	// generic one used in PXC and PSMDB. Therefore, we need to watch for

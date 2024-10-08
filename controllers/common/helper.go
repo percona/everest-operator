@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -42,10 +43,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/version"
+	"github.com/percona/everest-operator/pkg/predicates"
 )
+
+// DefaultNamespaceFilter is the default namespace filter.
+var DefaultNamespaceFilter predicate.Predicate = &predicates.Nop{}
 
 // PITRBucketName returns the name of the bucket for the point-in-time recovery backups.
 func PITRBucketName(db *everestv1alpha1.DatabaseCluster, bucket string) string {
@@ -734,4 +742,49 @@ func DefaultAffinitySettings() *corev1.Affinity {
 func StatusAsPlainTextOrEmptyString(status interface{}) string {
 	result, _ := yaml.Marshal(status)
 	return string(result)
+}
+
+// EnqueueObjectsInNamespace returns an event handler that should be attached with Namespace watchers.
+// It enqueues all objects specified by the type of list in the triggered namespace.
+//
+//nolint:ireturn
+func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		if _, ok := o.(*corev1.Namespace); !ok {
+			panic("EnqueueObjectsInNamespace should be called on a Namespace")
+		}
+		if err := c.List(ctx, list, client.InNamespace(o.GetName())); err != nil {
+			return nil
+		}
+		items, err := meta.ExtractList(list)
+		if err != nil {
+			return nil
+		}
+		requests := make([]reconcile.Request, 0, len(items))
+		for _, item := range items {
+			uObj, err := toUnstructured(item)
+			if err != nil {
+				return nil
+			}
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: uObj.GetNamespace(),
+					Name:      uObj.GetName(),
+				},
+			})
+		}
+		return requests
+	})
+}
+
+func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	ud := &unstructured.Unstructured{}
+	if err := json.Unmarshal(b, ud); err != nil {
+		return nil, err
+	}
+	return ud, nil
 }

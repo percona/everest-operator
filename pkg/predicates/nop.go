@@ -1,5 +1,4 @@
-// everest-operator
-// Copyright (C) 2022 Percona LLC
+// everest-operator Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package providers contains the providers for the DB operators supported by everest.
-package providers
+//nolint:revive
+package predicates
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
-// ProviderOptions contains options for configuring DB providers.
-type ProviderOptions struct {
-	C        client.Client
-	DB       *everestv1alpha1.DatabaseCluster
-	DBEngine *everestv1alpha1.DatabaseEngine
-}
+// Nop is a predicate that allows all events.
+type Nop struct{}
+
+func (p Nop) Create(_ event.CreateEvent) bool   { return true }
+func (p Nop) Update(_ event.UpdateEvent) bool   { return true }
+func (p Nop) Delete(_ event.DeleteEvent) bool   { return true }
+func (p Nop) Generic(_ event.GenericEvent) bool { return true }

@@ -20,11 +20,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,6 +43,13 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers"
+	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/pkg/predicates"
+)
+
+var (
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 const (
@@ -50,72 +58,74 @@ const (
 	dbNamespacesEnvVar        = "DB_NAMESPACES"
 )
 
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
+// Config contains the configuration for Everest Operator.
+type Config struct {
+	// MetricsAddr is the address the metric endpoint binds to.
+	MetricsAddr string
+	// EnableLeaderElection enables leader election for controller manager.
+	EnableLeaderElection bool
+	// LeaderElectionID is the name of the leader election ID.
+	LeaderElectionID string
+	// ProbeAddr is the address the health probe endpoint binds to.
+	ProbeAddr string
+	// DBNamespaces is the namespaces to watch for DB resources.
+	// If set, NamespaceLabels is ignored.
+	DBNamespaces string
+	// MonitoringNamespace is the namespace where the monitoring resources are.
+	MonitoringNamespace string
+	// SystemNamespace is the namespace where the operator is running.
+	SystemNamespace string
+	// If set, watches only those namespaces that have the specified labels.
+	// This setting is ignored if DBNamespaces is set.
+	NamespaceLabels map[string]string
+}
+
+var cfg = &Config{}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	err := parseConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to parse config")
+		os.Exit(1)
+	}
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	systemNamespace, found := os.LookupEnv(systemNamespaceEnvVar)
-	if !found || systemNamespace == "" {
-		setupLog.Error(errors.New("failed to get the system namespace"), systemNamespaceEnvVar+" must be set")
+	dbNamespaces := []string{}
+	if s := cfg.DBNamespaces; s != "" {
+		dbNamespaces = strings.Split(s, ",")
+	}
+	defaultCache := cache.Options{}
+	if len(dbNamespaces) > 0 {
+		defaultCache.DefaultNamespaces = make(map[string]cache.Config)
+		defaultCache.DefaultNamespaces[cfg.SystemNamespace] = cache.Config{}
+		defaultCache.DefaultNamespaces[cfg.MonitoringNamespace] = cache.Config{}
+		for _, ns := range dbNamespaces {
+			defaultCache.DefaultNamespaces[ns] = cache.Config{}
+		}
+	}
 
-		os.Exit(1)
-	}
-	monitoringNamespace, found := os.LookupEnv(monitoringNamespaceEnvVar)
-	if !found || monitoringNamespace == "" {
-		setupLog.Error(errors.New("failed to get the monitoring namespace"), monitoringNamespaceEnvVar+" must be set")
-
-		os.Exit(1)
-	}
-	dbNamespacesString, found := os.LookupEnv(dbNamespacesEnvVar)
-	if !found || dbNamespacesString == "" {
-		setupLog.Error(errors.New("failed to get db namespaces"), dbNamespacesEnvVar+" must be set")
-
-		os.Exit(1)
-	}
-	cacheConfig := map[string]cache.Config{
-		systemNamespace:     {},
-		monitoringNamespace: {},
-	}
-	dbNamespaces := strings.Split(dbNamespacesString, ",")
-	for _, ns := range dbNamespaces {
-		cacheConfig[ns] = cache.Config{}
-	}
+	l := zap.New(zap.UseFlagOptions(&opts))
+	ctrl.SetLogger(l)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
+			BindAddress: cfg.MetricsAddr,
 		},
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9094838c.percona.com",
-		Cache: cache.Options{
-			DefaultNamespaces: cacheConfig,
-		},
+		HealthProbeBindAddress: cfg.ProbeAddr,
+		LeaderElection:         cfg.EnableLeaderElection,
+		LeaderElectionID:       cfg.LeaderElectionID,
+		Cache:                  defaultCache,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -132,23 +142,40 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// We filter namespaces only if no DBNamespaces are defined.
+	if len(dbNamespaces) == 0 {
+		common.DefaultNamespaceFilter = &predicates.NamespaceFilter{
+			AllowNamespaces: []string{cfg.SystemNamespace, cfg.MonitoringNamespace}, // system namespaces, always allow.
+			MatchLabels:     cfg.NamespaceLabels,
+			GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
+				namespace := &corev1.Namespace{}
+				if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
+					return nil, err
+				}
+				return namespace, nil
+			},
+		}
+	}
+
+	// Ensure specified DB namespaces exist.
 	namespace := &unstructured.Unstructured{}
 	namespace.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
 		Kind:    "Namespace",
 		Version: "v1",
 	})
-	for _, namespaceName := range dbNamespaces {
-		err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: namespaceName}, namespace)
-		if err != nil {
+	for _, ns := range dbNamespaces {
+		if err := mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: ns}, namespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 			os.Exit(1)
 		}
 	}
+	// Initialise the controllers.
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace, monitoringNamespace); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
@@ -162,28 +189,28 @@ func main() {
 	if err = (&controllers.DatabaseClusterRestoreReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterRestore")
 		os.Exit(1)
 	}
 	if err = (&controllers.DatabaseClusterBackupReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
 		os.Exit(1)
 	}
 	if err = (&controllers.BackupStorageReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, systemNamespace); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BackupStorage")
 		os.Exit(1)
 	}
 	if err = (&controllers.MonitoringConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, monitoringNamespace); err != nil {
+	}).SetupWithManager(mgr, cfg.MonitoringNamespace); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
@@ -203,4 +230,52 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func parseConfig() error {
+	systemNamespace := os.Getenv(systemNamespaceEnvVar)
+	monitoringNamespace := os.Getenv(monitoringNamespaceEnvVar)
+	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
+
+	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
+	var namespaceLabelFilter string
+	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&cfg.EnableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&cfg.LeaderElectionID, "leader-election-id", "9094838c.percona.com",
+		"The name of the leader election ID.")
+	flag.StringVar(&namespaceLabelFilter, "namespace-label-filter", defaultNamespaceLabelFilter,
+		"If set, reconciles objects only from those namespaces that have the specified label. "+
+			"This setting is ignored if db-namespaces is set. "+
+			fmt.Sprintf("Default is `%s`", defaultNamespaceLabelFilter))
+	flag.StringVar(&cfg.DBNamespaces, "db-namespaces", dbNamespacesString, "The namespaces to watch for DB resources."+
+		"Defaults to the value of the DB_NAMESPACES environment variable. If set, watch-namespace-labels is ignored.")
+	flag.StringVar(&cfg.SystemNamespace, "system-namespace", systemNamespace, "The namespace where the operator is running."+
+		"Defaults to the value of the SYSTEM_NAMESPACE environment variable.")
+	flag.StringVar(&cfg.MonitoringNamespace, "monitoring-namespace", monitoringNamespace, "The namespace where the monitoring resources are."+
+		"Defaults to the value of the MONITORING_NAMESPACE environment variable.")
+	flag.Parse()
+
+	if cfg.SystemNamespace == "" {
+		return fmt.Errorf("%s or --system-namespace must be set", systemNamespaceEnvVar)
+	}
+	if cfg.MonitoringNamespace == "" {
+		return fmt.Errorf("%s or --monitoring-namespace must be set", monitoringNamespaceEnvVar)
+	}
+
+	cfg.NamespaceLabels = make(map[string]string)
+	labels := strings.Split(namespaceLabelFilter, ",")
+	for _, label := range labels {
+		parts := strings.Split(label, "=")
+		if len(parts) != 2 { //nolint:mnd
+			return fmt.Errorf("invalid label filter: %s", label)
+		}
+		cfg.NamespaceLabels[parts[0]] = parts[1]
+	}
+	if cfg.DBNamespaces == "" && len(cfg.NamespaceLabels) == 0 {
+		return fmt.Errorf("either %s or --namespace-label-filter must be set", dbNamespacesEnvVar)
+	}
+	return nil
 }
