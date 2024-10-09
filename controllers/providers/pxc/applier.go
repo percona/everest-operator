@@ -339,15 +339,32 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 	haProxy.PodSpec.Image = image
 
+	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		haProxy.PodSpec.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
+		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
+		// We now set the requests to the same value as the limits, however, we need to ensure that
+		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
+		if shouldUpdateRequests {
+			haProxy.PodSpec.Resources.Requests[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
+		}
 	}
 	if !p.DB.Spec.Proxy.Resources.Memory.IsZero() {
 		haProxy.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
+		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
+		// We now set the requests to the same value as the limits, however, we need to ensure that
+		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
+		if shouldUpdateRequests {
+			haProxy.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
+		}
 	}
 
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
 	return nil
+}
+
+func shouldUpdateResourceRequests(dbState everestv1alpha1.AppState) bool {
+	return dbState == everestv1alpha1.AppStateNew || dbState == everestv1alpha1.AppStateInit
 }
 
 func (p *applier) applyProxySQLCfg() error {
@@ -404,11 +421,24 @@ func (p *applier) applyProxySQLCfg() error {
 	}
 	proxySQL.Image = image
 
+	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		proxySQL.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
+		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
+		// We now set the requests to the same value as the limits, however, we need to ensure that
+		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
+		if shouldUpdateRequests {
+			proxySQL.Resources.Requests[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
+		}
 	}
 	if !p.DB.Spec.Proxy.Resources.Memory.IsZero() {
 		proxySQL.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
+		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
+		// We now set the requests to the same value as the limits, however, we need to ensure that
+		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
+		if shouldUpdateRequests {
+			proxySQL.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
+		}
 	}
 	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
 	return nil
