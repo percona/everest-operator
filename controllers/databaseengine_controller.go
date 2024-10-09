@@ -202,6 +202,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // restartIfNeeded checks if the operator pod needs to be restarted.
 // It does so by checking if there are any running DBEngines whose CRDs are not registered with the operator.
+// Returns: [requeue(bool), error]
 func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, error) {
 	if r.podSelf.Name == "" || r.podSelf.Namespace == "" {
 		return false, nil
@@ -212,7 +213,8 @@ func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, e
 	}
 	unregistered := 0
 	for _, dbEngine := range dbEngines.Items {
-		// Wait for all engines to be come to a stable state first, to avoid unnecessary restarts.
+		// Wait until all DB engines are either installed/not installed.
+		// This way we can avoid redundant restarts.
 		if dbEngine.Status.State == "" ||
 			dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalling ||
 			dbEngine.Status.State == everestv1alpha1.DBEngineStateUpgrading {
