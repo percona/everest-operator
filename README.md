@@ -1,62 +1,7 @@
-# Everest Operator
+# Percona Everest Operator
 
+Percona Everest Operator is one of the core components of [Percona Everest](https://github.com/percona/everest), an open source cloud-native database platform that helps developers deploy code faster, scale deployments rapidly, and reduce database administration overhead while regaining control over their data, database configuration, and DBaaS costs.
 
-## Status
+Percona Everest Operator is a Kubernetes Operator responsible for managing the lifecycle of MySQL, MongoDB, and PostgreSQL databases. It leverages Percona's Kubernetes Operators for [MySQL](https://github.com/percona/percona-xtradb-cluster-operator), [MongoDB](https://github.com/percona/percona-server-mongodb-operator), and [PostgreSQL](https://github.com/percona/percona-postgresql-operator/) under the hood but provides a unified API and a single pane of glass for managing all three database types.
 
-**This project is in the tech preview state right now. Don't use it on production.**
-
-## Getting started
-
-### Deploy the Everest operator
-
-The first step is to deploy the Everest operator. This can be done using `kubectl`:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/everest-operator/main/deploy/bundle.yaml
-```
-
-### Deploy the underlying DB engine operators
-
-The Everest operator relies on underlying operators for deploying DB clusters of a given engine type.
-
-#### Percona XtraDB Cluster
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.11.0/deploy/bundle.yaml -n everest-operator-system
-```
-
-#### Percona Server for MongoDB
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.11.0/deploy/bundle.yaml -n everest-operator-system
-```
-
-## How to get involved
-
-We encourage contributions and are always looking for new members that are as dedicated to serving the community as we are.
-
-If you’re looking for information about how you can contribute, we have [contribution guidelines](CONTRIBUTING.md) across all our repositories in `CONTRIBUTING.md` files. Some of them may just link to the main project’s repository’s contribution guidelines.
-
-We're looking forward to your contributions and hope to hear from you soon on our [Forums](https://forums.percona.com).
-
-## Submitting Bug Reports
-
-If you find a bug in Percona Monitoring and Management  or one of the related projects, you can submit a report to that project's [JIRA](https://jira.percona.com) issue tracker. Some of the related projects also have GitHub Issues enabled, so you can also submit there.
-
-Your first step should be [to search](https://jira.percona.com/issues/?jql=project=PMM) the existing set of open tickets for a similar report. If you find that someone else has already reported your problem, then you can upvote that report to increase its visibility.
-
-If there is no existing report, submit a report following these steps:
-
-1. [Sign in to Percona JIRA.](https://jira.percona.com/login.jsp) You will need to create an account if you do not have one.
-2. [Go to the Create Issue screen and select the relevant project.](https://jira.percona.com/secure/CreateIssueDetails!init.jspa?pid=11600&issuetype=1&priority=3)
-3. Fill in the fields of Summary, Description, Steps To Reproduce, and Affects Version to the best you can. If the bug corresponds to a crash, attach the stack trace from the logs.
-
-An excellent resource is [Elika Etemad's article on filing good bug reports.](http://fantasai.inkedblade.net/style/talks/filing-good-bugs/).
-
-As a general rule of thumb, please try to create bug reports that are:
-
-- *Reproducible.* Include steps to reproduce the problem.
-- *Specific.* Include as much detail as possible: which version, what environment, etc.
-- *Unique.* Do not duplicate existing tickets.
-
-
+Ready to try out Percona Everest? Check the [Quickstart install](https://docs.percona.com/everest/quickstart-guide/quick-install.html) section for easy-to-follow steps.
