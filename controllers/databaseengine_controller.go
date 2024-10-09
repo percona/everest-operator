@@ -211,7 +211,6 @@ func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, e
 	if err := r.List(ctx, dbEngines); err != nil {
 		return false, fmt.Errorf("failed to list DatabaseEngines: %w", err)
 	}
-	unregistered := 0
 	for _, dbEngine := range dbEngines.Items {
 		// Wait until all DB engines are either installed/not installed.
 		// This way we can avoid redundant restarts.
@@ -231,14 +230,10 @@ func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, e
 		// but since that's tricky to accomplish, we will only check if the CRDs are registered to the scheme,
 		// since we typically perform that step along with configuring the watches.
 		if !r.Scheme.IsGroupRegistered(group) {
-			unregistered++
+			return false, r.Delete(ctx, &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: r.podSelf.Name, Namespace: r.podSelf.Namespace},
+			})
 		}
-	}
-	// We found unregistered CRDs, so we need to bootstrap the controllers again -- kill self.
-	if unregistered > 0 {
-		return false, r.Delete(ctx, &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: r.podSelf.Name, Namespace: r.podSelf.Namespace},
-		})
 	}
 	return false, nil
 }
