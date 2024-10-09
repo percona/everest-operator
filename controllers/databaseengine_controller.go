@@ -202,7 +202,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // restartIfNeeded checks if the operator pod needs to be restarted.
 // It does so by checking if there are any running DBEngines whose CRDs are not registered with the operator.
-// Returns: [requeue(bool), error]
+// Returns: [requeue(bool), error].
 func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, error) {
 	if r.podSelf.Name == "" || r.podSelf.Namespace == "" {
 		return false, nil
