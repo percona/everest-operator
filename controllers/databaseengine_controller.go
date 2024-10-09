@@ -200,7 +200,12 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}, nil
 }
 
+// restartIfNeeded checks if the operator pod needs to be restarted.
+// It does so by checking if there are any running DBEngines whose CRDs are not registered with the operator.
 func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, error) {
+	if r.podSelf.Name == "" || r.podSelf.Namespace == "" {
+		return false, nil
+	}
 	dbEngines := &everestv1alpha1.DatabaseEngineList{}
 	if err := r.List(ctx, dbEngines); err != nil {
 		return false, fmt.Errorf("failed to list DatabaseEngines: %w", err)
@@ -220,15 +225,14 @@ func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, e
 		if !found {
 			return false, fmt.Errorf("unknown engine type '%s'", dbEngine.Spec.Type)
 		}
-		// Ideally we would like to check if the operator is instead watching those CRs,
-		// but since that's tricky to do, it would be sufficient to check if the group is registered.
-		// We would not watch the CRs if the group is not registered.
+		// Ideally we would also like to check if all registered controllers are also watching the CRs,
+		// but since that's tricky to accomplish, we will only check if the CRDs are registered to the scheme,
+		// since we typically perform that step along with configuring the watches.
 		if !r.Scheme.IsGroupRegistered(group) {
 			unregistered++
 		}
 	}
-	// There's an engine whose CRs are not registered in our operator, so we will restart.
-	// Restarting will re-trigger the setup and update the schemes and watches.
+	// We found unregistered CRDs, so we need to bootstrap the controllers again -- kill self.
 	if unregistered > 0 {
 		return false, r.Delete(ctx, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{Name: r.podSelf.Name, Namespace: r.podSelf.Namespace},
