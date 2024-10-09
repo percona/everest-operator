@@ -18,12 +18,16 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
 
 	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -61,11 +65,18 @@ var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
+var operatorEngineTypeToCRDGroup = map[everestv1alpha1.EngineType]string{
+	everestv1alpha1.DatabaseEnginePXC:        pxcv1.SchemeGroupVersion.Group,
+	everestv1alpha1.DatabaseEnginePSMDB:      psmdbv1.SchemeGroupVersion.Group,
+	everestv1alpha1.DatabaseEnginePostgresql: pgv2.GroupVersion.Group,
+}
+
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	versionService *version.Service
+	podSelf        corev1.ObjectReference // reference to self pod.
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
@@ -74,6 +85,7 @@ type DatabaseEngineReconciler struct {
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=pods,verbs=delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -177,9 +189,52 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if requeue, err := r.restartIfNeeded(ctx); err != nil {
+		return ctrl.Result{}, err
+	} else if requeue {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	return ctrl.Result{
 		RequeueAfter: timeUntilUnlock,
 	}, nil
+}
+
+func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, error) {
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := r.List(ctx, dbEngines); err != nil {
+		return false, fmt.Errorf("failed to list DatabaseEngines: %w", err)
+	}
+	unregistered := 0
+	for _, dbEngine := range dbEngines.Items {
+		// Wait for all engines to be come to a stable state first, to avoid unnecessary restarts.
+		if dbEngine.Status.State == "" ||
+			dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalling ||
+			dbEngine.Status.State == everestv1alpha1.DBEngineStateUpgrading {
+			return true, nil
+		}
+		if dbEngine.Status.State == everestv1alpha1.DBEngineStateNotInstalled {
+			continue
+		}
+		group, found := operatorEngineTypeToCRDGroup[dbEngine.Spec.Type]
+		if !found {
+			return false, fmt.Errorf("unknown engine type '%s'", dbEngine.Spec.Type)
+		}
+		// Ideally we would like to check if the operator is instead watching those CRs,
+		// but since that's tricky to do, it would be sufficient to check if the group is registered.
+		// We would not watch the CRs if the group is not registered.
+		if !r.Scheme.IsGroupRegistered(group) {
+			unregistered++
+		}
+	}
+	// There's an engine whose CRs are not registered in our operator, so we will restart.
+	// Restarting will re-trigger the setup and update the schemes and watches.
+	if unregistered > 0 {
+		return false, r.Delete(ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: r.podSelf.Name, Namespace: r.podSelf.Namespace},
+		})
+	}
+	return false, nil
 }
 
 func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
@@ -440,7 +495,8 @@ func (r *DatabaseEngineReconciler) ensureDBEnginesInNamespaces(ctx context.Conte
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces []string) error {
+func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, selfPodRef corev1.ObjectReference, namespaces []string) error {
+	r.podSelf = selfPodRef
 	if _, err := r.ensureDBEnginesInNamespaces(context.Background(), namespaces); err != nil {
 		return err
 	}
