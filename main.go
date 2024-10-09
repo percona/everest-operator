@@ -56,6 +56,7 @@ const (
 	systemNamespaceEnvVar     = "SYSTEM_NAMESPACE"
 	monitoringNamespaceEnvVar = "MONITORING_NAMESPACE"
 	dbNamespacesEnvVar        = "DB_NAMESPACES"
+	podNameEnvVar             = "POD_NAME"
 )
 
 // Config contains the configuration for Everest Operator.
@@ -75,6 +76,8 @@ type Config struct {
 	MonitoringNamespace string
 	// SystemNamespace is the namespace where the operator is running.
 	SystemNamespace string
+	// Name of the pod.
+	PodName string
 	// If set, watches only those namespaces that have the specified labels.
 	// This setting is ignored if DBNamespaces is set.
 	NamespaceLabels map[string]string
@@ -171,6 +174,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	podRef := corev1.ObjectReference{Name: cfg.PodName, Namespace: cfg.SystemNamespace}
 	// Initialise the controllers.
 	if err = (&controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
@@ -182,7 +186,7 @@ func main() {
 	if err = (&controllers.DatabaseEngineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, dbNamespaces); err != nil {
+	}).SetupWithManager(mgr, podRef, dbNamespaces); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
@@ -236,7 +240,8 @@ func parseConfig() error {
 	systemNamespace := os.Getenv(systemNamespaceEnvVar)
 	monitoringNamespace := os.Getenv(monitoringNamespaceEnvVar)
 	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
-
+	podName := os.Getenv(podNameEnvVar)
+	cfg.PodName = podName
 	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
 	var namespaceLabelFilter string
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
