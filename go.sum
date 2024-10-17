@@ -378,8 +378,8 @@ github.com/percona/percona-postgresql-operator v0.0.0-20240730163147-6c224023db4
 github.com/percona/percona-postgresql-operator v0.0.0-20240730163147-6c224023db45/go.mod h1:6m9fZWUhTLOUGdMy9I3qaoaSpEvRDhb9c41W1hbDYz8=
 github.com/percona/percona-server-mongodb-operator v1.17.0 h1:DyTX62+bLX50ZW63MRSSwhxrPfXrQKV64L48Jeui7yc=
 github.com/percona/percona-server-mongodb-operator v1.17.0/go.mod h1:hylnyem7MsGOcBePJxBBZzgwhRzBYf7Byaw7eLPQZD4=
-github.com/percona/percona-xtradb-cluster-operator v1.15.0 h1:Dc2VXVCXushIG39TrX1qzX6COEf5iqunr+dZ1IVjoos=
-github.com/percona/percona-xtradb-cluster-operator v1.15.0/go.mod h1:uxYXkp7kxc2G4RVxxLU83UT/HqWZgjyAC1p8VEDZqDg=
+github.com/percona/percona-xtradb-cluster-operator v1.15.1 h1:FDg9MHXr9kOtDG6F0554kWwnIX/J5FSuQzMDytexYaU=
+github.com/percona/percona-xtradb-cluster-operator v1.15.1/go.mod h1:uxYXkp7kxc2G4RVxxLU83UT/HqWZgjyAC1p8VEDZqDg=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/pierrec/lz4 v2.6.1+incompatible h1:9UY3+iC23yxF0UfGaYrGplQ+79Rg+h/q9FV9ix19jjM=
 github.com/pierrec/lz4 v2.6.1+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
