@@ -99,8 +99,6 @@ const (
 	EngineSizeMedium EngineSize = "medium"
 	// EngineSizeLarge represents a large engine size.
 	EngineSizeLarge EngineSize = "large"
-	// EngineSizeUnknown represents an unknown engine size.
-	EngineSizeUnknown EngineSize = "unknown"
 )
 
 // Applier provides methods for specifying how to apply a DatabaseCluster CR
@@ -172,11 +170,7 @@ func (e Engine) Size() EngineSize {
 	if m.Cmp(MemoryMediumSize) >= 0 {
 		return EngineSizeMedium
 	}
-	// mem >= Small
-	if m.Cmp(MemorySmallSize) >= 0 {
-		return EngineSizeSmall
-	}
-	return EngineSizeUnknown
+	return EngineSizeSmall
 }
 
 // ExposeType is the expose type.
