@@ -459,7 +459,6 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	}
 	pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
 	pxc.Spec.PMM.Image = image
-	pxc.Spec.PMM.Resources = p.DB.Spec.Monitoring.Resources
 	// Set resources based on cluster size.
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
@@ -468,6 +467,12 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		pxc.Spec.PMM.Resources = pmmResourceRequirementsMedium
 	case everestv1alpha1.EngineSizeLarge:
 		pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
+	}
+	if p.DB.Spec.Monitoring.Resources.Requests != nil {
+		pxc.Spec.PMM.Resources.Requests = p.DB.Spec.Monitoring.Resources.Requests
+	}
+	if p.DB.Spec.Monitoring.Resources.Limits != nil {
+		pxc.Spec.PMM.Resources.Limits = p.DB.Spec.Monitoring.Resources.Limits
 	}
 
 	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring)
