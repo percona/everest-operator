@@ -473,7 +473,6 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	}
 	if p.DB.Spec.Monitoring.Resources.Limits != nil {
 		pxc.Spec.PMM.Resources.Limits = p.DB.Spec.Monitoring.Resources.Limits
-		pxc.Spec.PMM.Resources.Requests = p.DB.Spec.Monitoring.Resources.Requests
 	}
 
 	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring)
