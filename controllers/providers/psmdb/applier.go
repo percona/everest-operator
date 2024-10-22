@@ -525,25 +525,41 @@ func (p *applier) getBackupTasks(
 	return tasks, nil
 }
 
+func (p *applier) pbmImage() (string, error) {
+	engine := p.DBEngine
+	database := p.DB
+
+	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
+	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
+	if !ok {
+		return "", fmt.Errorf("backup version %s not available", bestBackupVersion)
+	}
+
+	currentImage := p.currentPSMDBSpec.Backup.Image
+	desiredImage := backupVersion.ImagePath
+	// Preserve the current image until the CRVersion has been updated.
+	if currentImage != "" && database.Status.RecommendedCRVersion != nil {
+		return currentImage, nil
+	}
+	return desiredImage, nil
+}
+
 func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	database := p.DB
 	ctx := p.ctx
-	engine := p.DBEngine
 	c := p.C
 
 	emptySpec := psmdbv1.BackupSpec{Enabled: false}
 
-	// Verify backup version.
-	bestBackupVersion := engine.BestBackupVersion(database.Spec.Engine.Version)
-	backupVersion, ok := engine.Status.AvailableVersions.Backup[bestBackupVersion]
-	if !ok {
-		return emptySpec, fmt.Errorf("backup version %s not available", bestBackupVersion)
+	pbmImage, err := p.pbmImage()
+	if err != nil {
+		return emptySpec, fmt.Errorf("cannot get backup image: %w", err)
 	}
 
 	// Initialize backup spec.
 	psmdbBackupSpec := psmdbv1.BackupSpec{
 		Enabled: true,
-		Image:   backupVersion.ImagePath,
+		Image:   pbmImage,
 		PITR: psmdbv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
