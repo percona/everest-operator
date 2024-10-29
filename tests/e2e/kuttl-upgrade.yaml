@@ -1,9 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestSuite
-kindConfig: e2e-tests/kind.yml
 crdDir: config/crd/bases
 artifactsDir: /tmp/
+parallel: 3
 timeout: 180
 skipDelete: true
 testDirs:
-- e2e-tests/tests
+- tests/e2e/upgrade
