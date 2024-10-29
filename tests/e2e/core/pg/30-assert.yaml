@@ -55,13 +55,6 @@ spec:
         memory: 1G
     name: instance1
     replicas: 3
-  pmm:
-    enabled: false
-    image: ""
-    resources:
-      limits:
-        cpu: 500m
-        memory: 300M
   port: 5432
   postgresVersion: 16
   proxy:

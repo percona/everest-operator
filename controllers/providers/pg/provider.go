@@ -64,7 +64,7 @@ func New(
 	opts.DBEngine = dbEngine
 
 	currentPGSpec := pg.Spec
-	pg.Spec = defaultSpec(opts.DB)
+	pg.Spec = defaultSpec()
 
 	finalizers := []string{
 		finalizerDeletePGPVC,

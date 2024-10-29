@@ -30,7 +30,6 @@ spec:
         memory: "128Mi"
         cpu: "500m"
     monitoringConfigName: test-mc
-    image: percona/pmm-client:latest
   engine:
     type: postgresql
     version: "16.3"
