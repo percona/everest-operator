@@ -149,8 +149,7 @@ func main() {
 	// We filter namespaces only if no DBNamespaces are defined.
 	if len(dbNamespaces) == 0 {
 		common.DefaultNamespaceFilter = &predicates.NamespaceFilter{
-			AllowNamespaces: []string{cfg.SystemNamespace, cfg.MonitoringNamespace}, // system namespaces, always allow.
-			MatchLabels:     cfg.NamespaceLabels,
+			MatchLabels: cfg.NamespaceLabels,
 			GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
 				namespace := &corev1.Namespace{}
 				if err := mgr.GetClient().Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
