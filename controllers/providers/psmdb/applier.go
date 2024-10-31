@@ -563,8 +563,10 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		PITR: psmdbv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
-		Configuration: psmdbv1.BackupConfig{BackupOptions: &psmdbv1.BackupOptions{
-			Timeouts: &psmdbv1.BackupTimeouts{Starting: pointer.ToUint32(120)}},
+		Configuration: psmdbv1.BackupConfig{
+			BackupOptions: &psmdbv1.BackupOptions{
+				Timeouts: &psmdbv1.BackupTimeouts{Starting: pointer.ToUint32(120)},
+			},
 		},
 
 		// XXX: Remove this once templates will be available
