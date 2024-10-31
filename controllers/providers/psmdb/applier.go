@@ -39,7 +39,8 @@ const (
       operationProfiling:
         mode: slowOp
 `
-	encryptionKeySuffix = "-mongodb-encryption-key"
+	encryptionKeySuffix          = "-mongodb-encryption-key"
+	defaultBackupStartingTimeout = 120
 )
 
 type applier struct {
@@ -563,6 +564,11 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		PITR: psmdbv1.PITRSpec{
 			Enabled: database.Spec.Backup.PITR.Enabled,
 		},
+		Configuration: psmdbv1.BackupConfig{
+			BackupOptions: &psmdbv1.BackupOptions{
+				Timeouts: &psmdbv1.BackupTimeouts{Starting: pointer.ToUint32(defaultBackupStartingTimeout)},
+			},
+		},
 
 		// XXX: Remove this once templates will be available
 		Resources: corev1.ResourceRequirements{
@@ -572,7 +578,12 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 			},
 		},
 	}
-
+	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		psmdbBackupSpec.Configuration = p.currentPSMDBSpec.Backup.Configuration
+	}
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
