@@ -39,7 +39,8 @@ const (
       operationProfiling:
         mode: slowOp
 `
-	encryptionKeySuffix = "-mongodb-encryption-key"
+	encryptionKeySuffix          = "-mongodb-encryption-key"
+	defaultBackupStartingTimeout = 120
 )
 
 type applier struct {
@@ -565,7 +566,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		},
 		Configuration: psmdbv1.BackupConfig{
 			BackupOptions: &psmdbv1.BackupOptions{
-				Timeouts: &psmdbv1.BackupTimeouts{Starting: pointer.ToUint32(120)},
+				Timeouts: &psmdbv1.BackupTimeouts{Starting: pointer.ToUint32(defaultBackupStartingTimeout)},
 			},
 		},
 
