@@ -22,8 +22,6 @@ spec:
     type: haproxy
   backup:
     enabled: false
-status:
-  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -36,5 +34,3 @@ spec:
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
-status:
-  state: ready

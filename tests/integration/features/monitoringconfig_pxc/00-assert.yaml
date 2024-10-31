@@ -39,12 +39,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: percona-xtradb-cluster-operator
-status:
-  availableReplicas: 1
-  observedGeneration: 1
-  readyReplicas: 1
-  replicas: 1
-  updatedReplicas: 1
+spec:
+  replicas: 0
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine

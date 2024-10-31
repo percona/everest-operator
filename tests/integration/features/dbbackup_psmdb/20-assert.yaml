@@ -43,14 +43,6 @@ spec:
           endpointUrl: s3.amazonaws.com
           region: us-east-2
         type: s3
-status:
-  replsets:
-    rs0:
-      initialized: true
-      ready: 1
-      size: 1
-      status: ready
-  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster

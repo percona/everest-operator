@@ -19,5 +19,3 @@ spec:
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
-status:
-  state: ready

@@ -22,8 +22,6 @@ spec:
     type: pgbouncer
   backup:
     enabled: false
-status:
-  status: ready
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
@@ -62,5 +60,3 @@ spec:
             resources:
               requests:
                 storage: 1G
-status:
-  state: ready

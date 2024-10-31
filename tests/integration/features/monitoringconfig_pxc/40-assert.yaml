@@ -7,3 +7,5 @@ commands:
 
       generation=$(kubectl -n $NAMESPACE get db pxc-mc -o jsonpath='{.metadata.generation}')
       [ "$generation" -gt "2" ] && exit 0 || exit 2
+  - script: >
+      test "$(kubectl get PerconaXtraDBCluster -n $NAMESPACE pxc-mc -o jsonpath='{.spec.pmm.enabled}')" = ""

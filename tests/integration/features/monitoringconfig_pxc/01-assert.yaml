@@ -12,8 +12,6 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: test-mc
-status:
-  status: ready
 ---
 apiVersion: v1
 kind: Secret

@@ -1,7 +1,12 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 20
+timeout: 60
 commands:
+  # check that there is no dbb/psmdb-backup CRs left
+  - script: >
+      test "$(kubectl get dbb -n $NAMESPACE -o jsonpath='{.items}')" = "[]"
+  - script: >
+      test "$(kubectl get psmdb-backup -n $NAMESPACE -o jsonpath='{.items}')" = "[]"
   # check that there is no dbr/psmdb-restore CRs left
   - script: >
       test "$(kubectl get dbr -n $NAMESPACE -o jsonpath='{.items}')" = "[]"

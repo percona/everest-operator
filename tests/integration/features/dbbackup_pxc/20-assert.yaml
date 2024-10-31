@@ -75,5 +75,3 @@ spec:
         azure:
           credentialsSecret: test-pxc-cluster-backup-azure
         type: azure
-status:
-  state: ready

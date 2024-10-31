@@ -7,5 +7,3 @@ metadata:
   name: pg-mc
 spec:
   monitoring:
-status:
-  status: ready

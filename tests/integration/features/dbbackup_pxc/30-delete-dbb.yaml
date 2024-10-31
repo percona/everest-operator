@@ -3,13 +3,5 @@ kind: TestStep
 timeout: 10
 commands:
   - command: kubectl patch pxc-backup test-db-backup -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-    ignoreFailure: true
   - command: kubectl patch pxc-backup test-db-backup-azure -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-    ignoreFailure: true
-delete:
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: DatabaseClusterBackup
-    name: test-db-backup
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: DatabaseClusterBackup
-    name: test-db-backup-azure
+  - command: kubectl -n $NAMESPACE delete dbb test-db-backup test-db-backup-azure
