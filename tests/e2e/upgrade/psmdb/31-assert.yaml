@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
+timeout: 300
 commands:
   - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PSMDB_OPERATOR_VERSION psmdb/test-psmdb-cluster -n $NAMESPACE
 ---
@@ -22,7 +22,9 @@ spec:
   backup:
     enabled: false
 status:
-  status: initializing
+  ready: 3
+  size: 3
+  status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -40,4 +42,12 @@ spec:
             requests:
               storage: 1G
 status:
-  state: initializing
+  replsets:
+    rs0:
+      initialized: true
+      ready: 3
+      size: 3
+      status: ready
+  ready: 3
+  size: 3
+  state: ready

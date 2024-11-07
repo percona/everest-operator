@@ -4,13 +4,13 @@ kind: TestStep
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-pg-cluster
+  name: test-psmdb-cluster
 spec:
   engine:
-    type: postgresql
-    replicas: 1
+    type: psmdb
+    replicas: 3
     storage:
       size: 1G
   proxy:
-    type: pgbouncer
-    replicas: 1
+    type: mongos
+    replicas: 3

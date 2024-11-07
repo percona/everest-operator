@@ -1,6 +1,6 @@
-# Changing the CR just to trigger reconcile loop and make sure that CR version does not change.
 apiVersion: kuttl.dev/v1
 kind: TestStep
+---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
@@ -8,11 +8,9 @@ metadata:
 spec:
   engine:
     type: postgresql
-    config: |
-      max_connections = 2840
-    replicas: 1
+    replicas: 2
     storage:
       size: 1G
   proxy:
     type: pgbouncer
-    replicas: 1
+    replicas: 2

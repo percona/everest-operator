@@ -8,15 +8,9 @@ metadata:
 spec:
   engine:
     type: pxc
-    config: |
-      [mysqld]
-      wsrep_provider_options="debug=1;gcache.size=1G"
-      wsrep_debug=1
-      wsrep_trx_fragment_unit='bytes'
-      wsrep_trx_fragment_size=3670016
-    replicas: 1
+    replicas: 3
     storage:
       size: 1G
   proxy:
     type: haproxy
-    replicas: 1
+    replicas: 3
