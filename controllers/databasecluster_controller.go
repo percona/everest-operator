@@ -65,7 +65,9 @@ const (
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
+	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
+	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 
 	databaseClusterNameLabel   = "clusterName"
 	monitoringConfigNameLabel  = "monitoringConfigName"
@@ -540,6 +542,26 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// Index the BackupStorageName of the PITR spec so that it can be used by
+	// the databaseClustersThatReferenceObject function to find all
+	// DatabaseClusters that reference a specific BackupStorage through the
+	// pitrBackupStorageName field
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, pitrBackupStorageNameField,
+		func(o client.Object) []string {
+			var res []string
+			database, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok || !database.Spec.Backup.PITR.Enabled || database.Spec.Backup.PITR.BackupStorageName == nil {
+				return res
+			}
+			res = append(res, *database.Spec.Backup.PITR.BackupStorageName)
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	// Index the monitoringConfigName field in DatabaseCluster.
 	err = mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField,
@@ -572,6 +594,23 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			return res
 		},
 	)
+	if err != nil {
+		return err
+	}
+
+	// Index the backupStorageNameDBBackupField field in DatabaseClusterBackup.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseClusterBackup{}, backupStorageNameDBBackupField,
+		func(o client.Object) []string {
+			var res []string
+			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
+			if !ok {
+				return res
+			}
+			res = append(res, dbb.Spec.BackupStorageName)
+			return res
+		},
+	)
 
 	return err
 }
@@ -581,17 +620,66 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
 	)
-	// In PG reconciliation we create a backup credentials secret because the
-	// PG operator requires this secret to be encoded differently from the
-	// generic one used in PXC and PSMDB. Therefore, we need to watch for
-	// secrets, specifically the ones that are referenced in DatabaseCluster
-	// CRs, and trigger a reconciliation if these change so that we can
-	// reenconde the secret required by PG.
 	controller.Owns(&everestv1alpha1.BackupStorage{})
 	controller.Watches(
 		&everestv1alpha1.BackupStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
+			dbsToReconcileMap := make(map[types.NamespacedName]struct{})
+
+			// Find all DatabaseClusters that reference the BackupStorage
+			// through the BackupStorageName field
+			attachedDBs, err := r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+			for _, db := range attachedDBs.Items {
+				dbsToReconcileMap[types.NamespacedName{
+					Name:      db.GetName(),
+					Namespace: db.GetNamespace(),
+				}] = struct{}{}
+			}
+
+			// Find all DatabaseClusters that reference the BackupStorage
+			// through the PITRBackupStorageName field
+			attachedDBs, err = r.databaseClustersThatReferenceObject(ctx, pitrBackupStorageNameField, obj)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+			for _, db := range attachedDBs.Items {
+				dbsToReconcileMap[types.NamespacedName{
+					Name:      db.GetName(),
+					Namespace: db.GetNamespace(),
+				}] = struct{}{}
+			}
+
+			// Find all DatabaseClusters that are referenced by
+			// DatabaseClusterBackups that reference the BackupStorage
+			attachedDBBs := &everestv1alpha1.DatabaseClusterBackupList{}
+			listOps := &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(backupStorageNameDBBackupField, obj.GetName()),
+				Namespace:     obj.GetNamespace(),
+			}
+			err = r.List(ctx, attachedDBBs, listOps)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+			for _, dbb := range attachedDBBs.Items {
+				dbsToReconcileMap[types.NamespacedName{
+					Name:      dbb.Spec.DBClusterName,
+					Namespace: dbb.GetNamespace(),
+				}] = struct{}{}
+			}
+
+			requests := make([]reconcile.Request, len(dbsToReconcileMap))
+			i := 0
+			for db := range dbsToReconcileMap {
+				requests[i] = reconcile.Request{
+					NamespacedName: db,
+				}
+				i++
+			}
+
+			return requests
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
@@ -611,11 +699,32 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			return r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
+			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+			for i, item := range attachedDatabaseClusters.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+			}
+
+			return requests
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
 
+	// In PG reconciliation we create a backup credentials secret because the
+	// PG operator requires this secret to be encoded differently from the
+	// generic one used in PXC and PSMDB. Therefore, we need to watch for
+	// secrets, specifically the ones that are referenced in DatabaseCluster
+	// CRs, and trigger a reconciliation if these change so that we can
+	// reenconde the secret required by PG.
 	controller.Owns(&corev1.Secret{})
 	controller.Watches(
 		&corev1.Secret{},
@@ -727,30 +836,20 @@ func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx contex
 	return result
 }
 
-// databaseClustersThatReferenceObject returns a list of reconcile
-// requests for all DatabaseClusters that reference the given object by the provided keyPath.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(ctx context.Context, keyPath string, obj client.Object) []reconcile.Request {
+// databaseClustersThatReferenceObject returns a list of DatabaseClusters that
+// reference the given object by the provided keyPath.
+func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(
+	ctx context.Context,
+	keyPath string,
+	obj client.Object,
+) (*everestv1alpha1.DatabaseClusterList, error) {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(keyPath, obj.GetName()),
 		Namespace:     obj.GetNamespace(),
 	}
 	err := r.List(ctx, attachedDatabaseClusters, listOps)
-	if err != nil {
-		return []reconcile.Request{}
-	}
-
-	requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
-	for i, item := range attachedDatabaseClusters.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      item.GetName(),
-				Namespace: item.GetNamespace(),
-			},
-		}
-	}
-
-	return requests
+	return attachedDatabaseClusters, err
 }
 
 // databaseClustersThatReferenceSecret returns a list of reconcile

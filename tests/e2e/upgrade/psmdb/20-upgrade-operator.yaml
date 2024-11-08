@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 60
+commands:
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v${PSMDB_OPERATOR_VERSION}/deploy/bundle.yaml -n "${NAMESPACE}"
+  # I know it's weird to use a TestStep to do an assertion but this is a
+  # particular case. We want to ensure that the cluster wasn't restarted. To do
+  # so, we wait for 30s for the state to change to initializing. If the state
+  # changes to initializing, kubectl returns immediately without errors and
+  # the test fails. On the other hand, if the state doesn't change, kubectl
+  # times out and the test passes.
+  - script: >
+      kubectl wait --for=jsonpath='{.status.state}'=initializing psmdb/test-psmdb-cluster -n $NAMESPACE --timeout=30s; test $? -ne 0

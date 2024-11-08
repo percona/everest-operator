@@ -1,0 +1,19 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: test-db-restore
+spec:
+  backupName: test-db-backup
+  pitr:
+    backupSource:
+      s3:
+        credentialsSecret: test-pxc-cluster-backup-s3-pitr
+        endpointUrl: s3.someprovider.com
+        region: us-east-2
+    date: "2023-12-06 14:24:42"
+    type: date
+  pxcCluster: test-pxc-cluster

@@ -1,9 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestSuite
-kindConfig: e2e-tests/kind.yml
-crdDir: config/crd/bases
-artifactsDir: /tmp/
-timeout: 180
-skipDelete: true
-testDirs:
-- e2e-tests/tests

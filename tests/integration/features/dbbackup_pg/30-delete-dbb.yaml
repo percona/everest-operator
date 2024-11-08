@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl patch pg-backup test-db-backup -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl patch pg-backup test-db-backup-azure -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl -n $NAMESPACE delete dbb test-db-backup test-db-backup-azure

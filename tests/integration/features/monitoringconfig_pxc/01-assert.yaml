@@ -1,0 +1,37 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pxc-mc
+  finalizers:
+  - everest.percona.com/upstream-cluster-cleanup
+  - foregroundDeletion
+spec:
+  monitoring:
+    monitoringConfigName: test-mc
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-pxc-mc
+data:
+  pmmserverkey: YWJjZGVm
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: pxc-mc
+spec:
+  pmm:
+    enabled: true
+    serverHost: localhost
+    image: percona/pmm-client:latest
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+
+  secretsName: everest-secrets-pxc-mc

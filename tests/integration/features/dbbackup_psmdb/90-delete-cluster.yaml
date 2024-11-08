@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
+  - command: kubectl patch backupstorage test-storage-scheduled -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+    ignoreFailure: true
+  - command: kubectl -n $NAMESPACE delete db test-psmdb-cluster

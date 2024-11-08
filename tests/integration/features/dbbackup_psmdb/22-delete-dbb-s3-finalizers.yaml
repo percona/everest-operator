@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl patch psmdb-backup test-db-backup -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
