@@ -30,7 +30,7 @@ spec:
           endpointUrl: s3.someprovider.com
           region: us-east-2
         type: s3
-        verifyTLS: true
+        verifyTLS: false
       test-storage-pitr-pitr:
         s3:
           credentialsSecret: test-pxc-cluster-backup-s3-pitr

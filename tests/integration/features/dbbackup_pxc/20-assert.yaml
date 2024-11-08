@@ -71,6 +71,7 @@ spec:
           endpointUrl: s3.someprovider.com
           region: us-east-2
         type: s3
+        verifyTLS: true
       test-storage-azure:
         azure:
           credentialsSecret: test-pxc-cluster-backup-azure

@@ -21,6 +21,26 @@ spec:
   region: us-east-2
   endpointURL: s3.someprovider.com
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-pxc-cluster-backup-s3-pitr
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
+  AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-pitr
+spec:
+  type: s3
+  bucket: test-backup-bucket-pitr
+  credentialsSecretName: test-pxc-cluster-backup-s3-pitr
+  region: us-east-2
+  endpointURL: s3.someprovider.com
+---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
@@ -38,7 +58,7 @@ spec:
     enabled: true
     pitr:
       enabled: true
-      backupStorageName: test-storage-scheduled
+      backupStorageName: test-storage-pitr
       uploadIntervalSec: 120
     schedules:
       - name: daily-backup

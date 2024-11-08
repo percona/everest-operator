@@ -65,6 +65,7 @@ const (
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
+	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 
@@ -541,6 +542,26 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// Index the BackupStorageName of the PITR spec so that it can be used by
+	// the databaseClustersThatReferenceObject function to find all
+	// DatabaseClusters that reference a specific BackupStorage through the
+	// pitrBackupStorageName field
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, pitrBackupStorageNameField,
+		func(o client.Object) []string {
+			var res []string
+			database, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok || !database.Spec.Backup.PITR.Enabled || database.Spec.Backup.PITR.BackupStorageName == nil {
+				return res
+			}
+			res = append(res, *database.Spec.Backup.PITR.BackupStorageName)
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	// Index the monitoringConfigName field in DatabaseCluster.
 	err = mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField,
@@ -608,6 +629,19 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the BackupStorageName field
 			attachedDBs, err := r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+			for _, db := range attachedDBs.Items {
+				dbsToReconcileMap[types.NamespacedName{
+					Name:      db.GetName(),
+					Namespace: db.GetNamespace(),
+				}] = struct{}{}
+			}
+
+			// Find all DatabaseClusters that reference the BackupStorage
+			// through the PITRBackupStorageName field
+			attachedDBs, err = r.databaseClustersThatReferenceObject(ctx, pitrBackupStorageNameField, obj)
 			if err != nil {
 				return []reconcile.Request{}
 			}
