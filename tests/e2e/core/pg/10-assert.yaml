@@ -14,7 +14,6 @@ metadata:
 spec:
   engine:
     type: postgresql
-    version: "16.3"
     replicas: 3
     storage:
       size: 15G
@@ -40,7 +39,6 @@ metadata:
 spec:
   backups:
     pgbackrest:
-      image: percona/percona-postgresql-operator:2.4.1-ppg16.3-pgbackrest2.51-1
       repos:
       - name: repo1
         volume:
@@ -50,7 +48,6 @@ spec:
             resources:
               requests:
                 storage: 15G
-  image: percona/percona-postgresql-operator:2.4.1-ppg16.3-postgres
   instances:
   - dataVolumeClaimSpec:
       accessModes:
@@ -68,7 +65,6 @@ spec:
   postgresVersion: 16
   proxy:
     pgBouncer:
-      image: percona/percona-postgresql-operator:2.4.1-ppg16.3-pgbouncer1.22.1
       port: 5432
       replicas: 3
       expose:

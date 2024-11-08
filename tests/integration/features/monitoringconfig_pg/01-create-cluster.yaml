@@ -32,7 +32,6 @@ spec:
     monitoringConfigName: test-mc
   engine:
     type: postgresql
-    version: "16.3"
     replicas: 1
     storage:
       size: 4G
