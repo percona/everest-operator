@@ -255,7 +255,7 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
-	p.PerconaPGCluster.Spec.PMM = defaultSpec(p.DB).PMM
+	p.PerconaPGCluster.Spec.PMM = defaultSpec().PMM
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
@@ -270,7 +270,16 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	c := p.C
 	ctx := p.ctx
 
-	pg.Spec.PMM.Enabled = true
+	pg.Spec.PMM = &pgv2.PMMSpec{
+		Enabled: true,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("300M"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		},
+		Secret: fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, database.GetName()),
+	}
 	image := common.DefaultPMMClientImage
 	if monitoring.Spec.PMM.Image != "" {
 		image = monitoring.Spec.PMM.Image
@@ -298,7 +307,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	return nil
 }
 
-func defaultSpec(db *everestv1alpha1.DatabaseCluster) pgv2.PerconaPGClusterSpec {
+func defaultSpec() pgv2.PerconaPGClusterSpec {
 	return pgv2.PerconaPGClusterSpec{
 		InstanceSets: pgv2.PGInstanceSets{
 			{
@@ -308,16 +317,7 @@ func defaultSpec(db *everestv1alpha1.DatabaseCluster) pgv2.PerconaPGClusterSpec 
 				},
 			},
 		},
-		PMM: &pgv2.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-			Secret: fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, db.GetName()),
-		},
+		PMM: nil,
 		Proxy: &pgv2.PGProxySpec{
 			PGBouncer: &pgv2.PGBouncerSpec{
 				Resources: corev1.ResourceRequirements{

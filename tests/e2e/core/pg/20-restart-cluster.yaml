@@ -11,7 +11,6 @@ metadata:
 spec:
   engine:
     type: postgresql
-    version: "16.3"
     replicas: 3
     storage:
       size: 15G
