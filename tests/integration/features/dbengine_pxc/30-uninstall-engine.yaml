@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 120
+delete:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: percona-xtradb-cluster-operator
