@@ -206,6 +206,7 @@ func (p *applier) Proxy() error {
 			},
 		},
 	}
+
 	if !database.Spec.Proxy.Resources.CPU.IsZero() {
 		psmdb.Spec.Sharding.Mongos.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
 	}
