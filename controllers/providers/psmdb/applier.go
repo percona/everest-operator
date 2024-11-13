@@ -111,10 +111,8 @@ func (p *applier) configureSharding() {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
 	}
 
-	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
-		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
-		p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
-	}
+	psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+	p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
 }
 
 func rsName(i int) string {
@@ -205,13 +203,6 @@ func (p *applier) Proxy() error {
 		MultiAZ: psmdbv1.MultiAZ{
 			Affinity: &psmdbv1.PodAffinity{
 				Advanced: common.DefaultAffinitySettings().DeepCopy(),
-			},
-			Resources: corev1.ResourceRequirements{
-				// XXX: Remove this once templates will be available
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("128Mi"),
-					corev1.ResourceCPU:    resource.MustParse("200m"),
-				},
 			},
 		},
 	}
