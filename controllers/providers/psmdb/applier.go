@@ -130,6 +130,8 @@ func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) {
 	configsvr.VolumeSpec = &psmdbv1.VolumeSpec{
 		PersistentVolumeClaim: psmdbv1.PVCSpec{
 			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+				// Use the same storage class and size as the engine
+				StorageClassName: database.Spec.Engine.Storage.Class,
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
