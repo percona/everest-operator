@@ -111,7 +111,9 @@ func (p *applier) configureSharding() {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
 	}
 
-	psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
+		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+	}
 	p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
 }
 
@@ -198,14 +200,20 @@ func (p *applier) Proxy() error {
 	if database.Spec.Proxy.Replicas != nil {
 		size = *database.Spec.Proxy.Replicas
 	}
-	psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
-		Size: size,
-		MultiAZ: psmdbv1.MultiAZ{
-			Affinity: &psmdbv1.PodAffinity{
-				Advanced: common.DefaultAffinitySettings().DeepCopy(),
+
+	if psmdb.Spec.Sharding.Mongos == nil {
+		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
+			MultiAZ: psmdbv1.MultiAZ{
+				Affinity: &psmdbv1.PodAffinity{
+					Advanced: common.DefaultAffinitySettings().DeepCopy(),
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{},
+				},
 			},
-		},
+		}
 	}
+	psmdb.Spec.Sharding.Mongos.Size = size
 
 	if !database.Spec.Proxy.Resources.CPU.IsZero() {
 		psmdb.Spec.Sharding.Mongos.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
