@@ -111,10 +111,8 @@ func (p *applier) configureSharding() {
 		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
 	}
 
-	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
-		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
-		p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
-	}
+	psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
+	p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
 }
 
 func rsName(i int) string {
@@ -196,19 +194,24 @@ func (p *applier) Proxy() error {
 	}
 
 	// otherwise configure psmdb.Spec.Sharding.Mongos according to the db proxy settings
-	if psmdb.Spec.Sharding.Mongos == nil {
-		size := database.Spec.Engine.Replicas
-		if database.Spec.Proxy.Replicas != nil {
-			size = *database.Spec.Proxy.Replicas
-		}
-		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
-			Size: size,
-			MultiAZ: psmdbv1.MultiAZ{
-				Affinity: &psmdbv1.PodAffinity{
-					Advanced: common.DefaultAffinitySettings().DeepCopy(),
-				},
+	size := database.Spec.Engine.Replicas
+	if database.Spec.Proxy.Replicas != nil {
+		size = *database.Spec.Proxy.Replicas
+	}
+	psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
+		Size: size,
+		MultiAZ: psmdbv1.MultiAZ{
+			Affinity: &psmdbv1.PodAffinity{
+				Advanced: common.DefaultAffinitySettings().DeepCopy(),
 			},
-		}
+		},
+	}
+
+	if !database.Spec.Proxy.Resources.CPU.IsZero() {
+		psmdb.Spec.Sharding.Mongos.Resources.Limits[corev1.ResourceCPU] = database.Spec.Proxy.Resources.CPU
+	}
+	if !database.Spec.Proxy.Resources.Memory.IsZero() {
+		psmdb.Spec.Sharding.Mongos.Resources.Limits[corev1.ResourceMemory] = database.Spec.Proxy.Resources.Memory
 	}
 	err := p.exposeShardedCluster(&psmdb.Spec.Sharding.Mongos.Expose)
 	if err != nil {
