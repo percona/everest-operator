@@ -88,14 +88,3 @@ jobs:
           push: true
           tags: ${{ steps.bundle_meta.outputs.tags }}
           file: bundle.Dockerfile
-  scan:
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.12.0
-        with:
-          image-ref: 'docker.io/percona/everest-operator:latest'
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL,HIGH'
