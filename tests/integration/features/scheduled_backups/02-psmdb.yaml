@@ -20,7 +20,6 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 7.0.12-7
     config: |
       operationProfiling:
          mode: slowOp

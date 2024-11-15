@@ -19,7 +19,6 @@ metadata:
 spec:
   engine:
     type: pxc
-    version: 8.0.36-28.1
     config: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
@@ -54,14 +53,12 @@ metadata:
 spec:
   haproxy:
     enabled: true
-    image: percona/haproxy:2.8.5
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.15.0-pxc8.0-backup-pxb8.0.35
     storages:
       aws:
         type: s3
