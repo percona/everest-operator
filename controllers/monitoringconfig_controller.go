@@ -20,18 +20,18 @@ import (
 	"errors"
 	"net/url"
 	"slices"
-	"strings"
 
 	"github.com/AlekSi/pointer"
+	"github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -78,7 +78,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Namespace: req.NamespacedName.Namespace,
 	},
 		mc)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if client.IgnoreNotFound(err) != nil {
 		logger.Error(err, "unable to fetch MonitoringConfig")
 		return ctrl.Result{}, err
 	}
@@ -129,116 +129,73 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
-	skipTLS := !pointer.Get(mc.Spec.VerifyTLS)
-	vmAgentSpec, err := r.genVMAgentSpec(ctx, skipTLS)
+	vmAgentSpec, err := r.genVMAgentSpec(ctx)
 	if err != nil {
 		return err
 	}
 
-	vmAgentNamespacedName := types.NamespacedName{
-		Name:      vmAgentResourceName,
-		Namespace: r.monitoringNamespace,
+	vmAgent := &v1beta1.VMAgent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmAgentResourceName,
+			Namespace: r.monitoringNamespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "everest",
+				"everest.percona.com/type":     "monitoring",
+			},
+		},
+		Spec: vmAgentSpec,
 	}
 
-	vmAgent := &unstructured.Unstructured{}
-	vmAgent.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "operator.victoriametrics.com",
-		Kind:    "VMAgent",
-		Version: "v1beta1",
-	})
-	vmAgent.SetNamespace(vmAgentNamespacedName.Namespace)
-	vmAgent.SetName(vmAgentNamespacedName.Name)
-	vmAgent.SetLabels(map[string]string{
-		"app.kubernetes.io/managed-by": "everest",
-		"everest.percona.com/type":     "monitoring",
-	})
+	remoteWriteCount := len(vmAgentSpec.RemoteWrite)
 
-	vmAgentSpecRemoteWrite, ok := vmAgentSpec["remoteWrite"].([]interface{})
-	if !ok {
-		return errors.New("could not get remoteWrite from VMAgent spec")
-	}
-	vmAgentSpecRemoteWriteCount := len(vmAgentSpecRemoteWrite)
-
-	if err := r.Get(ctx, vmAgentNamespacedName, vmAgent); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return errors.Join(err, errors.New("could not get vmagent"))
-		}
-
-		if vmAgentSpecRemoteWriteCount == 0 {
-			// VMAgent CR does not exist and there are no MonitoringConfig CRs
-			// so there is nothing to do.
-			return nil
-		}
-
-		// VMAgent CR does not exist but there are MonitoringConfig CRs so we
-		// need to create the VMAgent CR.
-		err = unstructured.SetNestedMap(vmAgent.Object, vmAgentSpec, "spec")
-		if err != nil {
-			return errors.Join(err, errors.New("could not set vmagent spec"))
-		}
-		if err := r.Create(ctx, vmAgent); err != nil {
-			return errors.Join(err, errors.New("could not create vmagent"))
-		}
-
-		return nil
-	}
-
-	if vmAgentSpecRemoteWriteCount == 0 {
-		// VMAgent CR exists but there are no MonitoringConfig CRs so we need
-		// to delete the VMAgent CR.
-		if err := r.Delete(ctx, vmAgent); err != nil && !k8serrors.IsNotFound(err) {
+	// No remote writes, delete the VMAgent.
+	if remoteWriteCount == 0 {
+		if err := r.Delete(ctx, vmAgent); client.IgnoreNotFound(err) != nil {
 			return errors.Join(err, errors.New("could not delete vmagent"))
 		}
 		return nil
 	}
 
-	// VMAgent CR exists and there are MonitoringConfig CRs so we need to
-	// update the VMAgent CR.
-	err = unstructured.SetNestedMap(vmAgent.Object, vmAgentSpec, "spec")
-	if err != nil {
-		return errors.Join(err, errors.New("could not set vmagent spec"))
-	}
-	if err := r.Update(ctx, vmAgent); err != nil {
-		return errors.Join(err, errors.New("could not update vmagent"))
+	if err := controllerutil.SetOwnerReference(mc, vmAgent, r.Scheme); err != nil {
+		return errors.Join(err, errors.New("could not set owner reference"))
 	}
 
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
+		vmAgent.Spec = vmAgentSpec
+		return nil
+	})
 	return nil
 }
 
-func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLSVerify bool) (map[string]interface{}, error) {
-	vmAgentSpec := map[string]interface{}{
-		"extraArgs": map[string]interface{}{
-			"memory.allowedPercent": "40",
-		},
-		"podScrapeNamespaceSelector": map[string]interface{}{},
-		"podScrapeSelector":          map[string]interface{}{},
-		"probeNamespaceSelector":     map[string]interface{}{},
-		"probeSelector":              map[string]interface{}{},
-		"remoteWrite":                []interface{}{},
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "350Mi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "500m",
-				"memory": "850Mi",
+func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta1.VMAgentSpec, error) {
+	spec := v1beta1.VMAgentSpec{
+		SelectAllByDefault: true,
+		CommonApplicationDeploymentParams: v1beta1.CommonApplicationDeploymentParams{
+			ExtraArgs: map[string]string{
+				"memory.allowedPercent": "40",
 			},
 		},
-		"selectAllByDefault":             true,
-		"serviceScrapeNamespaceSelector": map[string]interface{}{},
-		"serviceScrapeSelector":          map[string]interface{}{},
-		"staticScrapeNamespaceSelector":  map[string]interface{}{},
-		"staticScrapeSelector":           map[string]interface{}{},
+		CommonDefaultableParams: v1beta1.CommonDefaultableParams{
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("250m"),
+					corev1.ResourceMemory: resource.MustParse("350Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("850Mi"),
+				},
+			},
+		},
 	}
 
 	monitoringConfigList := &everestv1alpha1.MonitoringConfigList{}
 	err := r.List(ctx, monitoringConfigList, &client.ListOptions{})
 	if err != nil {
-		return nil, errors.Join(err, errors.New("could not list monitoringconfigs"))
+		return spec, errors.Join(err, errors.New("could not list monitoringconfigs"))
 	}
 
-	remoteWrite := []interface{}{}
+	remoteWrites := make([]v1beta1.VMAgentRemoteWriteSpec, 0, len(monitoringConfigList.Items))
 	for _, monitoringConfig := range monitoringConfigList.Items {
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
@@ -246,81 +203,71 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, skipTLS
 
 		secretName, err := r.reconcileSecret(ctx, &monitoringConfig)
 		if err != nil {
-			return nil, errors.Join(err, errors.New("could not reconcile destination secret"))
+			return spec, errors.Join(err, errors.New("could not reconcile destination secret"))
 		}
 
 		u, err := url.Parse(monitoringConfig.Spec.PMM.URL)
 		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to parse PMM URL"))
+			return spec, errors.Join(err, errors.New("failed to parse PMM URL"))
 		}
-		remoteWrite = append(remoteWrite, map[string]interface{}{
-			"basicAuth": map[string]interface{}{
-				"password": map[string]interface{}{
-					"name": secretName,
-					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey,
+		url := u.JoinPath("victoriametrics/api/v1/write").String()
+
+		// Check if this URL exists.
+		if idx := slices.IndexFunc(remoteWrites, func(rw v1beta1.VMAgentRemoteWriteSpec) bool {
+			return rw.URL == url
+		}); idx < 0 {
+			// already exists.
+			continue
+		}
+
+		remoteWrites = append(remoteWrites, v1beta1.VMAgentRemoteWriteSpec{
+			BasicAuth: &v1beta1.BasicAuth{
+				Password: corev1.SecretKeySelector{
+					Key: everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
 				},
-				"username": map[string]interface{}{
-					"name": secretName,
-					"key":  everestv1alpha1.MonitoringConfigCredentialsSecretUsernameKey,
+				Username: corev1.SecretKeySelector{
+					Key: everestv1alpha1.MonitoringConfigCredentialsSecretUsernameKey,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
 				},
 			},
-			"tlsConfig": map[string]interface{}{
-				"insecureSkipVerify": skipTLSVerify,
+			TLSConfig: &v1beta1.TLSConfig{
+				InsecureSkipVerify: pointer.Get(monitoringConfig.Spec.VerifyTLS),
 			},
-			"url": u.JoinPath("victoriametrics/api/v1/write").String(),
+			URL: url,
 		})
 	}
-	remoteWrite = deduplicateRemoteWrites(remoteWrite)
-	vmAgentSpec["remoteWrite"] = remoteWrite
+	spec.RemoteWrite = remoteWrites
 
 	// Use the kube-system namespace ID as the k8s_cluster_id label.
 	kubeSystemNamespace := &corev1.Namespace{}
 	err = r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace)
 	if err != nil {
-		return nil, errors.Join(err, errors.New("could not get kube-system namespace"))
+		return spec, errors.Join(err, errors.New("could not get kube-system namespace"))
 	}
-	vmAgentSpec["externalLabels"] = map[string]interface{}{
+	spec.ExternalLabels = map[string]string{
 		"k8s_cluster_id": string(kubeSystemNamespace.UID),
 	}
-
-	return vmAgentSpec, nil
+	return spec, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
 	r.monitoringNamespace = monitoringNamespace
+	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
+		Owns(&v1beta1.VMAgent{}, builder.MatchEveryOwner).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
 		WithEventFilter(common.DefaultNamespaceFilter).
 		Complete(r)
-}
-
-func deduplicateRemoteWrites(remoteWrites []interface{}) []interface{} {
-	slices.SortFunc(remoteWrites, func(a, b interface{}) int {
-		v1, ok := a.(map[string]interface{})
-		if !ok {
-			panic("cannot cast to map[string]interface{}")
-		}
-		v2, ok := b.(map[string]interface{})
-		if !ok {
-			panic("cannot cast to map[string]interface{}")
-		}
-		return strings.Compare(v1["url"].(string), v2["url"].(string)) //nolint:forcetypeassert
-	})
-	remoteWrites = slices.CompactFunc(remoteWrites, func(a, b interface{}) bool {
-		v1, ok := a.(map[string]interface{})
-		if !ok {
-			panic("cannot cast to map[string]interface{}")
-		}
-		v2, ok := b.(map[string]interface{})
-		if !ok {
-			panic("cannot cast to map[string]interface{}")
-		}
-		return v1["url"].(string) == v2["url"].(string) //nolint:forcetypeassert
-	})
-	return remoteWrites
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
