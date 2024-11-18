@@ -57,7 +57,7 @@ type MonitoringConfigReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;create;update;delete
+//+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;create;update;delete
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
