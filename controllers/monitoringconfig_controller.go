@@ -21,17 +21,14 @@ import (
 	"net/url"
 	"slices"
 
-	"github.com/AlekSi/pointer"
-	"github.com/VictoriaMetrics/operator/api/operator/v1beta1"
+	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,6 +42,7 @@ const (
 	monitoringConfigRefNameLabel           = "everest.percona.com/monitoring-config-ref-name"
 	monitoringConfigRefNamespaceLabel      = "everest.percona.com/monitoring-config-ref-namespace"
 	monitoringConfigSecretCleanupFinalizer = "everest.percona.com/cleanup-secrets"
+	vmAgentFinalizer                       = "everest.percona.com/vmagent"
 )
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
@@ -57,7 +55,7 @@ type MonitoringConfigReconciler struct {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;create;update;delete
+//+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -70,71 +68,54 @@ type MonitoringConfigReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mc := &everestv1alpha1.MonitoringConfig{}
 	logger := log.FromContext(ctx)
 
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      req.NamespacedName.Name,
-		Namespace: req.NamespacedName.Namespace,
-	},
-		mc)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "unable to fetch MonitoringConfig")
-		return ctrl.Result{}, err
+	mc := &everestv1alpha1.MonitoringConfig{}
+	if err := r.Get(ctx, req.NamespacedName, mc); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	if !mc.GetDeletionTimestamp().IsZero() {
-		return ctrl.Result{}, r.cleanupSecrets(ctx, mc)
-	}
-	// VerifyTLS is set to 'true' by default, if unspecified.
-	if mc.Spec.VerifyTLS == nil {
-		mc.Spec.VerifyTLS = pointer.To(true)
-	}
-	if k8serrors.IsNotFound(err) {
-		// NotFound cannot be fixed by requeuing so ignore it. During background
-		// deletion, we receive delete events from cluster's dependents after
-		// cluster is deleted.
-		logger.Info("reconciling VMAgent")
-		if err := r.reconcileVMAgent(ctx, mc); err != nil {
+		// reconcile VMAgent so that it can be cleaned-up.
+		if err := r.reconcileVMAgent(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.cleanupSecrets(ctx, mc)
 	}
 
 	credentialsSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{
+	if err := r.Get(ctx, types.NamespacedName{
 		Name:      mc.Spec.CredentialsSecretName,
 		Namespace: mc.GetNamespace(),
-	}, credentialsSecret)
-	if err != nil {
+	}, credentialsSecret); err != nil {
 		logger.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
 	}
 
 	if metav1.GetControllerOf(credentialsSecret) == nil {
 		logger.Info("setting controller references for the secret")
-		err = controllerutil.SetControllerReference(mc, credentialsSecret, r.Client.Scheme())
-		if err != nil {
+		if err := controllerutil.SetControllerReference(mc, credentialsSecret, r.Client.Scheme()); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err = r.Update(ctx, credentialsSecret); err != nil {
+		if err := r.Update(ctx, credentialsSecret); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	logger.Info("reconciling VMAgent")
-	if err := r.reconcileVMAgent(ctx, mc); err != nil {
+	if err := r.reconcileVMAgent(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context, mc *everestv1alpha1.MonitoringConfig) error {
+func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
 	vmAgentSpec, err := r.genVMAgentSpec(ctx)
 	if err != nil {
 		return err
 	}
 
-	vmAgent := &v1beta1.VMAgent{
+	vmAgent := &vmv1beta1.VMAgent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmAgentResourceName,
 			Namespace: r.monitoringNamespace,
@@ -146,36 +127,30 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context, mc *e
 		Spec: vmAgentSpec,
 	}
 
-	remoteWriteCount := len(vmAgentSpec.RemoteWrite)
-
 	// No remote writes, delete the VMAgent.
-	if remoteWriteCount == 0 {
+	if len(vmAgentSpec.RemoteWrite) == 0 {
 		if err := r.Delete(ctx, vmAgent); client.IgnoreNotFound(err) != nil {
 			return errors.Join(err, errors.New("could not delete vmagent"))
 		}
 		return nil
 	}
 
-	if err := controllerutil.SetOwnerReference(mc, vmAgent, r.Scheme); err != nil {
-		return errors.Join(err, errors.New("could not set owner reference"))
-	}
-
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
 		vmAgent.Spec = vmAgentSpec
 		return nil
 	})
-	return nil
+	return err
 }
 
-func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta1.VMAgentSpec, error) {
-	spec := v1beta1.VMAgentSpec{
+func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (vmv1beta1.VMAgentSpec, error) {
+	spec := vmv1beta1.VMAgentSpec{
 		SelectAllByDefault: true,
-		CommonApplicationDeploymentParams: v1beta1.CommonApplicationDeploymentParams{
+		CommonApplicationDeploymentParams: vmv1beta1.CommonApplicationDeploymentParams{
 			ExtraArgs: map[string]string{
 				"memory.allowedPercent": "40",
 			},
 		},
-		CommonDefaultableParams: v1beta1.CommonDefaultableParams{
+		CommonDefaultableParams: vmv1beta1.CommonDefaultableParams{
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("250m"),
@@ -195,10 +170,29 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta
 		return spec, errors.Join(err, errors.New("could not list monitoringconfigs"))
 	}
 
-	remoteWrites := make([]v1beta1.VMAgentRemoteWriteSpec, 0, len(monitoringConfigList.Items))
+	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(monitoringConfigList.Items))
 	for _, monitoringConfig := range monitoringConfigList.Items {
 		if monitoringConfig.Spec.Type != everestv1alpha1.PMMMonitoringType {
 			continue
+		}
+
+		// Skip the MonitoringConfig if it is being deleted.
+		// Remove the vmagent finalizer.
+		if !monitoringConfig.GetDeletionTimestamp().IsZero() {
+			if removed := controllerutil.RemoveFinalizer(&monitoringConfig, vmAgentFinalizer); removed {
+				if err := r.Update(ctx, &monitoringConfig); err != nil {
+					return spec, errors.Join(err, errors.New("could not remove finalizer"))
+				}
+			}
+			continue
+		}
+
+		// This MonitoringConfig is a part of the vmagent.
+		// Add the finalizer so we can clean up the vmagent when the MonitoringConfig is deleted.
+		if updated := controllerutil.AddFinalizer(&monitoringConfig, vmAgentFinalizer); updated {
+			if err := r.Update(ctx, &monitoringConfig); err != nil {
+				return spec, errors.Join(err, errors.New("could not add finalizer"))
+			}
 		}
 
 		secretName, err := r.reconcileSecret(ctx, &monitoringConfig)
@@ -213,15 +207,19 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta
 		url := u.JoinPath("victoriametrics/api/v1/write").String()
 
 		// Check if this URL exists.
-		if idx := slices.IndexFunc(remoteWrites, func(rw v1beta1.VMAgentRemoteWriteSpec) bool {
+		if idx := slices.IndexFunc(remoteWrites, func(rw vmv1beta1.VMAgentRemoteWriteSpec) bool {
 			return rw.URL == url
-		}); idx < 0 {
+		}); idx >= 0 {
 			// already exists.
 			continue
 		}
 
-		remoteWrites = append(remoteWrites, v1beta1.VMAgentRemoteWriteSpec{
-			BasicAuth: &v1beta1.BasicAuth{
+		skipTLS := false
+		if monitoringConfig.Spec.VerifyTLS != nil {
+			skipTLS = !*monitoringConfig.Spec.VerifyTLS
+		}
+		remoteWrites = append(remoteWrites, vmv1beta1.VMAgentRemoteWriteSpec{
+			BasicAuth: &vmv1beta1.BasicAuth{
 				Password: corev1.SecretKeySelector{
 					Key: everestv1alpha1.MonitoringConfigCredentialsSecretAPIKeyKey,
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -235,8 +233,8 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta
 					},
 				},
 			},
-			TLSConfig: &v1beta1.TLSConfig{
-				InsecureSkipVerify: pointer.Get(monitoringConfig.Spec.VerifyTLS),
+			TLSConfig: &vmv1beta1.TLSConfig{
+				InsecureSkipVerify: skipTLS,
 			},
 			URL: url,
 		})
@@ -258,12 +256,9 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (v1beta
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
 	r.monitoringNamespace = monitoringNamespace
-	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		return err
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
-		Owns(&v1beta1.VMAgent{}, builder.MatchEveryOwner).
+		Owns(&vmv1beta1.VMAgent{}).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
 		WithEventFilter(common.DefaultNamespaceFilter).
