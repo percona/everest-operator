@@ -18,8 +18,10 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +33,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/controllers/common"
@@ -43,7 +47,44 @@ const (
 	monitoringConfigRefNamespaceLabel      = "everest.percona.com/monitoring-config-ref-namespace"
 	monitoringConfigSecretCleanupFinalizer = "everest.percona.com/cleanup-secrets"
 	vmAgentFinalizer                       = "everest.percona.com/vmagent"
+
+	// used for setting the owner monitoring config refs on the VMAgent.
+	// we use a label because cross-namespaced ownership is not allowed in Kubernetes.
+	// value is of the format `<namespace>/<name>`
+	// multiple owners may be specified, separated by commas.
+	vmAgentMonitoringConfigOwnerLabel = "everest.percona.com/owner-monitoring-config-refs"
 )
+
+func setVMAgentOwnerRefs(vmagent *vmv1beta1.VMAgent, owners *everestv1alpha1.MonitoringConfigList) {
+	val := ""
+	for _, owner := range owners.Items {
+		val += fmt.Sprintf("%s/%s,", owner.GetNamespace(), owner.GetName())
+	}
+	strings.TrimSuffix(val, ",")
+	labels := vmagent.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[vmAgentMonitoringConfigOwnerLabel] = val
+	vmagent.SetLabels(labels)
+}
+
+func getVMAgentOwnerRefs(vmagent *vmv1beta1.VMAgent) []types.NamespacedName {
+	labels := vmagent.GetLabels()
+	ownersRaw := strings.Split(labels[vmAgentMonitoringConfigOwnerLabel], ",")
+	owners := make([]types.NamespacedName, 0, len(ownersRaw))
+	for _, ownerRaw := range ownersRaw {
+		split := strings.Split(ownerRaw, "/")
+		if len(split) != 2 {
+			continue
+		}
+		owners = append(owners, types.NamespacedName{
+			Namespace: split[0],
+			Name:      split[1],
+		})
+	}
+	return owners
+}
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
@@ -110,7 +151,13 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error {
-	vmAgentSpec, err := r.genVMAgentSpec(ctx)
+	monitoringConfigList := &everestv1alpha1.MonitoringConfigList{}
+	err := r.List(ctx, monitoringConfigList, &client.ListOptions{})
+	if err != nil {
+		return errors.Join(err, errors.New("could not list monitoringconfigs"))
+	}
+
+	vmAgentSpec, err := r.genVMAgentSpec(ctx, monitoringConfigList)
 	if err != nil {
 		return err
 	}
@@ -126,6 +173,7 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 		},
 		Spec: vmAgentSpec,
 	}
+	setVMAgentOwnerRefs(vmAgent, monitoringConfigList)
 
 	// No remote writes, delete the VMAgent.
 	if len(vmAgentSpec.RemoteWrite) == 0 {
@@ -142,7 +190,7 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 	return err
 }
 
-func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (vmv1beta1.VMAgentSpec, error) {
+func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitoringConfigList *everestv1alpha1.MonitoringConfigList) (vmv1beta1.VMAgentSpec, error) {
 	spec := vmv1beta1.VMAgentSpec{
 		SelectAllByDefault: true,
 		CommonApplicationDeploymentParams: vmv1beta1.CommonApplicationDeploymentParams{
@@ -162,12 +210,6 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (vmv1be
 				},
 			},
 		},
-	}
-
-	monitoringConfigList := &everestv1alpha1.MonitoringConfigList{}
-	err := r.List(ctx, monitoringConfigList, &client.ListOptions{})
-	if err != nil {
-		return spec, errors.Join(err, errors.New("could not list monitoringconfigs"))
 	}
 
 	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(monitoringConfigList.Items))
@@ -243,7 +285,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context) (vmv1be
 
 	// Use the kube-system namespace ID as the k8s_cluster_id label.
 	kubeSystemNamespace := &corev1.Namespace{}
-	err = r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace)
+	err := r.Get(ctx, types.NamespacedName{Name: "kube-system"}, kubeSystemNamespace)
 	if err != nil {
 		return spec, errors.Join(err, errors.New("could not get kube-system namespace"))
 	}
@@ -258,11 +300,28 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 	r.monitoringNamespace = monitoringNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
-		Owns(&vmv1beta1.VMAgent{}).
+		Watches(&vmv1beta1.VMAgent{}, enqueueOwnerMonitoringConfigs()).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
 		WithEventFilter(common.DefaultNamespaceFilter).
 		Complete(r)
+}
+
+func enqueueOwnerMonitoringConfigs() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		vmAgent, ok := o.(*vmv1beta1.VMAgent)
+		if !ok {
+			return nil
+		}
+		owners := getVMAgentOwnerRefs(vmAgent)
+		requests := make([]reconcile.Request, 0, len(owners))
+		for _, owner := range owners {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: owner,
+			})
+		}
+		return requests
+	})
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.
