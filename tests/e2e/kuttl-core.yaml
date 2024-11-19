@@ -7,3 +7,5 @@ timeout: 180
 skipDelete: true
 testDirs:
 - tests/e2e/core
+manifestDirs:
+- tests/manifests
