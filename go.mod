@@ -6,7 +6,8 @@ toolchain go1.23.2
 
 require (
 	github.com/AlekSi/pointer v1.2.0
-	github.com/aws/aws-sdk-go-v2 v1.32.5
+	github.com/VictoriaMetrics/operator/api v0.0.0-20241118151800-e6e68271b948
+	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.28.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.46
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.67.1
@@ -25,8 +26,8 @@ require (
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.1
-	sigs.k8s.io/controller-runtime v0.19.1
+	k8s.io/client-go v12.0.0+incompatible
+	sigs.k8s.io/controller-runtime v0.19.0
 )
 
 require (
