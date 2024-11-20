@@ -153,21 +153,17 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitoringConfigList *everestv1alpha1.MonitoringConfigList) (vmv1beta1.VMAgentSpec, error) {
 	spec := vmv1beta1.VMAgentSpec{
 		SelectAllByDefault: true,
-		CommonApplicationDeploymentParams: vmv1beta1.CommonApplicationDeploymentParams{
-			ExtraArgs: map[string]string{
-				"memory.allowedPercent": "40",
-			},
+		ExtraArgs: map[string]string{
+			"memory.allowedPercent": "40",
 		},
-		CommonDefaultableParams: vmv1beta1.CommonDefaultableParams{
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("250m"),
-					corev1.ResourceMemory: resource.MustParse("350Mi"),
-				},
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-					corev1.ResourceMemory: resource.MustParse("850Mi"),
-				},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("350Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("850Mi"),
 			},
 		},
 	}
