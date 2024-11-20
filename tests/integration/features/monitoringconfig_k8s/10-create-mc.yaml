@@ -28,7 +28,7 @@ spec:
   type: pmm
   credentialsSecretName: mc-secret-2
   pmm:
-    url: http://localhost-test-mc-1
+    url: http://localhost-test-mc-2
     image: percona/pmm-client:latest
 ---
 apiVersion: v1

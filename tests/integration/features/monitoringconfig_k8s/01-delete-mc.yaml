@@ -1,5 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-commands:
-  - command: kubectl -n $NAMESPACE monitoringconfig test-mc-1
-  - command: kubectl -n $NAMESPACE monitoringconfig test-mc-2
