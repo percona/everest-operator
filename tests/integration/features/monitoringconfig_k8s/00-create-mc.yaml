@@ -1,0 +1,39 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc-1
+spec:
+  type: pmm
+  credentialsSecretName: mc-secret-1
+  verifyTLS: false
+  pmm:
+    url: http://localhost-test-mc-1
+    image: percona/pmm-client:latest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-secret-1
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc-2
+spec:
+  type: pmm
+  credentialsSecretName: mc-secret-2
+  pmm:
+    url: http://localhost-test-mc-1
+    image: percona/pmm-client:latest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-secret-2
+data:
+  apiKey: YWJjZGVm

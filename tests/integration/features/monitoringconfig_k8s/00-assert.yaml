@@ -1,0 +1,46 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: everest-monitoring
+  labels:
+    app.kubernetes.io/managed-by: everest
+    everest.percona.com/type: monitoring
+  finalizers:
+    - everest.percona.com/cleanup-secrets
+    - everest.percona.com/vmagent
+spec:
+  extraArgs:
+    memory.allowedPercent: "40"
+  resources:
+    requests:
+      memory: 350Mi
+      cpu: 250m
+    limits:
+      memory: 850Mi
+      cpu: 500m
+  selectAllByDefault: true
+  remoteWrite:
+    - url: http://localhost-test-mc-1
+      verifyTLS: false
+      basicAuth:
+        username:
+          name: mc-secret-1
+          key: username
+        password:
+          name: mc-secret-1
+          key: apiKey
+    - url: http://localhost-test-mc-2
+      verifyTLS: true
+      basicAuth:
+        username:
+          name: mc-secret-2
+          key: username
+        password:
+          name: mc-secret-2
+          key: apiKey
+
+

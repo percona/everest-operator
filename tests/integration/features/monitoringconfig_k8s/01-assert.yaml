@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+commands:
+  - command: kubectl wait --for=delete vmagent/everest-monitoring -n $NAMESPACE
