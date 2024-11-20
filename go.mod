@@ -1,12 +1,12 @@
 module github.com/percona/everest-operator
 
-go 1.23.1
+go 1.22.6
 
 toolchain go1.23.2
 
 require (
 	github.com/AlekSi/pointer v1.2.0
-	github.com/VictoriaMetrics/operator/api v0.0.0-20241118151800-e6e68271b948
+	github.com/VictoriaMetrics/operator/api v0.0.0-20240806215809-b00759d790ee
 	github.com/aws/aws-sdk-go-v2 v1.32.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.46
@@ -32,9 +32,9 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/VictoriaMetrics/VictoriaMetrics v1.106.0 // indirect
-	github.com/VictoriaMetrics/metrics v1.35.1 // indirect
-	github.com/VictoriaMetrics/metricsql v0.79.0 // indirect
+	github.com/VictoriaMetrics/VictoriaMetrics v1.101.0 // indirect
+	github.com/VictoriaMetrics/metrics v1.33.1 // indirect
+	github.com/VictoriaMetrics/metricsql v0.75.1 // indirect
 	github.com/aws/aws-sdk-go v1.55.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.7 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.20 // indirect
