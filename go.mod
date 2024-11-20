@@ -2,8 +2,6 @@ module github.com/percona/everest-operator
 
 go 1.22.6
 
-toolchain go1.23.2
-
 require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/VictoriaMetrics/operator/api v0.0.0-20240806215809-b00759d790ee
