@@ -264,6 +264,8 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 }
 
 // enqueueMonitoringConfigs enqueues MonitoringConfig objects for reconciliation when a VMAgent is created/updated/deleted.
+//
+//nolint:ireturn
 func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		vmAgent, ok := o.(*vmv1beta1.VMAgent)
