@@ -2,6 +2,14 @@ module github.com/percona/everest-operator
 
 go 1.22.6
 
+replace (
+	k8s.io/api => k8s.io/api v0.31.1
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.31.1
+	k8s.io/client-go => k8s.io/client-go v0.31.1
+	k8s.io/component-base => k8s.io/component-base v0.31.1
+)
+
 require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/VictoriaMetrics/operator/api v0.0.0-20240806215809-b00759d790ee
@@ -137,12 +145,4 @@ require (
 	sigs.k8s.io/mcs-api v0.1.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-)
-
-replace (
-	k8s.io/api => k8s.io/api v0.31.1
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.1
-	k8s.io/apimachinery => k8s.io/apimachinery v0.31.1
-	k8s.io/client-go => k8s.io/client-go v0.31.1
-	k8s.io/component-base => k8s.io/component-base v0.31.1
 )
