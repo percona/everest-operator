@@ -349,7 +349,26 @@ type DatabaseClusterSpec struct {
 	Monitoring *Monitoring `json:"monitoring,omitempty"`
 	// Sharding is the sharding configuration. PSMDB-only
 	Sharding *Sharding `json:"sharding,omitempty"`
+	// Affinity defines scheduling affinity per component.
+	Affinity []*DatabaseClusterAffinity `json:"affinity,omitempty"`
 }
+
+type DatabaseClusterAffinity struct {
+	// Component defines the component to which the affinity applies.
+	Component DatabaseClusterAffinityComponent `json:"type"`
+	// Affinity defines scheduling affinity.
+	Affinity corev1.Affinity `json:"affinity,omitempty"`
+}
+
+type DatabaseClusterAffinityComponent string
+
+const (
+	AffinityMongoReplSet          DatabaseClusterAffinityComponent = "mongo.replset"
+	AffinityMongoReplSetNonVoting DatabaseClusterAffinityComponent = "mongo.replset.nonvoting"
+	AffinityMongoReplSetArbiter   DatabaseClusterAffinityComponent = "mongo.replset.arbiter"
+	AffinityMongoShardingConfigs  DatabaseClusterAffinityComponent = "mongo.sharding.configs"
+	AffinityMongoShardingMongos   DatabaseClusterAffinityComponent = "mongo.sharding.mongos"
+)
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
