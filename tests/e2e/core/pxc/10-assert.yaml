@@ -25,9 +25,29 @@ spec:
     resources:
       cpu: 600m
       memory: 1G
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
   proxy:
     type: haproxy
     replicas: 3
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -43,6 +63,17 @@ spec:
     image: percona/haproxy:2.8.5
     exposePrimary: {}
     size: 3
+    affinity:
+      advanced:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            preference: 
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
   pxc:
     configuration: |
       [mysqld]
@@ -65,6 +96,17 @@ spec:
         resources:
           requests:
             storage: 15G
+    affinity:
+      advanced:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            preference: 
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
   secretsName: pxc-sample-secrets
   updateStrategy: SmartUpdate
   upgradeOptions:

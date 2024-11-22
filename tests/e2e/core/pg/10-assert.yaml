@@ -20,9 +20,29 @@ spec:
     resources:
       cpu: "1"
       memory: 1G
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
   proxy:
     type: pgbouncer
     replicas: 3
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
 status:
   ready: 6
   size: 6
@@ -61,6 +81,16 @@ spec:
         memory: 1G
     name: instance1
     replicas: 3
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
   port: 5432
   postgresVersion: 16
   proxy:
@@ -69,6 +99,16 @@ spec:
       replicas: 3
       expose:
         type: ClusterIP
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            preference: 
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
 status:
   pgbouncer:
     ready: 3

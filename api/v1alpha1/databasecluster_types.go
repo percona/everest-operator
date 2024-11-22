@@ -157,6 +157,8 @@ type Engine struct {
 	// NOTE: Updating this property post installation may lead to a restart of the cluster.
 	// +optional
 	CRVersion *string `json:"crVersion,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // Size returns the size of the engine.
@@ -243,6 +245,8 @@ type Proxy struct {
 	// Resources are the resource limits for each proxy replica.
 	// If not set, resource limits are not imposed
 	Resources Resources `json:"resources,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // BackupSource represents settings of a source where to get a backup to run restoration.
@@ -326,6 +330,8 @@ type Sharding struct {
 	Shards int32 `json:"shards"`
 	// ConfigServer represents the sharding configuration server settings
 	ConfigServer ConfigServer `json:"configServer"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
@@ -349,26 +355,7 @@ type DatabaseClusterSpec struct {
 	Monitoring *Monitoring `json:"monitoring,omitempty"`
 	// Sharding is the sharding configuration. PSMDB-only
 	Sharding *Sharding `json:"sharding,omitempty"`
-	// Affinity defines scheduling affinity per component.
-	Affinity []*DatabaseClusterAffinity `json:"affinity,omitempty"`
 }
-
-type DatabaseClusterAffinity struct {
-	// Component defines the component to which the affinity applies.
-	Component DatabaseClusterAffinityComponent `json:"type"`
-	// Affinity defines scheduling affinity.
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
-}
-
-type DatabaseClusterAffinityComponent string
-
-const (
-	AffinityMongoReplSet          DatabaseClusterAffinityComponent = "mongo.replset"
-	AffinityMongoReplSetNonVoting DatabaseClusterAffinityComponent = "mongo.replset.nonvoting"
-	AffinityMongoReplSetArbiter   DatabaseClusterAffinityComponent = "mongo.replset.arbiter"
-	AffinityMongoShardingConfigs  DatabaseClusterAffinityComponent = "mongo.sharding.configs"
-	AffinityMongoShardingMongos   DatabaseClusterAffinityComponent = "mongo.sharding.mongos"
-)
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
