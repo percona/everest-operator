@@ -7,3 +7,5 @@ timeout: 180
 skipDelete: true
 testDirs:
 - tests/integration/features
+manifestDirs:
+- tests/manifests

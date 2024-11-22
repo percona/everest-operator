@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 
+	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -88,6 +89,7 @@ var cfg = &Config{}
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

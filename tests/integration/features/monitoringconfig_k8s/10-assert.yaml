@@ -1,0 +1,55 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 60
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: everest-monitoring
+  labels:
+    app.kubernetes.io/managed-by: everest
+    everest.percona.com/type: monitoring
+spec:
+  extraArgs:
+    memory.allowedPercent: "40"
+  resources:
+    requests:
+      memory: 350Mi
+      cpu: 250m
+    limits:
+      memory: 850Mi
+      cpu: 500m
+  selectAllByDefault: true
+  remoteWrite:
+    - url: http://localhost-test-mc-1/victoriametrics/api/v1/write
+      tlsConfig:
+        insecureSkipVerify: true
+      basicAuth:
+        username:
+          name: mc-secret-1
+          key: username
+        password:
+          name: mc-secret-1
+          key: apiKey
+    - url: http://localhost-test-mc-2/victoriametrics/api/v1/write
+      basicAuth:
+        username:
+          name: mc-secret-2
+          key: username
+        password:
+          name: mc-secret-2
+          key: apiKey
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc-1
+  finalizers:
+  - everest.percona.com/vmagent
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc-2
+  finalizers:
+  - everest.percona.com/vmagent
