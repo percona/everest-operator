@@ -93,18 +93,6 @@ spec:
     users:  psmdb-sample-secrets
   sharding:
     enabled: false
-  proxy:
-    affinity:
-      advanced:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 5
-            preference: 
-              matchExpressions:
-              - key: another-node-label-key
-                operator: In
-                values:
-                - another-node-label-value
 status:
   replsets:
     rs0:
