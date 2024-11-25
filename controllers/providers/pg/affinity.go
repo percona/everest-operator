@@ -28,8 +28,8 @@ func (p *applier) configureEngineAffinity() {
 		return
 	}
 
-	for _, i := range p.Spec.InstanceSets {
-		i.Affinity = affinity
+	for i := range p.Spec.InstanceSets {
+		p.Spec.InstanceSets[i].Affinity = affinity
 	}
 }
 
