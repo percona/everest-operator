@@ -17,6 +17,9 @@ EVEREST-0
 
 **CHECKLIST**
 ---
+**Helm chart**
+- [ ] Is the helm chart updated with the new changes? (if applicable)
+
 **Jira**
 - [ ] Is the Jira ticket created and referenced properly?
 
