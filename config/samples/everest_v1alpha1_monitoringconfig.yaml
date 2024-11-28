@@ -2,16 +2,8 @@ apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
   labels:
-    app.kubernetes.io/name: monitoringconfig
-    app.kubernetes.io/instance: monitoringconfig-sample
-    app.kubernetes.io/part-of: everest-operator
+    app.kubernetes.io/name: everest-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: everest-operator
   name: monitoringconfig-sample
 spec:
-  type: pmm
-  credentialsSecretName: my-secret-name
-  pmm:
-    url: http://localhost
-    image: percona/pmm-client:latest
-
+  # TODO(user): Add fields here

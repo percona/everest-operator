@@ -68,10 +68,10 @@ spec:
   - name: Everest Operator
     url: https://everest-operator.domain
   maintainers:
-  - email: andrew.minkin@percona.com
-    name: gen1us2k
   - email: diogo.recharte@percona.com
-    name: recharte
+    name: diogo-recharte
+  - email: mayank.shah@percona.com
+    name: mayank-shah
   - email: oksana.grishchenko@percona.com
     name: oksana-grishchenko
   - email: michal.kralik@percona.com
