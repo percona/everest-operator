@@ -48,8 +48,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/version"
-	"github.com/percona/everest-operator/pkg/predicates"
+	"github.com/percona/everest-operator/internal/controller/version"
+	"github.com/percona/everest-operator/internal/predicates"
 )
 
 // DefaultNamespaceFilter is the default namespace filter.

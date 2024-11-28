@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 func TestPGConfigParser_ParsePGConfig(t *testing.T) {

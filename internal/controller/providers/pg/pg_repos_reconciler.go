@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 type pgReposReconciler struct {

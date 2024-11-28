@@ -43,9 +43,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers"
-	"github.com/percona/everest-operator/controllers/common"
-	"github.com/percona/everest-operator/pkg/predicates"
+	controllers "github.com/percona/everest-operator/internal/controller"
+	"github.com/percona/everest-operator/internal/controller/common"
+	"github.com/percona/everest-operator/internal/predicates"
 )
 
 var (

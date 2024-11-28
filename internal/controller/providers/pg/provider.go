@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
-	"github.com/percona/everest-operator/controllers/providers"
+	"github.com/percona/everest-operator/internal/controller/common"
+	"github.com/percona/everest-operator/internal/controller/providers"
 )
 
 const (
