@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-11-28T18:54:55Z"
+    createdAt: "2024-11-29T10:49:54Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -329,6 +329,15 @@ spec:
                 - --health-probe-bind-address=:8081
                 command:
                 - /manager
+                env:
+                - name: SYSTEM_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
                 image: docker.io/perconalab/everest-operator:0.0.0
                 livenessProbe:
                   httpGet:
