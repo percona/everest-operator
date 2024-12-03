@@ -1,9 +1,9 @@
-## Append samples you want in your CSV to this file as resources ##
+## Append samples of your project ##
 resources:
 - everest_v1alpha1_databasecluster.yaml
-- everest_v1alpha1_databaseclusterbackup.yaml
-- everest_v1alpha1_databaseclusterrestore.yaml
 - everest_v1alpha1_databaseengine.yaml
-- everest_v1alpha1_monitoringconfig.yaml
+- everest_v1alpha1_databaseclusterrestore.yaml
+- everest_v1alpha1_databaseclusterbackup.yaml
 - everest_v1alpha1_backupstorage.yaml
-#+kubebuilder:scaffold:manifestskustomizesamples
+- everest_v1alpha1_monitoringconfig.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
