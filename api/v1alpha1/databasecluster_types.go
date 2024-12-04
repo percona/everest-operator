@@ -316,6 +316,8 @@ type Monitoring struct {
 
 // ConfigServer represents the sharding configuration server settings.
 type ConfigServer struct {
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Replicas is the amount of configServers
 	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas"`
@@ -330,8 +332,6 @@ type Sharding struct {
 	Shards int32 `json:"shards"`
 	// ConfigServer represents the sharding configuration server settings
 	ConfigServer ConfigServer `json:"configServer"`
-	// Affinity defines scheduling affinity.
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.

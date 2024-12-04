@@ -19,7 +19,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/controllers/common"
+	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 func (p *applier) configureEngineAffinity() {
