@@ -2,11 +2,8 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterRestore
 metadata:
   labels:
-    app.kubernetes.io/name: databaseclusterrestore
-    app.kubernetes.io/instance: databaseclusterrestore-sample
-    app.kubernetes.io/part-of: everest-operator
+    app.kubernetes.io/name: everest-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: everest-operator
   name: databaseclusterrestore-sample
 spec:
   # TODO(user): Add fields here
