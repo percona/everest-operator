@@ -32,7 +32,7 @@ func (p *applier) configureEngineAffinity() {
 }
 
 func (p *applier) configureShardingAffinity() {
-	affinity := p.DB.Spec.Engine.Affinity
+	affinity := p.DB.Spec.Sharding.ConfigServer.Affinity
 	if affinity == nil {
 		return
 	}
