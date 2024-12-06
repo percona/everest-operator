@@ -19,26 +19,6 @@ spec:
     resources:
       cpu: 600m
       memory: 1G
-    affinity:
-      nodeAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 5
-          preference: 
-            matchExpressions:
-            - key: another-node-label-key
-              operator: In
-              values:
-              - another-node-label-value
   proxy:
     type: haproxy
     replicas: 3
-    affinity:
-      nodeAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 5
-          preference: 
-            matchExpressions:
-            - key: another-node-label-key
-              operator: In
-              values:
-              - another-node-label-value

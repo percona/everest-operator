@@ -22,26 +22,6 @@ spec:
     resources:
       cpu: 300m
       memory: 500M
-    affinity:
-      nodeAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 5
-          preference: 
-            matchExpressions:
-            - key: another-node-label-key
-              operator: In
-              values:
-              - another-node-label-value
   proxy:
     type: mongos
     replicas: 3
-    affinity:
-      nodeAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 5
-          preference: 
-            matchExpressions:
-            - key: another-node-label-key
-              operator: In
-              values:
-              - another-node-label-value
