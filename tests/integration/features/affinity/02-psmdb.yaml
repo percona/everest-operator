@@ -34,6 +34,7 @@ spec:
               - another-node-label-value
     sharding:
       enabled: true
+      shards: 1
       configServer:
         affinity:
           nodeAffinity:
