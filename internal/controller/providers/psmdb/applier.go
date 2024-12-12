@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -49,6 +50,20 @@ type applier struct {
 }
 
 func (p *applier) Metadata() error {
+	for _, f := range []string{
+		finalizerDeletePSMDBPodsInOrder,
+		finalizerDeletePSMDBPVC,
+	} {
+		controllerutil.AddFinalizer(p.PerconaServerMongoDB, f)
+	}
+
+	// remove legacy finalizers.
+	for _, f := range []string{
+		"delete-psmdb-pods-in-order",
+		"delete-psmdb-pvc",
+	} {
+		controllerutil.RemoveFinalizer(p.PerconaServerMongoDB, f)
+	}
 	return nil
 }
 

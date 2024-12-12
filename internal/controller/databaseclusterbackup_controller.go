@@ -732,7 +732,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			return false, err
 		}
 	}
-	// legacy finalizer.
+	// remove legacy finalizer.
 	if controllerutil.RemoveFinalizer(psmdbCR, "delete-backup") {
 		if err := r.Update(ctx, psmdbCR); err != nil {
 			return false, err

@@ -66,6 +66,12 @@ func (p *applier) AllowUnsafeConfig(_ bool) {
 }
 
 func (p *applier) Metadata() error {
+	for _, f := range []string{
+		finalizerDeletePGPVC,
+		finalizerDeletePGSSL,
+	} {
+		controllerutil.AddFinalizer(p.PerconaPGCluster, f)
+	}
 	return nil
 }
 
