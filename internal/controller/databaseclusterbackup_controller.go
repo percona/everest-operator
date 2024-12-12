@@ -732,6 +732,12 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			return false, err
 		}
 	}
+	// legacy finalizer.
+	if controllerutil.RemoveFinalizer(psmdbCR, "delete-backup") {
+		if err := r.Update(ctx, psmdbCR); err != nil {
+			return false, err
+		}
+	}
 	backup.Status.State = everestv1alpha1.GetDBBackupState(psmdbCR)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp

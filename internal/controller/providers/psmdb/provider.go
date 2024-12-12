@@ -80,6 +80,11 @@ func New(
 		controllerutil.AddFinalizer(psmdb, f)
 	}
 
+	// legacy finalizers.
+	for _, f := range []string{"delete-psmdb-pvc", "delete-psmdb-pods-in-order"} {
+		controllerutil.RemoveFinalizer(psmdb, f)
+	}
+
 	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PSMDBDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
