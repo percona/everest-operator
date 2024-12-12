@@ -32,20 +32,21 @@ spec:
               operator: In
               values:
               - another-node-label-value
-    sharding:
-      enabled: true
-      shards: 1
-      configServer:
-        affinity:
-          nodeAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 5
-              preference: 
-                matchExpressions:
-                - key: another-node-label-key
-                  operator: In
-                  values:
-                  - another-node-label-value
+  sharding:
+    enabled: true
+    shards: 1
+    configServer:
+      replicas: 1
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            preference: 
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
   proxy:
     type: mongos
     replicas: 3
