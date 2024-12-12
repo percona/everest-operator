@@ -113,6 +113,7 @@ type Applier interface {
 	DataSource() error
 	Monitoring() error
 	Backup() error
+	Metadata() error
 }
 
 // Storage is the storage configuration.

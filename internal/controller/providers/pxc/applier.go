@@ -43,6 +43,10 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) Metadata() error {
+	return nil
+}
+
 func (p *applier) Paused(paused bool) {
 	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }

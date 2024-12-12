@@ -65,6 +65,10 @@ func (p *applier) Paused(paused bool) {
 func (p *applier) AllowUnsafeConfig(_ bool) {
 }
 
+func (p *applier) Metadata() error {
+	return nil
+}
+
 func (p *applier) Engine() error {
 	pg := p.PerconaPGCluster
 	database := p.DB

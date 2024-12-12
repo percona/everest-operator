@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -69,20 +68,6 @@ func New(
 		psmdb)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
-	}
-
-	// Add necessary finalizers.
-	finalizers := []string{
-		finalizerDeletePSMDBPodsInOrder,
-		finalizerDeletePSMDBPVC,
-	}
-	for _, f := range finalizers {
-		controllerutil.AddFinalizer(psmdb, f)
-	}
-
-	// legacy finalizers.
-	for _, f := range []string{"delete-psmdb-pvc", "delete-psmdb-pods-in-order"} {
-		controllerutil.RemoveFinalizer(psmdb, f)
 	}
 
 	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PSMDBDeploymentName, opts.DB.GetNamespace())
