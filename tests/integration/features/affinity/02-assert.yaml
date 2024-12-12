@@ -20,19 +20,19 @@ spec:
               operator: In
               values:
               - another-node-label-value
-    sharding:
-      enabled: true
-      configServer:
-        affinity:
-          nodeAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 5
-              preference: 
-                matchExpressions:
-                - key: another-node-label-key
-                  operator: In
-                  values:
-                  - another-node-label-value
+  sharding:
+    enabled: true
+    configServer:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 5
+            preference: 
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
   proxy:
     affinity:
       nodeAffinity:
