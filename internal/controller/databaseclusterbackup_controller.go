@@ -74,7 +74,7 @@ const (
 	pxcGapsReasonString               = "BinlogGapDetected"
 
 	deletePXCBackupFinalizer   = "delete-s3-backup"
-	deletePSMDBBackupFinalizer = "delete-backup"
+	deletePSMDBBackupFinalizer = "percona.com/delete-backup"
 )
 
 // ErrBackupStorageUndefined is returned when a backup storage is not defined

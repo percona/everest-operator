@@ -37,8 +37,8 @@ import (
 )
 
 const (
-	finalizerDeletePSMDBPodsInOrder = "delete-psmdb-pods-in-order"
-	finalizerDeletePSMDBPVC         = "delete-psmdb-pvc"
+	finalizerDeletePSMDBPodsInOrder = "percona.com/delete-psmdb-pods-in-order"
+	finalizerDeletePSMDBPVC         = "percona.com/delete-psmdb-pvc"
 )
 
 // Provider is a provider for Percona Server for MongoDB.
