@@ -157,6 +157,8 @@ type Engine struct {
 	// NOTE: Updating this property post installation may lead to a restart of the cluster.
 	// +optional
 	CRVersion *string `json:"crVersion,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // Size returns the size of the engine.
@@ -243,6 +245,8 @@ type Proxy struct {
 	// Resources are the resource limits for each proxy replica.
 	// If not set, resource limits are not imposed
 	Resources Resources `json:"resources,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // BackupSource represents settings of a source where to get a backup to run restoration.
@@ -312,6 +316,8 @@ type Monitoring struct {
 
 // ConfigServer represents the sharding configuration server settings.
 type ConfigServer struct {
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Replicas is the amount of configServers
 	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas"`

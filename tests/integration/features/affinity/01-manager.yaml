@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - script: SYSTEM_NAMESPACE=$NAMESPACE MONITORING_NAMESPACE=$NAMESPACE DB_NAMESPACES=$NAMESPACE ../../../../bin/manager -metrics-bind-address :0 -health-probe-bind-address :0
+    background: true
+    skipLogOutput: true
