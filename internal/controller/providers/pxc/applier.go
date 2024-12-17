@@ -343,20 +343,28 @@ func (p *applier) applyHAProxyCfg() error {
 
 	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
+		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
+		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
 		haProxy.PodSpec.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
 		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
 		// We now set the requests to the same value as the limits, however, we need to ensure that
 		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
-		if shouldUpdateRequests {
+		if shouldUpdateRequests ||
+			p.currentPerconaXtraDBClusterSpec.HAProxy.Resources.Requests.Cpu().
+				Equal(p.DB.Spec.Proxy.Resources.CPU) {
 			haProxy.PodSpec.Resources.Requests[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
 		}
 	}
 	if !p.DB.Spec.Proxy.Resources.Memory.IsZero() {
+		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
+		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
 		haProxy.PodSpec.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
 		// We now set the requests to the same value as the limits, however, we need to ensure that
 		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
-		if shouldUpdateRequests {
+		if shouldUpdateRequests ||
+			p.currentPerconaXtraDBClusterSpec.HAProxy.Resources.Requests.Memory().
+				Equal(p.DB.Spec.Proxy.Resources.Memory) {
 			haProxy.PodSpec.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		}
 	}
@@ -426,20 +434,28 @@ func (p *applier) applyProxySQLCfg() error {
 
 	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
+		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
+		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
 		proxySQL.Resources.Limits[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
 		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
 		// We now set the requests to the same value as the limits, however, we need to ensure that
 		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
-		if shouldUpdateRequests {
+		if shouldUpdateRequests ||
+			p.currentPerconaXtraDBClusterSpec.HAProxy.Resources.Requests.Cpu().
+				Equal(p.DB.Spec.Proxy.Resources.CPU) {
 			proxySQL.Resources.Requests[corev1.ResourceCPU] = p.DB.Spec.Proxy.Resources.CPU
 		}
 	}
 	if !p.DB.Spec.Proxy.Resources.Memory.IsZero() {
+		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
+		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
 		proxySQL.Resources.Limits[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		// Prior to 1.3.0, we did not set the requests, and this led to some issues.
 		// We now set the requests to the same value as the limits, however, we need to ensure that
 		// they're not automatically applied when Everest is upgraded, otherwise it leads to a proxy restart.
-		if shouldUpdateRequests {
+		if shouldUpdateRequests ||
+			p.currentPerconaXtraDBClusterSpec.HAProxy.Resources.Requests.Cpu().
+				Equal(p.DB.Spec.Proxy.Resources.CPU) {
 			proxySQL.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		}
 	}
