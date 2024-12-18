@@ -2,8 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestSuite
 crdDir: config/crd/bases
 artifactsDir: /tmp/
-parallel: 3
-timeout: 180
+startKIND: true
 skipDelete: true
 commands:
   - command: kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
