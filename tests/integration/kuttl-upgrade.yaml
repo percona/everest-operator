@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestSuite
+crdDir: config/crd/bases
+artifactsDir: /tmp/
+startKIND: true
+skipDelete: true
+testDirs:
+- tests/integration/upgrade
+manifestDirs:
+- tests/manifests
