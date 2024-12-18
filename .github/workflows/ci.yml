@@ -86,6 +86,16 @@ jobs:
         env:
           KUBECTL_VERSION: 1.27.9
 
+      - name: Run core tests
+        if: always()
+        run: |
+          kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+        env:
+          PXC_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.18.0
+          PG_OPERATOR_VERSION: 2.5.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
       - name: Run features tests
         if: always()
         run: |
