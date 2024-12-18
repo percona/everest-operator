@@ -103,6 +103,7 @@ jobs:
 
   eks-e2e-tests:
     name: E2E tests (EKS)
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
@@ -168,6 +169,7 @@ jobs:
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Run upgrade tests
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade')
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-upgrade.yaml
         env:
@@ -216,7 +218,7 @@ jobs:
 
 
       - name: Run core tests
-        if: always()
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
         env:
