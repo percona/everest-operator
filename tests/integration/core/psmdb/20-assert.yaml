@@ -1,0 +1,107 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+  finalizers:
+  - everest.percona.com/upstream-cluster-cleanup
+  - foregroundDeletion
+  labels:
+    clusterName: test-psmdb-cluster
+spec:
+  allowUnsafeConfiguration: true
+  backup:
+    enabled: false
+    pitr:
+      enabled: false
+  engine:
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 4G
+    storage:
+      size: 25Gi
+    type: psmdb
+    userSecretsName: everest-secrets-test-psmdb-cluster
+  proxy:
+    expose:
+      type: internal
+    resources:
+      cpu: "0"
+      memory: "0"
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+  finalizers:
+    - delete-psmdb-pods-in-order
+    - delete-psmdb-pvc
+spec:
+  allowUnsafeConfigurations: true
+  backup:
+    configuration:
+      backupOptions:
+        oplogSpanMin: 0
+        timeouts:
+          startingStatus: 120
+    enabled: true
+    pitr: {}
+    resources:
+      limits:
+        cpu: 300m
+        memory: 1G
+  multiCluster:
+    enabled: false
+  pmm:
+    image: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 300M
+  replsets:
+  - affinity:
+      advanced:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+    arbiter:
+      enabled: false
+      resources: {}
+      size: 0
+    expose:
+      enabled: false
+      type: ClusterIP
+    name: rs0
+    nonvoting:
+      enabled: false
+      resources: {}
+      size: 0
+    podDisruptionBudget:
+      maxUnavailable: 1
+    resources:
+      limits:
+        cpu: "1"
+        memory: 4G
+    size: 1
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 25Gi
+  secrets:
+    encryptionKey: test-psmdb-cluster-mongodb-encryption-key
+    users: everest-secrets-test-psmdb-cluster
+  sharding:
+    balancer: {}
+    enabled: false
+  unsafeFlags: {}
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: disabled
+    schedule: 0 4 * * *

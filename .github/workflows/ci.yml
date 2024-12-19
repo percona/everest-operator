@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened, labeled]
 jobs:
   golang-tests:
     name: Go unit tests
@@ -46,9 +47,82 @@ jobs:
           PG_OPERATOR_VERSION: 2.5.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
+  integration-tests:
+    name: Integration tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Build operator
+        run:
+          make build
+
+      - name: Install tools
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          cp kubectl "$TOOLS_PATH"
+          rm kubectl
+          # Kuttl
+          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
+          chmod +x ./kubectl-kuttl
+          mv ./kubectl-kuttl "$TOOLS_PATH"
+        env:
+          KUBECTL_VERSION: 1.27.9
+
+      - name: Run core tests
+        if: always()
+        run: |
+          kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+        env:
+          PXC_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.18.0
+          PG_OPERATOR_VERSION: 2.5.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
+      - name: Run features tests
+        if: always()
+        run: |
+          kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+        env:
+          PXC_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.18.0
+          PG_OPERATOR_VERSION: 2.5.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
+      - name: Run upgrade tests
+        if: always()
+        run: |
+          kubectl kuttl test --config ./tests/integration/kuttl-upgrade.yaml
+        env:
+          PXC_OPERATOR_VERSION: 1.15.0
+          PSMDB_OPERATOR_VERSION: 1.18.0
+          PG_OPERATOR_VERSION: 2.5.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.4.1
+          PREVIOUS_PXC_OPERATOR_VERSION: 1.14.0
+          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.17.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   eks-e2e-tests:
     name: E2E tests (EKS)
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
@@ -97,13 +171,6 @@ jobs:
           curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
-          # kubectl
-          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-          chmod +x kubectl
-          cp kubectl "$TOOLS_PATH"
-          rm kubectl
           # Install EKSCTL
           ARCH=amd64
           PLATFORM=$(uname -s)_$ARCH
@@ -121,6 +188,7 @@ jobs:
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Run upgrade tests
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade')
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-upgrade.yaml
         env:
@@ -169,7 +237,7 @@ jobs:
 
 
       - name: Run core tests
-        if: always()
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
         env:
@@ -177,21 +245,6 @@ jobs:
           PSMDB_OPERATOR_VERSION: 1.18.0
           PG_OPERATOR_VERSION: 2.5.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
-
-      - name: Run features tests
-        if: always()
-        run: |
-          kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
-        env:
-          PXC_OPERATOR_VERSION: 1.15.0
-          PSMDB_OPERATOR_VERSION: 1.18.0
-          PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PG_OPERATOR_VERSION: 2.4.1
-          PREVIOUS_PXC_OPERATOR_VERSION: 1.14.0
-          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.17.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
-          EVEREST_CATALOG_VERSION: 1.0.1
-          OLM_VERSION: 0.27.0
 
       - name: Clean up custom resources
         if: always()
