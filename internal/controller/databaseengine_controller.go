@@ -433,6 +433,10 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 		Name:      dbEngine.GetName(),
 		Namespace: dbEngine.GetNamespace(),
 	}, subscription); err != nil {
+		// the Subscription is not found or removed, so we cannot check for upgrades.
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
