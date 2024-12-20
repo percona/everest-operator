@@ -10,7 +10,6 @@ spec:
   allowUnsafeConfiguration: true
   engine:
     type: pxc
-    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     config: |
       [mysqld]

@@ -46,7 +46,6 @@ spec:
     image: percona/pmm-client:latest
   engine:
     type: pxc
-    version: 8.0.32-24.2
     config: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"

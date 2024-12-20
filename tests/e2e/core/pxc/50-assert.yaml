@@ -10,7 +10,6 @@ spec:
   allowUnsafeConfiguration: true
   engine:
     type: pxc
-    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     config: |
       [mysqld]
@@ -36,7 +35,6 @@ spec:
   allowUnsafeConfigurations: true
   haproxy:
     enabled: true
-    image: percona/haproxy:2.8.5
     exposePrimary: {}
     size: 1
   pxc:
@@ -47,7 +45,6 @@ spec:
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.32-24.2
     livenessProbes: {}
     readinessProbes: {}
     resources:
@@ -75,11 +72,9 @@ status:
     size: 1
     status: ready
   pxc:
-    image: percona/percona-xtradb-cluster:8.0.32-24.2
     ready: 1
     size: 1
     status: ready
-    version: 8.0.32-24.2
   ready: 2
   size: 2
   state: ready
