@@ -1,0 +1,117 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+  finalizers:
+  - everest.percona.com/upstream-cluster-cleanup
+  - foregroundDeletion
+  labels:
+    clusterName: test-pg-cluster
+spec:
+  backup:
+    enabled: false
+    pitr:
+      enabled: false
+  engine:
+    replicas: 2
+    resources:
+      cpu: "1"
+      memory: 2G
+    storage:
+      size: 25Gi
+    type: postgresql
+    userSecretsName: everest-secrets-test-pg-cluster
+  proxy:
+    expose:
+      type: internal
+    replicas: 2
+    resources:
+      cpu: "1"
+      memory: 30M
+    type: pgbouncer
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+  finalizers:
+    - percona.com/delete-pvc
+    - percona.com/delete-ssl
+spec:
+  backups:
+    pgbackrest:
+      configuration:
+      - secret:
+          name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+      manual:
+        repoName: repo1
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 25Gi
+  extensions:
+    builtin: {}
+    storage: {}
+  instances:
+  - affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+          weight: 1
+    dataVolumeClaimSpec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 25Gi
+    name: instance1
+    replicas: 2
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2G
+  patroni:
+    dynamicConfiguration:
+      postgresql:
+        parameters:
+          track_commit_timestamp: "on"
+    leaderLeaseDurationSeconds: 30
+    port: 8008
+    syncPeriodSeconds: 10
+  pause: false
+  port: 5432
+  postgresVersion: 16
+  proxy:
+    pgBouncer:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      config: {}
+      expose:
+        type: ClusterIP
+      exposeSuperusers: true
+      port: 5432
+      replicas: 2
+      resources:
+        limits:
+          cpu: "1"
+          memory: 30M
+  secrets: {}
+  users:
+  - name: postgres
+    secretName: everest-secrets-test-pg-cluster
