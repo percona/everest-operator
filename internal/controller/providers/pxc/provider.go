@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -69,16 +68,6 @@ func New(
 		pxc)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
-	}
-
-	// Add necessary finalizers.
-	finalizers := []string{
-		finalizerDeletePXCPodsInOrder,
-		finalizerDeletePXCPVC,
-		finalizerDeletePXCSSL,
-	}
-	for _, f := range finalizers {
-		controllerutil.AddFinalizer(pxc, f)
 	}
 
 	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PXCDeploymentName, opts.DB.GetNamespace())

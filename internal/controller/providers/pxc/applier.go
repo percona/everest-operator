@@ -44,6 +44,17 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) Metadata() error {
+	for _, f := range []string{
+		finalizerDeletePXCPodsInOrder,
+		finalizerDeletePXCPVC,
+		finalizerDeletePXCSSL,
+	} {
+		controllerutil.AddFinalizer(p.PerconaXtraDBCluster, f)
+	}
+	return nil
+}
+
 func (p *applier) Paused(paused bool) {
 	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }
