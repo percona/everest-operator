@@ -30,11 +30,11 @@ import (
 type RestoreState string
 
 const (
-	RestoreNew       RestoreState = ""          //nolint:revive
-	RestoreStarting  RestoreState = "Starting"  //nolint:revive
-	RestoreRunning   RestoreState = "Restoring" //nolint:revive
-	RestoreFailed    RestoreState = "Failed"    //nolint:revive
-	RestoreSucceeded RestoreState = "Succeeded" //nolint:revive
+	RestoreNew       RestoreState = ""         //nolint:revive
+	RestoreStarting  RestoreState = "Starting" //nolint:revive
+	RestoreRunning   RestoreState = "Restoring"
+	RestoreFailed    RestoreState = "Failed"
+	RestoreSucceeded RestoreState = "Succeeded"
 )
 
 // PITRType represents type of Point-in-time recovery.
