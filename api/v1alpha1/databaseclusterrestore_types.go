@@ -30,11 +30,11 @@ import (
 type RestoreState string
 
 const (
-	RestoreNew       RestoreState = ""          //nolint:revive
-	RestoreStarting  RestoreState = "Starting"  //nolint:revive
-	RestoreRunning   RestoreState = "Restoring" //nolint:revive
-	RestoreFailed    RestoreState = "Failed"    //nolint:revive
-	RestoreSucceeded RestoreState = "Succeeded" //nolint:revive
+	RestoreNew       RestoreState = ""         //nolint:revive
+	RestoreStarting  RestoreState = "Starting" //nolint:revive
+	RestoreRunning   RestoreState = "Restoring"
+	RestoreFailed    RestoreState = "Failed"
+	RestoreSucceeded RestoreState = "Succeeded"
 )
 
 // PITRType represents type of Point-in-time recovery.
@@ -85,13 +85,13 @@ type RestoreDate struct {
 }
 
 // OpenAPISchemaType returns a schema type for OperAPI specification.
-func (RestoreDate) OpenAPISchemaType() []string { return []string{"string"} }
+func (*RestoreDate) OpenAPISchemaType() []string { return []string{"string"} }
 
 // OpenAPISchemaFormat returns a format for OperAPI specification.
-func (RestoreDate) OpenAPISchemaFormat() string { return "" }
+func (*RestoreDate) OpenAPISchemaFormat() string { return "" }
 
 // MarshalJSON marshals JSON.
-func (t RestoreDate) MarshalJSON() ([]byte, error) {
+func (t *RestoreDate) MarshalJSON() ([]byte, error) {
 	if t.IsZero() {
 		return []byte("null"), nil
 	}

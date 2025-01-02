@@ -33,12 +33,12 @@ const (
 type BackupState string
 
 const (
-	BackupNew       BackupState = ""          //nolint:revive
-	BackupStarting  BackupState = "Starting"  //nolint:revive
-	BackupRunning   BackupState = "Running"   //nolint:revive
-	BackupFailed    BackupState = "Failed"    //nolint:revive
-	BackupSucceeded BackupState = "Succeeded" //nolint:revive
-	BackupDeleting  BackupState = "Deleting"  //nolint:revive
+	BackupNew       BackupState = ""         //nolint:revive
+	BackupStarting  BackupState = "Starting" //nolint:revive
+	BackupRunning   BackupState = "Running"
+	BackupFailed    BackupState = "Failed"
+	BackupSucceeded BackupState = "Succeeded"
+	BackupDeleting  BackupState = "Deleting"
 )
 
 // DatabaseClusterBackupSpec defines the desired state of DatabaseClusterBackup.
@@ -94,21 +94,21 @@ type DatabaseClusterBackupList struct {
 }
 
 // HasSucceeded returns true if the backup has succeeded.
-func (b DatabaseClusterBackup) HasSucceeded() bool {
+func (b *DatabaseClusterBackup) HasSucceeded() bool {
 	return b.Status.State == BackupState(pxcv1.BackupSucceeded) ||
 		b.Status.State == BackupState(pgv2.BackupSucceeded) ||
 		b.Status.State == BackupState(psmdbv1.BackupStateReady)
 }
 
 // HasFailed returns true if the backup has failed.
-func (b DatabaseClusterBackup) HasFailed() bool {
+func (b *DatabaseClusterBackup) HasFailed() bool {
 	return b.Status.State == BackupState(pxcv1.BackupFailed) ||
 		b.Status.State == BackupState(pgv2.BackupFailed) ||
 		b.Status.State == BackupState(psmdbv1.BackupStateError)
 }
 
 // HasCompleted returns true if the backup has completed.
-func (b DatabaseClusterBackup) HasCompleted() bool {
+func (b *DatabaseClusterBackup) HasCompleted() bool {
 	return (b.HasSucceeded() || b.HasFailed()) && b.GetDeletionTimestamp().IsZero()
 }
 
