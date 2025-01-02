@@ -85,13 +85,13 @@ type RestoreDate struct {
 }
 
 // OpenAPISchemaType returns a schema type for OperAPI specification.
-func (RestoreDate) OpenAPISchemaType() []string { return []string{"string"} }
+func (*RestoreDate) OpenAPISchemaType() []string { return []string{"string"} }
 
 // OpenAPISchemaFormat returns a format for OperAPI specification.
-func (RestoreDate) OpenAPISchemaFormat() string { return "" }
+func (*RestoreDate) OpenAPISchemaFormat() string { return "" }
 
 // MarshalJSON marshals JSON.
-func (t RestoreDate) MarshalJSON() ([]byte, error) {
+func (t *RestoreDate) MarshalJSON() ([]byte, error) {
 	if t.IsZero() {
 		return []byte("null"), nil
 	}

@@ -68,21 +68,21 @@ func (p *NamespaceFilter) filterObject(obj client.Object) bool {
 }
 
 // Create returns true if the object should be created.
-func (p NamespaceFilter) Create(event event.CreateEvent) bool {
+func (p *NamespaceFilter) Create(event event.CreateEvent) bool {
 	return p.filterObject(event.Object)
 }
 
 // Update returns true if the object should be updated.
-func (p NamespaceFilter) Update(event event.UpdateEvent) bool {
+func (p *NamespaceFilter) Update(event event.UpdateEvent) bool {
 	return p.filterObject(event.ObjectNew)
 }
 
 // Delete returns true if the object should be deleted.
-func (p NamespaceFilter) Delete(event event.DeleteEvent) bool {
+func (p *NamespaceFilter) Delete(event event.DeleteEvent) bool {
 	return p.filterObject(event.Object)
 }
 
 // Generic returns true if the object should be processed.
-func (p NamespaceFilter) Generic(event event.GenericEvent) bool {
+func (p *NamespaceFilter) Generic(event event.GenericEvent) bool {
 	return p.filterObject(event.Object)
 }
