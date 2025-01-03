@@ -2004,8 +2004,6 @@ github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/9
 github.com/pelletier/go-toml v1.7.0/go.mod h1:vwGMzjaWMwyfHwgIBhI2YUM4fB6nL6lVAvS1LBMMhTE=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20241002124601-957ac501f939 h1:OggdqSzqe9pO3A4GaRlrLwZXS3zEQ84O4+7Jm9cg74s=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20241002124601-957ac501f939/go.mod h1:KhIlTT4wR2mIkMvDtEFerr9zaADJorL7UThSztzxBaY=
-github.com/percona/percona-postgresql-operator v0.0.0-20241007204305-35d61aa5aebd h1:9RCUfPUxbdXuL/247r77DJmRSowDzA2xzZC9FpuLuUw=
-github.com/percona/percona-postgresql-operator v0.0.0-20241007204305-35d61aa5aebd/go.mod h1:ICbLstSO4zhYo+SFSciIWO9rLHQg29GJ1335L0tfhR0=
 github.com/percona/percona-server-mongodb-operator v1.18.0 h1:inRWonCOTacD++D/tvyFXVUqKx7f2OQzz8w1NyT3cAI=
 github.com/percona/percona-server-mongodb-operator v1.18.0/go.mod h1:MWBsK5fpmsQPeudfHP16XtX6tb9cPJmBpMHAQ/xcbvo=
 github.com/percona/percona-xtradb-cluster-operator v1.15.0 h1:Dc2VXVCXushIG39TrX1qzX6COEf5iqunr+dZ1IVjoos=
@@ -3302,7 +3300,6 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
-gotest.tools/v3 v3.5.1 h1:EENdUnS3pdur5nybKYIh2Vfgc8IUNBjxDPSjtiJcOzU=
 gotest.tools/v3 v3.5.1/go.mod h1:isy3WKz7GK6uNw/sbHzfKBLvlvXwUyV06n6brMxxopU=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
