@@ -1757,7 +1757,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: docker.io/perconalab/everest-operator:1.4.0-rc6
+        image: docker.io/percona/everest-operator:1.4.0
         livenessProbe:
           httpGet:
             path: /healthz
