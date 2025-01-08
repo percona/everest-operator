@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -29,15 +30,18 @@ import (
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -66,6 +70,10 @@ var (
 type DatabaseClusterRestoreReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Cache  cache.Cache
+
+	controller controller.Controller // provides a handle to the underlying controller to configure watchers dynamically
+	watchStore sync.Map              // keeps track of which watchers are added to the controller
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
@@ -553,37 +561,13 @@ func (r *DatabaseClusterRestoreReconciler) addPGToScheme(scheme *runtime.Scheme)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apiextensions.k8s.io",
-		Kind:    "CustomResourceDefinition",
-		Version: "v1",
-	})
-	controller := ctrl.NewControllerManagedBy(mgr).
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseClusterRestore{}).
 		Watches(
 			&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterRestoreList{}),
 		)
-	err := r.Get(context.Background(), types.NamespacedName{Name: pxcRestoreCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPXCToScheme(r.Scheme); err == nil {
-			controller.Owns(&pxcv1.PerconaXtraDBClusterRestore{})
-		}
-	}
-	err = r.Get(context.Background(), types.NamespacedName{Name: psmdbRestoreCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
-			controller.Owns(&psmdbv1.PerconaServerMongoDBRestore{})
-		}
-	}
-	err = r.Get(context.Background(), types.NamespacedName{Name: pgRestoreCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPGToScheme(r.Scheme); err == nil {
-			controller.Owns(&pgv2.PerconaPGRestore{})
-		}
-	}
-	err = mgr.GetFieldIndexer().IndexField(
+	if err := mgr.GetFieldIndexer().IndexField(
 		context.Background(),
 		&everestv1alpha1.DatabaseClusterRestore{},
 		dbClusterRestoreDBClusterNameField,
@@ -591,13 +575,19 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 			res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
 			return []string{res.Spec.DBClusterName}
 		},
-	)
+	); err != nil {
+		return err
+	}
+	ctrlBuilder.WithEventFilter(common.DefaultNamespaceFilter)
+
+	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
+	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
+	ctrl, err := ctrlBuilder.Build(r)
 	if err != nil {
 		return err
 	}
-
-	controller.WithEventFilter(common.DefaultNamespaceFilter)
-	return controller.Complete(r)
+	r.controller = ctrl
+	return nil
 }
 
 func parsePrefixFromDestination(url string) string {
@@ -709,6 +699,51 @@ func validatePitrRestoreSpec(dataSource everestv1alpha1.DataSource) error {
 		return errPitrTypeLatest
 	default:
 		return errPitrTypeIsNotSupported
+	}
+	return nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) SetWatchers(ctx context.Context) error {
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := r.List(ctx, dbEngines); err != nil {
+		return err
+	}
+
+	log := log.FromContext(ctx)
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
+		_, loaded := r.watchStore.Load(dbEngineType)
+		if loaded {
+			return nil
+		}
+		// This is the same as calling Owns() on the controller builder.
+		if err := r.controller.Watch(
+			source.TypedKind(r.Cache, obj, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &everestv1alpha1.DatabaseCluster{})),
+		); err != nil {
+			return err
+		}
+		r.watchStore.Store(dbEngineType, struct{}{})
+		log.Info("Update DatabaseClusterRestore watcher", "engine", dbEngineType)
+		return nil
+	}
+
+	for _, dbEngine := range dbEngines.Items {
+		switch t := dbEngine.Spec.Type; t {
+		case everestv1alpha1.DatabaseEnginePXC:
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePostgresql:
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePSMDB:
+			if err := addWatcher(t, &pgv2.PerconaPGRestore{}); err != nil {
+				return err
+			}
+		default:
+			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
+			continue
+		}
 	}
 	return nil
 }

@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -36,18 +37,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -85,6 +88,10 @@ var ErrBackupStorageUndefined = errors.New("backup storage is not defined in the
 type DatabaseClusterBackupReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Cache  cache.Cache
+
+	controller controller.Controller // provides a handle to the underlying controller to configure watchers dynamically
+	watchStore sync.Map              // keeps track of which watchers are added to the controller
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
@@ -218,13 +225,6 @@ func (r *DatabaseClusterBackupReconciler) reconcileMeta(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apiextensions.k8s.io",
-		Kind:    "CustomResourceDefinition",
-		Version: "v1",
-	})
-
 	// Index the dbClusterName field in DatabaseClusterBackup.
 	err := mgr.GetFieldIndexer().IndexField(
 		context.Background(), &everestv1alpha1.DatabaseClusterBackup{}, dbClusterBackupDBClusterNameField,
@@ -242,46 +242,22 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 		return err
 	}
 
-	controller := ctrl.NewControllerManagedBy(mgr).
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&everestv1alpha1.DatabaseClusterBackup{})
-	controller.Watches(
+	ctrlBuilder.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterBackupList{}),
 	)
-	ctx := context.Background()
+	ctrlBuilder.WithEventFilter(common.DefaultNamespaceFilter)
 
-	err = r.Get(ctx, types.NamespacedName{Name: pxcBackupCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPXCToScheme(r.Scheme); err == nil {
-			controller.Watches(
-				&pxcv1.PerconaXtraDBClusterBackup{},
-				r.watchHandler(r.tryCreatePXC),
-			)
-		}
+	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
+	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
+	ctrl, err := ctrlBuilder.Build(r)
+	if err != nil {
+		return err
 	}
-
-	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackupCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPSMDBToScheme(r.Scheme); err == nil {
-			controller.Watches(
-				&psmdbv1.PerconaServerMongoDBBackup{},
-				r.watchHandler(r.tryCreatePSMDB),
-			)
-		}
-	}
-
-	err = r.Get(ctx, types.NamespacedName{Name: pgBackupCRDName}, unstructuredResource)
-	if err == nil {
-		if err := r.addPGToScheme(r.Scheme); err == nil {
-			controller.Watches(
-				&pgv2.PerconaPGBackup{},
-				r.watchHandler(r.tryCreatePG),
-			)
-		}
-	}
-
-	controller.WithEventFilter(common.DefaultNamespaceFilter)
-	return controller.Complete(r)
+	r.controller = ctrl
+	return nil
 }
 
 func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
@@ -943,6 +919,51 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	// Finalizer is gone from upstream object, remove from DatabaseClusterBackup.
 	if controllerutil.RemoveFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return r.Update(ctx, dbcBackup)
+	}
+	return nil
+}
+
+func (r *DatabaseClusterBackupReconciler) SetWatchers(ctx context.Context) error {
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := r.List(ctx, dbEngines); err != nil {
+		return err
+	}
+
+	log := log.FromContext(ctx)
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
+		_, loaded := r.watchStore.Load(dbEngineType)
+		if loaded {
+			return nil
+		}
+		// This is the same as calling Owns() on the controller builder.
+		if err := r.controller.Watch(
+			source.TypedKind(r.Cache, obj, r.watchHandler(f)),
+		); err != nil {
+			return err
+		}
+		r.watchStore.Store(dbEngineType, struct{}{})
+		log.Info("Update DatabaseClusterBackup watcher", "engine", dbEngineType)
+		return nil
+	}
+
+	for _, dbEngine := range dbEngines.Items {
+		switch t := dbEngine.Spec.Type; t {
+		case everestv1alpha1.DatabaseEnginePXC:
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterBackup{}, r.tryCreatePXC); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePostgresql:
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBBackup{}, r.tryCreatePSMDB); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePSMDB:
+			if err := addWatcher(t, &pgv2.PerconaPGBackup{}, r.tryCreatePG); err != nil {
+				return err
+			}
+		default:
+			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
+			continue
+		}
 	}
 	return nil
 }

@@ -76,7 +76,12 @@ type DatabaseEngineReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	versionService *version.Service
-	podSelf        corev1.ObjectReference // reference to self pod.
+
+	Controllers []DatabaseController
+}
+
+type DatabaseController interface {
+	SetWatchers(context.Context) error
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
@@ -189,10 +194,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if requeue, err := r.restartIfNeeded(ctx); err != nil {
-		return ctrl.Result{}, err
-	} else if requeue {
-		return ctrl.Result{Requeue: true}, nil
+	if err := r.reconcileWatchers(ctx); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile watchers: %w", err)
 	}
 
 	return ctrl.Result{
@@ -200,42 +203,13 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}, nil
 }
 
-// restartIfNeeded checks if the operator pod needs to be restarted.
-// It does so by checking if there are any running DBEngines whose CRDs are not registered with the operator.
-// Returns: [requeue(bool), error].
-func (r *DatabaseEngineReconciler) restartIfNeeded(ctx context.Context) (bool, error) {
-	if r.podSelf.Name == "" || r.podSelf.Namespace == "" {
-		return false, nil
-	}
-	dbEngines := &everestv1alpha1.DatabaseEngineList{}
-	if err := r.List(ctx, dbEngines); err != nil {
-		return false, fmt.Errorf("failed to list DatabaseEngines: %w", err)
-	}
-	for _, dbEngine := range dbEngines.Items {
-		// Wait until all DB engines are either installed/not installed.
-		// This way we can avoid redundant restarts.
-		if dbEngine.Status.State == "" ||
-			dbEngine.Status.State == everestv1alpha1.DBEngineStateInstalling ||
-			dbEngine.Status.State == everestv1alpha1.DBEngineStateUpgrading {
-			return true, nil
-		}
-		if dbEngine.Status.State == everestv1alpha1.DBEngineStateNotInstalled {
-			continue
-		}
-		group, found := operatorEngineTypeToCRDGroup[dbEngine.Spec.Type]
-		if !found {
-			return false, fmt.Errorf("unknown engine type '%s'", dbEngine.Spec.Type)
-		}
-		// Ideally we would also like to check if all registered controllers are also watching the CRs,
-		// but since that's tricky to accomplish, we will only check if the CRDs are registered to the scheme,
-		// since we typically perform that step along with configuring the watches.
-		if !r.Scheme.IsGroupRegistered(group) {
-			return false, r.Delete(ctx, &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: r.podSelf.Name, Namespace: r.podSelf.Namespace},
-			})
+func (r *DatabaseEngineReconciler) reconcileWatchers(ctx context.Context) error {
+	for _, c := range r.Controllers {
+		if err := c.SetWatchers(ctx); err != nil {
+			return err
 		}
 	}
-	return false, nil
+	return nil
 }
 
 func (r *DatabaseEngineReconciler) reconcileOperatorUpgradeStatus(
@@ -500,8 +474,7 @@ func (r *DatabaseEngineReconciler) ensureDBEnginesInNamespaces(ctx context.Conte
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, selfPodRef corev1.ObjectReference, namespaces []string) error {
-	r.podSelf = selfPodRef
+func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces []string) error {
 	if _, err := r.ensureDBEnginesInNamespaces(context.Background(), namespaces); err != nil {
 		return err
 	}
