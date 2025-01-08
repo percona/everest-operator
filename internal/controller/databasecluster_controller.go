@@ -875,6 +875,9 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 			return err
 		}
 		if dbEngineType == everestv1alpha1.DatabaseEnginePXC {
+			// special case for PXC - we need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
+			// watching the dbr is not enough since the operator merges the statuses but we need to pause the db exactly when
+			// the pxc-restore got to the pxcv1.RestoreStopCluster status
 			if err := configurePXCRestoreWatcher(r.controller, r.Cache); err != nil {
 				return err
 			}
