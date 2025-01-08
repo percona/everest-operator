@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -517,48 +516,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	return r.Status().Update(ctx, restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
-	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBClusterRestore{}, &pxcv1.PerconaXtraDBClusterRestoreList{})
-
-	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterRestoreReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
-	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
-		&psmdbv1.PerconaServerMongoDBRestore{}, &psmdbv1.PerconaServerMongoDBRestoreList{})
-
-	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterRestoreReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
-	pgSchemeGroupVersion := schema.GroupVersion{Group: "pgv2.percona.com", Version: "v2"}
-	scheme.AddKnownTypes(pgSchemeGroupVersion,
-		&pgv2.PerconaPGRestore{}, &pgv2.PerconaPGRestoreList{})
-
-	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterRestoreReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterRestoreReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterRestoreReconciler) addPGToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -727,17 +684,20 @@ func (r *DatabaseClusterRestoreReconciler) SetWatchers(ctx context.Context) erro
 	}
 
 	for _, dbEngine := range dbEngines.Items {
+		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
+			continue
+		}
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
 			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}); err != nil {
+			if err := addWatcher(t, &pgv2.PerconaPGRestore{}); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &pgv2.PerconaPGRestore{}); err != nil {
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}); err != nil {
 				return err
 			}
 		default:

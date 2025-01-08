@@ -36,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -425,49 +424,6 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	return nil
 }
 
-func (r *DatabaseClusterReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: common.PXCAPIGroup, Version: "v1"}
-	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBCluster{}, &pxcv1.PerconaXtraDBClusterList{},
-		&pxcv1.PerconaXtraDBClusterRestore{}, &pxcv1.PerconaXtraDBClusterRestoreList{})
-
-	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: common.PSMDBAPIGroup, Version: "v1"}
-	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
-		&psmdbv1.PerconaServerMongoDB{}, &psmdbv1.PerconaServerMongoDBList{})
-
-	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
-	pgSchemeGroupVersion := schema.GroupVersion{Group: common.PGAPIGroup, Version: "v2"}
-	scheme.AddKnownTypes(pgSchemeGroupVersion,
-		&pgv2.PerconaPGCluster{}, &pgv2.PerconaPGClusterList{})
-
-	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterReconciler) addPGToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
@@ -762,50 +718,6 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	)
 
 	if r.Scheme.Recognizes(common.PXCRGVK) {
-		controller.Watches(
-			// need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
-			// watching the dbr is not enough since the operator merges the statuses but we need to pause the db exactly when
-			// the pxc-restore got to the pxcv1.RestoreStopCluster status
-			&pxcv1.PerconaXtraDBClusterRestore{},
-			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-				pxcRestore, ok := obj.(*pxcv1.PerconaXtraDBClusterRestore)
-				if !ok {
-					return []reconcile.Request{}
-				}
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							// db name to reconcile is the same as the pxc cluster name
-							Name:      pxcRestore.Spec.PXCCluster,
-							Namespace: obj.GetNamespace(),
-						},
-					},
-				}
-			}),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
-	}
-
-	if r.Scheme.Recognizes(common.PSMDBGVK) {
-		controller.Watches(
-			&psmdbv1.PerconaServerMongoDB{},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
-	}
-	if r.Scheme.Recognizes(common.PGGVK) {
-		controller.Watches(
-			&pgv2.PerconaPGCluster{},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
-	}
-	if r.Scheme.Recognizes(common.PXCGVK) {
-		controller.Watches(
-			&pxcv1.PerconaXtraDBCluster{},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		)
 	}
 }
 
@@ -957,11 +869,15 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 		if loaded {
 			return nil
 		}
-		// This is the same as calling Owns() on the controller builder.
 		if err := r.controller.Watch(
-			source.TypedKind(r.Cache, obj, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &everestv1alpha1.DatabaseCluster{})),
+			source.TypedKind(r.Cache, obj, &handler.EnqueueRequestForObject{}),
 		); err != nil {
 			return err
+		}
+		if dbEngineType == everestv1alpha1.DatabaseEnginePXC {
+			if err := configurePXCRestoreWatcher(r.controller, r.Cache); err != nil {
+				return err
+			}
 		}
 		r.watchStore.Store(dbEngineType, struct{}{})
 		log.Info("Update DatabaseCluster watcher", "engine", dbEngineType)
@@ -969,17 +885,20 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 	}
 
 	for _, dbEngine := range dbEngines.Items {
+		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
+			continue
+		}
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
 			if err := addWatcher(t, &pxcv1.PerconaXtraDBCluster{}); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDB{}); err != nil {
+			if err := addWatcher(t, &pgv2.PerconaPGCluster{}); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &pgv2.PerconaPGCluster{}); err != nil {
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDB{}); err != nil {
 				return err
 			}
 		default:
@@ -988,4 +907,26 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func configurePXCRestoreWatcher(c controller.Controller, cache cache.Cache) error {
+	return c.Watch(
+		source.TypedKind[client.Object](cache, &pxcv1.PerconaXtraDBClusterRestore{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				pxcRestore, ok := obj.(*pxcv1.PerconaXtraDBClusterRestore)
+				if !ok {
+					return []reconcile.Request{}
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      pxcRestore.Spec.PXCCluster,
+							Namespace: obj.GetNamespace(),
+						},
+					},
+				}
+			}),
+			predicate.ResourceVersionChangedPredicate{},
+		),
+	)
 }

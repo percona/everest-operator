@@ -38,7 +38,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -509,48 +508,6 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 	return r.Create(ctx, backup)
 }
 
-func (r *DatabaseClusterBackupReconciler) addPXCToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPXCKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterBackupReconciler) addPXCKnownTypes(scheme *runtime.Scheme) error {
-	pxcSchemeGroupVersion := schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
-	scheme.AddKnownTypes(pxcSchemeGroupVersion,
-		&pxcv1.PerconaXtraDBClusterBackup{}, &pxcv1.PerconaXtraDBClusterBackupList{})
-
-	metav1.AddToGroupVersion(scheme, pxcSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterBackupReconciler) addPSMDBToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPSMDBKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterBackupReconciler) addPSMDBKnownTypes(scheme *runtime.Scheme) error {
-	psmdbSchemeGroupVersion := schema.GroupVersion{Group: "psmdb.percona.com", Version: "v1"}
-	scheme.AddKnownTypes(psmdbSchemeGroupVersion,
-		&psmdbv1.PerconaServerMongoDBBackup{}, &psmdbv1.PerconaServerMongoDBBackupList{})
-
-	metav1.AddToGroupVersion(scheme, psmdbSchemeGroupVersion)
-	return nil
-}
-
-func (r *DatabaseClusterBackupReconciler) addPGToScheme(scheme *runtime.Scheme) error {
-	builder := runtime.NewSchemeBuilder(r.addPGKnownTypes)
-	return builder.AddToScheme(scheme)
-}
-
-func (r *DatabaseClusterBackupReconciler) addPGKnownTypes(scheme *runtime.Scheme) error {
-	pgSchemeGroupVersion := schema.GroupVersion{Group: "pgv2.percona.com", Version: "v2"}
-	scheme.AddKnownTypes(pgSchemeGroupVersion,
-		&pgv2.PerconaPGBackup{}, &pgv2.PerconaPGBackupList{})
-
-	metav1.AddToGroupVersion(scheme, pgSchemeGroupVersion)
-	return nil
-}
-
 // Reconcile PXC.
 // Returns: (requeue(bool), error).
 func (r *DatabaseClusterBackupReconciler) reconcilePXC(
@@ -935,7 +892,6 @@ func (r *DatabaseClusterBackupReconciler) SetWatchers(ctx context.Context) error
 		if loaded {
 			return nil
 		}
-		// This is the same as calling Owns() on the controller builder.
 		if err := r.controller.Watch(
 			source.TypedKind(r.Cache, obj, r.watchHandler(f)),
 		); err != nil {
@@ -947,17 +903,20 @@ func (r *DatabaseClusterBackupReconciler) SetWatchers(ctx context.Context) error
 	}
 
 	for _, dbEngine := range dbEngines.Items {
+		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
+			continue
+		}
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
 			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterBackup{}, r.tryCreatePXC); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBBackup{}, r.tryCreatePSMDB); err != nil {
+			if err := addWatcher(t, &pgv2.PerconaPGBackup{}, r.tryCreatePG); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &pgv2.PerconaPGBackup{}, r.tryCreatePG); err != nil {
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBBackup{}, r.tryCreatePSMDB); err != nil {
 				return err
 			}
 		default:
