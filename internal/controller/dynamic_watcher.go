@@ -19,6 +19,7 @@ package controllers
 import (
 	"sync"
 
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -28,12 +29,14 @@ import (
 type DynamicWatcher struct {
 	controller.Controller
 	store sync.Map
+	log   logr.Logger
 }
 
 // NewDynamicWatcher creates a new DynamicWatcher.
-func NewDynamicWatcher(c controller.Controller) *DynamicWatcher {
+func NewDynamicWatcher(log logr.Logger, c controller.Controller) *DynamicWatcher {
 	return &DynamicWatcher{
 		Controller: c,
+		log:        log,
 	}
 }
 
@@ -51,6 +54,7 @@ func (d *DynamicWatcher) AddWatchers(
 			return err
 		}
 	}
+	d.log.Info("Added watchers", "name", name)
 	d.store.Store(name, struct{}{})
 	return nil
 }

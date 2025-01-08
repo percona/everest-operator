@@ -440,7 +440,8 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-	r.watcher = NewDynamicWatcher(ctrl)
+	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseCluster")
+	r.watcher = NewDynamicWatcher(log, ctrl)
 	return nil
 }
 
@@ -863,13 +864,18 @@ func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
 		sources := []source.Source{
 			source.TypedKind(r.Cache, obj, &handler.EnqueueRequestForObject{}),
-			newPXCRestoreWatchSource(r.Cache),
+		}
+
+		// special case for PXC - we need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
+		// watching the dbr is not enough since the operator merges the statuses but we need to pause the db exactly when
+		// the pxc-restore got to the pxcv1.RestoreStopCluster status
+		if dbEngineType == everestv1alpha1.DatabaseEnginePXC {
+			sources = append(sources, newPXCRestoreWatchSource(r.Cache))
 		}
 
 		if err := r.watcher.AddWatchers(string(dbEngineType), sources...); err != nil {
 			return err
 		}
-		log.Info("Added new watcher to DatabaseCluster controller", "engine", dbEngineType)
 		return nil
 	}
 

@@ -253,7 +253,8 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	if err != nil {
 		return err
 	}
-	r.watcher = NewDynamicWatcher(ctrl)
+	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterBackup")
+	r.watcher = NewDynamicWatcher(log, ctrl)
 	return nil
 }
 
@@ -890,7 +891,6 @@ func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context)
 		if err := r.watcher.AddWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
-		log.Info("Added new watcher to DatabaseClusterBackup controller", "engine", dbEngineType)
 		return nil
 	}
 
