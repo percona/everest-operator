@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -43,7 +42,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -89,8 +87,7 @@ type DatabaseClusterBackupReconciler struct {
 	Scheme *runtime.Scheme
 	Cache  cache.Cache
 
-	controller controller.Controller // provides a handle to the underlying controller to configure watchers dynamically
-	watchStore sync.Map              // keeps track of which watchers are added to the controller
+	watcher *DynamicWatcher
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
@@ -242,6 +239,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		Named("DatabaseClusterBackup").
 		For(&everestv1alpha1.DatabaseClusterBackup{})
 	ctrlBuilder.Watches(
 		&corev1.Namespace{},
@@ -255,7 +253,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	if err != nil {
 		return err
 	}
-	r.controller = ctrl
+	r.watcher = NewDynamicWatcher(ctrl)
 	return nil
 }
 
@@ -880,7 +878,8 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) SetWatchers(ctx context.Context) error {
+// ReconcileWatchers reconciles the watchers for the DatabaseClusterBackup controller.
+func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context) error {
 	dbEngines := &everestv1alpha1.DatabaseEngineList{}
 	if err := r.List(ctx, dbEngines); err != nil {
 		return err
@@ -888,17 +887,10 @@ func (r *DatabaseClusterBackupReconciler) SetWatchers(ctx context.Context) error
 
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
-		_, loaded := r.watchStore.Load(dbEngineType)
-		if loaded {
-			return nil
-		}
-		if err := r.controller.Watch(
-			source.TypedKind(r.Cache, obj, r.watchHandler(f)),
-		); err != nil {
+		if err := r.watcher.AddWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
-		r.watchStore.Store(dbEngineType, struct{}{})
-		log.Info("Update DatabaseClusterBackup watcher", "engine", dbEngineType)
+		log.Info("Added new watcher to DatabaseClusterBackup controller", "engine", dbEngineType)
 		return nil
 	}
 

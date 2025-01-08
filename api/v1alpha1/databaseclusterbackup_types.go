@@ -32,9 +32,10 @@ const (
 // BackupState is used to represent the backup's state.
 type BackupState string
 
+// Known Backup states.
 const (
-	BackupNew       BackupState = ""         //nolint:revive
-	BackupStarting  BackupState = "Starting" //nolint:revive
+	BackupNew       BackupState = ""
+	BackupStarting  BackupState = "Starting"
 	BackupRunning   BackupState = "Running"
 	BackupFailed    BackupState = "Failed"
 	BackupSucceeded BackupState = "Succeeded"

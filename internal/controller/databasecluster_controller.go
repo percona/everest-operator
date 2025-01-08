@@ -24,7 +24,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
@@ -41,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -88,8 +86,7 @@ type DatabaseClusterReconciler struct {
 	Cache  cache.Cache
 	Scheme *runtime.Scheme
 
-	controller controller.Controller // provides a handle to the underlying controller to configure watchers dynamically
-	watchStore sync.Map              // keeps track of which watchers are added to the controller
+	watcher *DynamicWatcher
 }
 
 // dbProvider provides an abstraction for managing the reconciliation
@@ -431,6 +428,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		Named("DatabaseCluster").
 		For(&everestv1alpha1.DatabaseCluster{})
 
 	r.initWatchers(ctrlBuilder)
@@ -442,7 +440,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-	r.controller = ctrl
+	r.watcher = NewDynamicWatcher(ctrl)
 	return nil
 }
 
@@ -716,9 +714,6 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 	)
-
-	if r.Scheme.Recognizes(common.PXCRGVK) {
-	}
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -857,7 +852,8 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	return nil
 }
 
-func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
+// ReconcileWatchers reconciles the watchers for the DatabaseCluster controller.
+func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error {
 	dbEngines := &everestv1alpha1.DatabaseEngineList{}
 	if err := r.List(ctx, dbEngines); err != nil {
 		return err
@@ -865,25 +861,15 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
-		_, loaded := r.watchStore.Load(dbEngineType)
-		if loaded {
-			return nil
-		}
-		if err := r.controller.Watch(
+		sources := []source.Source{
 			source.TypedKind(r.Cache, obj, &handler.EnqueueRequestForObject{}),
-		); err != nil {
+			newPXCRestoreWatchSource(r.Cache),
+		}
+
+		if err := r.watcher.AddWatchers(string(dbEngineType), sources...); err != nil {
 			return err
 		}
-		if dbEngineType == everestv1alpha1.DatabaseEnginePXC {
-			// special case for PXC - we need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
-			// watching the dbr is not enough since the operator merges the statuses but we need to pause the db exactly when
-			// the pxc-restore got to the pxcv1.RestoreStopCluster status
-			if err := configurePXCRestoreWatcher(r.controller, r.Cache); err != nil {
-				return err
-			}
-		}
-		r.watchStore.Store(dbEngineType, struct{}{})
-		log.Info("Update DatabaseCluster watcher", "engine", dbEngineType)
+		log.Info("Added new watcher to DatabaseCluster controller", "engine", dbEngineType)
 		return nil
 	}
 
@@ -912,24 +898,22 @@ func (r *DatabaseClusterReconciler) SetWatchers(ctx context.Context) error {
 	return nil
 }
 
-func configurePXCRestoreWatcher(c controller.Controller, cache cache.Cache) error {
-	return c.Watch(
-		source.TypedKind[client.Object](cache, &pxcv1.PerconaXtraDBClusterRestore{},
-			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-				pxcRestore, ok := obj.(*pxcv1.PerconaXtraDBClusterRestore)
-				if !ok {
-					return []reconcile.Request{}
-				}
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Name:      pxcRestore.Spec.PXCCluster,
-							Namespace: obj.GetNamespace(),
-						},
+func newPXCRestoreWatchSource(cache cache.Cache) source.Source { //nolint:ireturn
+	return source.TypedKind[client.Object](cache, &pxcv1.PerconaXtraDBClusterRestore{},
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+			pxcRestore, ok := obj.(*pxcv1.PerconaXtraDBClusterRestore)
+			if !ok {
+				return []reconcile.Request{}
+			}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      pxcRestore.Spec.PXCCluster,
+						Namespace: obj.GetNamespace(),
 					},
-				}
-			}),
-			predicate.ResourceVersionChangedPredicate{},
-		),
+				},
+			}
+		}),
+		predicate.ResourceVersionChangedPredicate{},
 	)
 }

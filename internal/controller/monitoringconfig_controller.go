@@ -255,6 +255,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitor
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
 	r.monitoringNamespace = monitoringNamespace
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("MonitoringConfig").
 		For(&everestv1alpha1.MonitoringConfig{}).
 		Watches(&vmv1beta1.VMAgent{}, r.enqueueMonitoringConfigs()).
 		Watches(&corev1.Namespace{},

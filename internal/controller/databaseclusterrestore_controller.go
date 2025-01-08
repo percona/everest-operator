@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -35,7 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -71,8 +69,7 @@ type DatabaseClusterRestoreReconciler struct {
 	Scheme *runtime.Scheme
 	Cache  cache.Cache
 
-	controller controller.Controller // provides a handle to the underlying controller to configure watchers dynamically
-	watchStore sync.Map              // keeps track of which watchers are added to the controller
+	watcher *DynamicWatcher
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
@@ -519,6 +516,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		Named("DatabaseClusterRestore").
 		For(&everestv1alpha1.DatabaseClusterRestore{}).
 		Watches(
 			&corev1.Namespace{},
@@ -543,7 +541,7 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	if err != nil {
 		return err
 	}
-	r.controller = ctrl
+	r.watcher = NewDynamicWatcher(ctrl)
 	return nil
 }
 
@@ -660,7 +658,8 @@ func validatePitrRestoreSpec(dataSource everestv1alpha1.DataSource) error {
 	return nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) SetWatchers(ctx context.Context) error {
+// ReconcileWatchers reconciles the watchers for the DatabaseClusterRestore controller.
+func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context) error {
 	dbEngines := &everestv1alpha1.DatabaseEngineList{}
 	if err := r.List(ctx, dbEngines); err != nil {
 		return err
@@ -668,18 +667,11 @@ func (r *DatabaseClusterRestoreReconciler) SetWatchers(ctx context.Context) erro
 
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
-		_, loaded := r.watchStore.Load(dbEngineType)
-		if loaded {
-			return nil
-		}
-		// This is the same as calling Owns() on the controller builder.
-		if err := r.controller.Watch(
-			source.TypedKind(r.Cache, obj, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &everestv1alpha1.DatabaseCluster{})),
-		); err != nil {
+		src := source.TypedKind(r.Cache, obj, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &everestv1alpha1.DatabaseCluster{}))
+		if err := r.watcher.AddWatchers(string(dbEngineType), src); err != nil {
 			return err
 		}
-		r.watchStore.Store(dbEngineType, struct{}{})
-		log.Info("Update DatabaseClusterRestore watcher", "engine", dbEngineType)
+		log.Info("Added new watcher to DatabaseClusterBackup controller", "engine", dbEngineType)
 		return nil
 	}
 

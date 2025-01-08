@@ -25,9 +25,6 @@ import (
 	"time"
 
 	opfwv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
-	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,12 +62,6 @@ var operatorEngine = map[string]everestv1alpha1.EngineType{
 	common.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
-var operatorEngineTypeToCRDGroup = map[everestv1alpha1.EngineType]string{
-	everestv1alpha1.DatabaseEnginePXC:        pxcv1.SchemeGroupVersion.Group,
-	everestv1alpha1.DatabaseEnginePSMDB:      psmdbv1.SchemeGroupVersion.Group,
-	everestv1alpha1.DatabaseEnginePostgresql: pgv2.GroupVersion.Group,
-}
-
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.
 type DatabaseEngineReconciler struct {
 	client.Client
@@ -80,8 +71,10 @@ type DatabaseEngineReconciler struct {
 	Controllers []DatabaseController
 }
 
+// DatabaseController provides an abstraction for the DatabaseEngine controller
+// to orchestrate operations across various database controllers (like DBCluster, DBBackup, etc.).
 type DatabaseController interface {
-	SetWatchers(context.Context) error
+	ReconcileWatchers(ctx context.Context) error
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
@@ -205,7 +198,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func (r *DatabaseEngineReconciler) reconcileWatchers(ctx context.Context) error {
 	for _, c := range r.Controllers {
-		if err := c.SetWatchers(ctx); err != nil {
+		if err := c.ReconcileWatchers(ctx); err != nil {
 			return err
 		}
 	}
@@ -480,6 +473,7 @@ func (r *DatabaseEngineReconciler) SetupWithManager(mgr ctrl.Manager, namespaces
 	}
 	r.versionService = version.NewVersionService()
 	c := ctrl.NewControllerManagedBy(mgr).
+		Named("DatabaseEngine").
 		For(&everestv1alpha1.DatabaseEngine{}).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
 		Watches(
