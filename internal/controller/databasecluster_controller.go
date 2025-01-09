@@ -86,7 +86,7 @@ type DatabaseClusterReconciler struct {
 	Cache  cache.Cache
 	Scheme *runtime.Scheme
 
-	watcher *DynamicWatcher
+	controller *controllerWatcherRegistry
 }
 
 // dbProvider provides an abstraction for managing the reconciliation
@@ -441,7 +441,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseCluster")
-	r.watcher = NewDynamicWatcher(log, ctrl)
+	r.controller = newControllerWatcherRegistry(log, ctrl)
 	return nil
 }
 
@@ -873,7 +873,7 @@ func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error
 			sources = append(sources, newPXCRestoreWatchSource(r.Cache))
 		}
 
-		if err := r.watcher.AddWatchers(string(dbEngineType), sources...); err != nil {
+		if err := r.controller.addWatchers(string(dbEngineType), sources...); err != nil {
 			return err
 		}
 		return nil

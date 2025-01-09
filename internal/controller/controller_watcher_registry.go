@@ -24,37 +24,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// DynamicWatcher is a wrapper around controller.Controller that allows a thread-safe way to add
-// unique named watchers.
-type DynamicWatcher struct {
+// controllerWatcherRegistry is a wrapper arond controller.Controller that provides a way to
+// store and keep track of the sources that have been added to the controller.
+type controllerWatcherRegistry struct {
 	controller.Controller
 	store sync.Map
 	log   logr.Logger
 }
 
-// NewDynamicWatcher creates a new DynamicWatcher.
-func NewDynamicWatcher(log logr.Logger, c controller.Controller) *DynamicWatcher {
-	return &DynamicWatcher{
+func newControllerWatcherRegistry(log logr.Logger, c controller.Controller) *controllerWatcherRegistry {
+	return &controllerWatcherRegistry{
 		Controller: c,
 		log:        log,
 	}
 }
 
-// AddWatchers adds the given sources to the controller, each group unique by name.
-func (d *DynamicWatcher) AddWatchers(
+// addWatchers adds the provided sources to the controller's watch, and stores the name of the sources in a map to avoid adding them again.
+func (c *controllerWatcherRegistry) addWatchers(
 	name string,
 	sources ...source.Source,
 ) error {
-	_, ok := d.store.Load(name)
+	_, ok := c.store.Load(name)
 	if ok {
-		return nil
+		return nil // watcher group already exists with this name, so skip.
 	}
 	for _, src := range sources {
-		if err := d.Controller.Watch(src); err != nil {
+		if err := c.Controller.Watch(src); err != nil {
 			return err
 		}
 	}
-	d.log.Info("Added watchers", "name", name)
-	d.store.Store(name, struct{}{})
+	c.log.Info("Added watchers", "name", name)
+	c.store.Store(name, struct{}{})
 	return nil
 }

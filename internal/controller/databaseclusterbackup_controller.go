@@ -87,7 +87,7 @@ type DatabaseClusterBackupReconciler struct {
 	Scheme *runtime.Scheme
 	Cache  cache.Cache
 
-	watcher *DynamicWatcher
+	controller *controllerWatcherRegistry
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterbackups,verbs=get;list;watch;create;update;patch;delete
@@ -254,7 +254,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 		return err
 	}
 	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterBackup")
-	r.watcher = NewDynamicWatcher(log, ctrl)
+	r.controller = newControllerWatcherRegistry(log, ctrl)
 	return nil
 }
 
@@ -888,7 +888,7 @@ func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context)
 
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
-		if err := r.watcher.AddWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
+		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
 		return nil
