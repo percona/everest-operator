@@ -5,6 +5,7 @@ go 1.23.4
 replace (
 	k8s.io/api => k8s.io/api v0.31.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.31.1
 	k8s.io/client-go => k8s.io/client-go v0.31.1
 	k8s.io/component-base => k8s.io/component-base v0.31.1
 )
@@ -12,27 +13,27 @@ replace (
 require (
 	github.com/AlekSi/pointer v1.2.0
 	github.com/VictoriaMetrics/operator/api v0.0.0-20240806215809-b00759d790ee
-	github.com/aws/aws-sdk-go-v2 v1.32.6
-	github.com/aws/aws-sdk-go-v2/config v1.28.6
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.47
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.67.1
+	github.com/aws/aws-sdk-go-v2 v1.32.8
+	github.com/aws/aws-sdk-go-v2/config v1.28.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.50
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.72.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.2
 	github.com/hashicorp/go-version v1.7.0
-	github.com/onsi/ginkgo/v2 v2.22.0
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/gomega v1.36.2
 	github.com/operator-framework/api v0.27.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20241007204305-35d61aa5aebd
 	github.com/percona/percona-server-mongodb-operator v1.18.0
-	github.com/percona/percona-xtradb-cluster-operator v1.16.0
-	github.com/stretchr/testify v1.9.0
+	github.com/percona/percona-xtradb-cluster-operator v1.16.1
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.19.3
+	sigs.k8s.io/controller-runtime v0.19.4
 )
 
 require (
@@ -44,18 +45,18 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.55.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.7 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.25 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.25 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.27 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.27 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.26 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.4.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.24.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.33.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.4.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.24.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.5 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -87,7 +88,7 @@ require (
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
@@ -146,12 +147,12 @@ require (
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

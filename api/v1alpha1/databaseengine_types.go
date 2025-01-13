@@ -260,12 +260,12 @@ func (c ComponentsMap) BestVersion() string {
 }
 
 // BestEngineVersion returns the best engine version for the database engine.
-func (d DatabaseEngine) BestEngineVersion() string {
+func (d *DatabaseEngine) BestEngineVersion() string {
 	return d.Status.AvailableVersions.Engine.BestVersion()
 }
 
 // BestBackupVersion returns the best backup version for a given engine version.
-func (d DatabaseEngine) BestBackupVersion(engineVersion string) string {
+func (d *DatabaseEngine) BestBackupVersion(engineVersion string) string {
 	switch d.Spec.Type {
 	case DatabaseEnginePXC:
 		engineGoVersion, err := goversion.NewVersion(engineVersion)

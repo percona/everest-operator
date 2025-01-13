@@ -162,7 +162,7 @@ type Engine struct {
 }
 
 // Size returns the size of the engine.
-func (e Engine) Size() EngineSize {
+func (e *Engine) Size() EngineSize {
 	m := e.Resources.Memory
 	// mem >= Large
 	if m.Cmp(MemoryLargeSize) >= 0 {
@@ -192,7 +192,7 @@ type Expose struct {
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
-func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
+func (e *Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 	ret := make([]IPSourceRange, 0, len(ranges))
 	ret = append(ret, ranges...)
 	for k, v := range ret {
@@ -218,7 +218,7 @@ func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 }
 
 // IPSourceRangesStringArray returns []string of IPSource ranges. It also calls toCIDR function to convert IP addresses to the correct CIDR notation.
-func (e Expose) IPSourceRangesStringArray() []string {
+func (e *Expose) IPSourceRangesStringArray() []string {
 	sourceRanges := make([]string, len(e.IPSourceRanges))
 	ranges := e.toCIDR(e.IPSourceRanges)
 	for i, r := range ranges {
