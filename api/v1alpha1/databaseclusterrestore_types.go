@@ -29,9 +29,10 @@ import (
 // RestoreState represents state of restoration.
 type RestoreState string
 
+// Known Restore states.
 const (
-	RestoreNew       RestoreState = ""         //nolint:revive
-	RestoreStarting  RestoreState = "Starting" //nolint:revive
+	RestoreNew       RestoreState = ""
+	RestoreStarting  RestoreState = "Starting"
 	RestoreRunning   RestoreState = "Restoring"
 	RestoreFailed    RestoreState = "Failed"
 	RestoreSucceeded RestoreState = "Succeeded"
