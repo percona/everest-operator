@@ -668,7 +668,18 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
-		src := source.TypedKind(r.Cache, obj, handler.EnqueueRequestForOwner(r.Scheme, r.RESTMapper(), &everestv1alpha1.DatabaseCluster{}))
+		// This source is the same as calling Owns() on the controller builder.
+		// I.e, &DatabaseClusterRestore{} owns obj.
+		src := source.Kind(
+			r.Cache,
+			obj,
+			handler.EnqueueRequestForOwner(
+				r.Scheme,
+				r.RESTMapper(),
+				&everestv1alpha1.DatabaseClusterRestore{},
+				handler.OnlyControllerOwner(),
+			),
+		)
 		if err := r.controller.addWatchers(string(dbEngineType), src); err != nil {
 			return err
 		}
