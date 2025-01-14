@@ -863,7 +863,7 @@ func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error
 	log := log.FromContext(ctx)
 	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
 		sources := []source.Source{
-			source.TypedKind(r.Cache, obj, &handler.EnqueueRequestForObject{}),
+			source.Kind(r.Cache, obj, &handler.EnqueueRequestForObject{}),
 		}
 
 		// special case for PXC - we need to watch pxc-restore to be sure the db is reconciled on every pxc-restore status update.
