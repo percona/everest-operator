@@ -127,6 +127,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Not ready yet, update status and check again later.
+	dbEngine.Status.OperatorVersion = version // even though deployment is not ready, we still know the version through the image tag.
 	if !ready {
 		dbEngine.Status.State = everestv1alpha1.DBEngineStateInstalling
 		if err := r.reconcileOperatorUpgradeStatus(ctx, dbEngine); err != nil {
@@ -136,7 +137,6 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			r.Status().Update(ctx, dbEngine)
 	}
 
-	dbEngine.Status.OperatorVersion = version
 	timeUntilUnlock, err := r.tryUnlockDBEngine(ctx, dbEngine)
 	if err != nil {
 		return ctrl.Result{}, err
