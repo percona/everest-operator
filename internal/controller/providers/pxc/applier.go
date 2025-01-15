@@ -45,12 +45,14 @@ type applier struct {
 }
 
 func (p *applier) Metadata() error {
-	for _, f := range []string{
-		finalizerDeletePXCPodsInOrder,
-		finalizerDeletePXCPVC,
-		finalizerDeletePXCSSL,
-	} {
-		controllerutil.AddFinalizer(p.PerconaXtraDBCluster, f)
+	if p.PerconaXtraDBCluster.GetDeletionTimestamp().IsZero() {
+		for _, f := range []string{
+			finalizerDeletePXCPodsInOrder,
+			finalizerDeletePXCPVC,
+			finalizerDeletePXCSSL,
+		} {
+			controllerutil.AddFinalizer(p.PerconaXtraDBCluster, f)
+		}
 	}
 	return nil
 }

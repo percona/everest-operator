@@ -50,19 +50,21 @@ type applier struct {
 }
 
 func (p *applier) Metadata() error {
-	for _, f := range []string{
-		finalizerDeletePSMDBPodsInOrder,
-		finalizerDeletePSMDBPVC,
-	} {
-		controllerutil.AddFinalizer(p.PerconaServerMongoDB, f)
-	}
+	if p.PerconaServerMongoDB.GetDeletionTimestamp().IsZero() {
+		for _, f := range []string{
+			finalizerDeletePSMDBPodsInOrder,
+			finalizerDeletePSMDBPVC,
+		} {
+			controllerutil.AddFinalizer(p.PerconaServerMongoDB, f)
+		}
 
-	// remove legacy finalizers.
-	for _, f := range []string{
-		"delete-psmdb-pods-in-order",
-		"delete-psmdb-pvc",
-	} {
-		controllerutil.RemoveFinalizer(p.PerconaServerMongoDB, f)
+		// remove legacy finalizers.
+		for _, f := range []string{
+			"delete-psmdb-pods-in-order",
+			"delete-psmdb-pvc",
+		} {
+			controllerutil.RemoveFinalizer(p.PerconaServerMongoDB, f)
+		}
 	}
 	return nil
 }
