@@ -1,0 +1,44 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    version: 8.0.32-24.2
+    userSecretsName: pxc-sample-secrets
+    config: |
+      [mysqld]
+      wsrep_provider_options="debug=1;gcache.size=1G"
+    replicas: 3
+    storage:
+      size: 15G
+    resources:
+      cpu: 600m
+      memory: 1G
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value
+  proxy:
+    type: haproxy
+    replicas: 3
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 5
+          preference: 
+            matchExpressions:
+            - key: another-node-label-key
+              operator: In
+              values:
+              - another-node-label-value

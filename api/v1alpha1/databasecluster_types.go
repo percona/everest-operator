@@ -158,10 +158,12 @@ type Engine struct {
 	// NOTE: Updating this property post installation may lead to a restart of the cluster.
 	// +optional
 	CRVersion *string `json:"crVersion,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // Size returns the size of the engine.
-func (e Engine) Size() EngineSize {
+func (e *Engine) Size() EngineSize {
 	m := e.Resources.Memory
 	// mem >= Large
 	if m.Cmp(MemoryLargeSize) >= 0 {
@@ -191,7 +193,7 @@ type Expose struct {
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
 }
 
-func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
+func (e *Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 	ret := make([]IPSourceRange, 0, len(ranges))
 	ret = append(ret, ranges...)
 	for k, v := range ret {
@@ -217,7 +219,7 @@ func (e Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
 }
 
 // IPSourceRangesStringArray returns []string of IPSource ranges. It also calls toCIDR function to convert IP addresses to the correct CIDR notation.
-func (e Expose) IPSourceRangesStringArray() []string {
+func (e *Expose) IPSourceRangesStringArray() []string {
 	sourceRanges := make([]string, len(e.IPSourceRanges))
 	ranges := e.toCIDR(e.IPSourceRanges)
 	for i, r := range ranges {
@@ -244,6 +246,8 @@ type Proxy struct {
 	// Resources are the resource limits for each proxy replica.
 	// If not set, resource limits are not imposed
 	Resources Resources `json:"resources,omitempty"`
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // BackupSource represents settings of a source where to get a backup to run restoration.
@@ -313,6 +317,8 @@ type Monitoring struct {
 
 // ConfigServer represents the sharding configuration server settings.
 type ConfigServer struct {
+	// Affinity defines scheduling affinity.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Replicas is the amount of configServers
 	// +kubebuilder:validation:Minimum:=1
 	Replicas int32 `json:"replicas"`

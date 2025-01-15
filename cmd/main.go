@@ -27,6 +27,9 @@ import (
 	"strings"
 
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,6 +101,10 @@ func init() {
 
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
+
+	utilruntime.Must(pgv2.SchemeBuilder.AddToScheme(scheme))
+	utilruntime.Must(psmdbv1.SchemeBuilder.AddToScheme(scheme))
+	utilruntime.Must(pxcv1.SchemeBuilder.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -225,34 +232,40 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	podRef := corev1.ObjectReference{Name: cfg.PodName, Namespace: cfg.SystemNamespace}
 	// Initialise the controllers.
-	if err = (&controllers.DatabaseClusterReconciler{
+	clusterReconciler := &controllers.DatabaseClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+		Cache:  mgr.GetCache(),
+	}
+	if err := clusterReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.DatabaseEngineReconciler{
+	restoreReconciler := &controllers.DatabaseClusterRestoreReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, podRef, dbNamespaces); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
-		os.Exit(1)
+		Cache:  mgr.GetCache(),
 	}
-	if err = (&controllers.DatabaseClusterRestoreReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err := restoreReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterRestore")
 		os.Exit(1)
 	}
-	if err = (&controllers.DatabaseClusterBackupReconciler{
+	backupReconciler := &controllers.DatabaseClusterBackupReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+		Cache:  mgr.GetCache(),
+	}
+	if err := backupReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")
+		os.Exit(1)
+	}
+	if err = (&controllers.DatabaseEngineReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Controllers: []controllers.DatabaseController{clusterReconciler, restoreReconciler, backupReconciler},
+	}).SetupWithManager(mgr, dbNamespaces); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DatabaseEngine")
 		os.Exit(1)
 	}
 	if err = (&controllers.BackupStorageReconciler{
