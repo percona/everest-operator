@@ -1,8 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
+  - script: kubectl -n $NAMESPACE delete db pg-mc --wait=false && sleep 5
   - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
   - command: kubectl patch perconapgclusters pg-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
-  - command: kubectl -n $NAMESPACE delete db pg-mc
+  - command: kubectl wait --for=delete db/pg-mc -n $NAMESPACE
