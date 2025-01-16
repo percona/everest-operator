@@ -1,5 +1,7 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
+  - script: kubectl -n $NAMESPACE delete db test-pg-cluster --wait=false && sleep 5
   - command: kubectl patch perconapgclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl -n $NAMESPACE delete db test-pg-cluster
+  - command: kubectl wait --for=delete db test-pg-cluster --timeout=60s -n $NAMESPACE
+
