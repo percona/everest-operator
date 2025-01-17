@@ -50,10 +50,10 @@ func (p *applier) Paused(paused bool) {
 
 func (p *applier) AllowUnsafeConfig(allow bool) {
 	p.PerconaXtraDBCluster.Spec.Unsafe = pxcv1.UnsafeFlags{
-		TLS:               false,
+		TLS:               allow,
 		PXCSize:           allow,
 		ProxySize:         allow,
-		BackupIfUnhealthy: false,
+		BackupIfUnhealthy: allow,
 	}
 }
 
