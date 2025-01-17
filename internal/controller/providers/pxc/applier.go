@@ -49,6 +49,9 @@ func (p *applier) Paused(paused bool) {
 }
 
 func (p *applier) AllowUnsafeConfig(allow bool) {
+	if allow {
+		p.Spec.TLS.Enabled = pointer.ToBool(false)
+	}
 	p.PerconaXtraDBCluster.Spec.Unsafe = pxcv1.UnsafeFlags{
 		TLS:               allow,
 		PXCSize:           allow,
