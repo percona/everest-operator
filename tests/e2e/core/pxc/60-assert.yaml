@@ -34,7 +34,6 @@ metadata:
 spec:
   haproxy:
     enabled: true
-    image: percona/haproxy:2.8.5
     exposePrimary: {}
     size: 3
   pxc:
@@ -45,8 +44,6 @@ spec:
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
     expose: {}
-    livenessProbes: {}
-    readinessProbes: {}
     resources:
       limits:
         cpu: 600m
