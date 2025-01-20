@@ -62,7 +62,9 @@ spec:
           requests:
             storage: 15G
   secretsName: pxc-sample-secrets
-  unsafeFlags: {}
+  unsafeFlags:
+    proxySize: true
+    pxcSize: true
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never

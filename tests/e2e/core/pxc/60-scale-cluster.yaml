@@ -7,6 +7,7 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
+  allowUnsafeConfiguration: true
   engine:
     type: pxc
     userSecretsName: pxc-sample-secrets
