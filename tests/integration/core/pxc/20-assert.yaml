@@ -44,7 +44,6 @@ metadata:
     - delete-pxc-pvc
     - delete-ssl
 spec:
-  allowUnsafeConfigurations: true
   backup:
     pitr:
       enabled: false
@@ -196,7 +195,9 @@ spec:
           requests:
             storage: 25Gi
   secretsName: everest-secrets-test-pxc-cluster
-  unsafeFlags: {}
+  unsafeFlags:
+    proxySize: true
+    pxcSize: true
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never

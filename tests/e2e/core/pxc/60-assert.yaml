@@ -32,7 +32,6 @@ kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  allowUnsafeConfigurations: true
   haproxy:
     enabled: true
     image: percona/haproxy:2.8.5
@@ -63,6 +62,7 @@ spec:
           requests:
             storage: 15G
   secretsName: pxc-sample-secrets
+  unsafeFlags: {}
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never
