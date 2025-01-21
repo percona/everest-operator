@@ -53,7 +53,7 @@ func (p *applier) Paused(paused bool) {
 }
 
 func (p *applier) AllowUnsafeConfig() {
-	value := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
+	value := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration //nolint:staticcheck //using deprecated field for backward compatibility
 	p.PerconaServerMongoDB.Spec.UnsafeConf = value
 }
 
