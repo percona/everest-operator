@@ -52,8 +52,9 @@ func (p *applier) Paused(paused bool) {
 	p.PerconaServerMongoDB.Spec.Pause = paused
 }
 
-func (p *applier) AllowUnsafeConfig(allow bool) {
-	p.PerconaServerMongoDB.Spec.UnsafeConf = allow
+func (p *applier) AllowUnsafeConfig() {
+	value := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
+	p.PerconaServerMongoDB.Spec.UnsafeConf = value
 }
 
 func (p *applier) Engine() error {

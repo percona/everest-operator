@@ -62,7 +62,7 @@ func (p *applier) Paused(paused bool) {
 	p.PerconaPGCluster.Spec.Pause = &paused
 }
 
-func (p *applier) AllowUnsafeConfig(_ bool) {
+func (p *applier) AllowUnsafeConfig() {
 }
 
 func (p *applier) Engine() error {
