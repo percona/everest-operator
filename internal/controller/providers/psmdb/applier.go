@@ -54,15 +54,8 @@ func (p *applier) Paused(paused bool) {
 
 //nolint:staticcheck //using deprecated field for backward compatibility
 func (p *applier) AllowUnsafeConfig() {
-	p.PerconaServerMongoDB.Spec.UnsafeConf = false
-	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
-	p.PerconaServerMongoDB.Spec.Unsafe = psmdbv1.UnsafeFlags{
-		TLS:                    p.DB.Spec.AllowUnsafeConfiguration,
-		MongosSize:             useInsecureSize,
-		ReplsetSize:            useInsecureSize,
-		TerminationGracePeriod: p.DB.Spec.AllowUnsafeConfiguration,
-		BackupIfUnhealthy:      p.DB.Spec.AllowUnsafeConfiguration,
-	}
+	value := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
+	p.PerconaServerMongoDB.Spec.UnsafeConf = value
 }
 
 func (p *applier) Engine() error {

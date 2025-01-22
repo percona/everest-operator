@@ -33,6 +33,7 @@ kind: PerconaServerMongoDB
 metadata:
   name: single-node
 spec:
+  allowUnsafeConfigurations: true
   image: percona/percona-server-mongodb:7.0.12-7
   multiCluster:
     enabled: false
