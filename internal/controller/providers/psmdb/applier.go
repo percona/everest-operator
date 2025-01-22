@@ -52,6 +52,7 @@ func (p *applier) Paused(paused bool) {
 	p.PerconaServerMongoDB.Spec.Pause = paused
 }
 
+//nolint:staticcheck //using deprecated field for backward compatibility
 func (p *applier) AllowUnsafeConfig() {
 	p.PerconaServerMongoDB.Spec.UnsafeConf = false
 	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
