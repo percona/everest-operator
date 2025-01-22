@@ -126,9 +126,6 @@ func (p *applier) Engine() error {
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
 	}
-
-	p.configureEngineAffinity()
-
 	return nil
 }
 
@@ -371,7 +368,6 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
-	p.configureHAProxyAffinity()
 	return nil
 }
 
@@ -461,7 +457,6 @@ func (p *applier) applyProxySQLCfg() error {
 		}
 	}
 	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
-	p.configureProxySQLAffinity()
 	return nil
 }
 

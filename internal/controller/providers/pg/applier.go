@@ -152,9 +152,6 @@ func (p *applier) Engine() error {
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
 		Image: image,
 	}
-
-	p.configureEngineAffinity()
-
 	return nil
 }
 
@@ -209,8 +206,15 @@ func (p *applier) Proxy() error {
 			SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 		},
 	}
-
-	p.configureProxyAffinity()
+	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
+	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
+	// This is a temporary workaround to make sure we can make this change without an automatic restart.
+	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
+	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
+	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
+		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
+		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
+	}
 
 	return nil
 }
