@@ -26,11 +26,6 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
-      # Enable Tmate debug ssh session on demand
-      - name: "Setup tmate session"
-        uses: "percona/gh-action-action-tmate@v3"
-        if: ${{ always() && github.event.inputs.debug == 'Enabled' }}
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
@@ -145,6 +140,11 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
+      # Enable Tmate debug ssh session on demand
+      - name: "Setup tmate session"
+        uses: "percona/gh-action-action-tmate@v3"
+        if: ${{ always() && github.event.inputs.debug == 'Enabled' }}
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
