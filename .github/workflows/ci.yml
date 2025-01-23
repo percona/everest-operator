@@ -7,16 +7,15 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened, labeled]
-  on:
-    workflow_dispatch:
-      inputs:
-        debug:
-          type: choice
-          description: "Enable Tmate session for debugging."
-          options:
-            - Disabled
-            - Enabled
-          required: false
+  workflow_dispatch:
+    inputs:
+      debug:
+        type: choice
+        description: "Enable Tmate session for debugging."
+        options:
+          - Disabled
+          - Enabled
+        required: false
 jobs:
   golang-tests:
     name: Go unit tests
