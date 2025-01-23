@@ -140,9 +140,6 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
-      # Enable Tmate debug ssh session on demand
-      - name: "Setup tmate session"
-        uses: "percona/gh-action-action-tmate@v3"
 
 
       - name: Check out code into the Go module directory
@@ -295,6 +292,11 @@ jobs:
           sleep 10
           kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true
           kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
+
+      # Enable Tmate debug ssh session on demand
+      - name: "Setup tmate session"
+        uses: "percona/gh-action-action-tmate@v3"
+        if: always()
 
       - name: Scale down cluster
         if: always()
