@@ -203,7 +203,7 @@ jobs:
       - name: Clean up custom resources
         if: always()
         continue-on-error: true
-        # If this does not finish in 10 minutes, it's stuck with some resource having a finalizer.
+        # Just a change in code for the CI tests
         timeout-minutes: 10
         run: |
           namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
