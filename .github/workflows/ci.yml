@@ -187,6 +187,11 @@ jobs:
           CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
+      # Enable Tmate debug ssh session on demand
+      - name: "Setup tmate session"
+        uses: "percona/gh-action-action-tmate@v3"
+        if: ${{ always() }}
+
       - name: Run upgrade tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade')
         run: |
