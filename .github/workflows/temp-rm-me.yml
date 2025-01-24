@@ -1,4 +1,4 @@
-name: CI
+name: TEMP-rm-me
 on:
   workflow_dispatch:
     inputs:
@@ -30,9 +30,9 @@ jobs:
           go-version: '1.22'
           check-latest: true
 
-      - name: Build operator
-        run:
-          make build
+#      - name: Build operator
+#        run:
+#          make build
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
