@@ -7,10 +7,8 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  allowUnsafeConfiguration: true
   engine:
     type: pxc
-    version: 8.0.32-24.2
     userSecretsName: pxc-sample-secrets
     config: |
       [mysqld]
@@ -33,10 +31,8 @@ kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  allowUnsafeConfigurations: true
   haproxy:
     enabled: true
-    image: percona/haproxy:2.8.5
     exposePrimary: {}
     size: 3
   pxc:
@@ -47,9 +43,6 @@ spec:
       wsrep_trx_fragment_unit='bytes'
       wsrep_trx_fragment_size=3670016
     expose: {}
-    image: percona/percona-xtradb-cluster:8.0.32-24.2
-    livenessProbes: {}
-    readinessProbes: {}
     resources:
       limits:
         cpu: 600m
@@ -65,6 +58,7 @@ spec:
           requests:
             storage: 15G
   secretsName: pxc-sample-secrets
+  unsafeFlags: {}
   updateStrategy: SmartUpdate
   upgradeOptions:
     apply: never
@@ -75,11 +69,9 @@ status:
     size: 3
     status: ready
   pxc:
-    image: percona/percona-xtradb-cluster:8.0.32-24.2
     ready: 3
     size: 3
     status: ready
-    version: 8.0.32-24.2
   ready: 6
   size: 6
   state: ready

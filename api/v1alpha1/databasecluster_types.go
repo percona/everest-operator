@@ -107,7 +107,7 @@ const (
 // +kubebuilder:object:generate=false
 type Applier interface {
 	Paused(paused bool)
-	AllowUnsafeConfig(allow bool)
+	AllowUnsafeConfig()
 	Engine() error
 	Proxy() error
 	DataSource() error
@@ -339,6 +339,8 @@ type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
 	Paused bool `json:"paused,omitempty"`
 	// AllowUnsafeConfiguration field used to ensure that the user can create configurations unfit for production use.
+	//
+	// Deprecated: AllowUnsafeConfiguration will not be supported in the future releases.
 	AllowUnsafeConfiguration bool `json:"allowUnsafeConfiguration,omitempty"`
 	// Engine is the database engine specification
 	Engine Engine `json:"engine"`

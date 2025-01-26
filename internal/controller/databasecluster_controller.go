@@ -153,7 +153,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	mutate := func() error {
 		applier := p.Apply(ctx)
 		applier.Paused(db.Spec.Paused)
-		applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
+		applier.AllowUnsafeConfig()
 		if err := applier.Engine(); err != nil {
 			return err
 		}
@@ -251,12 +251,6 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
-	}
-	if database.Spec.Engine.Replicas == 1 && !database.Spec.AllowUnsafeConfiguration {
-		database.Spec.AllowUnsafeConfiguration = true
-		if err := r.Update(ctx, database); err != nil {
-			return reconcile.Result{}, err
-		}
 	}
 
 	if database.Spec.DataSource != nil &&

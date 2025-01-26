@@ -7,7 +7,6 @@ kind: DatabaseCluster
 metadata:
   name: test-single-node
 spec:
-  allowUnsafeConfiguration: true
   engine:
     type: postgresql
     replicas: 3
