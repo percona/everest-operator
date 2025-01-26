@@ -54,7 +54,8 @@ func (p *applier) Paused(paused bool) {
 
 //nolint:staticcheck //using deprecated field for backward compatibility
 func (p *applier) AllowUnsafeConfig() {
-	value := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
+	// 1-node cluster, former 1-node cluster, a cluster with deprecated AllowUnsafeConfiguration
+	value := p.DB.Spec.Engine.Replicas == 1 || p.PerconaServerMongoDB.Spec.UnsafeConf || p.DB.Spec.AllowUnsafeConfiguration
 	p.PerconaServerMongoDB.Spec.UnsafeConf = value
 }
 
