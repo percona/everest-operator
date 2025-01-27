@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 20
+timeout: 60
 commands:
   # check that there is no dbr/pg-restore CRs left
   - script: >

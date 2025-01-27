@@ -154,6 +154,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		applier := p.Apply(ctx)
 		applier.Paused(db.Spec.Paused)
 		applier.AllowUnsafeConfig(db.Spec.AllowUnsafeConfiguration)
+		if err := applier.Metadata(); err != nil {
+			return err
+		}
 		if err := applier.Engine(); err != nil {
 			return err
 		}

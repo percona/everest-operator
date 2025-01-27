@@ -65,6 +65,18 @@ func (p *applier) Paused(paused bool) {
 func (p *applier) AllowUnsafeConfig(_ bool) {
 }
 
+func (p *applier) Metadata() error {
+	if p.PerconaPGCluster.GetDeletionTimestamp().IsZero() {
+		for _, f := range []string{
+			finalizerDeletePGPVC,
+			finalizerDeletePGSSL,
+		} {
+			controllerutil.AddFinalizer(p.PerconaPGCluster, f)
+		}
+	}
+	return nil
+}
+
 func (p *applier) Engine() error {
 	pg := p.PerconaPGCluster
 	database := p.DB
