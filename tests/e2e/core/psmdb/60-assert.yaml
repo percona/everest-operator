@@ -56,9 +56,7 @@ spec:
     users:  psmdb-sample-secrets
   sharding:
     enabled: false
-  unsafeFlags:
-    replsetSize: true
-    mongosSize: true
+  unsafeFlags: {}
 status:
   replsets:
     rs0:
