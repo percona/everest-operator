@@ -102,8 +102,6 @@ func (p *applier) Engine() error {
 	}
 
 	p.configureSharding()
-	p.configureShardingAffinity()
-	p.configureEngineAffinity()
 
 	return nil
 }
@@ -254,8 +252,6 @@ func (p *applier) Proxy() error {
 	// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
 	psmdb.Spec.Replsets[0].Expose.Enabled = false
 	psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
-
-	p.configureProxyAffinity()
 	return nil
 }
 
