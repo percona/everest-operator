@@ -22,7 +22,7 @@ metadata:
       kind: DatabaseClusterBackup
       name: test-db-backup
   finalizers:
-  - delete-backup
+  - percona.com/delete-backup
 spec:
   storageName: test-storage
   clusterName: test-psmdb-cluster

@@ -1,9 +1,11 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
-  - command: kubectl -n $NAMESPACE delete db test-single-node
+  - script: kubectl -n $NAMESPACE delete db test-single-node --wait=false && sleep 5
   - command: kubectl patch postgresclusters test-single-node -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
-  - command: kubectl -n $NAMESPACE delete db test-pg-cluster
+  - script: kubectl -n $NAMESPACE delete db test-pg-cluster --wait=false && sleep 5
   - command: kubectl patch postgresclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
     ignoreFailure: true
+  - command: kubectl wait --for=delete db test-single-node --timeout=60s -n $NAMESPACE
+  - command: kubectl wait --for=delete db test-pg-cluster --timeout=60s -n $NAMESPACE

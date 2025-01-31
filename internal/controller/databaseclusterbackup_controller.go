@@ -74,7 +74,7 @@ const (
 	pxcGapsReasonString               = "BinlogGapDetected"
 
 	deletePXCBackupFinalizer   = "delete-s3-backup"
-	deletePSMDBBackupFinalizer = "delete-backup"
+	deletePSMDBBackupFinalizer = "percona.com/delete-backup"
 )
 
 // ErrBackupStorageUndefined is returned when a backup storage is not defined
@@ -664,6 +664,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 			return false, err
 		}
 	}
+	// replace legacy finalizer.
+	if controllerutil.RemoveFinalizer(psmdbCR, "delete-backup") &&
+		psmdbCR.GetDeletionTimestamp().IsZero() {
+		controllerutil.AddFinalizer(psmdbCR, deletePSMDBBackupFinalizer)
+		if err := r.Update(ctx, psmdbCR); err != nil {
+			return false, err
+		}
+	}
+
 	backup.Status.State = everestv1alpha1.GetDBBackupState(psmdbCR)
 	backup.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	backup.Status.CreatedAt = &psmdbCR.CreationTimestamp

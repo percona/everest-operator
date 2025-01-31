@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -46,6 +47,26 @@ const (
 type applier struct {
 	*Provider
 	ctx context.Context //nolint:containedctx
+}
+
+func (p *applier) Metadata() error {
+	if p.PerconaServerMongoDB.GetDeletionTimestamp().IsZero() {
+		for _, f := range []string{
+			finalizerDeletePSMDBPodsInOrder,
+			finalizerDeletePSMDBPVC,
+		} {
+			controllerutil.AddFinalizer(p.PerconaServerMongoDB, f)
+		}
+
+		// remove legacy finalizers.
+		for _, f := range []string{
+			"delete-psmdb-pods-in-order",
+			"delete-psmdb-pvc",
+		} {
+			controllerutil.RemoveFinalizer(p.PerconaServerMongoDB, f)
+		}
+	}
+	return nil
 }
 
 func (p *applier) Paused(paused bool) {
@@ -84,8 +105,6 @@ func (p *applier) Engine() error {
 	}
 
 	p.configureSharding()
-	p.configureShardingAffinity()
-	p.configureEngineAffinity()
 
 	return nil
 }
@@ -236,8 +255,6 @@ func (p *applier) Proxy() error {
 	// disable direct exposure of replsets since .psmdb.Spec.Sharding.Mongos works like proxy
 	psmdb.Spec.Replsets[0].Expose.Enabled = false
 	psmdb.Spec.Replsets[0].Expose.ExposeType = corev1.ServiceTypeClusterIP
-
-	p.configureProxyAffinity()
 	return nil
 }
 

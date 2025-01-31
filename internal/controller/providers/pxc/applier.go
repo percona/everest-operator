@@ -44,6 +44,19 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) Metadata() error {
+	if p.PerconaXtraDBCluster.GetDeletionTimestamp().IsZero() {
+		for _, f := range []string{
+			finalizerDeletePXCPodsInOrder,
+			finalizerDeletePXCPVC,
+			finalizerDeletePXCSSL,
+		} {
+			controllerutil.AddFinalizer(p.PerconaXtraDBCluster, f)
+		}
+	}
+	return nil
+}
+
 func (p *applier) Paused(paused bool) {
 	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }
@@ -134,9 +147,6 @@ func (p *applier) Engine() error {
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
 	}
-
-	p.configureEngineAffinity()
-
 	return nil
 }
 
@@ -379,7 +389,6 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
-	p.configureHAProxyAffinity()
 	return nil
 }
 
@@ -469,7 +478,6 @@ func (p *applier) applyProxySQLCfg() error {
 		}
 	}
 	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
-	p.configureProxySQLAffinity()
 	return nil
 }
 
