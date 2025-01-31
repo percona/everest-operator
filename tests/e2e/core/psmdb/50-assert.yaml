@@ -7,7 +7,6 @@ kind: DatabaseCluster
 metadata:
   name: single-node
 spec:
-  allowUnsafeConfiguration: true
   engine:
     type: psmdb
     version: 7.0.12-7
@@ -34,7 +33,6 @@ kind: PerconaServerMongoDB
 metadata:
   name: single-node
 spec:
-  allowUnsafeConfigurations: true
   image: percona/percona-server-mongodb:7.0.12-7
   multiCluster:
     enabled: false
@@ -59,6 +57,9 @@ spec:
     users:  psmdb-sample-secrets
   sharding:
     enabled: false
+  unsafeFlags:
+    replsetSize: true
+    mongosSize: true
 status:
   replsets:
     rs0:

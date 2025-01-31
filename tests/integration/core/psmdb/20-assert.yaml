@@ -12,7 +12,6 @@ metadata:
   labels:
     clusterName: test-psmdb-cluster
 spec:
-  allowUnsafeConfiguration: true
   backup:
     enabled: false
     pitr:
@@ -41,7 +40,6 @@ metadata:
     - percona.com/delete-psmdb-pods-in-order
     - percona.com/delete-psmdb-pvc
 spec:
-  allowUnsafeConfigurations: true
   backup:
     configuration:
       backupOptions:

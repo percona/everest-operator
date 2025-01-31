@@ -12,7 +12,6 @@ metadata:
   labels:
     clusterName: test-pg-cluster
 spec:
-  allowUnsafeConfiguration: true
   backup:
     enabled: false
     pitr:
