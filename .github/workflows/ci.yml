@@ -105,10 +105,10 @@ jobs:
           PG_OPERATOR_VERSION: 2.5.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
-      - name: Run upgrade tests
+      - name: Run operator upgrade tests
         if: always()
         run: |
-          kubectl kuttl test --config ./tests/integration/kuttl-upgrade.yaml
+          kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.0
@@ -120,7 +120,7 @@ jobs:
 
   eks-e2e-tests:
     name: E2E tests (EKS)
-    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
@@ -186,9 +186,9 @@ jobs:
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
 
       - name: Run upgrade tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-upgrade')
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
-          kubectl kuttl test --config ./tests/e2e/kuttl-upgrade.yaml
+          kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.0
