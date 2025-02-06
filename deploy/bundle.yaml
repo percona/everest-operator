@@ -421,7 +421,9 @@ spec:
                 description: Backup is the backup specification
                 properties:
                   enabled:
-                    description: Enabled is a flag to enable backups
+                    description: |-
+                      Enabled is a flag to enable backups
+                      Deprecated
                     type: boolean
                   pitr:
                     description: PITR is the configuration of the point in time recovery

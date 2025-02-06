@@ -284,6 +284,7 @@ type BackupSchedule struct {
 // Backup is the backup configuration.
 type Backup struct {
 	// Enabled is a flag to enable backups
+	// Deprecated
 	Enabled bool `json:"enabled"`
 	// Schedules is a list of backup schedules
 	Schedules []BackupSchedule `json:"schedules,omitempty"`
