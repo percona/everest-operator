@@ -654,9 +654,9 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		return emptySpec, err
 	}
 
-	// If scheduled backups are disabled, just return the storages used in
+	// If there are no schedules, just return the storages used in
 	// DatabaseClusterBackup objects
-	if !database.Spec.Backup.Enabled {
+	if len(database.Spec.Backup.Schedules) == 0 {
 		if len(storages) > 1 {
 			return emptySpec, common.ErrPSMDBOneStorageRestriction
 		}
