@@ -284,7 +284,7 @@ type BackupSchedule struct {
 // Backup is the backup configuration.
 type Backup struct {
 	// Enabled is a flag to enable backups
-	// Deprecated
+	// Deprecated. Please use db.spec.backup.pitr.enabled and db.spec.backup.schedules[].enabled instead
 	Enabled bool `json:"enabled"`
 	// Schedules is a list of backup schedules
 	Schedules []BackupSchedule `json:"schedules,omitempty"`

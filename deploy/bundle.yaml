@@ -423,7 +423,7 @@ spec:
                   enabled:
                     description: |-
                       Enabled is a flag to enable backups
-                      Deprecated
+                      Deprecated. Please use db.spec.backup.pitr.enabled and db.spec.backup.schedules[].enabled instead
                     type: boolean
                   pitr:
                     description: PITR is the configuration of the point in time recovery
