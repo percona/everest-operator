@@ -370,6 +370,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		map[string][]byte{
 			"PMM_SERVER_API_KEY": []byte(apiKey),
 		},
+		false,
 	); err != nil {
 		return err
 	}
