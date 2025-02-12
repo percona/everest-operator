@@ -950,11 +950,8 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		return pgv2.Backups{}, err
 	}
 
-	// Only use the backup schedules if schedules are enabled in the DBC spec
-	backupSchedules := []everestv1alpha1.BackupSchedule{}
-	if database.Spec.Backup.Enabled {
-		backupSchedules = database.Spec.Backup.Schedules
-	}
+	backupSchedules := database.Spec.Backup.Schedules
+
 	// Add backup storages used by backup schedules to the list
 	if err := p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
 		return pgv2.Backups{}, err
