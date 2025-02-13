@@ -366,10 +366,17 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 
+	// We avoid setting the controller reference for the Secret here.
+	// The PSMDB operator handles Secret cleanup automatically as part of the `delete-psmdb-pvc` finalizer process.
+	// If we were to set the controller reference, the Secret would be deleted before the PSMDB cluster, leading to
+	// the PSMDB operator recreating the Secret and restarting the DB pods to sync updated user information,
+	// which would cause unnecessary restarts.
+	setControllerRef := false
 	if err := common.CreateOrUpdateSecretData(ctx, c, database, psmdb.Spec.Secrets.Users,
 		map[string][]byte{
 			"PMM_SERVER_API_KEY": []byte(apiKey),
 		},
+		setControllerRef,
 	); err != nil {
 		return err
 	}
