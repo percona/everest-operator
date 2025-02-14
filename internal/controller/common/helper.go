@@ -262,6 +262,7 @@ func CreateOrUpdateSecretData(
 	database *everestv1alpha1.DatabaseCluster,
 	secretName string,
 	data map[string][]byte,
+	setControllerRef bool,
 ) error {
 	err := UpdateSecretData(ctx, c, database, secretName, data)
 	if err == nil {
@@ -280,10 +281,14 @@ func CreateOrUpdateSecretData(
 		Type: corev1.SecretTypeOpaque,
 		Data: data,
 	}
-	err = controllerutil.SetControllerReference(database, secret, c.Scheme())
-	if err != nil {
-		return err
+
+	if setControllerRef {
+		err = controllerutil.SetControllerReference(database, secret, c.Scheme())
+		if err != nil {
+			return err
+		}
 	}
+
 	// If the secret does not exist, create it
 	return c.Create(ctx, secret)
 }
