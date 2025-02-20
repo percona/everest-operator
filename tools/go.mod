@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/BurntSushi/go-sumtype v0.0.0-20221020234012-480526a59796
-	github.com/apache/skywalking-eyes v0.6.0
+	github.com/apache/skywalking-eyes v0.7.0
 	github.com/daixiang0/gci v0.13.5
 	github.com/golangci/golangci-lint v1.64.5
 	github.com/reviewdog/reviewdog v0.20.3
@@ -234,7 +234,7 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	google.golang.org/protobuf v1.36.4 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
