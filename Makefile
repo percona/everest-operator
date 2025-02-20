@@ -133,6 +133,9 @@ test-core: build local-env-up ## Run integration tests against kind cluster
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
+build-debug: manifests generate fmt vet ## Build manager binary with debug symbols.
+	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o bin/manager cmd/main.go
+
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
