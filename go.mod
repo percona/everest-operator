@@ -1,6 +1,6 @@
 module github.com/percona/everest-operator
 
-go 1.23.4
+go 1.24
 
 replace (
 	k8s.io/api => k8s.io/api v0.31.1
