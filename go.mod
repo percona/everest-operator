@@ -26,7 +26,7 @@ require (
 	github.com/percona/percona-server-mongodb-operator v1.19.0
 	github.com/percona/percona-xtradb-cluster-operator v1.16.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/mod v0.22.0
+	golang.org/x/mod v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.32.0
