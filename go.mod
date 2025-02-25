@@ -23,7 +23,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/operator-framework/api v0.27.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20241007204305-35d61aa5aebd
-	github.com/percona/percona-server-mongodb-operator v1.19.0
+	github.com/percona/percona-server-mongodb-operator v1.19.1
 	github.com/percona/percona-xtradb-cluster-operator v1.16.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.23.0
