@@ -94,7 +94,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	pg := p.PerconaPGCluster
 
 	status := p.DB.Status
-	status.Status = everestv1alpha1.AppState(pg.Status.State)
+	status.Status = everestv1alpha1.AppState(pg.Status.State).WithCreatingState()
 	status.Hostname = pg.Status.Host
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
 	status.Size = pg.Status.Postgres.Size + pg.Status.PGBouncer.Size
