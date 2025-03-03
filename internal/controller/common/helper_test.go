@@ -16,7 +16,6 @@
 package common
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,7 +53,7 @@ func TestGetOperatorVersion(t *testing.T) {
 	s := scheme.Scheme
 	s.AddKnownTypes(everestv1alpha1.GroupVersion, &everestv1alpha1.DatabaseCluster{})
 	version, err := GetOperatorVersion(
-		context.TODO(),
+		t.Context(),
 		cl,
 		types.NamespacedName{
 			Namespace: "super-x",
@@ -65,7 +64,7 @@ func TestGetOperatorVersion(t *testing.T) {
 	assert.NotEqual(t, "1.11.0", version.String())
 
 	_, err = GetOperatorVersion(
-		context.TODO(),
+		t.Context(),
 		cl,
 		types.NamespacedName{
 			Namespace: "non-existent",
