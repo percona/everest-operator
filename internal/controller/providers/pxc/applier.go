@@ -87,7 +87,7 @@ func configureStorage(
 	var currentSize resource.Quantity
 	desiredSize := db.Spec.Engine.Storage.Size
 
-	if db.Status.Status != everestv1alpha1.AppStateUnknown {
+	if db.Status.Status != everestv1alpha1.AppStateNew {
 		currentSize = current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 	}
 
