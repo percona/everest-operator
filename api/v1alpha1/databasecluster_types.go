@@ -122,6 +122,11 @@ type Storage struct {
 	Size resource.Quantity `json:"size"`
 	// Class is the storage class to use for the persistent volume claim
 	Class *string `json:"class,omitempty"`
+	// DisableVolumeExpansion controls whether the storage size of an existing cluster can be increased.
+	// When set to true, the storage size cannot be modified after creation.
+	// By default, this is false, allowing the storage size to be increased by specifying a new size value.
+	// Note: Volume expansion requires support from the underlying storage class.
+	DisableVolumeExpansion bool `json:"disableVolumeExpansion,omitempty"`
 }
 
 // Resources are the resource requirements.
@@ -354,6 +359,20 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
+const (
+	// ConditionTypeCannotExpandStorage is a condition type that indicates that the storage cannot be expanded.
+	ConditionTypeCannotExpandStorage = "CannotExpandStorage"
+)
+
+const (
+	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
+	// when the storage class does not support volume expansion.
+	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
+	// ReasonStorageExpasionDisabled is a reason for condition ConditionTypeCannotExpandStorage
+	// when the storage expansion is disabled for the database cluster.
+	ReasonStorageExpasionDisabled = "StorageExpasionDisabled"
+)
+
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
 	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
@@ -380,6 +399,8 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// Conditions contains the observed conditions of the DatabaseCluster.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
