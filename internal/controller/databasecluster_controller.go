@@ -368,7 +368,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	maps.Copy(updated, current)
 
 	updated[databaseClusterNameLabel] = database.Name
-	if database.Spec.DataSource != nil {
+	if database.Spec.DataSource != nil && database.Spec.DataSource.DBClusterBackupName != "" {
 		// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
 		dbBackup := &everestv1alpha1.DatabaseClusterBackup{}
 		err := r.Get(ctx, types.NamespacedName{
