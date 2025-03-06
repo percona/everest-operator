@@ -220,6 +220,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
+
+	annotations := pxc.GetAnnotations()
+	_, pvcResizing := annotations[pxcv1.AnnotationPVCResizeInProgress]
+	if pvcResizing {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
 	return status, nil
 }
 
