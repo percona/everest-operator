@@ -793,3 +793,37 @@ func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 	}
 	return ud, nil
 }
+
+const (
+	storageClassDefaultAnnotation = "storageclass.kubernetes.io/is-default-class"
+)
+
+// StorageClassSupportsVolumeExpansion returns true if the storage class supports volume expansion.
+// If className is unspecified, uses the default storage class
+func StorageClassSupportsVolumeExpansion(c client.Client, ctx context.Context, className *string) (bool, error) {
+	storageClass, err := getStorageClassOrDefault(c, ctx, className)
+	if err != nil {
+		return false, fmt.Errorf("getStorageClassOrDefault failed: %w", err)
+	}
+	return *storageClass.AllowVolumeExpansion, nil
+}
+
+func getStorageClassOrDefault(c client.Client, ctx context.Context, scName *string) (*storagev1.StorageClass, error) {
+	storageClass := &storagev1.StorageClass{}
+	if scName == nil {
+		storageClasses := &storagev1.StorageClassList{}
+		if err := c.List(ctx, storageClasses); err != nil {
+			return nil, err
+		}
+		for _, sc := range storageClasses.Items {
+			if sc.Annotations[storageClassDefaultAnnotation] == "true" {
+				return &sc, nil
+			}
+		}
+		return nil, fmt.Errorf("no default storage class found")
+	}
+	if err := c.Get(ctx, types.NamespacedName{Name: *scName}, storageClass); err != nil {
+		return nil, err
+	}
+	return storageClass, nil
+}
