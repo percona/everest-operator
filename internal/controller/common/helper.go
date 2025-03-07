@@ -819,7 +819,7 @@ func getStorageClassOrDefault(c client.Client, ctx context.Context, scName *stri
 				return &sc, nil
 			}
 		}
-		return nil, fmt.Errorf("no default storage class found")
+		return nil, errors.New("no default storage class found")
 	}
 	if err := c.Get(ctx, types.NamespacedName{Name: *scName}, storageClass); err != nil {
 		return nil, err
@@ -833,13 +833,12 @@ type ConfigureStorageParams struct {
 	StorageClass           *string
 	DisableVolumeExpansion bool
 	CurrentSize            resource.Quantity
-	DB                     *everestv1alpha1.DatabaseCluster
 	SetStorageSizeFunc     func(resource.Quantity)
 }
 
-// ConfigureStorage handles storage configuration and volume expansion checks for database clusters
-func ConfigureStorage(ctx context.Context, c client.Client, params ConfigureStorageParams) error {
-	meta.RemoveStatusCondition(&params.DB.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
+// ConfigureStorage handles storage configuration and volume expansion checks for the given database cluster.
+func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, params ConfigureStorageParams) error {
+	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
 
 	hasStorageExpanded := params.CurrentSize.Cmp(params.DesiredSize) < 0 && !params.CurrentSize.IsZero()
 	if !hasStorageExpanded {
@@ -853,24 +852,24 @@ func ConfigureStorage(ctx context.Context, c client.Client, params ConfigureStor
 	}
 
 	if params.DisableVolumeExpansion {
-		meta.SetStatusCondition(&params.DB.Status.Conditions, metav1.Condition{
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
 			Status:             metav1.ConditionTrue,
 			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: params.DB.GetGeneration(),
+			ObservedGeneration: db.GetGeneration(),
 		})
 		params.SetStorageSizeFunc(params.CurrentSize)
 		return nil
 	}
 
 	if !allowedByStorageClass {
-		meta.SetStatusCondition(&params.DB.Status.Conditions, metav1.Condition{
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
 			Status:             metav1.ConditionTrue,
 			Reason:             everestv1alpha1.ReasonStorageClassDoesNotSupportExpansion,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: params.DB.GetGeneration(),
+			ObservedGeneration: db.GetGeneration(),
 		})
 		params.SetStorageSizeFunc(params.CurrentSize)
 		return nil

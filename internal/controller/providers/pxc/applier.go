@@ -99,12 +99,11 @@ func configureStorage(
 		}
 	}
 
-	return common.ConfigureStorage(ctx, c, common.ConfigureStorageParams{
+	return common.ConfigureStorage(ctx, c, db, common.ConfigureStorageParams{
 		DesiredSize:            db.Spec.Engine.Storage.Size,
 		StorageClass:           db.Spec.Engine.Storage.Class,
 		DisableVolumeExpansion: db.Spec.Engine.Storage.DisableVolumeExpansion,
 		CurrentSize:            currentSize,
-		DB:                     db,
 		SetStorageSizeFunc:     setStorageSize,
 	})
 }
