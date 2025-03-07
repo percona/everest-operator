@@ -370,9 +370,9 @@ const (
 	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
 	// when the storage class does not support volume expansion.
 	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
-	// ReasonStorageExpasionDisabled is a reason for condition ConditionTypeCannotExpandStorage
+	// ReasonStorageExpansionDisabled is a reason for condition ConditionTypeCannotExpandStorage
 	// when the storage expansion is disabled for the database cluster.
-	ReasonStorageExpasionDisabled = "StorageExpasionDisabled"
+	ReasonStorageExpansionDisabled = "StorageExpansionDisabled"
 )
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
