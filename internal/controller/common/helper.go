@@ -838,7 +838,7 @@ type ConfigureStorageParams struct {
 }
 
 // ConfigureStorage handles storage configuration and volume expansion checks for database clusters
-func ConfigureStorage(c client.Client, ctx context.Context, params ConfigureStorageParams) error {
+func ConfigureStorage(ctx context.Context, c client.Client, params ConfigureStorageParams) error {
 	meta.RemoveStatusCondition(&params.DB.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
 
 	hasStorageExpanded := params.CurrentSize.Cmp(params.DesiredSize) < 0 && !params.CurrentSize.IsZero()
