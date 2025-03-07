@@ -25,7 +25,6 @@ import (
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -82,54 +81,32 @@ func configureStorage(
 	current *pxcv1.PerconaXtraDBClusterSpec,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
-	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
-
 	var currentSize resource.Quantity
-	desiredSize := db.Spec.Engine.Storage.Size
-
 	if db.Status.Status != everestv1alpha1.AppStateNew {
 		currentSize = current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 	}
 
-	hasStorageExpanded := currentSize.Cmp(desiredSize) < 0 && !currentSize.IsZero()
-	allowedByStorageClass, err := common.StorageClassSupportsVolumeExpansion(c, ctx, db.Spec.Engine.Storage.Class)
-	if err != nil {
-		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
-	}
-
-	if hasStorageExpanded && db.Spec.Engine.Storage.DisableVolumeExpansion {
-		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
-			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
-			Status:             metav1.ConditionTrue,
-			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
-			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: db.GetGeneration(),
-		})
-		desiredSize = currentSize
-	}
-
-	if hasStorageExpanded && !allowedByStorageClass {
-		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
-			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
-			Status:             metav1.ConditionTrue,
-			Reason:             everestv1alpha1.ReasonStorageClassDoesNotSupportExpansion,
-			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: db.GetGeneration(),
-		})
-		desiredSize = currentSize
-	}
-
-	desired.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-			StorageClassName: db.Spec.Engine.Storage.Class,
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: desiredSize,
+	setStorageSize := func(size resource.Quantity) {
+		desired.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: db.Spec.Engine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: size,
+					},
 				},
 			},
-		},
+		}
 	}
-	return nil
+
+	return common.ConfigureStorage(c, ctx, common.ConfigureStorageParams{
+		DesiredSize:            db.Spec.Engine.Storage.Size,
+		StorageClass:           db.Spec.Engine.Storage.Class,
+		DisableVolumeExpansion: db.Spec.Engine.Storage.DisableVolumeExpansion,
+		CurrentSize:            currentSize,
+		DB:                     db,
+		SetStorageSizeFunc:     setStorageSize,
+	})
 }
 
 func (p *applier) Engine() error {
