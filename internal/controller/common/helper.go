@@ -35,6 +35,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
@@ -792,4 +793,88 @@ func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return ud, nil
+}
+
+const (
+	storageClassDefaultAnnotation = "storageclass.kubernetes.io/is-default-class"
+)
+
+func storageClassSupportsVolumeExpansion(ctx context.Context, c client.Client, className *string) (bool, error) {
+	storageClass, err := getStorageClassOrDefault(ctx, c, className)
+	if err != nil {
+		return false, fmt.Errorf("getStorageClassOrDefault failed: %w", err)
+	}
+	return *storageClass.AllowVolumeExpansion, nil
+}
+
+func getStorageClassOrDefault(ctx context.Context, c client.Client, scName *string) (*storagev1.StorageClass, error) {
+	storageClass := &storagev1.StorageClass{}
+	if scName == nil {
+		storageClasses := &storagev1.StorageClassList{}
+		if err := c.List(ctx, storageClasses); err != nil {
+			return nil, err
+		}
+		for _, sc := range storageClasses.Items {
+			if sc.Annotations[storageClassDefaultAnnotation] == "true" {
+				return &sc, nil
+			}
+		}
+		return nil, errors.New("no default storage class found")
+	}
+	if err := c.Get(ctx, types.NamespacedName{Name: *scName}, storageClass); err != nil {
+		return nil, err
+	}
+	return storageClass, nil
+}
+
+// ConfigureStorageParams ...
+type ConfigureStorageParams struct {
+	DesiredSize            resource.Quantity
+	StorageClass           *string
+	DisableVolumeExpansion bool
+	CurrentSize            resource.Quantity
+	SetStorageSizeFunc     func(resource.Quantity)
+}
+
+// ConfigureStorage handles storage configuration and volume expansion checks for the given database cluster.
+func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, params ConfigureStorageParams) error {
+	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
+
+	hasStorageExpanded := params.CurrentSize.Cmp(params.DesiredSize) < 0 && !params.CurrentSize.IsZero()
+	if !hasStorageExpanded {
+		params.SetStorageSizeFunc(params.DesiredSize)
+		return nil
+	}
+
+	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, params.StorageClass)
+	if err != nil {
+		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
+	}
+
+	if params.DisableVolumeExpansion {
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
+			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
+			Status:             metav1.ConditionTrue,
+			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: db.GetGeneration(),
+		})
+		params.SetStorageSizeFunc(params.CurrentSize)
+		return nil
+	}
+
+	if !allowedByStorageClass {
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
+			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
+			Status:             metav1.ConditionTrue,
+			Reason:             everestv1alpha1.ReasonStorageClassDoesNotSupportExpansion,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: db.GetGeneration(),
+		})
+		params.SetStorageSizeFunc(params.CurrentSize)
+		return nil
+	}
+
+	params.SetStorageSizeFunc(params.DesiredSize)
+	return nil
 }

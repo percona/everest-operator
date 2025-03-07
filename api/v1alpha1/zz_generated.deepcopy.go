@@ -20,6 +20,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -584,6 +585,13 @@ func (in *DatabaseClusterStatus) DeepCopyInto(out *DatabaseClusterStatus) {
 		in, out := &in.RecommendedCRVersion, &out.RecommendedCRVersion
 		*out = new(string)
 		**out = **in
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]v1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
