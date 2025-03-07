@@ -800,14 +800,14 @@ const (
 )
 
 func storageClassSupportsVolumeExpansion(ctx context.Context, c client.Client, className *string) (bool, error) {
-	storageClass, err := getStorageClassOrDefault(c, ctx, className)
+	storageClass, err := getStorageClassOrDefault(ctx, c, className)
 	if err != nil {
 		return false, fmt.Errorf("getStorageClassOrDefault failed: %w", err)
 	}
 	return *storageClass.AllowVolumeExpansion, nil
 }
 
-func getStorageClassOrDefault(c client.Client, ctx context.Context, scName *string) (*storagev1.StorageClass, error) {
+func getStorageClassOrDefault(ctx context.Context, c client.Client, scName *string) (*storagev1.StorageClass, error) {
 	storageClass := &storagev1.StorageClass{}
 	if scName == nil {
 		storageClasses := &storagev1.StorageClassList{}
