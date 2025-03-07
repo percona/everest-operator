@@ -203,6 +203,7 @@ func defaultSpec() psmdbv1.PerconaServerMongoDBSpec {
 		UpgradeOptions: psmdbv1.UpgradeOptions{
 			Apply:    "disabled",
 			Schedule: "0 4 * * *",
+			SetFCV:   true,
 		},
 		PMM: psmdbv1.PMMSpec{
 			Enabled: false,
