@@ -101,7 +101,7 @@ func configureStorage(
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
 			Status:             metav1.ConditionTrue,
-			Reason:             everestv1alpha1.ReasonStorageExpasionDisabled,
+			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: db.GetGeneration(),
 		})
