@@ -75,8 +75,8 @@ func (p *applier) AllowUnsafeConfig() {
 }
 
 func configureStorage(
-	c client.Client,
 	ctx context.Context,
+	c client.Client,
 	desired *pxcv1.PerconaXtraDBClusterSpec,
 	current *pxcv1.PerconaXtraDBClusterSpec,
 	db *everestv1alpha1.DatabaseCluster,
@@ -136,7 +136,7 @@ func (p *applier) Engine() error {
 		pxc.Spec.VolumeExpansionEnabled = true
 	}
 
-	if err := configureStorage(p.C, p.ctx, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
+	if err := configureStorage(p.ctx, p.C, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
 		return err
 	}
 
