@@ -799,7 +799,7 @@ const (
 	storageClassDefaultAnnotation = "storageclass.kubernetes.io/is-default-class"
 )
 
-func storageClassSupportsVolumeExpansion(c client.Client, ctx context.Context, className *string) (bool, error) {
+func storageClassSupportsVolumeExpansion(ctx context.Context, c client.Client, className *string) (bool, error) {
 	storageClass, err := getStorageClassOrDefault(c, ctx, className)
 	if err != nil {
 		return false, fmt.Errorf("getStorageClassOrDefault failed: %w", err)
@@ -847,7 +847,7 @@ func ConfigureStorage(c client.Client, ctx context.Context, params ConfigureStor
 		return nil
 	}
 
-	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(c, ctx, params.StorageClass)
+	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, params.StorageClass)
 	if err != nil {
 		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
 	}
