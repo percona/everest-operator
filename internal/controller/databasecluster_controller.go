@@ -367,18 +367,23 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	updated := make(map[string]string, len(current))
 	maps.Copy(updated, current)
 
-	updated[databaseClusterNameLabel] = database.Name
-	if database.Spec.DataSource != nil && database.Spec.DataSource.DBClusterBackupName != "" {
-		// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
-		dbBackup := &everestv1alpha1.DatabaseClusterBackup{}
-		err := r.Get(ctx, types.NamespacedName{
-			Name:      database.Spec.DataSource.DBClusterBackupName,
-			Namespace: database.Namespace,
-		}, dbBackup)
-		if err != nil {
-			return errors.Join(err, fmt.Errorf("could not get DB backup '%s' to obtain backup storage name", database.Spec.DataSource.DBClusterBackupName))
+	updated[databaseClusterNameLabel] = database.GetName()
+	if database.Spec.DataSource != nil {
+		if database.Spec.DataSource.DBClusterBackupName != "" {
+			// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
+			dbBackup := &everestv1alpha1.DatabaseClusterBackup{}
+			err := r.Get(ctx, types.NamespacedName{
+				Name:      database.Spec.DataSource.DBClusterBackupName,
+				Namespace: database.GetNamespace(),
+			}, dbBackup)
+			if err != nil {
+				return errors.Join(err, fmt.Errorf("could not get DB backup '%s' to obtain backup storage name for DB cluster='%s' in namespace='%s'",
+					database.Spec.DataSource.DBClusterBackupName,
+					database.GetName(),
+					database.GetNamespace()))
+			}
+			updated[fmt.Sprintf(backupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = backupStorageLabelValue
 		}
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = backupStorageLabelValue
 
 		// .spec.dataSource.backupSource.backupStorageName can be set via API directly.
 		// UI doesn't set it right now.
