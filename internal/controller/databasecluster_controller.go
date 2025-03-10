@@ -472,7 +472,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		func(o client.Object) []string {
 			var res []string
 			database, ok := o.(*everestv1alpha1.DatabaseCluster)
-			if !ok || !database.Spec.Backup.Enabled {
+			if !ok {
 				return res
 			}
 			for _, storage := range database.Spec.Backup.Schedules {
