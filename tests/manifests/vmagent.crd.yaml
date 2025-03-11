@@ -2,19 +2,9 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.17.2
   name: vmagents.operator.victoriametrics.com
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: webhook-service
-          namespace: vm
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: operator.victoriametrics.com
   names:
     kind: VMAgent
@@ -36,6 +26,9 @@ spec:
       jsonPath: .status.updateStatus
       name: Status
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -64,6 +57,49 @@ spec:
             description: VMAgentSpec defines the desired state of VMAgent
             properties:
               aPIServerConfig:
+                description: |-
+                  APIServerConfig allows specifying a host and auth methods to access apiserver.
+                  If left empty, VMAgent is assumed to run inside of the cluster
+                  and will discover API servers automatically and use the pod's CA certificate
+                  and bearer token file at /var/run/secrets/kubernetes.io/serviceaccount/.
+                  aPIServerConfig is deprecated use apiServerConfig instead
+                required:
+                - host
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              additionalScrapeConfigs:
+                description: |-
+                  AdditionalScrapeConfigs As scrape configs are appended, the user is responsible to make sure it
+                  is valid. Note that using this feature may expose the possibility to
+                  break upgrades of VMAgent. It is advised to review VMAgent release
+                  notes to ensure that no incompatible scrape configs are going to break
+                  VMAgent after the upgrade.
+                properties:
+                  key:
+                    description: The key of the secret to select from.  Must be a
+                      valid secret key.
+                    type: string
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  optional:
+                    description: Specify whether the Secret or its key must be defined
+                    type: boolean
+                required:
+                - key
+                type: object
+                x-kubernetes-map-type: atomic
+              affinity:
+                description: Affinity If specified, the pod's scheduling constraints.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              apiServerConfig:
                 description: |-
                   APIServerConfig allows specifying a host and auth methods to access apiserver.
                   If left empty, VMAgent is assumed to run inside of the cluster
@@ -332,38 +368,6 @@ spec:
                 required:
                 - host
                 type: object
-              additionalScrapeConfigs:
-                description: |-
-                  AdditionalScrapeConfigs As scrape configs are appended, the user is responsible to make sure it
-                  is valid. Note that using this feature may expose the possibility to
-                  break upgrades of VMAgent. It is advised to review VMAgent release
-                  notes to ensure that no incompatible scrape configs are going to break
-                  VMAgent after the upgrade.
-                properties:
-                  key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
-                    type: string
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                  optional:
-                    description: Specify whether the Secret or its key must be defined
-                    type: boolean
-                required:
-                - key
-                type: object
-                x-kubernetes-map-type: atomic
-              affinity:
-                description: Affinity If specified, the pod's scheduling constraints.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               arbitraryFSAccessThroughSMs:
                 description: |-
                   ArbitraryFSAccessThroughSMs configures whether configuration
@@ -588,7 +592,7 @@ spec:
                             set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                             exists.
                             More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                            (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                            (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                           type: string
                         volumeMode:
                           description: |-
@@ -729,10 +733,15 @@ spec:
                                   persistent volume is being resized.
                                 type: string
                               status:
+                                description: |-
+                                  Status is the status of the condition.
+                                  Can be True, False, Unknown.
+                                  More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=state%20of%20pvc-,conditions.status,-(string)%2C%20required
                                 type: string
                               type:
-                                description: PersistentVolumeClaimConditionType is
-                                  a valid value of PersistentVolumeClaimCondition.Type
+                                description: |-
+                                  Type is the type of the condition.
+                                  More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=set%20to%20%27ResizeStarted%27.-,PersistentVolumeClaimCondition,-contains%20details%20about
                                 type: string
                             required:
                             - status
@@ -746,13 +755,13 @@ spec:
                           description: |-
                             currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.
                             When unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim
-                            This is an alpha field and requires enabling VolumeAttributesClass feature.
+                            This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                           type: string
                         modifyVolumeStatus:
                           description: |-
                             ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.
                             When this is unset, there is no ModifyVolume operation being attempted.
-                            This is an alpha field and requires enabling VolumeAttributesClass feature.
+                            This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                           properties:
                             status:
                               description: "status is the status of the ControllerModifyVolume
@@ -824,6 +833,12 @@ spec:
                             the Pod where this field is used. It makes that resource available
                             inside a container.
                           type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
                       required:
                       - name
                       type: object
@@ -868,6 +883,14 @@ spec:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
+              disableAutomountServiceAccountToken:
+                description: |-
+                  DisableAutomountServiceAccountToken whether to disable serviceAccount auto mount by Kubernetes (available from v0.54.0).
+                  Operator will conditionally create volumes and volumeMounts for containers if it requires k8s API access.
+                  For example, vmagent and vm-config-reloader requires k8s API access.
+                  Operator creates volumes with name: "kube-api-access", which can be used as volumeMount for extraContainers if needed.
+                  And also adds VolumeMounts at /var/run/secrets/kubernetes.io/serviceaccount.
+                type: boolean
               disableSelfServiceScrape:
                 description: |-
                   DisableSelfServiceScrape controls creation of VMServiceScrape by operator
@@ -902,9 +925,12 @@ spec:
                         of a pod.
                       properties:
                         name:
-                          description: Required.
+                          description: |-
+                            Name is this DNS resolver option's name.
+                            Required.
                           type: string
                         value:
+                          description: Value is this DNS resolver option's value.
                           type: string
                       type: object
                     type: array
@@ -1194,6 +1220,9 @@ spec:
                   Using license key is supported starting from VictoriaMetrics v1.94.0.
                   See [here](https://docs.victoriametrics.com/enterprise)
                 properties:
+                  forceOffline:
+                    description: Enforce offline verification of the license key.
+                    type: boolean
                   key:
                     description: |-
                       Enterprise license key. This flag is available only in [VictoriaMetrics enterprise](https://docs.victoriametrics.com/enterprise).
@@ -1224,6 +1253,10 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  reloadInterval:
+                    description: Interval to be used for checking for license key
+                      changes. Note that this is only applicable when using KeyRef.
+                    type: string
                 type: object
               livenessProbe:
                 description: LivenessProbe that will be added CRD pod
@@ -1246,6 +1279,29 @@ spec:
                 - FATAL
                 - PANIC
                 type: string
+              managedMetadata:
+                description: |-
+                  ManagedMetadata defines metadata that will be added to the all objects
+                  created by operator for the given CustomResource
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Annotations is an unstructured key value map stored with a resource that may be
+                      set by external tools to store and retrieve arbitrary metadata. They are not
+                      queryable and should be preserved when modifying objects.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Labels Map of string keys and values that can be used to organize and categorize
+                      (scope and select) objects.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
+                    type: object
+                type: object
               maxScrapeInterval:
                 description: |-
                   MaxScrapeInterval allows limiting maximum scrape interval for VMServiceScrape, VMPodScrape and other scrapes
@@ -1253,7 +1309,7 @@ spec:
                 type: string
               minReadySeconds:
                 description: |-
-                  MinReadySeconds defines a minim number os seconds to wait before starting update next pod
+                  MinReadySeconds defines a minimum number of seconds to wait before starting update next pod
                   if previous in healthy state
                   Has no effect for VLogs and VMSingle
                 format: int32
@@ -2273,6 +2329,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        enableWindows:
+                          description: EnableWindows enables aggregating data in separate
+                            windows ( available from v0.54.0).
+                          type: boolean
                         ignoreFirstIntervals:
                           description: IgnoreFirstIntervals instructs to ignore first
                             interval
@@ -2313,6 +2373,10 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              enable_windows:
+                                description: EnableWindows enables aggregating data
+                                  in separate windows
+                                type: boolean
                               flush_on_shutdown:
                                 description: |-
                                   FlushOnShutdown defines whether to flush the aggregation state on process termination
@@ -2806,6 +2870,12 @@ spec:
                             Name must match the name of one entry in pod.spec.resourceClaims of
                             the Pod where this field is used. It makes that resource available
                             inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
                           type: string
                       required:
                       - name
@@ -3630,7 +3700,7 @@ spec:
                               set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                               exists.
                               More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                              (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                              (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                             type: string
                           volumeMode:
                             description: |-
@@ -3773,10 +3843,15 @@ spec:
                                     persistent volume is being resized.
                                   type: string
                                 status:
+                                  description: |-
+                                    Status is the status of the condition.
+                                    Can be True, False, Unknown.
+                                    More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=state%20of%20pvc-,conditions.status,-(string)%2C%20required
                                   type: string
                                 type:
-                                  description: PersistentVolumeClaimConditionType
-                                    is a valid value of PersistentVolumeClaimCondition.Type
+                                  description: |-
+                                    Type is the type of the condition.
+                                    More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=set%20to%20%27ResizeStarted%27.-,PersistentVolumeClaimCondition,-contains%20details%20about
                                   type: string
                               required:
                               - status
@@ -3790,13 +3865,13 @@ spec:
                             description: |-
                               currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.
                               When unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim
-                              This is an alpha field and requires enabling VolumeAttributesClass feature.
+                              This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                             type: string
                           modifyVolumeStatus:
                             description: |-
                               ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.
                               When this is unset, there is no ModifyVolume operation being attempted.
-                              This is an alpha field and requires enabling VolumeAttributesClass feature.
+                              This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                             properties:
                               status:
                                 description: "status is the status of the ControllerModifyVolume
@@ -3957,7 +4032,7 @@ spec:
                 type: array
               staticScrapeSelector:
                 description: |-
-                  StaticScrapeSelector defines PodScrapes to be selected for target discovery.
+                  StaticScrapeSelector defines VMStaticScrape to be selected for target discovery.
                   Works in combination with NamespaceSelector.
                   If both nil - match everything.
                   NamespaceSelector nil - only objects at VMAgent namespace.
@@ -4046,6 +4121,10 @@ spec:
                     items:
                       type: string
                     type: array
+                  enableWindows:
+                    description: EnableWindows enables aggregating data in separate
+                      windows ( available from v0.54.0).
+                    type: boolean
                   ignoreFirstIntervals:
                     description: IgnoreFirstIntervals instructs to ignore first interval
                     type: integer
@@ -4084,6 +4163,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        enable_windows:
+                          description: EnableWindows enables aggregating data in separate
+                            windows
+                          type: boolean
                         flush_on_shutdown:
                           description: |-
                             FlushOnShutdown defines whether to flush the aggregation state on process termination
@@ -4496,15 +4579,77 @@ spec:
           status:
             description: VMAgentStatus defines the observed state of VMAgent
             properties:
-              availableReplicas:
+              conditions:
+                description: 'Known .status.conditions.type are: "Available", "Progressing",
+                  and "Degraded"'
+                items:
+                  description: Condition defines status condition of the resource
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another.
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      description: |-
+                        LastUpdateTime is the last time of given type update.
+                        This value is used for status TTL update and removal
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in name.namespace.resource.victoriametrics.com/CamelCase.
+                      maxLength: 316
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - lastUpdateTime
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
                 description: |-
-                  AvailableReplicas Total number of available pods (ready for at least minReadySeconds)
-                  targeted by this VMAlert cluster.
-                format: int32
+                  ObservedGeneration defines current generation picked by operator for the
+                  reconcile
+                format: int64
                 type: integer
               reason:
-                description: Reason defines fail reason for update process, effective
-                  only for statefulMode
+                description: Reason defines human readable error reason
                 type: string
               replicas:
                 description: ReplicaCount Total number of pods targeted by this VMAgent
@@ -4518,21 +4663,9 @@ spec:
                   with uniq scrape targets
                 format: int32
                 type: integer
-              unavailableReplicas:
-                description: UnavailableReplicas Total number of unavailable pods
-                  targeted by this VMAgent cluster.
-                format: int32
-                type: integer
               updateStatus:
-                description: UpdateStatus defines a status for update rollout, effective
-                  only for statefulMode
+                description: UpdateStatus defines a status for update rollout
                 type: string
-              updatedReplicas:
-                description: |-
-                  UpdatedReplicas Total number of non-terminated pods targeted by this VMAgent
-                  cluster that have the desired version spec.
-                format: int32
-                type: integer
             type: object
         type: object
     served: true
