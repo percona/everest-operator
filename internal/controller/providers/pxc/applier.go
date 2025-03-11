@@ -592,8 +592,8 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 		}
 	}
 
-	// If scheduled backups are disabled, just return the storages used in DatabaseClusterBackup objects
-	if !database.Spec.Backup.Enabled {
+	// If there are no schedules, just return the storages used in DatabaseClusterBackup objects
+	if len(database.Spec.Backup.Schedules) == 0 {
 		pxcBackupSpec.Storages = storages
 		return pxcBackupSpec, nil
 	}
