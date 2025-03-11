@@ -10,4 +10,4 @@ status:
   conditions:
   - reason: StorageExpansionDisabled
     status: "True"
-    type: CannotExpandStorage
+    type: CannotResizeVolume
