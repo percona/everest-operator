@@ -827,21 +827,22 @@ func getStorageClassOrDefault(ctx context.Context, c client.Client, scName *stri
 	return storageClass, nil
 }
 
-// ConfigureStorageParams ...
-type ConfigureStorageParams struct {
-	DesiredSize            resource.Quantity
-	StorageClass           *string
-	DisableVolumeExpansion bool
-	CurrentSize            resource.Quantity
-	SetStorageSizeFunc     func(resource.Quantity)
-}
-
 // ConfigureStorage handles storage configuration and volume expansion checks for the given database cluster.
-func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, params ConfigureStorageParams) error {
+func ConfigureStorage(
+	ctx context.Context,
+	c client.Client,
+	db *everestv1alpha1.DatabaseCluster,
+	currentSize resource.Quantity,
+	setStorageSizeFunc func(resource.Quantity),
+) error {
 	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotResizeVolume)
 
+	desiredSize := db.Spec.Engine.Storage.Size
+	disableVolumeExpansion := db.Spec.Engine.Storage.DisableVolumeExpansion
+	storageClass := db.Spec.Engine.Storage.Class
+
 	// We cannot shrink the volume size.
-	hasStorageShrunk := params.CurrentSize.Cmp(params.DesiredSize) > 0 && !params.CurrentSize.IsZero()
+	hasStorageShrunk := currentSize.Cmp(desiredSize) > 0 && !currentSize.IsZero()
 	if hasStorageShrunk {
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
@@ -850,18 +851,18 @@ func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: db.GetGeneration(),
 		})
-		params.SetStorageSizeFunc(params.CurrentSize)
+		setStorageSizeFunc(currentSize)
 		return nil
 	}
 
 	// Check if storage size is being expanded. If not, set the desired size and return early.
-	hasStorageExpanded := params.CurrentSize.Cmp(params.DesiredSize) < 0 && !params.CurrentSize.IsZero()
+	hasStorageExpanded := currentSize.Cmp(desiredSize) < 0 && !currentSize.IsZero()
 	if !hasStorageExpanded {
-		params.SetStorageSizeFunc(params.DesiredSize)
+		setStorageSizeFunc(desiredSize)
 		return nil
 	}
 
-	if params.DisableVolumeExpansion {
+	if disableVolumeExpansion {
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
 			Status:             metav1.ConditionTrue,
@@ -869,11 +870,11 @@ func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: db.GetGeneration(),
 		})
-		params.SetStorageSizeFunc(params.CurrentSize)
+		setStorageSizeFunc(currentSize)
 		return nil
 	}
 
-	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, params.StorageClass)
+	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, storageClass)
 	if err != nil {
 		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
 	}
@@ -886,10 +887,10 @@ func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: db.GetGeneration(),
 		})
-		params.SetStorageSizeFunc(params.CurrentSize)
+		setStorageSizeFunc(currentSize)
 		return nil
 	}
 
-	params.SetStorageSizeFunc(params.DesiredSize)
+	setStorageSizeFunc(desiredSize)
 	return nil
 }
