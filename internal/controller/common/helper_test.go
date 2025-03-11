@@ -16,9 +16,9 @@
 package common
 
 import (
-	"context"
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -185,7 +184,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:  resource.MustParse("10Gi"),
-							Class: pointer.String("standard"),
+							Class: pointer.To("standard"),
 						},
 					},
 				},
@@ -207,7 +206,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:  resource.MustParse("20Gi"),
-							Class: pointer.String("standard"),
+							Class: pointer.To("standard"),
 						},
 					},
 				},
@@ -229,7 +228,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:  resource.MustParse("10Gi"),
-							Class: pointer.String("standard"),
+							Class: pointer.To("standard"),
 						},
 					},
 				},
@@ -253,7 +252,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:                   resource.MustParse("20Gi"),
-							Class:                  pointer.String("standard"),
+							Class:                  pointer.To("standard"),
 							DisableVolumeExpansion: true,
 						},
 					},
@@ -278,7 +277,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:  resource.MustParse("20Gi"),
-							Class: pointer.String("standard"),
+							Class: pointer.To("standard"),
 						},
 					},
 				},
@@ -302,7 +301,7 @@ func TestConfigureStorage(t *testing.T) {
 					Engine: everestv1alpha1.Engine{
 						Storage: everestv1alpha1.Storage{
 							Size:  resource.MustParse("20Gi"),
-							Class: pointer.String("non-existent"),
+							Class: pointer.To("non-existent"),
 						},
 					},
 				},
@@ -314,7 +313,6 @@ func TestConfigureStorage(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -338,7 +336,7 @@ func TestConfigureStorage(t *testing.T) {
 			client := builder.Build()
 
 			// Run the test
-			err := ConfigureStorage(context.Background(), client, tt.db, tt.currentSize, setSize)
+			err := ConfigureStorage(t.Context(), client, tt.db, tt.currentSize, setSize)
 
 			// Verify results
 			if tt.expectErr {
