@@ -363,8 +363,8 @@ type DatabaseClusterSpec struct {
 }
 
 const (
-	// ConditionTypeCannotExpandStorage is a condition type that indicates that the storage cannot be expanded.
-	ConditionTypeCannotExpandStorage = "CannotExpandStorage"
+	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
+	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
 )
 
 const (
@@ -374,6 +374,9 @@ const (
 	// ReasonStorageExpansionDisabled is a reason for condition ConditionTypeCannotExpandStorage
 	// when the storage expansion is disabled for the database cluster.
 	ReasonStorageExpansionDisabled = "StorageExpansionDisabled"
+	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
+	// when the volume cannot be shrunk.
+	ReasonCannotShrinkVolume = "CannotShrinkVolume"
 )
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.

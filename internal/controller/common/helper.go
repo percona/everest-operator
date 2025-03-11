@@ -838,22 +838,32 @@ type ConfigureStorageParams struct {
 
 // ConfigureStorage handles storage configuration and volume expansion checks for the given database cluster.
 func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, params ConfigureStorageParams) error {
-	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotExpandStorage)
+	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotResizeVolume)
 
+	// We cannot shrink the volume size.
+	hasStorageShrunk := params.CurrentSize.Cmp(params.DesiredSize) > 0 && !params.CurrentSize.IsZero()
+	if hasStorageShrunk {
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
+			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
+			Status:             metav1.ConditionTrue,
+			Reason:             everestv1alpha1.ReasonCannotShrinkVolume,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: db.GetGeneration(),
+		})
+		params.SetStorageSizeFunc(params.CurrentSize)
+		return nil
+	}
+
+	// Check if storage size is being expanded. If not, set the desired size and return early.
 	hasStorageExpanded := params.CurrentSize.Cmp(params.DesiredSize) < 0 && !params.CurrentSize.IsZero()
 	if !hasStorageExpanded {
 		params.SetStorageSizeFunc(params.DesiredSize)
 		return nil
 	}
 
-	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, params.StorageClass)
-	if err != nil {
-		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
-	}
-
 	if params.DisableVolumeExpansion {
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
-			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
+			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
 			Status:             metav1.ConditionTrue,
 			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
 			LastTransitionTime: metav1.Now(),
@@ -863,9 +873,14 @@ func ConfigureStorage(ctx context.Context, c client.Client, db *everestv1alpha1.
 		return nil
 	}
 
+	allowedByStorageClass, err := storageClassSupportsVolumeExpansion(ctx, c, params.StorageClass)
+	if err != nil {
+		return fmt.Errorf("failed to check if storage class supports volume expansion: %w", err)
+	}
+
 	if !allowedByStorageClass {
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
-			Type:               everestv1alpha1.ConditionTypeCannotExpandStorage,
+			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
 			Status:             metav1.ConditionTrue,
 			Reason:             everestv1alpha1.ReasonStorageClassDoesNotSupportExpansion,
 			LastTransitionTime: metav1.Now(),
