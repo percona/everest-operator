@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -73,6 +74,34 @@ func (p *applier) AllowUnsafeConfig() {
 	}
 }
 
+func configureStorage(
+	ctx context.Context,
+	c client.Client,
+	desired *pxcv1.PerconaXtraDBClusterSpec,
+	current *pxcv1.PerconaXtraDBClusterSpec,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	var currentSize resource.Quantity
+	if db.Status.Status != everestv1alpha1.AppStateNew {
+		currentSize = current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+	}
+
+	setStorageSize := func(size resource.Quantity) {
+		desired.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: db.Spec.Engine.Storage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: size,
+					},
+				},
+			},
+		}
+	}
+
+	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
+}
+
 func (p *applier) Engine() error {
 	engine := p.DBEngine
 	if p.DB.Spec.Engine.Version == "" {
@@ -97,15 +126,10 @@ func (p *applier) Engine() error {
 	}
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
 
-	pxc.Spec.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-			StorageClassName: p.DB.Spec.Engine.Storage.Class,
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
-				},
-			},
-		},
+	pxc.Spec.VolumeExpansionEnabled = true
+
+	if err := configureStorage(p.ctx, p.C, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
+		return err
 	}
 
 	if !p.DB.Spec.Engine.Resources.CPU.IsZero() {

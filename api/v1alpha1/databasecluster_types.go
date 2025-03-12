@@ -49,6 +49,8 @@ const (
 	AppStateRestoring AppState = "restoring"
 	// AppStateDeleting is a deleting state.
 	AppStateDeleting AppState = "deleting"
+	// AppStateResizingVolumes is the state when PVCs are being resized.
+	AppStateResizingVolumes = "resizingVolumes"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 
@@ -355,6 +357,20 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
+const (
+	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
+	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
+)
+
+const (
+	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
+	// when the storage class does not support volume expansion.
+	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
+	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
+	// when the volume cannot be shrunk.
+	ReasonCannotShrinkVolume = "CannotShrinkVolume"
+)
+
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
 	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
@@ -381,6 +397,8 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// Conditions contains the observed conditions of the DatabaseCluster.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
