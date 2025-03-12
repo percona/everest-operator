@@ -117,7 +117,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	psmdb := p.PerconaServerMongoDB
 
 	activeStorage := getActiveStorage(psmdb)
-	status.Status = everestv1alpha1.AppState(psmdb.Status.State)
+	status.Status = everestv1alpha1.AppState(psmdb.Status.State).WithCreatingState()
 	status.Hostname = psmdb.Status.Host
 	status.Ready = psmdb.Status.Ready
 	status.Size = psmdb.Status.Size
