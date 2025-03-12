@@ -286,7 +286,7 @@ jobs:
           kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
         env:
           PXC_OPERATOR_VERSION: 1.16.1
-          PSMDB_OPERATOR_VERSION: 1.19.0
+          PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.5.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
