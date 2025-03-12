@@ -126,9 +126,7 @@ func (p *applier) Engine() error {
 	}
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
 
-	if !p.DB.Spec.Engine.Storage.DisableVolumeExpansion {
-		pxc.Spec.VolumeExpansionEnabled = true
-	}
+	pxc.Spec.VolumeExpansionEnabled = true
 
 	if err := configureStorage(p.ctx, p.C, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
 		return err

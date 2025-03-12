@@ -19,7 +19,6 @@ spec:
     replicas: 1
     storage:
       size: 15G
-      disableVolumeExpansion: true
     resources:
       cpu: 600m
       memory: 1G

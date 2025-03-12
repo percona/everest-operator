@@ -838,7 +838,6 @@ func ConfigureStorage(
 	meta.RemoveStatusCondition(&db.Status.Conditions, everestv1alpha1.ConditionTypeCannotResizeVolume)
 
 	desiredSize := db.Spec.Engine.Storage.Size
-	disableVolumeExpansion := db.Spec.Engine.Storage.DisableVolumeExpansion
 	storageClass := db.Spec.Engine.Storage.Class
 
 	// We cannot shrink the volume size.
@@ -859,18 +858,6 @@ func ConfigureStorage(
 	hasStorageExpanded := currentSize.Cmp(desiredSize) < 0 && !currentSize.IsZero()
 	if !hasStorageExpanded {
 		setStorageSizeFunc(desiredSize)
-		return nil
-	}
-
-	if disableVolumeExpansion {
-		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
-			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
-			Status:             metav1.ConditionTrue,
-			Reason:             everestv1alpha1.ReasonStorageExpansionDisabled,
-			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: db.GetGeneration(),
-		})
-		setStorageSizeFunc(currentSize)
 		return nil
 	}
 

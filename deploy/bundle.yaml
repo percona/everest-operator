@@ -557,13 +557,6 @@ spec:
                       class:
                         description: Class is the storage class to use for the persistent volume claim
                         type: string
-                      disableVolumeExpansion:
-                        description: |-
-                          DisableVolumeExpansion controls whether the storage size of an existing cluster can be increased.
-                          When set to true, the storage size cannot be modified after creation.
-                          By default, this is false, allowing the storage size to be increased by specifying a new size value.
-                          Note: Volume expansion requires support from the underlying storage class.
-                        type: boolean
                       size:
                         anyOf:
                         - type: integer

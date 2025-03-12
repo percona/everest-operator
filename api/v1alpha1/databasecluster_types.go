@@ -124,11 +124,6 @@ type Storage struct {
 	Size resource.Quantity `json:"size"`
 	// Class is the storage class to use for the persistent volume claim
 	Class *string `json:"class,omitempty"`
-	// DisableVolumeExpansion controls whether the storage size of an existing cluster can be increased.
-	// When set to true, the storage size cannot be modified after creation.
-	// By default, this is false, allowing the storage size to be increased by specifying a new size value.
-	// Note: Volume expansion requires support from the underlying storage class.
-	DisableVolumeExpansion bool `json:"disableVolumeExpansion,omitempty"`
 }
 
 // Resources are the resource requirements.
@@ -371,9 +366,6 @@ const (
 	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
 	// when the storage class does not support volume expansion.
 	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
-	// ReasonStorageExpansionDisabled is a reason for condition ConditionTypeCannotExpandStorage
-	// when the storage expansion is disabled for the database cluster.
-	ReasonStorageExpansionDisabled = "StorageExpansionDisabled"
 	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
 	// when the volume cannot be shrunk.
 	ReasonCannotShrinkVolume = "CannotShrinkVolume"

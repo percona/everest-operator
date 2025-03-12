@@ -241,31 +241,6 @@ func TestConfigureStorage(t *testing.T) {
 			wantFailureCondReason:      everestv1alpha1.ReasonCannotShrinkVolume,
 		},
 		{
-			name: "expansion disabled",
-			db: &everestv1alpha1.DatabaseCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-db",
-					Namespace:  "default",
-					Generation: 1,
-				},
-				Spec: everestv1alpha1.DatabaseClusterSpec{
-					Engine: everestv1alpha1.Engine{
-						Storage: everestv1alpha1.Storage{
-							Size:                   resource.MustParse("20Gi"),
-							Class:                  pointer.To("standard"),
-							DisableVolumeExpansion: true,
-						},
-					},
-				},
-			},
-			currentSize:                resource.MustParse("10Gi"),
-			storageClassExists:         true,
-			storageClassAllowExpansion: true,
-			wantSize:                   resource.MustParse("10Gi"),
-			expectFailureCond:          true,
-			wantFailureCondReason:      everestv1alpha1.ReasonStorageExpansionDisabled,
-		},
-		{
 			name: "storage class doesn't support expansion",
 			db: &everestv1alpha1.DatabaseCluster{
 				ObjectMeta: metav1.ObjectMeta{
