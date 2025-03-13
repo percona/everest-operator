@@ -118,14 +118,14 @@ func (p *applier) Engine() error {
 
 	psmdb.Spec.VolumeExpansionEnabled = true
 
-	if err := p.configureSharding(); err != nil {
+	if err := p.configureReplSets(); err != nil {
 		return fmt.Errorf("failed to configure sharding: %w", err)
 	}
 
 	return nil
 }
 
-func (p *applier) configureSharding() error {
+func (p *applier) configureReplSets() error {
 	database := p.DB
 	psmdb := p.PerconaServerMongoDB
 
