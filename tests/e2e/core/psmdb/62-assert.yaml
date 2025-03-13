@@ -5,6 +5,6 @@ timeout: 600
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: single-node
 status:
   status: ready 

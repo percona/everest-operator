@@ -5,14 +5,14 @@ timeout: 600
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: single-node
 status:
   status: resizingVolumes
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
-  name: test-psmdb-cluster
+  name: single-node
 spec:
   enableVolumeExpansion: true
   replsets:
