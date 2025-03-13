@@ -33,6 +33,8 @@ var (
 const (
 	// AppStateUnknown is an unknown state.
 	AppStateUnknown AppState = "unknown"
+	// AppStateCreating is used when the db did not start to initialize yet.
+	AppStateCreating AppState = "creating"
 	// AppStateInit is a initializing state.
 	AppStateInit AppState = "initializing"
 	// AppStatePaused is a paused state.
@@ -102,6 +104,18 @@ const (
 	// EngineSizeLarge represents a large engine size.
 	EngineSizeLarge EngineSize = "large"
 )
+
+// WithCreatingState transforms empty and unknown states to a single AppStateCreating.
+// The upstream operators have the different statuses when a cluster is being created -
+// pxc - "unknown", psmdb - "", pg does not have any empty status.
+// Everest maps the DB status 1:1, and there is no point so far to create a separate mapping
+// for each upstream operator separately only because we want to unify AppStateCreating.
+func (s AppState) WithCreatingState() AppState {
+	if s == AppStateUnknown || s == AppStateNew {
+		return AppStateCreating
+	}
+	return s
+}
 
 // Applier provides methods for specifying how to apply a DatabaseCluster CR
 // onto the CR(s) provided by the underlying DB operators (e.g. PerconaXtraDBCluster, PerconaServerMongoDB, PerconaPGCluster, etc.)
