@@ -180,10 +180,10 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 
 	// Running the applier can possibly also mutate the DatabaseCluster,
 	// so we should make sure we push those changes to the API server.
-	updatedDB := db.DeepCopy()
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, db, func() error {
-		db.ObjectMeta = updatedDB.ObjectMeta
-		db.Spec = updatedDB.Spec
+	dbCopy := db.DeepCopy()
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbCopy, func() error {
+		dbCopy.ObjectMeta = db.ObjectMeta
+		dbCopy.Spec = db.Spec
 		return nil
 	}); err != nil {
 		return ctrl.Result{}, err
