@@ -119,7 +119,7 @@ func (p *applier) Engine() error {
 	psmdb.Spec.VolumeExpansionEnabled = true
 
 	if err := p.configureReplSets(); err != nil {
-		return fmt.Errorf("failed to configure sharding: %w", err)
+		return fmt.Errorf("failed to configure replsets: %w", err)
 	}
 
 	return nil
