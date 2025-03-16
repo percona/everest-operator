@@ -712,7 +712,9 @@ func configureStorage(
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	var currentSize resource.Quantity
-	if current != nil {
+	if current != nil &&
+		current.VolumeSpec != nil &&
+		current.VolumeSpec.PersistentVolumeClaim.PersistentVolumeClaimSpec != nil {
 		currentSize = current.VolumeSpec.PersistentVolumeClaim.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
 	}
 
