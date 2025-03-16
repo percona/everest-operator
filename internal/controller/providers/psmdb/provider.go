@@ -156,6 +156,8 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.PerconaServerMongoDB) (bool, error) {
 	if psmdb.Status.State == psmdbv1.AppStateInit {
+		// We must list all StatefulSets belonging to this PSMDB object,
+		// and check for the PVC resize annotation.
 		stsList := &appsv1.StatefulSetList{}
 		err := c.List(
 			ctx,
@@ -175,7 +177,6 @@ func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.
 				return true, nil
 			}
 		}
-		return false, nil
 	}
 	return false, nil
 }
