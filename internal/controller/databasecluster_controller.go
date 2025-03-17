@@ -670,6 +670,8 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 	// Since PerconaPGCluster does not expose any info about volume resizing,
 	// we need to directly watch the PostgresCluster objects to track the status.
+	// See: https://perconadev.atlassian.net/browse/K8SPG-748
+	// TODO: Remove this once K8SPG-748 is addressed.
 	controller.Watches(
 		&crunchyv1beta1.PostgresCluster{},
 		&handler.EnqueueRequestForObject{},
