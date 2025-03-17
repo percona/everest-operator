@@ -8,6 +8,7 @@ rules:
   - ""
   resources:
   - namespaces
+  - persistentvolumeclaims
   verbs:
   - get
   - list

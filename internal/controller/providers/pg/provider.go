@@ -18,9 +18,11 @@ package pg
 
 import (
 	"context"
+	"fmt"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -90,6 +92,9 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 	}
 }
 
+// +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
+
 // Status builds the DatabaseCluster Status based on the current state of the PerconaPGCluster.
 func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	c := p.C
@@ -132,7 +137,33 @@ func isPVCResizing(ctx context.Context, c client.Client, name, namespace string)
 	if err != nil {
 		return false, err
 	}
-	return meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing), nil
+	isResizing := meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
+
+	// A bug in the crunchydata operator causes the PVC resize condition to not be removed
+	// on time, even though the PVC is no longer resizing. To workaround this, we will doublecheck
+	// with the PVCs.
+	if isResizing {
+		pvcs := &corev1.PersistentVolumeClaimList{}
+		if err := c.List(
+			ctx,
+			pvcs,
+			client.InNamespace(namespace),
+			client.MatchingLabels{"postgres-operator.crunchydata.com/cluster": name},
+		); err != nil {
+			return false, fmt.Errorf("failed to list PVCs: %w", err)
+		}
+		for _, pvc := range pvcs.Items {
+			for _, condition := range pvc.Status.Conditions {
+				if (condition.Type == corev1.PersistentVolumeClaimResizing ||
+					condition.Type == corev1.PersistentVolumeClaimFileSystemResizePending) &&
+					condition.Status == corev1.ConditionTrue {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return isResizing, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
