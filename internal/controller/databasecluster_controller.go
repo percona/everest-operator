@@ -28,6 +28,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -212,6 +213,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 //+kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
@@ -661,6 +663,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 			return requests
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	// Since PerconaPGCluster does not expose any info about volume resizing,
+	// we need to directly watch the PostgresCluster objects to track the status.
+	controller.Watches(
+		&crunchyv1beta1.PostgresCluster{},
+		&handler.EnqueueRequestForObject{},
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the

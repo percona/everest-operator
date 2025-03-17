@@ -20,7 +20,9 @@ import (
 	"context"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,7 +116,23 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
+
+	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+		return status, err
+	} else if ok {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
 	return status, nil
+}
+
+func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
+	pg := &crunchyv1beta1.PostgresCluster{}
+	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg)
+	if err != nil {
+		return false, err
+	}
+	return meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing), nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
