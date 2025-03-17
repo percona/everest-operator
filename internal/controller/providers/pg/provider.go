@@ -133,37 +133,37 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
 	pg := &crunchyv1beta1.PostgresCluster{}
-	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg)
-	if err != nil {
-		return false, err
+	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg); err != nil {
+		return false, fmt.Errorf("failed to get PostgreSQL cluster: %w", err)
 	}
-	isResizing := meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
 
-	// A bug in the crunchydata operator causes the PVC resize condition to not be removed
-	// on time, even though the PVC is no longer resizing. To workaround this, we will doublecheck
-	// with the PVCs.
-	if isResizing {
-		pvcs := &corev1.PersistentVolumeClaimList{}
-		if err := c.List(
-			ctx,
-			pvcs,
-			client.InNamespace(namespace),
-			client.MatchingLabels{"postgres-operator.crunchydata.com/cluster": name},
-		); err != nil {
-			return false, fmt.Errorf("failed to list PVCs: %w", err)
-		}
-		for _, pvc := range pvcs.Items {
-			for _, condition := range pvc.Status.Conditions {
-				if (condition.Type == corev1.PersistentVolumeClaimResizing ||
-					condition.Type == corev1.PersistentVolumeClaimFileSystemResizePending) &&
-					condition.Status == corev1.ConditionTrue {
-					return true, nil
-				}
+	isResizing := meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
+	if !isResizing {
+		return false, nil
+	}
+	// There is a known bug in the Crunchy PostgreSQL Operator where the PVC resize condition
+	// is not removed promptly. We need to verify the status of the actual PVCs to ensure we are not
+	// reporting a false positive.
+	// See: https://perconadev.atlassian.net/browse/K8SPG-747
+	// TODO: Remove this once K8SPG-747 is fixed.
+	return verifyPVCResizingStatus(ctx, c, name, namespace)
+}
+
+func verifyPVCResizingStatus(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	if err := c.List(ctx, pvcList, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/instance": name}); err != nil {
+		return false, fmt.Errorf("failed to list PVCs: %w", err)
+	}
+	for _, pvc := range pvcList.Items {
+		for _, condition := range pvc.Status.Conditions {
+			if (condition.Type == corev1.PersistentVolumeClaimResizing ||
+				condition.Type == corev1.PersistentVolumeClaimFileSystemResizePending) &&
+				condition.Status == corev1.ConditionTrue {
+				return true, nil
 			}
 		}
 	}
-
-	return isResizing, nil
+	return false, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.

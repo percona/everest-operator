@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
@@ -199,6 +200,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	db.Status.ObservedGeneration = db.GetGeneration()
 	if err := r.Client.Status().Update(ctx, db); err != nil {
 		return ctrl.Result{}, err
+	}
+	if status.Status != everestv1alpha1.AppStateInit {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return ctrl.Result{}, nil
 }
