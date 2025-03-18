@@ -147,6 +147,9 @@ func (p *applier) Engine() error {
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
 		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
 	}
+
+	pxc.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
+
 	return nil
 }
 
