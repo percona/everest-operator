@@ -75,6 +75,7 @@ const (
 	monitoringConfigNameLabel  = "monitoringConfigName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
 	backupStorageLabelValue    = "used"
+	defaultRequeueAfter        = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -202,7 +203,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, err
 	}
 	if status.Status != everestv1alpha1.AppStateInit {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
 	}
 	return ctrl.Result{}, nil
 }
