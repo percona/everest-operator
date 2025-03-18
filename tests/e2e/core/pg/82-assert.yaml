@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 600
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: single-node
+spec:
+    storage:
+      size: 20G
+status:
+  status: ready
