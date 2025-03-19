@@ -18,9 +18,13 @@ package pg
 
 import (
 	"context"
+	"fmt"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,6 +92,9 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 	}
 }
 
+// +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
+
 // Status builds the DatabaseCluster Status based on the current state of the PerconaPGCluster.
 func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	c := p.C
@@ -114,7 +121,49 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
+
+	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+		return status, err
+	} else if ok {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
 	return status, nil
+}
+
+func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
+	pg := &crunchyv1beta1.PostgresCluster{}
+	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg); err != nil {
+		return false, fmt.Errorf("failed to get PostgreSQL cluster: %w", err)
+	}
+
+	isResizing := meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
+	if !isResizing {
+		return false, nil
+	}
+	// There is a known bug in the Crunchy PostgreSQL Operator where the PVC resize condition
+	// is not removed promptly. We need to verify the status of the actual PVCs to ensure we are not
+	// reporting a false positive.
+	// See: https://perconadev.atlassian.net/browse/K8SPG-747
+	// TODO: Remove this once K8SPG-747 is fixed.
+	return verifyPVCResizingStatus(ctx, c, name, namespace)
+}
+
+func verifyPVCResizingStatus(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	if err := c.List(ctx, pvcList, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/instance": name}); err != nil {
+		return false, fmt.Errorf("failed to list PVCs: %w", err)
+	}
+	for _, pvc := range pvcList.Items {
+		for _, condition := range pvc.Status.Conditions {
+			if (condition.Type == corev1.PersistentVolumeClaimResizing ||
+				condition.Type == corev1.PersistentVolumeClaimFileSystemResizePending) &&
+				condition.Status == corev1.ConditionTrue {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.

@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-03-13T13:25:31Z"
+    createdAt: "2025-03-17T12:25:39Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -132,6 +132,7 @@ spec:
           - ""
           resources:
           - namespaces
+          - persistentvolumeclaims
           verbs:
           - get
           - list
@@ -254,6 +255,14 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - postgres-operator.crunchydata.com
+          resources:
+          - postgresclusters
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - psmdb.percona.com

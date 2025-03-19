@@ -24,14 +24,17 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-logr/logr"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,6 +76,7 @@ const (
 	monitoringConfigNameLabel  = "monitoringConfigName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
 	backupStorageLabelValue    = "used"
+	defaultRequeueAfter        = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -198,6 +202,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	db.Status.ObservedGeneration = db.GetGeneration()
 	if err := r.Client.Status().Update(ctx, db); err != nil {
 		return ctrl.Result{}, err
+	}
+	if status.Status != everestv1alpha1.AppStateInit {
+		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -661,6 +668,25 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 			return requests
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	// Since PerconaPGCluster does not expose any info about volume resizing,
+	// we need to directly watch the PostgresCluster objects to track the status.
+	// See: https://perconadev.atlassian.net/browse/K8SPG-748
+	// TODO: Remove this once K8SPG-748 is addressed.
+	controller.Watches(
+		&crunchyv1beta1.PostgresCluster{},
+		&handler.EnqueueRequestForObject{},
+		// We are watching PostgresCluster objects since PerconaPGCluster lacks status
+		// info about volume resizing. So we will attach a event filter to only trigger
+		// reconciliations when the volume is being resized.
+		builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			pgc, ok := obj.(*crunchyv1beta1.PostgresCluster)
+			if !ok {
+				return false
+			}
+			return meta.IsStatusConditionTrue(pgc.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
+		})),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
