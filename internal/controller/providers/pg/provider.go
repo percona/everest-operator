@@ -20,7 +20,9 @@ import (
 	"context"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -107,6 +109,29 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
+	}
+
+	// Get PG pods to check if an upgrade is pending or in progress.
+	listOpts := &client.ListOptions{
+		Namespace:     p.DB.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(labels.Set{"app.kubernetes.io/component": "pg", "app.kubernetes.io/instance": p.DB.GetName()}),
+	}
+	podList := &corev1.PodList{}
+	if err := c.List(ctx, podList, listOpts); err != nil {
+		return status, err
+	}
+	for _, pod := range podList.Items {
+		for _, container := range pod.Spec.Containers {
+			if container.Name != "database" {
+				continue
+			}
+
+			// If there's a pod with a different image tag from the one
+			// specified in the CR, an upgrade is pending or in progress.
+			if container.Image != pg.Spec.Image {
+				status.Status = everestv1alpha1.AppStateUpgrading
+			}
+		}
 	}
 
 	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PGDeploymentName, p.DB)
