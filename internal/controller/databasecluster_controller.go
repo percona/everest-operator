@@ -34,6 +34,7 @@ import (
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -676,6 +677,16 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&crunchyv1beta1.PostgresCluster{},
 		&handler.EnqueueRequestForObject{},
+		// We are watching PostgresCluster objects since PerconaPGCluster lacks status
+		// info about volume resizing. So we will attach a event filter to only trigger
+		// reconciliations when the volume is being resized.
+		builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			pgc, ok := obj.(*crunchyv1beta1.PostgresCluster)
+			if !ok {
+				return false
+			}
+			return meta.IsStatusConditionTrue(pgc.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
+		})),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
