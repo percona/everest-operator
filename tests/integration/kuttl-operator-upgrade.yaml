@@ -5,6 +5,6 @@ artifactsDir: /tmp/
 startKIND: true
 skipDelete: true
 testDirs:
-- tests/integration/upgrade
+- tests/integration/operator-upgrade
 manifestDirs:
 - tests/manifests
