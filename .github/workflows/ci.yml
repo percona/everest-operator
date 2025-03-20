@@ -42,7 +42,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
+          PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   integration-tests:
@@ -92,7 +92,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
+          PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
@@ -102,7 +102,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
+          PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run upgrade tests
@@ -112,8 +112,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PG_OPERATOR_VERSION: 2.4.1
+          PG_OPERATOR_VERSION: 2.6.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
           PREVIOUS_PXC_OPERATOR_VERSION: 1.15.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -192,8 +192,8 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PG_OPERATOR_VERSION: 2.4.1
+          PG_OPERATOR_VERSION: 2.6.0
+          PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
           PREVIOUS_PXC_OPERATOR_VERSION: 1.15.0
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -241,7 +241,7 @@ jobs:
         env:
           PXC_OPERATOR_VERSION: 1.16.1
           PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
+          PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources
