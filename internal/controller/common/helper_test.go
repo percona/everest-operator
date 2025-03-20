@@ -18,10 +18,14 @@ package common
 import (
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -152,4 +156,182 @@ func TestMergeMapError(t *testing.T) {
 	}
 	err := mergeMap(testDst, src)
 	require.Error(t, err)
+}
+
+func TestConfigureStorage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                       string
+		db                         *everestv1alpha1.DatabaseCluster
+		currentSize                resource.Quantity
+		storageClassExists         bool
+		storageClassAllowExpansion bool
+		wantSize                   resource.Quantity
+		expectFailureCond          bool
+		wantFailureCondReason      string
+		expectErr                  bool
+	}{
+		{
+			name: "initial storage setup",
+			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-db",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Storage: everestv1alpha1.Storage{
+							Size:  resource.MustParse("10Gi"),
+							Class: pointer.To("standard"),
+						},
+					},
+				},
+			},
+			currentSize:                resource.MustParse("0"),
+			storageClassExists:         true,
+			storageClassAllowExpansion: true,
+			wantSize:                   resource.MustParse("10Gi"),
+		},
+		{
+			name: "successful volume expansion",
+			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-db",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Storage: everestv1alpha1.Storage{
+							Size:  resource.MustParse("20Gi"),
+							Class: pointer.To("standard"),
+						},
+					},
+				},
+			},
+			currentSize:                resource.MustParse("10Gi"),
+			storageClassExists:         true,
+			storageClassAllowExpansion: true,
+			wantSize:                   resource.MustParse("20Gi"),
+		},
+		{
+			name: "volume shrink not allowed",
+			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-db",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Storage: everestv1alpha1.Storage{
+							Size:  resource.MustParse("10Gi"),
+							Class: pointer.To("standard"),
+						},
+					},
+				},
+			},
+			currentSize:                resource.MustParse("20Gi"),
+			storageClassExists:         true,
+			storageClassAllowExpansion: true,
+			wantSize:                   resource.MustParse("20Gi"),
+			expectFailureCond:          true,
+			wantFailureCondReason:      everestv1alpha1.ReasonCannotShrinkVolume,
+		},
+		{
+			name: "storage class doesn't support expansion",
+			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-db",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Storage: everestv1alpha1.Storage{
+							Size:  resource.MustParse("20Gi"),
+							Class: pointer.To("standard"),
+						},
+					},
+				},
+			},
+			currentSize:                resource.MustParse("10Gi"),
+			storageClassExists:         true,
+			storageClassAllowExpansion: false,
+			wantSize:                   resource.MustParse("10Gi"),
+			expectFailureCond:          true,
+			wantFailureCondReason:      everestv1alpha1.ReasonStorageClassDoesNotSupportExpansion,
+		},
+		{
+			name: "storage class not found",
+			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-db",
+					Namespace:  "default",
+					Generation: 1,
+				},
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Storage: everestv1alpha1.Storage{
+							Size:  resource.MustParse("20Gi"),
+							Class: pointer.To("non-existent"),
+						},
+					},
+				},
+			},
+			currentSize:        resource.MustParse("10Gi"),
+			storageClassExists: false,
+			expectErr:          true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup test objects
+			var actualSize resource.Quantity
+			setSize := func(size resource.Quantity) {
+				actualSize = size
+			}
+
+			// Setup fake client with storage class if needed
+			builder := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			if tt.storageClassExists && tt.db.Spec.Engine.Storage.Class != nil {
+				sc := &storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: *tt.db.Spec.Engine.Storage.Class,
+					},
+					AllowVolumeExpansion: &tt.storageClassAllowExpansion,
+				}
+				builder.WithObjects(sc)
+			}
+			client := builder.Build()
+
+			// Run the test
+			err := ConfigureStorage(t.Context(), client, tt.db, tt.currentSize, setSize)
+
+			// Verify results
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			// Check if the size was set correctly
+			assert.Equal(t, tt.wantSize, actualSize, "unexpected storage size")
+
+			// Check conditions if expected
+			if tt.expectFailureCond {
+				cond := meta.FindStatusCondition(tt.db.Status.Conditions, everestv1alpha1.ConditionTypeCannotResizeVolume)
+				assert.Equal(t, tt.wantFailureCondReason, cond.Reason)
+				assert.Equal(t, tt.db.Generation, cond.ObservedGeneration)
+				assert.NotEmpty(t, cond.LastTransitionTime)
+			} else {
+				assert.Empty(t, tt.db.Status.Conditions, "expected no conditions")
+			}
+		})
+	}
 }

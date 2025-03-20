@@ -132,17 +132,15 @@ func (p *applier) Engine() error {
 	if !database.Spec.Engine.Resources.Memory.IsZero() {
 		pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceMemory] = database.Spec.Engine.Resources.Memory
 	}
-	pg.Spec.InstanceSets[0].DataVolumeClaimSpec = corev1.PersistentVolumeClaimSpec{
-		AccessModes: []corev1.PersistentVolumeAccessMode{
-			corev1.ReadWriteOnce,
-		},
-		StorageClassName: database.Spec.Engine.Storage.Class,
-		Resources: corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: database.Spec.Engine.Storage.Size,
-			},
-		},
+
+	var currentInstSet *pgv2.PGInstanceSetSpec
+	if len(p.currentPGSpec.InstanceSets) > 0 {
+		currentInstSet = &p.currentPGSpec.InstanceSets[0]
 	}
+	if err := configureStorage(p.ctx, p.C, &pg.Spec.InstanceSets[0], currentInstSet, p.DB); err != nil {
+		return fmt.Errorf("failed to configure storage: %w", err)
+	}
+
 	// New affinity settings (added in 1.2.0) shall be applied only for new clusters, or on existing clusters that
 	// have been upgraded to CRVersion 2.4.1.
 	// This is a temporary workaround to make sure we can apply this change without an automatic restart.
@@ -1152,4 +1150,33 @@ func genPGBackrestRepo(
 	}
 
 	return pgRepo, nil
+}
+
+func configureStorage(
+	ctx context.Context,
+	c client.Client,
+	desired *pgv2.PGInstanceSetSpec,
+	current *pgv2.PGInstanceSetSpec,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	var currentSize resource.Quantity
+	if current != nil {
+		currentSize = current.DataVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+	}
+
+	setStorageSize := func(size resource.Quantity) {
+		desired.DataVolumeClaimSpec = corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			StorageClassName: db.Spec.Engine.Storage.Class,
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: size,
+				},
+			},
+		}
+	}
+
+	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
 }
