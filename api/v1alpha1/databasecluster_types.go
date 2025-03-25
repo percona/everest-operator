@@ -51,6 +51,8 @@ const (
 	AppStateRestoring AppState = "restoring"
 	// AppStateDeleting is a deleting state.
 	AppStateDeleting AppState = "deleting"
+	// AppStateUpgrading is an upgrading state.
+	AppStateUpgrading AppState = "upgrading"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 

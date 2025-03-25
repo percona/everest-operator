@@ -1432,6 +1432,9 @@ rules:
   - pods
   verbs:
   - delete
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:

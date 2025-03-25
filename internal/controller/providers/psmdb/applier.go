@@ -117,6 +117,8 @@ func (p *applier) Engine() error {
 
 	p.configureSharding()
 
+	psmdb.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
+
 	return nil
 }
 
