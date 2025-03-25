@@ -19,8 +19,6 @@ spec:
       type: internal
     replicas: 3
     type: haproxy
-  backup:
-    enabled: false
 status:
   status: initializing
 ---

@@ -20,8 +20,6 @@ spec:
       type: internal
     replicas: 1
     type: mongos
-  backup:
-    enabled: false
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
