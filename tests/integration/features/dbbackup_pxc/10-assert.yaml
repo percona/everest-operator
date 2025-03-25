@@ -20,8 +20,6 @@ spec:
       type: internal
     replicas: 1
     type: haproxy
-  backup:
-    enabled: false
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
