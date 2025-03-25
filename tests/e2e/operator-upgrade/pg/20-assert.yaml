@@ -32,8 +32,6 @@ spec:
       type: internal
     replicas: 2
     type: pgbouncer
-  backup:
-    enabled: false
 status:
   ready: 4
   size: 4

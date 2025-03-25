@@ -50,7 +50,6 @@ metadata:
   name: test-psmdb-cluster
 spec:
   backup:
-    enabled: false
     pitr:
       enabled: false
 status:
