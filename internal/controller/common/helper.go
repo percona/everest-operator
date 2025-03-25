@@ -827,6 +827,17 @@ func getStorageClassOrDefault(ctx context.Context, c client.Client, scName *stri
 	return storageClass, nil
 }
 
+func volumeResizeFailed(db *everestv1alpha1.DatabaseCluster) bool {
+	for _, condition := range db.Status.Conditions {
+		if condition.Type == everestv1alpha1.ConditionTypeVolumeResizeFailed &&
+			condition.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ConfigureStorage handles storage configuration and volume expansion checks for the given database cluster.
 func ConfigureStorage(
 	ctx context.Context,
@@ -840,9 +851,10 @@ func ConfigureStorage(
 	desiredSize := db.Spec.Engine.Storage.Size
 	storageClass := db.Spec.Engine.Storage.Class
 
-	// We cannot shrink the volume size.
+	// We cannot shrink the volume size, unless volume resizing failed so that
+	// we can provide a chance to recover.
 	hasStorageShrunk := currentSize.Cmp(desiredSize) > 0 && !currentSize.IsZero()
-	if hasStorageShrunk {
+	if hasStorageShrunk && !volumeResizeFailed(db) {
 		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
 			Type:               everestv1alpha1.ConditionTypeCannotResizeVolume,
 			Status:             metav1.ConditionTrue,
@@ -880,4 +892,21 @@ func ConfigureStorage(
 
 	setStorageSizeFunc(desiredSize)
 	return nil
+}
+
+// VerifyPVCResizeFailure checks if the PVC resize failed.
+func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespace string) (bool, string, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	if err := c.List(ctx, pvcList, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/instance": name}); err != nil {
+		return false, "", fmt.Errorf("failed to list PVCs: %w", err)
+	}
+	for _, pvc := range pvcList.Items {
+		for _, condition := range pvc.Status.Conditions {
+			if condition.Type == corev1.PersistentVolumeClaimControllerResizeError &&
+				condition.Status == corev1.ConditionTrue {
+				return true, condition.Message, nil
+			}
+		}
+	}
+	return false, "", nil
 }

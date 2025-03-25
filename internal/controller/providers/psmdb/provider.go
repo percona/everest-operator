@@ -24,7 +24,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -115,6 +117,7 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 // Status builds the DatabaseCluster Status based on the current state of the PerconaServerMongoDB.
 func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	status := p.DB.Status
+	prevStatus := status
 	psmdb := p.PerconaServerMongoDB
 
 	activeStorage := getActiveStorage(psmdb)
@@ -144,6 +147,26 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	} else if inProgress {
 		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
+	// If the PVC resize is currently in progress, or just finished, we need to
+	// check if it failed in order to set or clear the error condition.
+	if status.Status == everestv1alpha1.AppStateResizingVolumes ||
+		prevStatus.Status == everestv1alpha1.AppStateResizingVolumes {
+		meta.RemoveStatusCondition(&status.Conditions, everestv1alpha1.ConditionTypeVolumeResizeFailed)
+		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+			return status, err
+		} else if failed {
+			status.Status = everestv1alpha1.AppStateResizingVolumes
+			meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+				Type:               everestv1alpha1.ConditionTypeVolumeResizeFailed,
+				Status:             metav1.ConditionTrue,
+				Reason:             everestv1alpha1.ReasonVolumeResizeFailed,
+				Message:            condMessage,
+				LastTransitionTime: metav1.Now(),
+				ObservedGeneration: p.DB.GetGeneration(),
+			})
+		}
 	}
 
 	// If the current version of the database is different from the version in

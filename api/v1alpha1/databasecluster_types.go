@@ -376,6 +376,8 @@ type DatabaseClusterSpec struct {
 const (
 	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
 	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
+	// ConditionTypeVolumeResizeFailed is a condition type that indicates that the volume resize failed.
+	ConditionTypeVolumeResizeFailed = "VolumeResizeFailed"
 )
 
 const (
@@ -385,6 +387,9 @@ const (
 	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
 	// when the volume cannot be shrunk.
 	ReasonCannotShrinkVolume = "CannotShrinkVolume"
+	// ReasonVolumeResizeFailed is a reason for condition ConditionTypeVolumeResizeFailed
+	// when the volume resize failed.
+	ReasonVolumeResizeFailed = "VolumeResizeFailed"
 )
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
