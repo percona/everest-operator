@@ -881,3 +881,20 @@ func ConfigureStorage(
 	setStorageSizeFunc(desiredSize)
 	return nil
 }
+
+// VerifyPVCResizeFailure checks if the PVC resize failed.
+func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespace string) (bool, string, error) {
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	if err := c.List(ctx, pvcList, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/instance": name}); err != nil {
+		return false, "", fmt.Errorf("failed to list PVCs: %w", err)
+	}
+	for _, pvc := range pvcList.Items {
+		for _, condition := range pvc.Status.Conditions {
+			if condition.Type == corev1.PersistentVolumeClaimControllerResizeError &&
+				condition.Status == corev1.ConditionTrue {
+				return true, condition.Message, nil
+			}
+		}
+	}
+	return false, "", nil
+}
