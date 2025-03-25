@@ -21,6 +21,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -139,6 +140,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
+	if inProgress, err := isPVCResizeInProgress(ctx, p.C, p.PerconaServerMongoDB); err != nil {
+		return status, err
+	} else if inProgress {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
 	// If the current version of the database is different from the version in
 	// the CR, an upgrade is pending or in progress.
 	if p.DB.Spec.Engine.Version != "" && psmdb.Status.MongoVersion != "" && p.DB.Spec.Engine.Version != psmdb.Status.MongoVersion {
@@ -151,6 +158,33 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	}
 	status.RecommendedCRVersion = recCRVer
 	return status, nil
+}
+
+func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.PerconaServerMongoDB) (bool, error) {
+	if psmdb.Status.State == psmdbv1.AppStateInit {
+		// We must list all StatefulSets belonging to this PSMDB object,
+		// and check for the PVC resize annotation.
+		stsList := &appsv1.StatefulSetList{}
+		err := c.List(
+			ctx,
+			stsList,
+			client.InNamespace(psmdb.GetNamespace()),
+			client.MatchingLabels{
+				"app.kubernetes.io/instance": psmdb.GetName(),
+			},
+		)
+		if err != nil {
+			return false, err
+		}
+		for _, sts := range stsList.Items {
+			annots := sts.GetAnnotations()
+			_, ok := annots[psmdbv1.AnnotationPVCResizeInProgress]
+			if ok {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.

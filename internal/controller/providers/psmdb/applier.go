@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -115,22 +116,28 @@ func (p *applier) Engine() error {
 		EncryptionKey: database.Name + encryptionKeySuffix,
 	}
 
-	p.configureSharding()
+	psmdb.Spec.VolumeExpansionEnabled = true
+
+	if err := p.configureReplSets(); err != nil {
+		return fmt.Errorf("failed to configure replsets: %w", err)
+	}
 
 	psmdb.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
 
 	return nil
 }
 
-func (p *applier) configureSharding() {
+func (p *applier) configureReplSets() error {
 	database := p.DB
 	psmdb := p.PerconaServerMongoDB
 
 	// TODO: implement disabling
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
 		// keep the default configuration
-		p.configureReplSetSpec(psmdb.Spec.Replsets[0], rsName(0))
-		return
+		if err := p.configureReplSetSpec(psmdb.Spec.Replsets[0], rsName(0)); err != nil {
+			return fmt.Errorf("failed to configure default replset: %w", err)
+		}
+		return nil
 	}
 
 	psmdb.Spec.Sharding.Enabled = database.Spec.Sharding.Enabled
@@ -145,41 +152,39 @@ func (p *applier) configureSharding() {
 
 	// configure all replsets
 	for i := range shards {
-		p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i))
+		if err := p.configureReplSetSpec(psmdb.Spec.Replsets[i], rsName(i)); err != nil {
+			return fmt.Errorf("failed to configure replset %s: %w", rsName(i), err)
+		}
 	}
 
 	if psmdb.Spec.Sharding.ConfigsvrReplSet == nil {
 		psmdb.Spec.Sharding.ConfigsvrReplSet = &psmdbv1.ReplsetSpec{}
 	}
-	p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet)
+	if err := p.configureConfigsvrReplSet(psmdb.Spec.Sharding.ConfigsvrReplSet); err != nil {
+		return fmt.Errorf("failed to configure configsvr replset: %w", err)
+	}
+	return nil
 }
 
 func rsName(i int) string {
 	return fmt.Sprintf("rs%v", i)
 }
 
-func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) {
+func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) error {
 	database := p.DB
 	configsvr.Size = database.Spec.Sharding.ConfigServer.Replicas
 	configsvr.MultiAZ.Affinity = &psmdbv1.PodAffinity{
 		Advanced: common.DefaultAffinitySettings().DeepCopy(),
 	}
-	configsvr.VolumeSpec = &psmdbv1.VolumeSpec{
-		PersistentVolumeClaim: psmdbv1.PVCSpec{
-			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-				// Use the same storage class and size as the engine
-				StorageClassName: database.Spec.Engine.Storage.Class,
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: p.DB.Spec.Engine.Storage.Size,
-					},
-				},
-			},
-		},
+
+	currentReplSet := p.currentPSMDBSpec.Sharding.ConfigsvrReplSet
+	if err := configureStorage(p.ctx, p.C, configsvr, currentReplSet, p.DB); err != nil {
+		return fmt.Errorf("failed to configure configsvr replset storage: %w", err)
 	}
+	return nil
 }
 
-func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
+func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) error {
 	spec.Name = name
 	dbEngine := p.DB.Spec.Engine
 	if dbEngine.Config != "" {
@@ -201,24 +206,19 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) {
 	}
 	spec.MultiAZ.Affinity = affinity
 	spec.Size = dbEngine.Replicas
-	spec.VolumeSpec = &psmdbv1.VolumeSpec{
-		PersistentVolumeClaim: psmdbv1.PVCSpec{
-			PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: dbEngine.Storage.Class,
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: dbEngine.Storage.Size,
-					},
-				},
-			},
-		},
+
+	currentReplSet := p.getCurrentReplSet(name)
+	if err := configureStorage(p.ctx, p.C, spec, currentReplSet, p.DB); err != nil {
+		return fmt.Errorf("failed to configure replset storage: %w", err)
 	}
+
 	if !dbEngine.Resources.CPU.IsZero() {
 		spec.MultiAZ.Resources.Limits[corev1.ResourceCPU] = dbEngine.Resources.CPU
 	}
 	if !dbEngine.Resources.Memory.IsZero() {
 		spec.MultiAZ.Resources.Limits[corev1.ResourceMemory] = dbEngine.Resources.Memory
 	}
+	return nil
 }
 
 func (p *applier) Proxy() error {
@@ -695,4 +695,45 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	psmdbBackupSpec.Tasks = tasks
 
 	return psmdbBackupSpec, nil
+}
+
+func (p *applier) getCurrentReplSet(name string) *psmdbv1.ReplsetSpec {
+	for _, replset := range p.currentPSMDBSpec.Replsets {
+		if replset.Name == name {
+			return replset
+		}
+	}
+	return nil
+}
+
+func configureStorage(
+	ctx context.Context,
+	c client.Client,
+	desired *psmdbv1.ReplsetSpec,
+	current *psmdbv1.ReplsetSpec,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	var currentSize resource.Quantity
+	if current != nil &&
+		current.VolumeSpec != nil &&
+		current.VolumeSpec.PersistentVolumeClaim.PersistentVolumeClaimSpec != nil {
+		currentSize = current.VolumeSpec.PersistentVolumeClaim.PersistentVolumeClaimSpec.Resources.Requests[corev1.ResourceStorage]
+	}
+
+	setStorageSize := func(size resource.Quantity) {
+		desired.VolumeSpec = &psmdbv1.VolumeSpec{
+			PersistentVolumeClaim: psmdbv1.PVCSpec{
+				PersistentVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: db.Spec.Engine.Storage.Class,
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: size,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
 }

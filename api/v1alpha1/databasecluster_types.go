@@ -53,6 +53,8 @@ const (
 	AppStateDeleting AppState = "deleting"
 	// AppStateUpgrading is an upgrading state.
 	AppStateUpgrading AppState = "upgrading"
+	// AppStateResizingVolumes is the state when PVCs are being resized.
+	AppStateResizingVolumes = "resizingVolumes"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 
@@ -371,6 +373,20 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
+const (
+	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
+	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
+)
+
+const (
+	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
+	// when the storage class does not support volume expansion.
+	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
+	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
+	// when the volume cannot be shrunk.
+	ReasonCannotShrinkVolume = "CannotShrinkVolume"
+)
+
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
 	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
@@ -397,10 +413,12 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// Conditions contains the observed conditions of the DatabaseCluster.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=db;dbc;dbcluster
 // +kubebuilder:printcolumn:name="Size",type="string",JSONPath=".status.size"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready"
@@ -417,7 +435,7 @@ type DatabaseCluster struct {
 	Status DatabaseClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DatabaseClusterList contains a list of DatabaseCluster.
 type DatabaseClusterList struct {
