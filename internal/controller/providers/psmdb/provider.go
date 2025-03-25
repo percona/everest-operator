@@ -146,6 +146,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateResizingVolumes
 	}
 
+	// If the current version of the database is different from the version in
+	// the CR, an upgrade is pending or in progress.
+	if p.DB.Spec.Engine.Version != "" && psmdb.Status.MongoVersion != "" && p.DB.Spec.Engine.Version != psmdb.Status.MongoVersion {
+		status.Status = everestv1alpha1.AppStateUpgrading
+	}
+
 	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return status, err
@@ -237,6 +243,7 @@ func defaultSpec() psmdbv1.PerconaServerMongoDBSpec {
 		UpgradeOptions: psmdbv1.UpgradeOptions{
 			Apply:    "disabled",
 			Schedule: "0 4 * * *",
+			SetFCV:   true,
 		},
 		PMM: psmdbv1.PMMSpec{
 			Enabled: false,

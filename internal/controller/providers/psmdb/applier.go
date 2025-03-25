@@ -122,6 +122,8 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("failed to configure replsets: %w", err)
 	}
 
+	psmdb.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
+
 	return nil
 }
 
