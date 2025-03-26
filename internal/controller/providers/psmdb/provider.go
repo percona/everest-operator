@@ -18,6 +18,7 @@ package psmdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
@@ -146,6 +147,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	if inProgress, err := isPVCResizeInProgress(ctx, p.C, p.PerconaServerMongoDB); err != nil {
 		return status, err
 	} else if inProgress {
+		fmt.Println("|||||||||||inProgress")
 		status.Status = everestv1alpha1.AppStateResizingVolumes
 	}
 
@@ -184,6 +186,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 }
 
 func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.PerconaServerMongoDB) (bool, error) {
+	fmt.Println("|||||||||||isPVCResizeInProgress")
 	if psmdb.Status.State == psmdbv1.AppStateInit {
 		// We must list all StatefulSets belonging to this PSMDB object,
 		// and check for the PVC resize annotation.
@@ -197,16 +200,21 @@ func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.
 			},
 		)
 		if err != nil {
+			fmt.Println("|||||||||||err", err)
 			return false, err
 		}
 		for _, sts := range stsList.Items {
+			fmt.Println("|||||||||||sts", sts.Name)
 			annots := sts.GetAnnotations()
+			fmt.Println("|||||||||||annots", annots)
 			_, ok := annots[psmdbv1.AnnotationPVCResizeInProgress]
 			if ok {
+				fmt.Println("|||||||||||true")
 				return true, nil
 			}
 		}
 	}
+	fmt.Println("|||||||||||false")
 	return false, nil
 }
 
