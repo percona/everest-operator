@@ -19,8 +19,6 @@ spec:
       type: internal
     replicas: 2
     type: pgbouncer
-  backup:
-    enabled: false
 status:
   status: initializing
 ---
