@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -132,6 +133,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	pg := p.PerconaPGCluster
 
 	status := p.DB.Status
+	prevStatus := status
 	status.Status = everestv1alpha1.AppState(pg.Status.State).WithCreatingState()
 	status.Hostname = pg.Status.Host
 	status.Ready = pg.Status.Postgres.Ready + pg.Status.PGBouncer.Ready
@@ -147,6 +149,39 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
+	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+		return status, err
+	} else if ok {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
+	// If the PVC resize is currently in progress, or just finished, we need to
+	// check if it failed in order to set or clear the error condition.
+	if status.Status == everestv1alpha1.AppStateResizingVolumes ||
+		prevStatus.Status == everestv1alpha1.AppStateResizingVolumes {
+		meta.RemoveStatusCondition(&status.Conditions, everestv1alpha1.ConditionTypeVolumeResizeFailed)
+		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+			return status, err
+		} else if failed {
+			// XXX: If a PVC resize failed, the DB operator will revert the
+			// spec to the previous one and unset the annotation we use to
+			// detect that a PVC resize is in progress. This means that we
+			// would move away from the ResizingVolumes state until the next
+			// reconcile loop where the PVC resize will be retried. To avoid
+			// having the state change back and forth, we keep the state as
+			// ResizingVolumes until the PVC resize is successful.
+			status.Status = everestv1alpha1.AppStateResizingVolumes
+			meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+				Type:               everestv1alpha1.ConditionTypeVolumeResizeFailed,
+				Status:             metav1.ConditionTrue,
+				Reason:             everestv1alpha1.ReasonVolumeResizeFailed,
+				Message:            condMessage,
+				LastTransitionTime: metav1.Now(),
+				ObservedGeneration: p.DB.GetGeneration(),
+			})
+		}
+	}
+
 	if upgrading, err := p.isDatabaseUpgrading(ctx); err != nil {
 		return status, err
 	} else if upgrading {
@@ -158,12 +193,6 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
-
-	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-		return status, err
-	} else if ok {
-		status.Status = everestv1alpha1.AppStateResizingVolumes
-	}
 
 	return status, nil
 }

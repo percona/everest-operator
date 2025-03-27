@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -332,6 +333,163 @@ func TestConfigureStorage(t *testing.T) {
 			} else {
 				assert.Empty(t, tt.db.Status.Conditions, "expected no conditions")
 			}
+		})
+	}
+}
+
+func TestVerifyPVCResizeFailure(t *testing.T) {
+	t.Parallel()
+
+	pvcList := &corev1.PersistentVolumeClaimList{
+		Items: []corev1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-1",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-1",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-2",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-2",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:   corev1.PersistentVolumeClaimResizing,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-3",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-3",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:    corev1.PersistentVolumeClaimControllerResizeError,
+							Status:  corev1.ConditionTrue,
+							Message: "resize failed",
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-4",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-3",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:   corev1.PersistentVolumeClaimResizing,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-5",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-4",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:    corev1.PersistentVolumeClaimNodeResizeError,
+							Status:  corev1.ConditionTrue,
+							Message: "resize failed",
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-6",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-4",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:   corev1.PersistentVolumeClaimResizing,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		dbName       string
+		expectedFail bool
+		expectedMsg  string
+	}{
+		{
+			name:         "pvc not resizing",
+			dbName:       "test-db-1",
+			expectedFail: false,
+			expectedMsg:  "",
+		},
+		{
+			name:         "pvc resizing",
+			dbName:       "test-db-2",
+			expectedFail: false,
+			expectedMsg:  "",
+		},
+		{
+			name:         "pvc resize controller error",
+			dbName:       "test-db-3",
+			expectedFail: true,
+			expectedMsg:  "resize failed",
+		},
+		{
+			name:         "pvc resize node error",
+			dbName:       "test-db-4",
+			expectedFail: true,
+			expectedMsg:  "resize failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			objects := make([]client.Object, len(pvcList.Items))
+			for i := range pvcList.Items {
+				objects[i] = pvcList.Items[i].DeepCopyObject().(client.Object)
+			}
+			fakeClient := fake.NewClientBuilder().WithObjects(objects...).Build()
+			failed, message, err := VerifyPVCResizeFailure(t.Context(), fakeClient, tt.dbName, "default")
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedFail, failed)
+			assert.Equal(t, tt.expectedMsg, message)
 		})
 	}
 }
