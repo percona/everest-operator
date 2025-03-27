@@ -406,6 +406,41 @@ func TestVerifyPVCResizeFailure(t *testing.T) {
 					},
 				},
 			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-5",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-4",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:    corev1.PersistentVolumeClaimNodeResizeError,
+							Status:  corev1.ConditionTrue,
+							Message: "resize failed",
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc-6",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance": "test-db-4",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Conditions: []corev1.PersistentVolumeClaimCondition{
+						{
+							Type:   corev1.PersistentVolumeClaimResizing,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -428,8 +463,14 @@ func TestVerifyPVCResizeFailure(t *testing.T) {
 			expectedMsg:  "",
 		},
 		{
-			name:         "pvc resize error",
+			name:         "pvc resize controller error",
 			dbName:       "test-db-3",
+			expectedFail: true,
+			expectedMsg:  "resize failed",
+		},
+		{
+			name:         "pvc resize node error",
+			dbName:       "test-db-4",
 			expectedFail: true,
 			expectedMsg:  "resize failed",
 		},
