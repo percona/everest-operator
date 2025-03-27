@@ -163,6 +163,13 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
 			return status, err
 		} else if failed {
+			// XXX: If a PVC resize failed, the DB operator will revert the
+			// spec to the previous one and unset the annotation we use to
+			// detect that a PVC resize is in progress. This means that we
+			// would move away from the ResizingVolumes state until the next
+			// reconcile loop where the PVC resize will be retried. To avoid
+			// having the state change back and forth, we keep the state as
+			// ResizingVolumes until the PVC resize is successful.
 			status.Status = everestv1alpha1.AppStateResizingVolumes
 			meta.SetStatusCondition(&status.Conditions, metav1.Condition{
 				Type:               everestv1alpha1.ConditionTypeVolumeResizeFailed,
