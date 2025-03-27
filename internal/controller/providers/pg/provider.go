@@ -149,6 +149,12 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
+	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+		return status, err
+	} else if ok {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
 	// If the PVC resize is currently in progress, or just finished, we need to
 	// check if it failed in order to set or clear the error condition.
 	if status.Status == everestv1alpha1.AppStateResizingVolumes ||
@@ -167,12 +173,6 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 				ObservedGeneration: p.DB.GetGeneration(),
 			})
 		}
-	}
-
-	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-		return status, err
-	} else if ok {
-		status.Status = everestv1alpha1.AppStateResizingVolumes
 	}
 
 	if upgrading, err := p.isDatabaseUpgrading(ctx); err != nil {
