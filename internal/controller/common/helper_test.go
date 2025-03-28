@@ -482,7 +482,9 @@ func TestVerifyPVCResizeFailure(t *testing.T) {
 
 			objects := make([]client.Object, len(pvcList.Items))
 			for i := range pvcList.Items {
-				objects[i] = pvcList.Items[i].DeepCopyObject().(client.Object)
+				obj, ok := pvcList.Items[i].DeepCopyObject().(client.Object)
+				require.True(t, ok)
+				objects[i] = obj
 			}
 			fakeClient := fake.NewClientBuilder().WithObjects(objects...).Build()
 			failed, message, err := VerifyPVCResizeFailure(t.Context(), fakeClient, tt.dbName, "default")
