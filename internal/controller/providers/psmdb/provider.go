@@ -21,9 +21,12 @@ import (
 
 	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -114,6 +117,7 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 // Status builds the DatabaseCluster Status based on the current state of the PerconaServerMongoDB.
 func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
 	status := p.DB.Status
+	prevStatus := status
 	psmdb := p.PerconaServerMongoDB
 
 	activeStorage := getActiveStorage(psmdb)
@@ -139,6 +143,39 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
+	if inProgress, err := isPVCResizeInProgress(ctx, p.C, p.PerconaServerMongoDB); err != nil {
+		return status, err
+	} else if inProgress {
+		status.Status = everestv1alpha1.AppStateResizingVolumes
+	}
+
+	// If the PVC resize is currently in progress, or just finished, we need to
+	// check if it failed in order to set or clear the error condition.
+	if status.Status == everestv1alpha1.AppStateResizingVolumes ||
+		prevStatus.Status == everestv1alpha1.AppStateResizingVolumes {
+		meta.RemoveStatusCondition(&status.Conditions, everestv1alpha1.ConditionTypeVolumeResizeFailed)
+		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
+			return status, err
+		} else if failed {
+			// XXX: If a PVC resize failed, the DB operator will revert the
+			// spec to the previous one and unset the annotation we use to
+			// detect that a PVC resize is in progress. This means that we
+			// would move away from the ResizingVolumes state until the next
+			// reconcile loop where the PVC resize will be retried. To avoid
+			// having the state change back and forth, we keep the state as
+			// ResizingVolumes until the PVC resize is successful.
+			status.Status = everestv1alpha1.AppStateResizingVolumes
+			meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+				Type:               everestv1alpha1.ConditionTypeVolumeResizeFailed,
+				Status:             metav1.ConditionTrue,
+				Reason:             everestv1alpha1.ReasonVolumeResizeFailed,
+				Message:            condMessage,
+				LastTransitionTime: metav1.Now(),
+				ObservedGeneration: p.DB.GetGeneration(),
+			})
+		}
+	}
+
 	// If the current version of the database is different from the version in
 	// the CR, an upgrade is pending or in progress.
 	if p.DB.Spec.Engine.Version != "" && psmdb.Status.MongoVersion != "" && p.DB.Spec.Engine.Version != psmdb.Status.MongoVersion {
@@ -151,6 +188,33 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	}
 	status.RecommendedCRVersion = recCRVer
 	return status, nil
+}
+
+func isPVCResizeInProgress(ctx context.Context, c client.Client, psmdb *psmdbv1.PerconaServerMongoDB) (bool, error) {
+	if psmdb.Status.State == psmdbv1.AppStateInit {
+		// We must list all StatefulSets belonging to this PSMDB object,
+		// and check for the PVC resize annotation.
+		stsList := &appsv1.StatefulSetList{}
+		err := c.List(
+			ctx,
+			stsList,
+			client.InNamespace(psmdb.GetNamespace()),
+			client.MatchingLabels{
+				"app.kubernetes.io/instance": psmdb.GetName(),
+			},
+		)
+		if err != nil {
+			return false, err
+		}
+		for _, sts := range stsList.Items {
+			annots := sts.GetAnnotations()
+			_, ok := annots[psmdbv1.AnnotationPVCResizeInProgress]
+			if ok {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.
