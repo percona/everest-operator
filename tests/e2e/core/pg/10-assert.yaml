@@ -35,7 +35,7 @@ metadata:
   finalizers:
     - percona.com/delete-pvc
     - percona.com/delete-ssl
-    - percona.com/stop-watchers
+    - internal.percona.com/stop-watchers
 spec:
   backups:
     pgbackrest:
