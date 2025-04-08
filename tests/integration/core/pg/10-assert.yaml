@@ -91,7 +91,6 @@ spec:
     syncPeriodSeconds: 10
   pause: false
   port: 5432
-  postgresVersion: 16
   proxy:
     pgBouncer:
       affinity:
