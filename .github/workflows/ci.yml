@@ -40,7 +40,7 @@ jobs:
         run:
           make test
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -90,7 +90,7 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -100,7 +100,7 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -110,11 +110,11 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PXC_OPERATOR_VERSION: 1.15.0
+          PREVIOUS_PXC_OPERATOR_VERSION: 1.16.1
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
@@ -190,11 +190,11 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PXC_OPERATOR_VERSION: 1.15.0
+          PREVIOUS_PXC_OPERATOR_VERSION: 1.16.1
           PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
@@ -239,7 +239,7 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.6.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -285,7 +285,7 @@ jobs:
         run: |
           kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
         env:
-          PXC_OPERATOR_VERSION: 1.16.1
+          PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
           PG_OPERATOR_VERSION: 2.5.0
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
