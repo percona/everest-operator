@@ -20,8 +20,6 @@ spec:
       type: internal
     replicas: 1
     type: pgbouncer
-  backup:
-    enabled: false
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster

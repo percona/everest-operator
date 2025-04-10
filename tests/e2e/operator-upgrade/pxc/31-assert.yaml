@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 500
 commands:
-  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PREVIOUS_PXC_OPERATOR_VERSION pxc/test-pxc-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PXC_OPERATOR_VERSION pxc/test-pxc-cluster -n $NAMESPACE
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -19,8 +19,6 @@ spec:
       type: internal
     replicas: 3
     type: haproxy
-  backup:
-    enabled: false
 status:
   ready: 6
   size: 6

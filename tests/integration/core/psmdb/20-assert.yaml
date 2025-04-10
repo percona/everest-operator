@@ -13,7 +13,6 @@ metadata:
     clusterName: test-psmdb-cluster
 spec:
   backup:
-    enabled: false
     pitr:
       enabled: false
   engine:
@@ -103,3 +102,4 @@ spec:
   upgradeOptions:
     apply: disabled
     schedule: 0 4 * * *
+    setFCV: true

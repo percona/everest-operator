@@ -53,7 +53,6 @@ spec:
     name: instance1
     replicas: 1
   port: 5432
-  postgresVersion: 16
   proxy:
     pgBouncer:
       port: 5432

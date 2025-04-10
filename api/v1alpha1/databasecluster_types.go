@@ -33,6 +33,8 @@ var (
 const (
 	// AppStateUnknown is an unknown state.
 	AppStateUnknown AppState = "unknown"
+	// AppStateCreating is used when the db did not start to initialize yet.
+	AppStateCreating AppState = "creating"
 	// AppStateInit is a initializing state.
 	AppStateInit AppState = "initializing"
 	// AppStatePaused is a paused state.
@@ -49,6 +51,10 @@ const (
 	AppStateRestoring AppState = "restoring"
 	// AppStateDeleting is a deleting state.
 	AppStateDeleting AppState = "deleting"
+	// AppStateUpgrading is an upgrading state.
+	AppStateUpgrading AppState = "upgrading"
+	// AppStateResizingVolumes is the state when PVCs are being resized.
+	AppStateResizingVolumes = "resizingVolumes"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 
@@ -100,6 +106,18 @@ const (
 	// EngineSizeLarge represents a large engine size.
 	EngineSizeLarge EngineSize = "large"
 )
+
+// WithCreatingState transforms empty and unknown states to a single AppStateCreating.
+// The upstream operators have the different statuses when a cluster is being created -
+// pxc - "unknown", psmdb - "", pg does not have any empty status.
+// Everest maps the DB status 1:1, and there is no point so far to create a separate mapping
+// for each upstream operator separately only because we want to unify AppStateCreating.
+func (s AppState) WithCreatingState() AppState {
+	if s == AppStateUnknown || s == AppStateNew {
+		return AppStateCreating
+	}
+	return s
+}
 
 // Applier provides methods for specifying how to apply a DatabaseCluster CR
 // onto the CR(s) provided by the underlying DB operators (e.g. PerconaXtraDBCluster, PerconaServerMongoDB, PerconaPGCluster, etc.)
@@ -284,7 +302,8 @@ type BackupSchedule struct {
 // Backup is the backup configuration.
 type Backup struct {
 	// Enabled is a flag to enable backups
-	Enabled bool `json:"enabled"`
+	// Deprecated. Please use db.spec.backup.schedules[].enabled to control each schedule separately and db.spec.backup.pitr.enabled to control PITR.
+	Enabled bool `json:"enabled,omitempty"`
 	// Schedules is a list of backup schedules
 	Schedules []BackupSchedule `json:"schedules,omitempty"`
 	// PITR is the configuration of the point in time recovery
@@ -354,6 +373,25 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 }
 
+const (
+	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
+	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
+	// ConditionTypeVolumeResizeFailed is a condition type that indicates that the volume resize failed.
+	ConditionTypeVolumeResizeFailed = "VolumeResizeFailed"
+)
+
+const (
+	// ReasonStorageClassDoesNotSupportExpansion is a reason for condition ConditionTypeCannotExpandStorage
+	// when the storage class does not support volume expansion.
+	ReasonStorageClassDoesNotSupportExpansion = "StorageClassDoesNotSupportExpansion"
+	// ReasonCannotShrinkVolume is a reason for condition ConditionTypeCannotResizeVolume
+	// when the volume cannot be shrunk.
+	ReasonCannotShrinkVolume = "CannotShrinkVolume"
+	// ReasonVolumeResizeFailed is a reason for condition ConditionTypeVolumeResizeFailed
+	// when the volume resize failed.
+	ReasonVolumeResizeFailed = "VolumeResizeFailed"
+)
+
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
 type DatabaseClusterStatus struct {
 	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
@@ -380,6 +418,8 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// Conditions contains the observed conditions of the DatabaseCluster.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

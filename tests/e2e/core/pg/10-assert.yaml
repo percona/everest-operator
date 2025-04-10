@@ -35,7 +35,7 @@ metadata:
   finalizers:
     - percona.com/delete-pvc
     - percona.com/delete-ssl
-    - percona.com/stop-watchers
+    - internal.percona.com/stop-watchers
 spec:
   backups:
     pgbackrest:
@@ -62,7 +62,6 @@ spec:
     name: instance1
     replicas: 3
   port: 5432
-  postgresVersion: 16
   proxy:
     pgBouncer:
       port: 5432
