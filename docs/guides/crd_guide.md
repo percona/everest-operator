@@ -104,7 +104,7 @@ Each version can have one of these statuses:
 To check available versions and their status:
 
 ```bash
-kubectl get dbengine postgresql-engine -o jsonpath='{.status.availableVersions}'
+kubectl get dbengine percona-postsgresql-operator -n <your namespace> -o jsonpath='{.status.availableVersions}'
 ```
 
 > NOTE: Upgrading the operator should be done from the UI or API only.
@@ -219,21 +219,7 @@ spec:
     dbClusterBackupName: my-database-cluster-backup
 ```
 
-2. **Restore from a specific backup path**:
-```yaml
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterRestore
-metadata:
-  name: restore-from-path
-spec:
-  dbClusterName: my-database
-  dataSource:
-    backupSource:
-      path: "/backups/2024-04-11"
-      backupStorageName: my-s3-backup-storage
-```
-
-3. **Restore to a New Database Cluster**:
+2. **Restore to a New Database Cluster**:
 
 To restore a backup to a new database cluster, create a new `DatabaseCluster` with the `dataSource` field that references the backup:
 
