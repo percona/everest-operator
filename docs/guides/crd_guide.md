@@ -1,4 +1,4 @@
-# Using Everest: A Guide to Database Management with Custom Resource Definitions
+# Everest operator CRD usage guide
 
 The Everest operator is a crucial component of Everest, providing a set of CRDs and easy-to-use abstractions to manage your databases declaratively. This guide will walk you through the CRDs provided by Everest operator and how to use them effectively.
 
