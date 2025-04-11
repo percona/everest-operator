@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pmm-credentials
+type: Opaque
+data:
+  username: YOUR_BASE64_ENCODED_USERNAME
+  apiKey: YOUR_BASE64_ENCODED_API_KEY
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: my-monitoring-config
+spec:
+  type: pmm
+  credentialsSecretName: pmm-credentials
+  pmm:
+    url: "https://pmm.example.com"
+  verifyTLS: true  # Optional: verify TLS certificates
