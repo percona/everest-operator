@@ -4,8 +4,8 @@ metadata:
   name: pmm-credentials
 type: Opaque
 data:
-  username: <YOUR BASE64 ENCODED USERNAME>
-  apiKey: <YOUR BASE64 ENCODED API KEY>
+  username: YOUR_BASE64_ENCODED_USERNAME
+  apiKey: YOUR_BASE64_ENCODED_API_KEY
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig

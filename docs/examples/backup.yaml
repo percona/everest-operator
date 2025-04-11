@@ -1,7 +1,9 @@
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
-  name: my-manual-backup
+  labels:
+    clusterName: my-database-cluster
+  name: my-database-cluster-backup
 spec:
-  dbClusterName: my-database
-  backupStorageName: my-backup-storage
+  backupStorageName: my-s3-backup-storage
+  dbClusterName: my-database-cluster

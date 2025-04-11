@@ -39,19 +39,34 @@ The core of Everest is the `DatabaseCluster` CRD, which allows you to define and
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: my-database
-  namespace: default
+  labels:
+    clusterName: my-database-cluster
+  name: my-database-cluster
 spec:
+  backup:
+    pitr:
+      enabled: false
   engine:
-    type: postgresql  # Can be: postgresql, pxc, or psmdb
-    version: "15.3"
-    replicas: 3
-    storage:
-      size: 10Gi
-      class: standard  # Your storage class
+    replicas: 1
     resources:
       cpu: "1"
-      memory: "2G"
+      memory: 2G
+    storage:
+      class: standard-rwo
+      size: 25Gi
+    type: postgresql # Can be pxc, psmdb, postgresql
+    userSecretsName: everest-secrets-my-database-cluster
+    version: "17.4"
+  monitoring:
+    resources: {}
+  proxy:
+    expose:
+      type: internal
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 30M
+    type: pgbouncer
 ```
 
 ### Engine Types
@@ -69,15 +84,12 @@ The `DatabaseEngine` CRD manages the lifecycle of database engines in your Kuber
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
 metadata:
-  name: postgresql-engine
+  name: percona-postgresql-operator
 spec:
   type: postgresql
-  allowedVersions:  # Optional: restrict to specific versions
-    - "15.3"
-    - "15.2"
 ```
 
-The DatabaseEngine status tracks:
+The `DatabaseEngine` status tracks:
 - Operator installation state (`not installed`, `installing`, `installed`, `upgrading`)
 - Current operator version
 - Available database versions and their components
@@ -118,13 +130,13 @@ Before configuring backups, you need to set up a backup storage location. First,
 
 ```yaml
 apiVersion: v1
+data:
+  AWS_ACCESS_KEY_ID: YOUR_ACCESS_KEY_ID_BASE64_ENCODED
+  AWS_SECRET_ACCESS_KEY: YOUR_SECRET_ACCESS_KEY_BASE64_ENCODED
 kind: Secret
 metadata:
-  name: backup-credentials
+  name: my-s3-backup-storage
 type: Opaque
-data:
-  AWS_SECRET_ACCESS_KEY: <YOUR BASE64 ENCODED KEY>
-  AWS_ACCESS_KEY_ID: <YOUR BASE64 ENCODED ID>
 ```
 
 Then, create a `BackupStorage` CRD that references this secret:
@@ -133,15 +145,19 @@ Then, create a `BackupStorage` CRD that references this secret:
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage
 metadata:
-  name: my-backup-storage
+  name: my-s3-backup-storage
 spec:
-  type: s3  # or: azure
-  bucket: "my-backup-bucket"
-  region: "us-east-1"
-  credentialsSecretName: "backup-credentials"
+  bucket: my-s3-bucket
+  credentialsSecretName: my-s3-backup-storage
+  description: My S3 backup storage
+  endpointURL: https://my-s3-endpoint.com
+  forcePathStyle: false
+  region: us-west-2
+  type: s3
+  verifyTLS: true
 ```
 
-Then, configure backups in your DatabaseCluster:
+Then, configure backup schedules in your `DatabaseCluster`:
 
 ```yaml
 spec:
@@ -151,10 +167,10 @@ spec:
         enabled: true
         schedule: "0 0 * * *"  # Daily at midnight
         retentionCopies: 7
-        backupStorageName: "my-backup-storage"
+        backupStorageName: "my-s3-backup-storage"
     pitr:  # Point-in-Time Recovery
       enabled: true
-      backupStorageName: "my-backup-storage"
+      backupStorageName: "my-s3-backup-storage"
       uploadIntervalSec: 300  # 5 minutes
 ```
 
@@ -168,10 +184,12 @@ In addition to scheduled backups, you can create manual backups and perform rest
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
-  name: manual-backup-2024-04-11
+  labels:
+    clusterName: my-database-cluster
+  name: my-database-cluster-backup
 spec:
-  dbClusterName: my-database
-  backupStorageName: my-backup-storage
+  backupStorageName: my-s3-backup-storage
+  dbClusterName: my-database-cluster
 ```
 
 Monitor the backup status:
@@ -196,9 +214,9 @@ kind: DatabaseClusterRestore
 metadata:
   name: restore-from-backup
 spec:
-  dbClusterName: my-database
+  dbClusterName: my-database-cluster
   dataSource:
-    dbClusterBackupName: manual-backup-2024-04-11
+    dbClusterBackupName: my-database-cluster-backup
 ```
 
 2. **Restore from a specific backup path**:
@@ -212,12 +230,12 @@ spec:
   dataSource:
     backupSource:
       path: "/backups/2024-04-11"
-      backupStorageName: my-backup-storage
+      backupStorageName: my-s3-backup-storage
 ```
 
 3. **Restore to a New Database Cluster**:
 
-To restore a backup to a new database cluster, create a new `DatabaseCluster` with a `dataSource` field that references the backup:
+To restore a backup to a new database cluster, create a new `DatabaseCluster` with the `dataSource` field that references the backup:
 
 ```yaml
 apiVersion: everest.percona.com/v1alpha1
@@ -226,23 +244,9 @@ metadata:
   name: restored-database
   namespace: default
 spec:
-  engine:
-    type: postgresql  # Must match the backup's engine type
-    version: "15.3"   # Must match the backup's version
-    replicas: 3
-    storage:
-      size: 20Gi
-      class: standard
-    resources:
-      cpu: "2"
-      memory: "4G"
-  proxy:
-    type: pgbouncer
-    expose:
-      type: external
-    replicas: 2
+  # .. hidden
   dataSource:
-    dbClusterBackupName: manual-backup-2024-04-11  # Name of the backup to restore from
+    dbClusterBackupName: backup-name-here  # Name of the backup to restore from
 ```
 
 Important considerations when restoring to a new cluster:
@@ -350,47 +354,40 @@ spec:
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: pg-cluster
-  namespace: default
+  labels:
+    clusterName: my-pg-cluster
+  name: my-pg-cluster
 spec:
-  engine:
-    type: postgresql
-    version: "15.3"
-    replicas: 3
-    storage:
-      size: 20Gi
-      class: standard
-    resources:
-      cpu: "2"
-      memory: "4G"
-  proxy:
-    type: pgbouncer
-    expose:
-      type: external
-    replicas: 2
   backup:
-    schedules:
-      - name: "nightly-backup"
-        enabled: true
-        schedule: "0 2 * * *"
-        retentionCopies: 7
-        backupStorageName: "pg-backups"
     pitr:
+      backupStorageName: my-s3-backup-storage
       enabled: true
-      backupStorageName: "pg-backups"
+    schedules:
+    - backupStorageName: my-s3-backup-storage
+      enabled: true
+      name: my-pg-backup-schedule
+      schedule: 30 19 * * *
+  engine:
+    replicas: 3
+    resources:
+      cpu: "4"
+      memory: 8G
+    storage:
+      class: standard-rwo
+      size: 100Gi
+    type: postgresql
+    userSecretsName: everest-secrets-my-pg-cluster
+    version: "17.4"
   monitoring:
-    monitoringConfigName: "pg-monitoring"
-
----
-apiVersion: everest.percona.com/v1alpha1
-kind: BackupStorage
-metadata:
-  name: pg-backups
-spec:
-  type: s3
-  bucket: "my-pg-backups"
-  region: "us-east-1"
-  credentialsSecretName: "s3-credentials"
+    resources: {}
+  proxy:
+    expose:
+      type: internal
+    replicas: 3
+    resources:
+      cpu: "1"
+      memory: 30M
+    type: pgbouncer
 ```
 
 ### MongoDB Sharded Cluster Example
@@ -399,36 +396,44 @@ spec:
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: mongo-cluster
-  namespace: default
+  labels:
+    clusterName: mongodb-sharded
+  name: mongodb-sharded
 spec:
+  backup:
+    pitr:
+      enabled: false
+    schedules:
+    - backupStorageName: my-s3-backup-storage
+      enabled: true
+      name: my-schedule
+      schedule: 30 19 * * *
   engine:
-    type: psmdb
-    version: "6.0.5"
     replicas: 3
-    storage:
-      size: 50Gi
-      class: standard
     resources:
-      cpu: "2"
-      memory: "8G"
-  sharding:
-    enabled: true
-    shards: 3
-    configServer:
-      replicas: 3
+      cpu: "1"
+      memory: 4G
+    storage:
+      class: standard-rwo
+      size: 25Gi
+    type: psmdb
+    userSecretsName: everest-secrets-mongodb-sharded
+    version: 7.0.15-9
+  monitoring:
+    resources: {}
   proxy:
-    type: mongos
     expose:
       type: internal
-    replicas: 2
-  backup:
-    schedules:
-      - name: "daily-backup"
-        enabled: true
-        schedule: "0 1 * * *"
-        retentionCopies: 7
-        backupStorageName: "mongo-backups"
+    replicas: 3
+    resources:
+      cpu: "1"
+      memory: 2G
+    type: mongos
+  sharding:
+    configServer:
+      replicas: 3
+    enabled: true
+    shards: 2
 ```
 
 ### Percona XtraDB Cluster Example
@@ -437,36 +442,39 @@ spec:
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: mysql-cluster
-  namespace: default
+  labels:
+    clusterName: my-pxc-cluster
+  name: my-pxc-cluster
 spec:
-  engine:
-    type: pxc
-    version: "8.0.32"
-    replicas: 3
-    storage:
-      size: 30Gi
-      class: standard
-    resources:
-      cpu: "2"
-      memory: "4G"
-  proxy:
-    type: haproxy
-    expose:
-      type: external
-      ipSourceRanges:
-        - "10.0.0.0/16"
-    replicas: 2
   backup:
-    schedules:
-      - name: "weekly-backup"
-        enabled: true
-        schedule: "0 0 * * 0"
-        retentionCopies: 4
-        backupStorageName: "mysql-backups"
     pitr:
+      enabled: false
+    schedules:
+    - backupStorageName: s3
       enabled: true
-      backupStorageName: "mysql-backups"
+      name: backup-wbj
+      schedule: 30 19 * * *
+  engine:
+    replicas: 3
+    resources:
+      cpu: "4"
+      memory: 8G
+    storage:
+      class: standard-rwo
+      size: 100Gi
+    type: pxc
+    userSecretsName: everest-secrets-my-pxc-cluster
+    version: 8.0.39-30.1
+  monitoring:
+    resources: {}
+  proxy:
+    expose:
+      type: internal
+    replicas: 3
+    resources:
+      cpu: 200m
+      memory: 200M
+    type: haproxy
 ```
 
 ## Status Monitoring
@@ -492,10 +500,10 @@ If your database cluster isn't behaving as expected:
 
 1. Check the cluster status:
    ```bash
-   kubectl describe databasecluster <cluster-name>
+   kubectl describe databasecluster <cluster-name> -n <your namespace>
    ```
 
 2. Check the operator logs:
    ```bash
-   kubectl logs -n <operator-namespace> deployment/everest-operator-controller-manager
+   kubectl logs -n <operator-namespace> deployment/everest-operator-controller-manager -n everest-system
    ```

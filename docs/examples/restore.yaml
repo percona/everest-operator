@@ -3,6 +3,6 @@ kind: DatabaseClusterRestore
 metadata:
   name: restore-from-backup
 spec:
-  dbClusterName: my-database
+  dbClusterName: my-database-cluster
   dataSource:
-    dbClusterBackupName: manual-backup-2024-04-11
+    dbClusterBackupName: my-database-cluster-backup

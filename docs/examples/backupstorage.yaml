@@ -1,18 +1,22 @@
 apiVersion: v1
+data:
+  AWS_ACCESS_KEY_ID: YOUR_ACCESS_KEY_ID_BASE64_ENCODED
+  AWS_SECRET_ACCESS_KEY: YOUR_SECRET_ACCESS_KEY_BASE64_ENCODED
 kind: Secret
 metadata:
-  name: backup-credentials
+  name: my-s3-backup-storage
 type: Opaque
-data:
-  AWS_SECRET_ACCESS_KEY: <YOUR BASE64 ENCODED KEY>
-  AWS_ACCESS_KEY_ID: <YOUR BASE64 ENCODED ID>
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage
 metadata:
-  name: my-backup-storage
+  name: my-s3-backup-storage
 spec:
+  bucket: my-s3-bucket
+  credentialsSecretName: my-s3-backup-storage
+  description: My S3 backup storage
+  endpointURL: https://my-s3-endpoint.com
+  forcePathStyle: false
+  region: us-west-2
   type: s3
-  bucket: "my-backup-bucket"
-  region: "us-east-1"
-  credentialsSecretName: "backup-credentials"
+  verifyTLS: true
