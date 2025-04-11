@@ -1,0 +1,8 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterRestore
+metadata:
+  name: restore-from-backup
+spec:
+  dbClusterName: my-database
+  dataSource:
+    dbClusterBackupName: manual-backup-2024-04-11
