@@ -463,6 +463,8 @@ spec:
     type: haproxy
 ```
 
+> You can find all the above examples in the [examples](../examples/) directory.
+
 ## Status Monitoring
 
 You can monitor the status of your database cluster using:
