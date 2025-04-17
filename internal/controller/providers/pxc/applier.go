@@ -21,9 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	mrand "math/rand"
 	"net/url"
-	"time"
 
 	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -111,12 +109,15 @@ func configureStorage(
 	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
 }
 
-// generatePass generates a random password
+// generatePass generates a random password.
 func generatePass() ([]byte, error) {
-	mrand.Seed(time.Now().UnixNano())
-	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
-	b := make([]byte, ln)
-	for i := 0; i < ln; i++ {
+	randLenDelta, err := rand.Int(rand.Reader, big.NewInt(int64(passwordMaxLen-passwordMinLen)))
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, passwordMinLen+randLenDelta.Int64())
+	for i := range b {
 		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
 		if err != nil {
 			return nil, err
@@ -125,6 +126,36 @@ func generatePass() ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+func (p *applier) ensureSecretHasProxyAdminPassword(secretsName string) error {
+	secret := &corev1.Secret{}
+	err := p.C.Get(p.ctx, types.NamespacedName{
+		Name:      p.DB.Spec.Engine.UserSecretsName,
+		Namespace: p.DB.GetNamespace(),
+	}, secret)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	if _, ok := secret.Data["proxyadmin"]; ok {
+		return nil
+	}
+
+	// Generate a new password.
+	pass, err := generatePass()
+	if err != nil {
+		return err
+	}
+
+	err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, secretsName, map[string][]byte{
+		"proxyadmin": pass,
+	}, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *applier) Engine() error {
@@ -150,28 +181,9 @@ func (p *applier) Engine() error {
 	// To work around this, we need to set the password ourselves to bypass the
 	// buggy auto generation.
 	if p.DBEngine.Status.OperatorVersion == "1.17.0" {
-		secret := &corev1.Secret{}
-		err := p.C.Get(p.ctx, types.NamespacedName{
-			Name:      p.DB.Spec.Engine.UserSecretsName,
-			Namespace: p.DB.GetNamespace(),
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			return err
-		}
-
-		if _, ok := secret.Data["proxyadmin"]; !ok {
-			// Generate a new password.
-			pass, err := generatePass()
-			if err != nil {
-				return err
-			}
-
-			err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
-				"proxyadmin": pass,
-			}, false)
-			if err != nil {
-				return err
-			}
+		err := p.ensureSecretHasProxyAdminPassword(pxc.Spec.SecretsName)
+		if err != nil {
+			return fmt.Errorf("failed to set proxyadmin password: %w", err)
 		}
 	}
 
