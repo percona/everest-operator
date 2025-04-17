@@ -28,7 +28,6 @@ import (
 	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -603,10 +602,27 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 
-	err = common.UpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
-		"pmmserverkey": []byte(apiKey),
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	// XXX: PXCO v1.16.1 has a bug in the reconciliation of the internal secret.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1534
+	// If we create the secret with just the PMM key, the internal secret will
+	// miss the other auto generated keys, and the DB will not be able to start.
+	// To work around this, we need to wait for the secret to be created by
+	// PXCO, and then update it with the PMM key.
+	// PXCO v1.17.0 fixed this issue, and we can safely create the secret with
+	// just the PMM key.
+	// TODO(EVEREST-2008): Once we no longer support PXCO v1.16.1, we can
+	// remove this code and just keep the CreateOrUpdateSecretData call.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-2008
+	if p.DBEngine.Status.OperatorVersion == "1.16.1" {
+		err = common.UpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
+			"pmmserverkey": []byte(apiKey),
+		}, false)
+	} else {
+		err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
+			"pmmserverkey": []byte(apiKey),
+		}, false)
+	}
+	if err != nil {
 		return err
 	}
 	return nil
