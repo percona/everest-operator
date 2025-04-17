@@ -17,9 +17,13 @@ package pxc
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	mrand "math/rand"
 	"net/url"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -38,6 +42,12 @@ import (
 
 const (
 	haProxyProbesTimeout = 30
+	passwordMaxLen       = 20
+	passwordMinLen       = 16
+	passSymbols          = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789" +
+		"!#$%&()+,-.<=>?@[]^_{}~"
 )
 
 type applier struct {
@@ -102,6 +112,22 @@ func configureStorage(
 	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
 }
 
+// generatePass generates a random password
+func generatePass() ([]byte, error) {
+	mrand.Seed(time.Now().UnixNano())
+	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
+	b := make([]byte, ln)
+	for i := 0; i < ln; i++ {
+		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+		if err != nil {
+			return nil, err
+		}
+		b[i] = passSymbols[randInt.Int64()]
+	}
+
+	return b, nil
+}
+
 func (p *applier) Engine() error {
 	engine := p.DBEngine
 	if p.DB.Spec.Engine.Version == "" {
@@ -117,6 +143,39 @@ func (p *applier) Engine() error {
 	}
 
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
+	// XXX: PXCO v1.17.0 has a bug in the auto generation of the secrets where
+	// there's a 1.5% chance that the proxyadmin password starts with the '*'
+	// character, which will be rejected by the secret validation, leaving the
+	// cluster stuck in the 'initializing' state.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1568
+	// To work around this, we need to set the password ourselves to bypass the
+	// buggy auto generation.
+	if p.DBEngine.Status.OperatorVersion == "1.17.0" {
+		secret := &corev1.Secret{}
+		err := p.C.Get(p.ctx, types.NamespacedName{
+			Name:      p.DB.Spec.Engine.UserSecretsName,
+			Namespace: p.DB.GetNamespace(),
+		}, secret)
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+
+		if _, ok := secret.Data["proxyadmin"]; !ok {
+			// Generate a new password.
+			pass, err := generatePass()
+			if err != nil {
+				return err
+			}
+
+			err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
+				"proxyadmin": pass,
+			}, false)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
 	pxc.Spec.PXC.PodSpec.Configuration = p.DB.Spec.Engine.Config
 
