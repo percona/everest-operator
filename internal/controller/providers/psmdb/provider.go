@@ -306,6 +306,11 @@ func defaultSpec() psmdbv1.PerconaServerMongoDBSpec {
 	}
 }
 
+// RunPreReconcileHook runs the pre-reconcile hook for the PSMDB provider.
+func (p *Provider) RunPreReconcileHook(_ context.Context) (providers.HookResult, error) {
+	return providers.HookResult{}, nil
+}
+
 func getActiveStorage(psmdb *psmdbv1.PerconaServerMongoDB) string {
 	for name := range psmdb.Spec.Backup.Storages {
 		return name
