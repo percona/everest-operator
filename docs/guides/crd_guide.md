@@ -259,20 +259,6 @@ spec:
       date: "2024-04-11T15:30:00Z"  # UTC timestamp
 ```
 
-Or restore to the latest available point:
-```yaml
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterRestore
-metadata:
-  name: latest-pitr
-spec:
-  dbClusterName: my-database
-  dataSource:
-    dbClusterBackupName: base-backup
-    pitr:
-      type: latest
-```
-
 Monitor the restore status:
 ```bash
 kubectl get dbrestore restore-from-backup -o jsonpath='{.status}'
