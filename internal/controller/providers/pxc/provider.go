@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	goversion "github.com/hashicorp/go-version"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -230,6 +231,10 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	return status, nil
 }
 
+// when a PXC restore is in progress, we will retry reconciliation
+// after the specified duration.
+const defaultRestoreRequeueDuration = 15 * time.Second
+
 func (p *Provider) isRestoreInProgress(ctx context.Context) (bool, error) {
 	var pxcRestoreList pxcv1.PerconaXtraDBClusterRestoreList
 	if err := p.C.List(ctx, &pxcRestoreList, client.InNamespace(p.DB.GetNamespace())); err != nil {
@@ -249,14 +254,12 @@ func (p *Provider) RunPreReconcileHook(ctx context.Context) (providers.HookResul
 	// The pxc-operator does some funny things to the PXC spec during a restore.
 	// We must avoid interfering with that process, so we simply skip reconciliation.
 	// Replicating the same behavior here would be a nightmare, so its simpler to just do this.
-	ok, err := p.isRestoreInProgress(ctx)
-	if err != nil {
+	if ok, err := p.isRestoreInProgress(ctx); err != nil {
 		return providers.HookResult{}, err
-	}
-	if ok {
+	} else if ok {
 		return providers.HookResult{
-			Requeue: true,
-			Message: "Restore is in progress",
+			RequeueAfter: defaultRestoreRequeueDuration,
+			Message:      "Restore is in progress",
 		}, nil
 	}
 	return providers.HookResult{}, nil
