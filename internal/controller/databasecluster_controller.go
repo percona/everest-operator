@@ -104,6 +104,8 @@ type dbProvider interface {
 	DBObject() client.Object
 }
 
+// reconcileHooks is an interface that defines the methods for the reconcile hooks.
+// Each method is called at a different point in the reconcile loop.
 type reconcileHooks interface {
 	RunPreReconcileHook(ctx context.Context) (providers.HookResult, error)
 }
@@ -156,14 +158,15 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	log := log.FromContext(ctx)
 	hr, err := p.RunPreReconcileHook(ctx)
 	if err != nil {
+		log.Error(err, "RunPreReconcileHook failed")
 		return ctrl.Result{}, err
 	}
 	if hr.Requeue {
-		log.Info(hr.Message)
+		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if hr.RequeueAfter > 0 {
-		log.Info(hr.Message, "requeueAfter", hr.RequeueAfter)
+		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
