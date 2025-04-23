@@ -1,0 +1,36 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  labels:
+    clusterName: my-pxc-cluster
+  name: my-pxc-cluster
+spec:
+  backup:
+    pitr:
+      enabled: false
+    schedules:
+    - backupStorageName: s3
+      enabled: true
+      name: backup-wbj
+      schedule: 30 19 * * *
+  engine:
+    replicas: 3
+    resources:
+      cpu: "4"
+      memory: 8G
+    storage:
+      class: standard-rwo
+      size: 100Gi
+    type: pxc
+    userSecretsName: everest-secrets-my-pxc-cluster
+    version: 8.0.39-30.1
+  monitoring:
+    resources: {}
+  proxy:
+    expose:
+      type: internal
+    replicas: 3
+    resources:
+      cpu: 200m
+      memory: 200M
+    type: haproxy
