@@ -97,10 +97,17 @@ type DatabaseClusterReconciler struct {
 // of database CRs against database operators.
 type dbProvider interface {
 	metav1.Object
+	reconcileHooks
 	Apply(ctx context.Context) everestv1alpha1.Applier
 	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error)
 	Cleanup(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (bool, error)
 	DBObject() client.Object
+}
+
+// reconcileHooks is an interface that defines the methods for the reconcile hooks.
+// Each method is called at a different point in the reconcile loop.
+type reconcileHooks interface {
+	RunPreReconcileHook(ctx context.Context) (providers.HookResult, error)
 }
 
 // We want to make sure that our internal implementations for
@@ -146,6 +153,21 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		}
 		db.Status.Status = everestv1alpha1.AppStateDeleting
 		return ctrl.Result{Requeue: !done}, r.Status().Update(ctx, db)
+	}
+
+	log := log.FromContext(ctx)
+	hr, err := p.RunPreReconcileHook(ctx)
+	if err != nil {
+		log.Error(err, "RunPreReconcileHook failed")
+		return ctrl.Result{}, err
+	}
+	if hr.Requeue {
+		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if hr.RequeueAfter > 0 {
+		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
+		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
 	// Set metadata.
