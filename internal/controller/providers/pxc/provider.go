@@ -236,15 +236,14 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 const defaultRestoreRequeueDuration = 15 * time.Second
 
 func (p *Provider) isRestoreInProgress(ctx context.Context) (bool, error) {
-	var pxcRestoreList pxcv1.PerconaXtraDBClusterRestoreList
-	if err := p.C.List(ctx, &pxcRestoreList, client.InNamespace(p.DB.GetNamespace())); err != nil {
+	restores := &everestv1alpha1.DatabaseClusterRestoreList{}
+	if err := p.C.List(ctx, restores, client.InNamespace(p.DB.GetNamespace())); err != nil {
 		return false, err
 	}
-	for _, restore := range pxcRestoreList.Items {
-		if restore.Status.State == pxcv1.RestoreFailed || restore.Status.State == pxcv1.RestoreSucceeded || restore.Spec.PXCCluster != p.DB.GetName() {
-			continue
+	for _, dbr := range restores.Items {
+		if dbr.IsInProgress() && dbr.Spec.DBClusterName == p.DB.GetName() {
+			return true, nil
 		}
-		return true, nil
 	}
 	return false, nil
 }

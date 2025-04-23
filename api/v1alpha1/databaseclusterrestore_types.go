@@ -158,6 +158,11 @@ func init() {
 	SchemeBuilder.Register(&DatabaseClusterRestore{}, &DatabaseClusterRestoreList{})
 }
 
+// IsInProgress indicates if the restoration process is in progress.
+func (r *DatabaseClusterRestore) IsInProgress() bool {
+	return !r.IsComplete()
+}
+
 // IsComplete indicates if the restoration process is complete (regardless successful or not).
 func (r *DatabaseClusterRestore) IsComplete() bool {
 	switch r.Status.State {
