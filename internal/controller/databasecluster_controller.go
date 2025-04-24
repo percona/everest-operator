@@ -232,8 +232,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// Reconcile the status of the DatabaseCluster object.
 	return ctrl.Result{}, nil
 }
 
