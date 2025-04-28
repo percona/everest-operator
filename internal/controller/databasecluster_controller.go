@@ -140,6 +140,7 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
+//nolint:nonamedreturns
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
@@ -160,13 +161,13 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		status, err := p.Status(ctx)
 		if err != nil {
 			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to get status"))
+			rerr = errors.Join(err, fmt.Errorf("failed to get status: %w", err))
 		}
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
 		if err := r.Client.Status().Update(ctx, db); err != nil {
 			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to update status"))
+			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
 		}
 		if status.Status != everestv1alpha1.AppStateInit {
 			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
