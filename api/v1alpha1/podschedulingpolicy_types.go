@@ -62,7 +62,11 @@ type PodSchedulingPolicySpec struct {
 	AffinityConfig *AffinityConfig `json:"affinityConfig,omitempty"`
 }
 
+// PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
+type PodSchedulingPolicyStatus struct{}
+
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,path=podschedulingpolicies,shortName=psp
 // +kubebuilder:selectablefield:JSONPathstring=".spec.engineType"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".spec.engineType",description="DB engine type the policy can be applied to"
@@ -72,7 +76,8 @@ type PodSchedulingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec PodSchedulingPolicySpec `json:"spec,omitempty"`
+	Spec   PodSchedulingPolicySpec   `json:"spec,omitempty"`
+	Status PodSchedulingPolicyStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

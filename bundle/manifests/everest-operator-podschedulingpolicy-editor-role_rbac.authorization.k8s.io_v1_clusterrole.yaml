@@ -19,3 +19,9 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - podschedulingpolicies/status
+  verbs:
+  - get

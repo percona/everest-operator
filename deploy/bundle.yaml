@@ -7412,10 +7412,14 @@ spec:
             required:
             - engineType
             type: object
+          status:
+            description: PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
+            type: object
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -7998,6 +8002,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - podschedulingpolicies/status
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -8015,6 +8025,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - podschedulingpolicies/status
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
