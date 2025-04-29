@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/AlekSi/pointer v1.2.0
-	github.com/VictoriaMetrics/operator/api v0.51.4-0.20250312192715-4ec928bb0f99
+	github.com/VictoriaMetrics/operator/api v0.56.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
@@ -35,7 +35,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/VictoriaMetrics/VictoriaMetrics v1.112.0 // indirect
 	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
-	github.com/VictoriaMetrics/metricsql v0.84.0 // indirect
+	github.com/VictoriaMetrics/metricsql v0.84.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.55.6 // indirect
