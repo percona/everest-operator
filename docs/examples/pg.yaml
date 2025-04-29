@@ -1,0 +1,37 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  labels:
+    clusterName: my-pg-cluster
+  name: my-pg-cluster
+spec:
+  backup:
+    pitr:
+      backupStorageName: my-s3-backup-storage
+      enabled: true
+    schedules:
+    - backupStorageName: my-s3-backup-storage
+      enabled: true
+      name: my-pg-backup-schedule
+      schedule: 30 19 * * *
+  engine:
+    replicas: 3
+    resources:
+      cpu: "4"
+      memory: 8G
+    storage:
+      class: standard-rwo
+      size: 100Gi
+    type: postgresql
+    userSecretsName: everest-secrets-my-pg-cluster
+    version: "17.4"
+  monitoring:
+    resources: {}
+  proxy:
+    expose:
+      type: internal
+    replicas: 3
+    resources:
+      cpu: "1"
+      memory: 30M
+    type: pgbouncer
