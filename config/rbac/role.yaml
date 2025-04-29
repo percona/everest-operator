@@ -60,6 +60,7 @@ rules:
   - databaseclusters
   - databaseengines
   - monitoringconfigs
+  - podschedulingpolicies
   verbs:
   - create
   - delete
@@ -77,6 +78,7 @@ rules:
   - databaseclusters/finalizers
   - databaseengines/finalizers
   - monitoringconfigs/finalizers
+  - podschedulingpolicies/finalizers
   verbs:
   - update
 - apiGroups:
