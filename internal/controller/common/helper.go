@@ -224,6 +224,7 @@ func UpdateSecretData(
 	database *everestv1alpha1.DatabaseCluster,
 	secretName string,
 	data map[string][]byte,
+	setControllerRef bool,
 ) error {
 	secret := &corev1.Secret{}
 	err := c.Get(ctx, types.NamespacedName{
@@ -246,9 +247,11 @@ func UpdateSecretData(
 		return nil
 	}
 
-	err = controllerutil.SetControllerReference(database, secret, c.Scheme())
-	if err != nil {
-		return err
+	if setControllerRef {
+		err = controllerutil.SetControllerReference(database, secret, c.Scheme())
+		if err != nil {
+			return err
+		}
 	}
 	return c.Update(ctx, secret)
 }
@@ -265,7 +268,7 @@ func CreateOrUpdateSecretData(
 	data map[string][]byte,
 	setControllerRef bool,
 ) error {
-	err := UpdateSecretData(ctx, c, database, secretName, data)
+	err := UpdateSecretData(ctx, c, database, secretName, data, setControllerRef)
 	if err == nil {
 		return nil
 	}
