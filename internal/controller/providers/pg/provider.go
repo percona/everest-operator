@@ -254,3 +254,8 @@ func (p *Provider) DBObject() client.Object {
 	})
 	return p.PerconaPGCluster
 }
+
+// RunPreReconcileHook runs the pre-reconcile hook for the PG provider.
+func (p *Provider) RunPreReconcileHook(_ context.Context) (providers.HookResult, error) {
+	return providers.HookResult{}, nil
+}

@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 120
+timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster

@@ -97,10 +97,17 @@ type DatabaseClusterReconciler struct {
 // of database CRs against database operators.
 type dbProvider interface {
 	metav1.Object
+	reconcileHooks
 	Apply(ctx context.Context) everestv1alpha1.Applier
 	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error)
 	Cleanup(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (bool, error)
 	DBObject() client.Object
+}
+
+// reconcileHooks is an interface that defines the methods for the reconcile hooks.
+// Each method is called at a different point in the reconcile loop.
+type reconcileHooks interface {
+	RunPreReconcileHook(ctx context.Context) (providers.HookResult, error)
 }
 
 // We want to make sure that our internal implementations for
@@ -133,11 +140,12 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
+//nolint:nonamedreturns
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 	p dbProvider,
-) (ctrl.Result, error) {
+) (rr ctrl.Result, rerr error) {
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
 		done, err := p.Cleanup(ctx, db)
@@ -146,6 +154,39 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		}
 		db.Status.Status = everestv1alpha1.AppStateDeleting
 		return ctrl.Result{Requeue: !done}, r.Status().Update(ctx, db)
+	}
+
+	// Update the status of the DatabaseCluster object after the reconciliation.
+	defer func() {
+		status, err := p.Status(ctx)
+		if err != nil {
+			rr = ctrl.Result{}
+			rerr = errors.Join(err, fmt.Errorf("failed to get status: %w", err))
+		}
+		db.Status = status
+		db.Status.ObservedGeneration = db.GetGeneration()
+		if err := r.Client.Status().Update(ctx, db); err != nil {
+			rr = ctrl.Result{}
+			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
+		}
+		if status.Status != everestv1alpha1.AppStateInit {
+			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
+		}
+	}()
+
+	log := log.FromContext(ctx)
+	hr, err := p.RunPreReconcileHook(ctx)
+	if err != nil {
+		log.Error(err, "RunPreReconcileHook failed")
+		return ctrl.Result{}, err
+	}
+	if hr.Requeue {
+		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if hr.RequeueAfter > 0 {
+		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
+		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
 	// Set metadata.
@@ -191,20 +232,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return nil
 	}); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// Reconcile the status of the DatabaseCluster object.
-	status, err := p.Status(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	db.Status = status
-	db.Status.ObservedGeneration = db.GetGeneration()
-	if err := r.Client.Status().Update(ctx, db); err != nil {
-		return ctrl.Result{}, err
-	}
-	if status.Status != everestv1alpha1.AppStateInit {
-		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
 	}
 	return ctrl.Result{}, nil
 }
