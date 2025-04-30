@@ -19,7 +19,7 @@ require (
 	github.com/operator-framework/api v0.27.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20250313094841-676233c83e26
 	github.com/percona/percona-server-mongodb-operator v1.19.1
-	github.com/percona/percona-xtradb-cluster-operator v1.16.1
+	github.com/percona/percona-xtradb-cluster-operator v1.17.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.24.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -31,12 +31,12 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.0 // indirect
+	cel.dev/expr v0.19.1 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/VictoriaMetrics/VictoriaMetrics v1.112.0 // indirect
 	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
 	github.com/VictoriaMetrics/metricsql v0.84.0 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.55.6 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect
@@ -57,7 +57,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.8.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cert-manager/cert-manager v1.16.2 // indirect
+	github.com/cert-manager/cert-manager v1.17.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
@@ -70,20 +70,20 @@ require (
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
-	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-openapi/swag v0.23.1 // indirect
+	github.com/go-sql-driver/mysql v1.9.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/cel-go v0.22.0 // indirect
+	github.com/google/cel-go v0.22.1 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
@@ -131,7 +131,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.33.0 // indirect
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
@@ -163,7 +163,7 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9 // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.1 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/mcs-api v0.1.0 // indirect

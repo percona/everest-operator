@@ -17,14 +17,15 @@ package pxc
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 
 	"github.com/AlekSi/pointer"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +39,12 @@ import (
 
 const (
 	haProxyProbesTimeout = 30
+	passwordMaxLen       = 20
+	passwordMinLen       = 16
+	passSymbols          = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789" +
+		"!#$%&()+,-.<=>?@[]^_{}~"
 )
 
 type applier struct {
@@ -102,6 +109,55 @@ func configureStorage(
 	return common.ConfigureStorage(ctx, c, db, currentSize, setStorageSize)
 }
 
+// generatePass generates a random password.
+func generatePass() ([]byte, error) {
+	randLenDelta, err := rand.Int(rand.Reader, big.NewInt(int64(passwordMaxLen-passwordMinLen)))
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, passwordMinLen+randLenDelta.Int64())
+	for i := range b {
+		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+		if err != nil {
+			return nil, err
+		}
+		b[i] = passSymbols[randInt.Int64()]
+	}
+
+	return b, nil
+}
+
+func (p *applier) ensureSecretHasProxyAdminPassword(secretsName string) error {
+	secret := &corev1.Secret{}
+	err := p.C.Get(p.ctx, types.NamespacedName{
+		Name:      p.DB.Spec.Engine.UserSecretsName,
+		Namespace: p.DB.GetNamespace(),
+	}, secret)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	if _, ok := secret.Data["proxyadmin"]; ok {
+		return nil
+	}
+
+	// Generate a new password.
+	pass, err := generatePass()
+	if err != nil {
+		return err
+	}
+
+	err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, secretsName, map[string][]byte{
+		"proxyadmin": pass,
+	}, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *applier) Engine() error {
 	engine := p.DBEngine
 	if p.DB.Spec.Engine.Version == "" {
@@ -117,6 +173,20 @@ func (p *applier) Engine() error {
 	}
 
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
+	// XXX: PXCO v1.17.0 has a bug in the auto generation of the secrets where
+	// there's a 1.5% chance that the proxyadmin password starts with the '*'
+	// character, which will be rejected by the secret validation, leaving the
+	// cluster stuck in the 'initializing' state.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1568
+	// To work around this, we need to set the password ourselves to bypass the
+	// buggy auto generation.
+	if p.DBEngine.Status.OperatorVersion == "1.17.0" {
+		err := p.ensureSecretHasProxyAdminPassword(pxc.Spec.SecretsName)
+		if err != nil {
+			return fmt.Errorf("failed to set proxyadmin password: %w", err)
+		}
+	}
+
 	pxc.Spec.PXC.PodSpec.Size = p.DB.Spec.Engine.Replicas
 	pxc.Spec.PXC.PodSpec.Configuration = p.DB.Spec.Engine.Config
 
@@ -544,10 +614,27 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 
-	err = common.UpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
-		"pmmserverkey": []byte(apiKey),
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	// XXX: PXCO v1.16.1 has a bug in the reconciliation of the internal secret.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1534
+	// If we create the secret with just the PMM key, the internal secret will
+	// miss the other auto generated keys, and the DB will not be able to start.
+	// To work around this, we need to wait for the secret to be created by
+	// PXCO, and then update it with the PMM key.
+	// PXCO v1.17.0 fixed this issue, and we can safely create the secret with
+	// just the PMM key.
+	// TODO(EVEREST-2008): Once we no longer support PXCO v1.16.1, we can
+	// remove this code and just keep the CreateOrUpdateSecretData call.
+	// See: https://perconadev.atlassian.net/browse/EVEREST-2008
+	if p.DBEngine.Status.OperatorVersion == "1.16.1" {
+		err = common.UpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
+			"pmmserverkey": []byte(apiKey),
+		}, false)
+	} else {
+		err = common.CreateOrUpdateSecretData(p.ctx, p.C, p.DB, pxc.Spec.SecretsName, map[string][]byte{
+			"pmmserverkey": []byte(apiKey),
+		}, false)
+	}
+	if err != nil {
 		return err
 	}
 	return nil

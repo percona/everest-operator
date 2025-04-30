@@ -19,8 +19,8 @@ package pxc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
+	"time"
 
 	goversion "github.com/hashicorp/go-version"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -107,9 +107,6 @@ func New(
 	if err := p.ensureDefaults(ctx); err != nil {
 		return nil, err
 	}
-	if err := p.handlePauseForPXCRestore(ctx, opts); err != nil {
-		return nil, err
-	}
 	return p, nil
 }
 
@@ -121,38 +118,6 @@ func (p *Provider) Apply(ctx context.Context) everestv1alpha1.Applier {
 		Provider: p,
 		ctx:      ctx,
 	}
-}
-
-// During the restore process, the PXC cluster will be paused/unpause by the PXC operator.
-// The pause may be overwritten since the Everest operator will also fight for the desired pause state
-// set by the user.
-// To avoid this race condition, we will explicitly inspect every phase of the restore, and set pause accordingly.
-func (p *Provider) handlePauseForPXCRestore(ctx context.Context, opts providers.ProviderOptions) error {
-	restores := &pxcv1.PerconaXtraDBClusterRestoreList{}
-	if err := opts.C.List(ctx, restores); err != nil {
-		return fmt.Errorf("failed to list pxcRestore objects: %w", err)
-	}
-	if len(restores.Items) == 0 {
-		return nil
-	}
-	for _, restore := range restores.Items {
-		// since there is no index for the .spec.pxcCluster field in pxc-restore, the filter is handled manually
-		if restore.Spec.PXCCluster != opts.DB.Name {
-			continue
-		}
-		if restore.Status.State == pxcv1.RestoreSucceeded {
-			continue
-		}
-		if restore.Status.State == pxcv1.RestoreStopCluster {
-			p.DB.Spec.Paused = true
-			return p.C.Update(ctx, p.DB)
-		}
-		if restore.Status.State == pxcv1.RestoreStartCluster {
-			p.DB.Spec.Paused = false
-			return p.C.Update(ctx, p.DB)
-		}
-	}
-	return nil
 }
 
 func (p *Provider) dbEngineVersionOrDefault() string {
@@ -264,6 +229,39 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	status.RecommendedCRVersion = recCRVer
 
 	return status, nil
+}
+
+// when a PXC restore is in progress, we will retry reconciliation
+// after the specified duration.
+const defaultRestoreRequeueDuration = 15 * time.Second
+
+func (p *Provider) isRestoreInProgress(ctx context.Context) (bool, error) {
+	restores := &everestv1alpha1.DatabaseClusterRestoreList{}
+	if err := p.C.List(ctx, restores, client.InNamespace(p.DB.GetNamespace())); err != nil {
+		return false, err
+	}
+	for _, dbr := range restores.Items {
+		if dbr.IsInProgress() && dbr.Spec.DBClusterName == p.DB.GetName() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// RunPreReconcileHook runs the pre-reconcile hook for the PXC provider.
+func (p *Provider) RunPreReconcileHook(ctx context.Context) (providers.HookResult, error) {
+	// The pxc-operator does some funny things to the PXC spec during a restore.
+	// We must avoid interfering with that process, so we simply skip reconciliation.
+	// Replicating the same behavior here would be a nightmare, so its simpler to just do this.
+	if ok, err := p.isRestoreInProgress(ctx); err != nil {
+		return providers.HookResult{}, err
+	} else if ok {
+		return providers.HookResult{
+			RequeueAfter: defaultRestoreRequeueDuration,
+			Message:      "Restore is in progress",
+		}, nil
+	}
+	return providers.HookResult{}, nil
 }
 
 // Cleanup runs the cleanup routines and returns true if the cleanup is done.

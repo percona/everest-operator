@@ -1,6 +1,13 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 10
+resourceRefs:
+- apiVersion: v1
+  kind: Secret
+  name: everest-secrets-test-pxc-cluster
+  ref: secret
+assertAll:
+- celExpr: "has(secret.data.proxyadmin) && !secret.data.proxyadmin.contains(\"*\")"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
