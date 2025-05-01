@@ -170,7 +170,8 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 			rr = ctrl.Result{}
 			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
 		}
-		if status.Status != everestv1alpha1.AppStateInit {
+		// DB is not ready, check again soon.
+		if status.Status != everestv1alpha1.AppStateReady {
 			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
 		}
 	}()
