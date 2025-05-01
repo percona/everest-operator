@@ -78,7 +78,6 @@ rules:
   - databaseclusters/finalizers
   - databaseengines/finalizers
   - monitoringconfigs/finalizers
-  - podschedulingpolicies/finalizers
   verbs:
   - update
 - apiGroups:
@@ -90,7 +89,6 @@ rules:
   - databaseclusters/status
   - databaseengines/status
   - monitoringconfigs/status
-  - podschedulingpolicies/status
   verbs:
   - get
   - patch

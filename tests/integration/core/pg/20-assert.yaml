@@ -11,7 +11,9 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-pg-cluster
+    podSchedulingPolicyName: everest-default-postgresql
 spec:
+  podSchedulingPolicyName: everest-default-postgresql
   backup:
     pitr:
       enabled: false

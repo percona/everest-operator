@@ -2,10 +2,32 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 ---
 apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-pxc
+spec:
+  engineType: pxc
+  affinityConfig:
+    pxc:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+---
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
+  podSchedulingPolicyName: everest-default-pxc
   engine:
     replicas: 1
     resources:

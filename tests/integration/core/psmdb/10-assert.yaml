@@ -6,7 +6,11 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
+  labels:
+    clusterName: test-psmdb-cluster
+    podSchedulingPolicyName: everest-default-psmdb
 spec:
+  podSchedulingPolicyName: everest-default-psmdb
   engine:
     replicas: 3
     resources:

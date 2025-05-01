@@ -71,6 +71,7 @@ const (
 	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
+	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 
 	databaseClusterNameLabel     = "clusterName"
 	monitoringConfigNameLabel    = "monitoringConfigName"
@@ -613,6 +614,26 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// Index the podSchedulingPolicy field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, podSchedulingPolicyNameField,
+		func(o client.Object) []string {
+			var res []string
+			dc, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+
+			if dc.Spec.PodSchedulingPolicyName != "" {
+				res = append(res, dc.Spec.PodSchedulingPolicyName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	// Index the backupStorageNameDBBackupField field in DatabaseClusterBackup.
 	err = mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseClusterBackup{}, backupStorageNameDBBackupField,
@@ -715,6 +736,30 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+			for i, item := range attachedDatabaseClusters.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+			}
+
+			return requests
+		}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+	)
+
+	controller.Owns(&everestv1alpha1.PodSchedulingPolicy{})
+	controller.Watches(
+		&everestv1alpha1.PodSchedulingPolicy{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, podSchedulingPolicyNameField, obj)
 			if err != nil {
 				return []reconcile.Request{}
 			}

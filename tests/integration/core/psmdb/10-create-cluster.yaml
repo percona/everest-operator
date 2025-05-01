@@ -2,10 +2,38 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 ---
 apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-psmdb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+---
+apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
+  podSchedulingPolicyName: everest-default-psmdb
   engine:
     replicas: 3
     resources:
