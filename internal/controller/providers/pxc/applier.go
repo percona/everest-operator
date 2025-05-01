@@ -232,15 +232,6 @@ func (p *applier) Engine() error {
 		pxc.Spec.PXC.PodSpec.LivenessProbes.TimeoutSeconds = 600
 		pxc.Spec.PXC.PodSpec.ReadinessProbes.TimeoutSeconds = 600
 	}
-	p.PerconaXtraDBCluster.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
-	}
 
 	pxc.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
 
@@ -300,6 +291,105 @@ func (p *applier) Monitoring() error {
 	return nil
 }
 
+func (p *applier) PodSchedulingPolicy() error {
+	// NOTE: this method shall be called after Engine() and Proxy() methods
+	// because it extends the engine and proxy specs with the affinity rules.
+	//
+	// The following cases are possible:
+	// 1. The user did not specify a .spec.podSchedulingPolicyName -> do nothing.
+	// 2. The user specified a .spec.podSchedulingPolicyName, but it does not exist -> return error.
+	// 3. The user specified a .spec.podSchedulingPolicyName, and it exists, but it is not applicable to the upstream cluster -> return error.
+	// 4. The user specified a .spec.podSchedulingPolicyName, and it exists, but affinity configuration is absent there -> do nothing.
+	// 5. The user specified a .spec.podSchedulingPolicyName, and it exists, and it is applicable to the upstream cluster ->
+	// copy the affinity rules to the upstream cluster spec from policy.
+
+	pxc := p.PerconaXtraDBCluster
+	// --------------------------------- //
+	// Special workaround, need to reset all affinity params in p.PerconaXtraDBCluster before moving further.
+	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
+	pxc.Spec.PXC.PodSpec.Affinity = nil
+	if pxc.Spec.HAProxy != nil {
+		pxc.Spec.HAProxy.PodSpec.Affinity = nil
+	}
+
+	if pxc.Spec.ProxySQL != nil {
+		pxc.Spec.ProxySQL.PodSpec.Affinity = nil
+	}
+	// --------------------------------- //
+
+	pspName := p.DB.Spec.PodSchedulingPolicyName
+	if pspName == "" {
+		// Covers case 1.
+
+		// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
+		// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
+		// See: https://perconadev.atlassian.net/browse/EVEREST-1413
+		// if p.DB.Status.Status == everestv1alpha1.AppStateReady {
+		// 	pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
+		// }
+		// // Changing proxy type is not supported, so we copy affinity rules from the previous state of the same proxy type
+		// switch p.DB.Spec.Proxy.Type {
+		// case everestv1alpha1.ProxyTypeHAProxy:
+		// 	pxc.Spec.HAProxy.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Affinity
+		// case everestv1alpha1.ProxyTypeProxySQL:
+		// 	pxc.Spec.ProxySQL.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.ProxySQL.PodSpec.Affinity
+		// default:
+		// 	return fmt.Errorf("invalid proxy type %s", p.DB.Spec.Proxy.Type)
+		// }
+		return nil
+	}
+
+	var psp *everestv1alpha1.PodSchedulingPolicy
+	var err error
+	psp, err = common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
+	if err != nil {
+		// Not found or other error.
+		// Covers case 2.
+		return err
+	}
+
+	if psp.Spec.EngineType != everestv1alpha1.DatabaseEnginePXC {
+		// Covers case 3.
+		return fmt.Errorf("requested pod scheduling policy='%s' is not applicable to engineType='%s'",
+			pspName, everestv1alpha1.DatabaseEnginePXC)
+	}
+
+	pspAffinityConfig := psp.Spec.AffinityConfig
+	if pspAffinityConfig == nil || pspAffinityConfig.PXC == nil {
+		// Nothing to do.
+		// Covers case 4.
+		// The affinity rules will be applied later once admin sets them in policy.
+		return nil
+	}
+
+	// Covers case 5.
+
+	// Copy Affinity rules to Engine pods spec from policy
+	if pspAffinityConfig.PXC.Engine != nil {
+		pxc.Spec.PXC.PodSpec.Affinity = &pxcv1.PodAffinity{
+			Advanced: pspAffinityConfig.PXC.Engine.DeepCopy(),
+		}
+	}
+
+	// Copy Affinity rules to Proxy pod spec from policy
+	if pspAffinityConfig.PXC.Proxy != nil {
+		proxyAffinityConfig := &pxcv1.PodAffinity{
+			Advanced: pspAffinityConfig.PXC.Proxy.DeepCopy(),
+		}
+
+		switch p.DB.Spec.Proxy.Type {
+		case everestv1alpha1.ProxyTypeHAProxy:
+			pxc.Spec.HAProxy.PodSpec.Affinity = proxyAffinityConfig
+		case everestv1alpha1.ProxyTypeProxySQL:
+			pxc.Spec.ProxySQL.PodSpec.Affinity = proxyAffinityConfig
+		default:
+			return fmt.Errorf("invalid proxy type %s", p.DB.Spec.Proxy.Type)
+		}
+	}
+
+	return nil
+}
+
 func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 	maxUnavailable := intstr.FromInt(1)
 	return pxcv1.PerconaXtraDBClusterSpec{
@@ -311,9 +401,6 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 		PXC: &pxcv1.PXCSpec{
 			PodSpec: &pxcv1.PodSpec{
 				ServiceType: corev1.ServiceTypeClusterIP,
-				Affinity: &pxcv1.PodAffinity{
-					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-				},
 				PodDisruptionBudget: &pxcv1.PodDisruptionBudgetSpec{
 					MaxUnavailable: &maxUnavailable,
 				},
@@ -341,9 +428,6 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 		HAProxy: &pxcv1.HAProxySpec{
 			PodSpec: pxcv1.PodSpec{
 				Enabled: false,
-				Affinity: &pxcv1.PodAffinity{
-					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-				},
 				Resources: corev1.ResourceRequirements{
 					// XXX: Remove this once templates will be available
 					Limits: corev1.ResourceList{
@@ -358,9 +442,6 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 		ProxySQL: &pxcv1.ProxySQLSpec{
 			PodSpec: pxcv1.PodSpec{
 				Enabled: false,
-				Affinity: &pxcv1.PodAffinity{
-					TopologyKey: pointer.ToString(pxcv1.AffinityTopologyKeyOff),
-				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("1G"),
@@ -375,15 +456,7 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 func (p *applier) applyHAProxyCfg() error {
 	haProxy := defaultSpec().HAProxy
 	haProxy.PodSpec.Enabled = true
-	haProxy.PodSpec.Affinity = &pxcv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		haProxy.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Affinity
-	}
+
 	switch p.DB.Spec.Engine.Size() {
 	case everestv1alpha1.EngineSizeSmall:
 		haProxy.PodSpec.Resources = haProxyResourceRequirementsSmall
@@ -496,15 +569,7 @@ func shouldUpdateResourceRequests(dbState everestv1alpha1.AppState) bool {
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
-	proxySQL.Affinity = &pxcv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		proxySQL.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.ProxySQL.PodSpec.Affinity
-	}
+
 	if p.DB.Spec.Proxy.Replicas == nil {
 		// By default we set the same number of replicas as the engine
 		proxySQL.Size = p.DB.Spec.Engine.Replicas

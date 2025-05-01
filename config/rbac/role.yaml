@@ -90,6 +90,7 @@ rules:
   - databaseclusters/status
   - databaseengines/status
   - monitoringconfigs/status
+  - podschedulingpolicies/status
   verbs:
   - get
   - patch

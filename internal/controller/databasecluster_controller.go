@@ -72,11 +72,12 @@ const (
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 
-	databaseClusterNameLabel   = "clusterName"
-	monitoringConfigNameLabel  = "monitoringConfigName"
-	backupStorageNameLabelTmpl = "backupStorage-%s"
-	backupStorageLabelValue    = "used"
-	defaultRequeueAfter        = 5 * time.Second
+	databaseClusterNameLabel     = "clusterName"
+	monitoringConfigNameLabel    = "monitoringConfigName"
+	podSchedulingPolicyNameLabel = "podSchedulingPolicyName"
+	backupStorageNameLabelTmpl   = "backupStorage-%s"
+	backupStorageLabelValue      = "used"
+	defaultRequeueAfter          = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -211,6 +212,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Monitoring(); err != nil {
 			return err
 		}
+		if err := applier.PodSchedulingPolicy(); err != nil {
+			return err
+		}
 		if err := applier.Backup(); err != nil {
 			return err
 		}
@@ -236,20 +240,21 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	return ctrl.Result{}, nil
 }
 
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/finalizers,verbs=update
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch
-//+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
-//+kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -258,9 +263,11 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
+	defer func() {
+		logger.Info("Reconciled", "request", req)
+	}()
 
 	database := &everestv1alpha1.DatabaseCluster{}
-
 	err := r.Get(ctx, req.NamespacedName, database)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
@@ -271,17 +278,16 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return reconcile.Result{}, err
 	}
-	logger.Info("Reconciled", "request", req)
 
-	if err := r.reconcileLabels(ctx, database); err != nil {
+	if err = r.reconcileLabels(ctx, database); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.handleRestart(ctx, logger, database); err != nil {
+	if err = r.handleRestart(ctx, logger, database); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.ensureFinalizers(ctx, database); err != nil {
+	if err = r.ensureFinalizers(ctx, database); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -295,7 +301,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if database.Spec.DataSource != nil &&
 		database.Spec.DataSource.DBClusterBackupName != "" {
 		// We don't handle database.Spec.DataSource.BackupSource in operator
-		if err := r.copyCredentialsFromDBBackup(ctx, database.Spec.DataSource.DBClusterBackupName, database); err != nil {
+		if err = r.copyCredentialsFromDBBackup(ctx, database.Spec.DataSource.DBClusterBackupName, database); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -444,6 +450,14 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 		}
 	} else if foundMC {
 		delete(updated, monitoringConfigNameLabel)
+	}
+
+	if database.Spec.PodSchedulingPolicyName != "" {
+		// If the .spec.podSchedulingPolicyName is set, we need to set the label
+		updated[podSchedulingPolicyNameLabel] = database.Spec.PodSchedulingPolicyName
+	} else {
+		// If the .spec.podSchedulingPolicyName is not set, we need to remove the label (if any).
+		delete(updated, podSchedulingPolicyNameLabel)
 	}
 
 	// Remove labels for backup storage that are not in the spec

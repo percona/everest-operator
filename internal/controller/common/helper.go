@@ -573,6 +573,19 @@ func GetDBMonitoringConfig(
 	return monitoring, nil
 }
 
+// GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
+func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
+	psp := &everestv1alpha1.PodSchedulingPolicy{}
+	if pspName != "" {
+		if err := c.Get(ctx, types.NamespacedName{
+			Name: pspName,
+		}, psp); err != nil {
+			return nil, err
+		}
+	}
+	return psp, nil
+}
+
 // IsDatabaseClusterRestoreRunning returns true if a restore is running for the
 // specified database, otherwise false.
 func IsDatabaseClusterRestoreRunning(
@@ -729,22 +742,6 @@ func GetRecommendedCRVersion(
 		return pointer.To(v.ToCRVersion()), nil
 	}
 	return nil, nil //nolint:nilnil
-}
-
-// DefaultAffinitySettings returns the default corev1.Affinity object used in Everest.
-func DefaultAffinitySettings() *corev1.Affinity {
-	return &corev1.Affinity{
-		PodAntiAffinity: &corev1.PodAntiAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-				{
-					Weight: 1,
-					PodAffinityTerm: corev1.PodAffinityTerm{
-						TopologyKey: TopologyKeyHostname,
-					},
-				},
-			},
-		},
-	}
 }
 
 // StatusAsPlainTextOrEmptyString returns the status as a plain text string or an empty string.
