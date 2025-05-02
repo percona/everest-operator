@@ -10,7 +10,7 @@ import (
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName=dij
 //+kubebuilder:printcolumn:name="TargetCluster",type="string",JSONPath=".spec.targetClusterRef.name"
-//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status"
+//+kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 
 // DataImportJob is the schema for the dataimportjobs API.
 type DataImportJob struct {
