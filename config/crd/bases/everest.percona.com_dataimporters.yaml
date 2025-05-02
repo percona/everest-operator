@@ -11,10 +11,8 @@ spec:
     kind: DataImporter
     listKind: DataImporterList
     plural: dataimporters
-    shortNames:
-    - di
     singular: dataimporter
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.displayName

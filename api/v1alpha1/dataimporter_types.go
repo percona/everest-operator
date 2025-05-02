@@ -11,6 +11,7 @@ import (
 //+kubebuilder:printcolumn:name="DisplayName",type="string",JSONPath=".spec.displayName"
 //+kubebuilder:printcolumn:name="Description",type="string",JSONPath=".spec.description"
 //+kubebuilder:printcolumn:name="SupportedEngines",type="string",JSONPath=".spec.supportedEngines"
+//+kubebuilder:resource:scope=Cluster
 
 // DataImporter defines a reusable strategy for importing data into a DatabaseCluster.
 type DataImporter struct {
