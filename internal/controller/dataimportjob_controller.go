@@ -88,7 +88,7 @@ func (r *DataImportJobReconciler) Reconcile(
 		Namespace: diJob.GetNamespace(),
 	}, db); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = fmt.Sprintf("failed to get database cluster: %w", err)
+		diJob.Status.Message = fmt.Errorf("failed to get database cluster: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
@@ -102,14 +102,14 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Create import job.
 	if err := r.ensureImportJob(ctx, diJob, di); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = fmt.Sprintf("failed to create import job: %w", err)
+		diJob.Status.Message = fmt.Errorf("failed to create import job: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Observe import state.
 	if err := r.observeImportState(ctx, diJob); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = fmt.Sprintf("failed to observe state: %w", err)
+		diJob.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
