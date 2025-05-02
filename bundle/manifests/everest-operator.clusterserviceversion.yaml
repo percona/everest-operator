@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-03-25T13:45:18Z"
+    createdAt: "2025-05-02T06:22:17Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -176,6 +176,18 @@ spec:
           - list
           - watch
         - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - everest.percona.com
           resources:
           - backupstorages
@@ -183,6 +195,7 @@ spec:
           - databaseclusterrestores
           - databaseclusters
           - databaseengines
+          - dataimportjobs
           - monitoringconfigs
           verbs:
           - create
@@ -200,6 +213,7 @@ spec:
           - databaseclusterrestores/finalizers
           - databaseclusters/finalizers
           - databaseengines/finalizers
+          - dataimportjobs/finalizers
           - monitoringconfigs/finalizers
           verbs:
           - update
@@ -211,6 +225,7 @@ spec:
           - databaseclusterrestores/status
           - databaseclusters/status
           - databaseengines/status
+          - dataimportjobs/status
           - monitoringconfigs/status
           verbs:
           - get
