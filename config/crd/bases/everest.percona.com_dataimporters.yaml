@@ -69,11 +69,6 @@ spec:
               jobSpec:
                 description: JobSpec is the specification of the data importer job.
                 properties:
-                  args:
-                    description: Args are the arguments to pass to the data importer.
-                    items:
-                      type: string
-                    type: array
                   command:
                     description: Command is the command to run the data importer.
                     items:

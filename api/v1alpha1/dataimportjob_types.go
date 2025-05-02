@@ -43,6 +43,10 @@ type DataImportJobSource struct {
 	// S3Ref is the reference to the S3 source.
 	// +optional
 	S3Ref *DataImportJobS3SourceRef `json:"s3,omitempty"`
+	// Path is the path to the directory to import the data from.
+	// This may be a path to a file or a directory, depending on the data importer.
+	// +optional
+	Path string `json:"directory,omitempty"`
 }
 
 type DataImportJobS3SourceRef struct {
@@ -89,6 +93,9 @@ type DataImportJobStatus struct {
 	Phase DataImportJobPhase `json:"phase,omitempty"`
 	// Message is the message of the data import job.
 	Message string `json:"message,omitempty"`
+	// JobRef is the reference to the job that is running the data import.
+	// +optional
+	JobRef *corev1.LocalObjectReference `json:"jobRef,omitempty"`
 }
 
 func init() {

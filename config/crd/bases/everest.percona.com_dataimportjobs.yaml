@@ -85,6 +85,11 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                  directory:
+                    description: |-
+                      Path is the path to the directory to import the data from.
+                      This may be a path to a file or a directory, depending on the data importer.
+                    type: string
                   s3:
                     description: S3Ref is the reference to the S3 source.
                     properties:
@@ -144,6 +149,21 @@ spec:
             type: object
           status:
             properties:
+              jobRef:
+                description: JobRef is the reference to the job that is running the
+                  data import.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               message:
                 description: Message is the message of the data import job.
                 type: string

@@ -49,9 +49,6 @@ type DataImporterJobSpec struct {
 	// Command is the command to run the data importer.
 	// +optional
 	Command []string `json:"command,omitempty"`
-	// Args are the arguments to pass to the data importer.
-	// +optional
-	Args []string `json:"args,omitempty"`
 }
 
 // +kubebuilder:object:root=true
