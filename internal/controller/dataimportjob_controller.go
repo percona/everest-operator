@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"strconv"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +17,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 )
 
 const (
@@ -52,7 +53,8 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *DataImportJobReconciler) Reconcile(
 	ctx context.Context,
-	req ctrl.Request) (rr ctrl.Result, rerr error) {
+	req ctrl.Request,
+) (rr ctrl.Result, rerr error) {
 	diJob := &everestv1alpha1.DataImportJob{}
 	if err := r.Client.Get(ctx, req.NamespacedName, diJob); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
