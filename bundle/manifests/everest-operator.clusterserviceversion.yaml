@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-02T06:22:17Z"
+    createdAt: "2025-05-02T06:36:36Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -113,6 +113,12 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
+      version: v1alpha1
+    - kind: DataImporter
+      name: dataimporters.everest.percona.com
+      version: v1alpha1
+    - kind: DataImportJob
+      name: dataimportjobs.everest.percona.com
       version: v1alpha1
     - description: MonitoringConfig is the Schema for the monitoringconfigs API.
       displayName: Monitoring Config
