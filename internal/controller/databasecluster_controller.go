@@ -56,6 +56,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/providers/pg"
 	"github.com/percona/everest-operator/internal/controller/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/providers/pxc"
+	"github.com/percona/everest-operator/internal/predicates"
 )
 
 const (
@@ -256,7 +257,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -501,8 +502,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("DatabaseCluster").
 		For(&everestv1alpha1.DatabaseCluster{})
 
-	r.initWatchers(ctrlBuilder)
-	ctrlBuilder.WithEventFilter(common.DefaultNamespaceFilter)
+	r.initWatchers(ctrlBuilder, common.DefaultNamespaceFilter)
 
 	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
 	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
@@ -614,7 +614,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
-	// Index the podSchedulingPolicy field in DatabaseCluster.
+	// Index the podSchedulingPolicyName field in DatabaseCluster.
 	err = mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseCluster{}, podSchedulingPolicyNameField,
 		func(o client.Object) []string {
@@ -651,10 +651,11 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	return err
 }
 
-func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) {
 	controller.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
+		builder.WithPredicates(defaultPredicate),
 	)
 	controller.Owns(&everestv1alpha1.BackupStorage{})
 	controller.Watches(
@@ -664,7 +665,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the BackupStorageName field
-			attachedDBs, err := r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj)
+			attachedDBs, err := r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -677,7 +678,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the PITRBackupStorageName field
-			attachedDBs, err = r.databaseClustersThatReferenceObject(ctx, pitrBackupStorageNameField, obj)
+			attachedDBs, err = r.databaseClustersThatReferenceObject(ctx, pitrBackupStorageNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -717,7 +718,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
 	// We watch DBEngines since they contain the result of the operator upgrades.
@@ -728,14 +729,14 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			return r.databaseClustersInObjectNamespace(ctx, obj)
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
 	controller.Owns(&everestv1alpha1.MonitoringConfig{})
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj)
+			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -752,14 +753,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
-	controller.Owns(&everestv1alpha1.PodSchedulingPolicy{})
 	controller.Watches(
 		&everestv1alpha1.PodSchedulingPolicy{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, podSchedulingPolicyNameField, obj)
+			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, podSchedulingPolicyNameField, "", obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -776,7 +776,21 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		// We need to filter out the events that are not in the system namespace,
+		// that is why a separate NamespaceFilter predicate is used instead of
+		// common.DefaultNamespaceFilter.
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{},
+			&predicates.NamespaceFilter{
+				AllowNamespaces: []string{common.SystemNamespace},
+				GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
+					namespace := &corev1.Namespace{}
+					if err := r.Client.Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
+						return nil, err
+					}
+					return namespace, nil
+				},
+			},
+		),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
@@ -789,7 +803,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 	controller.Watches(
 		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
 	controller.Watches(
@@ -808,7 +822,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 				},
 			}
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
 	controller.Watches(
@@ -827,7 +841,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder) {
 				},
 			}
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 }
 
@@ -853,13 +867,12 @@ func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx contex
 // reference the given object by the provided keyPath.
 func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(
 	ctx context.Context,
-	keyPath string,
-	obj client.Object,
+	keyPath, namespace, name string,
 ) (*everestv1alpha1.DatabaseClusterList, error) {
 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
 	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(keyPath, obj.GetName()),
-		Namespace:     obj.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
+		Namespace:     namespace,
 	}
 	err := r.List(ctx, attachedDatabaseClusters, listOps)
 	return attachedDatabaseClusters, err
@@ -1043,6 +1056,7 @@ func newPXCRestoreWatchSource(cache cache.Cache) source.Source { //nolint:iretur
 			}
 		}),
 		predicate.ResourceVersionChangedPredicate{},
+		common.DefaultNamespaceFilter,
 	)
 }
 
@@ -1059,5 +1073,6 @@ func newCrunchyWatchSource(cache cache.Cache) source.Source { //nolint:ireturn
 			}
 			return meta.IsStatusConditionTrue(pgc.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
 		}),
+		common.DefaultNamespaceFilter,
 	)
 }

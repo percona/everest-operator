@@ -578,7 +578,8 @@ func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string
 	psp := &everestv1alpha1.PodSchedulingPolicy{}
 	if pspName != "" {
 		if err := c.Get(ctx, types.NamespacedName{
-			Name: pspName,
+			Namespace: SystemNamespace,
+			Name:      pspName,
 		}, psp); err != nil {
 			return nil, err
 		}

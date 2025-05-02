@@ -7782,7 +7782,6 @@ rules:
   - databaseclusters
   - databaseengines
   - monitoringconfigs
-  - podschedulingpolicies
   verbs:
   - create
   - delete
@@ -7815,6 +7814,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - podschedulingpolicies
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - operator.victoriametrics.com
   resources:

@@ -20,6 +20,8 @@ import "k8s.io/apimachinery/pkg/runtime/schema"
 const (
 	// Everest ...
 	Everest = "everest"
+	// SystemNamespace is the namespace where everest is installed.
+	SystemNamespace = "everest-system"
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
 
