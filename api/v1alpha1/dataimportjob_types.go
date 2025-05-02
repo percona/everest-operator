@@ -46,7 +46,7 @@ type DataImportJobSource struct {
 	// Path is the path to the directory to import the data from.
 	// This may be a path to a file or a directory, depending on the data importer.
 	// +optional
-	Path string `json:"directory,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 type DataImportJobS3SourceRef struct {

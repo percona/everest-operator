@@ -85,7 +85,7 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
-                  directory:
+                  path:
                     description: |-
                       Path is the path to the directory to import the data from.
                       This may be a path to a file or a directory, depending on the data importer.
