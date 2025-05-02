@@ -59,6 +59,7 @@ spec:
                   openAPIV3Schema:
                     description: OpenAPIV3Schema is the OpenAPI v3 schema of the data
                       importer.
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               description:
                 description: Description is the description of the data importer.

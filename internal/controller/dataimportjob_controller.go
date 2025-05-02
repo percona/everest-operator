@@ -95,7 +95,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Create payload secret.
 	if err := r.ensureDataImportPayloadSecret(ctx, diJob, di, db); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = fmt.Sprintf("failed to create data import payload secret: %w", err)
+		diJob.Status.Message = fmt.Errorf("failed to create data import payload secret: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 

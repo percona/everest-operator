@@ -38,6 +38,7 @@ type DataImporterSpec struct {
 // DataImporterConfig contains additional configuration defined for the data importer.
 type DataImporterConfig struct {
 	// OpenAPIV3Schema is the OpenAPI v3 schema of the data importer.
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	// +optional
 	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
