@@ -6618,7 +6618,7 @@ spec:
             properties:
               observedGeneration:
                 description: ObservedGeneration is the most recent generation observed
-                  for this DatabaseCluster.
+                  for this PodSchedulingPolicy.
                 format: int64
                 type: integer
               used:

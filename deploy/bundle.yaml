@@ -7420,7 +7420,7 @@ spec:
             description: PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
             properties:
               observedGeneration:
-                description: ObservedGeneration is the most recent generation observed for this DatabaseCluster.
+                description: ObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
                 format: int64
                 type: integer
               used:

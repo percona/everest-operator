@@ -66,7 +66,7 @@ type PodSchedulingPolicySpec struct {
 type PodSchedulingPolicyStatus struct {
 	// Used is a flag that indicates if the policy is used by any DB cluster.
 	Used bool `json:"used,omitempty"`
-	// ObservedGeneration is the most recent generation observed for this DatabaseCluster.
+	// ObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
