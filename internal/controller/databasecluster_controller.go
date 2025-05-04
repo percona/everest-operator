@@ -665,7 +665,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the BackupStorageName field
-			attachedDBs, err := r.databaseClustersThatReferenceObject(ctx, backupStorageNameField, obj.GetNamespace(), obj.GetName())
+			attachedDBs, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, backupStorageNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -678,7 +678,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the PITRBackupStorageName field
-			attachedDBs, err = r.databaseClustersThatReferenceObject(ctx, pitrBackupStorageNameField, obj.GetNamespace(), obj.GetName())
+			attachedDBs, err = common.DatabaseClustersThatReferenceObject(ctx, r.Client, pitrBackupStorageNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -736,7 +736,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, monitoringConfigNameField, obj.GetNamespace(), obj.GetName())
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, monitoringConfigNameField, obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -759,7 +759,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&everestv1alpha1.PodSchedulingPolicy{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := r.databaseClustersThatReferenceObject(ctx, podSchedulingPolicyNameField, "", obj.GetName())
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", obj.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -865,18 +865,18 @@ func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx contex
 
 // databaseClustersThatReferenceObject returns a list of DatabaseClusters that
 // reference the given object by the provided keyPath.
-func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(
-	ctx context.Context,
-	keyPath, namespace, name string,
-) (*everestv1alpha1.DatabaseClusterList, error) {
-	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
-	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
-		Namespace:     namespace,
-	}
-	err := r.List(ctx, attachedDatabaseClusters, listOps)
-	return attachedDatabaseClusters, err
-}
+// func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(
+// 	ctx context.Context,
+// 	keyPath, namespace, name string,
+// ) (*everestv1alpha1.DatabaseClusterList, error) {
+// 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
+// 	listOps := &client.ListOptions{
+// 		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
+// 		Namespace:     namespace,
+// 	}
+// 	err := r.List(ctx, attachedDatabaseClusters, listOps)
+// 	return attachedDatabaseClusters, err
+// }
 
 // databaseClustersThatReferenceSecret returns a list of reconcile
 // requests for all DatabaseClusters that reference the given secret.

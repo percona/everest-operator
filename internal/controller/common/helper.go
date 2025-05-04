@@ -587,6 +587,22 @@ func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string
 	return psp, nil
 }
 
+// DatabaseClustersThatReferenceObject returns a list of DatabaseClusters that
+// reference the given name by the provided keyPath and namespace.
+func DatabaseClustersThatReferenceObject(
+	ctx context.Context,
+	c client.Client,
+	keyPath, namespace, name string,
+) (*everestv1alpha1.DatabaseClusterList, error) {
+	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
+		Namespace:     namespace,
+	}
+	err := c.List(ctx, attachedDatabaseClusters, listOps)
+	return attachedDatabaseClusters, err
+}
+
 // IsDatabaseClusterRestoreRunning returns true if a restore is running for the
 // specified database, otherwise false.
 func IsDatabaseClusterRestoreRunning(

@@ -1194,6 +1194,10 @@ spec:
       jsonPath: .spec.engineType
       name: Engine
       type: string
+    - description: Indicates if the policy is used by any DB cluster
+      jsonPath: .status.used
+      name: Status
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -7414,6 +7418,14 @@ spec:
             type: object
           status:
             description: PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
+            properties:
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed for this DatabaseCluster.
+                format: int64
+                type: integer
+              used:
+                description: Used is a flag that indicates if the policy is used by any DB cluster.
+                type: boolean
             type: object
         type: object
     served: true
@@ -7782,6 +7794,7 @@ rules:
   - databaseclusters
   - databaseengines
   - monitoringconfigs
+  - podschedulingpolicies
   verbs:
   - create
   - delete
@@ -7810,18 +7823,11 @@ rules:
   - databaseclusters/status
   - databaseengines/status
   - monitoringconfigs/status
+  - podschedulingpolicies/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - everest.percona.com
-  resources:
-  - podschedulingpolicies
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - operator.victoriametrics.com
   resources:
@@ -8014,6 +8020,8 @@ rules:
   - podschedulingpolicies/status
   verbs:
   - get
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
