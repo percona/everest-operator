@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-02T06:36:36Z"
+    createdAt: "2025-05-05T15:42:44Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -238,6 +238,14 @@ spec:
           - patch
           - update
         - apiGroups:
+          - everest.percona.com
+          resources:
+          - dataimporters
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - operator.victoriametrics.com
           resources:
           - vmagents
@@ -308,6 +316,21 @@ spec:
           - perconaxtradbclusterbackups
           - perconaxtradbclusterrestores
           - perconaxtradbclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          - rolebindings
+          - roles
           verbs:
           - create
           - delete
