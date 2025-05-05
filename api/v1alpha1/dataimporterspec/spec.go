@@ -26,9 +26,15 @@ type S3Source struct {
 }
 
 type Target struct {
-	Type     string `json:"type,omitempty"`
-	Host     string `json:"host,omitempty"`
-	Port     string `json:"port,omitempty"`
-	User     string `json:"user,omitempty"`
-	Password string `json:"password,omitempty"`
+	DatabaseClusterRef DatabaseClusterRef `json:"databaseClusterRef,omitempty"`
+	Type               string             `json:"type,omitempty"`
+	Host               string             `json:"host,omitempty"`
+	Port               string             `json:"port,omitempty"`
+	User               string             `json:"user,omitempty"`
+	Password           string             `json:"password,omitempty"`
+}
+
+type DatabaseClusterRef struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }

@@ -213,6 +213,10 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		Host:     db.Status.Hostname,
 		Port:     strconv.Itoa(int(db.Status.Port)),
 		Type:     string(db.Spec.Engine.Type),
+		DatabaseClusterRef: dataimporterspec.DatabaseClusterRef{
+			Name:      db.GetName(),
+			Namespace: db.GetNamespace(),
+		},
 	}
 
 	// Get S3 info
