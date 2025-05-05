@@ -1196,7 +1196,7 @@ spec:
       type: string
     - description: Indicates if the policy is used by any DB cluster
       jsonPath: .status.used
-      name: Status
+      name: Used
       type: string
     name: v1alpha1
     schema:
@@ -7424,6 +7424,7 @@ spec:
                 format: int64
                 type: integer
               used:
+                default: false
                 description: Used is a flag that indicates if the policy is used by any DB cluster.
                 type: boolean
             type: object

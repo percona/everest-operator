@@ -65,6 +65,7 @@ type PodSchedulingPolicySpec struct {
 // PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
 type PodSchedulingPolicyStatus struct {
 	// Used is a flag that indicates if the policy is used by any DB cluster.
+	// +kubebuilder:default=false
 	Used bool `json:"used,omitempty"`
 	// ObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -75,7 +76,7 @@ type PodSchedulingPolicyStatus struct {
 // +kubebuilder:resource:shortName=psp
 // +kubebuilder:selectablefield:JSONPathstring=".spec.engineType"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".spec.engineType",description="DB engine type the policy can be applied to"
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.used",description="Indicates if the policy is used by any DB cluster"
+// +kubebuilder:printcolumn:name="Used",type="string",JSONPath=".status.used",description="Indicates if the policy is used by any DB cluster"
 
 // PodSchedulingPolicy is the Schema for the Pod Scheduling Policy API.
 type PodSchedulingPolicy struct {

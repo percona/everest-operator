@@ -779,7 +779,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		// We need to filter out the events that are not in the system namespace,
 		// that is why a separate NamespaceFilter predicate is used instead of
 		// common.DefaultNamespaceFilter.
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{},
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
 			&predicates.NamespaceFilter{
 				AllowNamespaces: []string{common.SystemNamespace},
 				GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
