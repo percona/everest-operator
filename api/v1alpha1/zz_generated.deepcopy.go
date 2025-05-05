@@ -514,7 +514,7 @@ func (in *DataImporterSpec) DeepCopyInto(out *DataImporterSpec) {
 	*out = *in
 	if in.SupportedEngines != nil {
 		in, out := &in.SupportedEngines, &out.SupportedEngines
-		*out = make([]string, len(*in))
+		*out = make([]EngineType, len(*in))
 		copy(*out, *in)
 	}
 	in.Config.DeepCopyInto(&out.Config)

@@ -81,6 +81,9 @@ spec:
                 description: SupportedEngines is the list of engines that the data
                   importer supports.
                 items:
+                  description: |-
+                    EngineType stands for the supported database engines. Right now it's only pxc
+                    and psmdb. However, it can be ps, pg and any other source.
                   type: string
                 type: array
             type: object

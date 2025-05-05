@@ -29,7 +29,7 @@ type DataImporterSpec struct {
 	// Description is the description of the data importer.
 	Description string `json:"description,omitempty"`
 	// SupportedEngines is the list of engines that the data importer supports.
-	SupportedEngines []string `json:"supportedEngines,omitempty"`
+	SupportedEngines []EngineType `json:"supportedEngines,omitempty"`
 	// Config contains additional configuration defined for the data importer.
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.

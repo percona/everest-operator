@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/AlekSi/pointer"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 )
@@ -64,6 +67,8 @@ func (r *DataImportJobReconciler) Reconcile(
 	l := log.FromContext(ctx)
 	l.Info("Reconciling", "name", diJob.GetName())
 
+	diJob.Status = everestv1alpha1.DataImportJobStatus{}
+
 	// Sync status on finishing reconciliation.
 	defer func() {
 		if updErr := r.Client.Status().Update(ctx, diJob); updErr != nil {
@@ -82,6 +87,8 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
+	// TODO: validate params (use validating webhook?)
+
 	// Get the target database cluster.
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
@@ -91,6 +98,13 @@ func (r *DataImportJobReconciler) Reconcile(
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
 		diJob.Status.Message = fmt.Errorf("failed to get database cluster: %w", err).Error()
 		return ctrl.Result{}, err
+	}
+
+	// TODO: use validating webhook?
+	if !slices.Contains(di.Spec.SupportedEngines, db.Spec.Engine.Type) {
+		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.Message = fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type).Error()
+		return ctrl.Result{}, nil
 	}
 
 	// Create payload secret.
@@ -113,11 +127,24 @@ func (r *DataImportJobReconciler) Reconcile(
 		diJob.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
 		return ctrl.Result{}, err
 	}
+
+	// Delete Secret if Job is complete.
+	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dataImporterRequestSecretName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		}
+		if err := r.Client.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete data import request secret: %w", err)
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
-	jobName := diJob.Status.JobRef.Name
+	jobName := pointer.Get(diJob.Status.JobRef).Name
 	if jobName == "" {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhasePending
 		return nil
@@ -174,21 +201,32 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		Type:     string(db.Spec.Engine.Type),
 	}
 
-	if diJob.Spec.Source.S3Ref != nil {
+	// Get S3 info
+	switch {
+	case diJob.Spec.Source.BackupStorageRef.Name != "":
+		s3Info, err := r.getS3InfoFromBackupStorage(ctx, diJob.Spec.Source.BackupStorageRef.Name, diJob.GetNamespace())
+		if err != nil {
+			return fmt.Errorf("failed to get S3 info from backup storage: %w", err)
+		}
+		req.Source.S3 = s3Info
+	case diJob.Spec.Source.S3Ref != nil:
 		s3Info, err := r.getS3Info(ctx, diJob)
 		if err != nil {
 			return fmt.Errorf("failed to get S3 info: %w", err)
 		}
-		req.Source.S3 = &s3Info
+		req.Source.S3 = s3Info
 	}
 
 	req.Source.Path = diJob.Spec.Source.Path
 
-	var params map[string]any
-	if err := json.Unmarshal(diJob.Spec.Params.Raw, &params); err != nil {
-		return fmt.Errorf("failed to unmarshal data import job parameters: %w", err)
+	paramsMap := map[string]any{}
+
+	if params := diJob.Spec.Params; params != nil {
+		if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
+			return fmt.Errorf("failed to unmarshal data import job parameters: %w", err)
+		}
 	}
-	req.Params = params
+	req.Params = paramsMap
 
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
@@ -208,33 +246,62 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 	return nil
 }
 
+func (r *DataImportJobReconciler) getS3InfoFromBackupStorage(
+	ctx context.Context,
+	bsName, namespace string,
+) (*dataimporterspec.S3Source, error) {
+	info := dataimporterspec.S3Source{}
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Name:      bsName,
+		Namespace: namespace,
+	}, backupStorage); err != nil {
+		return nil, fmt.Errorf("failed to get backup storage: %w", err)
+	}
+	info.Bucket = backupStorage.Spec.Bucket
+	info.Region = backupStorage.Spec.Region
+	info.EndpointURL = backupStorage.Spec.EndpointURL
+	info.VerifyTLS = pointer.Get(backupStorage.Spec.VerifyTLS)
+	info.ForcePathStyle = pointer.Get(backupStorage.Spec.ForcePathStyle)
+	keyID, keySecret, err := r.getS3Credentials(ctx, backupStorage.Spec.CredentialsSecretName, backupStorage.GetNamespace())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
+	}
+	info.AccessKeyID = keyID
+	info.SecretAccessKey = keySecret
+	return &info, nil
+}
+
 func (r *DataImportJobReconciler) getS3Info(
 	ctx context.Context,
 	dij *everestv1alpha1.DataImportJob,
-) (dataimporterspec.S3Source, error) {
+) (*dataimporterspec.S3Source, error) {
+	if dij.Spec.Source.S3Ref == nil {
+		return nil, errors.New("s3 info not provided")
+	}
 	info := dataimporterspec.S3Source{}
-
-	keyId, keySecret, err := r.getS3Credentials(ctx, dij)
+	keyId, keySecret, err := r.getS3Credentials(ctx, dij.Spec.Source.S3Ref.CredentialsSecretRef.Name, dij.GetNamespace())
 	if err != nil {
-		return dataimporterspec.S3Source{}, fmt.Errorf("failed to get S3 credentials: %w", err)
+		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
 	info.AccessKeyID = keyId
 	info.SecretAccessKey = keySecret
 	info.Bucket = dij.Spec.Source.S3Ref.Bucket
 	info.Region = dij.Spec.Source.S3Ref.Region
 	info.EndpointURL = dij.Spec.Source.S3Ref.EndpointURL
-
-	return info, nil
+	info.VerifyTLS = pointer.Get(dij.Spec.Source.S3Ref.VerifyTLS)
+	info.ForcePathStyle = pointer.Get(dij.Spec.Source.S3Ref.ForcePathStyle)
+	return &info, nil
 }
 
 func (r *DataImportJobReconciler) getS3Credentials(
 	ctx context.Context,
-	dij *everestv1alpha1.DataImportJob,
+	secretName, namespace string,
 ) (string, string, error) {
 	secret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      dij.Spec.Source.S3Ref.CredentialsSecretRef.Name,
-		Namespace: dij.GetNamespace(),
+		Name:      secretName,
+		Namespace: namespace,
 	}, secret); err != nil {
 		return "", "", err
 	}
@@ -297,21 +364,26 @@ func (r *DataImportJobReconciler) ensureImportJob(
 		},
 	}
 
-	spec := r.getJobSpec(diJob, di)
+	defer func() {
+		diJob.Status.JobRef = &corev1.LocalObjectReference{
+			Name: job.GetName(),
+		}
+	}()
+
+	// Check if the job already exists.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get import job: %w", err)
+		}
+	} else if err == nil {
+		return nil
+	}
+
+	job.Spec = r.getJobSpec(diJob, di)
 	if err := controllerutil.SetControllerReference(diJob, job, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
-
-	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, job, func() error {
-		job.Spec = spec
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to create or update import job: %w", err)
-	}
-	diJob.Status.JobRef = &corev1.LocalObjectReference{
-		Name: job.GetName(),
-	}
-	return nil
+	return r.Client.Create(ctx, job)
 }
 
 func dataImporterJobName(diJob *everestv1alpha1.DataImportJob) string {
@@ -332,6 +404,7 @@ func (r *DataImportJobReconciler) getJobSpec(
 	spec := batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
+				RestartPolicy: corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:    "importer",
 					Image:   di.Spec.JobSpec.Image,
