@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -56,7 +57,6 @@ import (
 	"github.com/percona/everest-operator/internal/controller/providers/pg"
 	"github.com/percona/everest-operator/internal/controller/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/providers/pxc"
-	"github.com/percona/everest-operator/internal/predicates"
 )
 
 const (
@@ -777,17 +777,25 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 			return requests
 		}),
 		// We need to filter out the events that are not in the system namespace,
-		// that is why a separate NamespaceFilter predicate is used instead of
+		// that is why a separate predicate.Funcs predicate is used instead of
 		// common.DefaultNamespaceFilter.
 		builder.WithPredicates(predicate.GenerationChangedPredicate{},
-			&predicates.NamespaceFilter{
-				AllowNamespaces: []string{common.SystemNamespace},
-				GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
-					namespace := &corev1.Namespace{}
-					if err := r.Client.Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
-						return nil, err
-					}
-					return namespace, nil
+			predicate.Funcs{
+				// Nothing to process on create events
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				// Allow update events only if the policy is in the system namespace.
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return e.ObjectOld.GetNamespace() == common.SystemNamespace
+				},
+				// Nothing to process on delete events
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+				// Nothing to process on generic events
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
 				},
 			},
 		),

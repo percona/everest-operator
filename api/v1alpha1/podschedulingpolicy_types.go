@@ -83,7 +83,8 @@ type PodSchedulingPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PodSchedulingPolicySpec   `json:"spec,omitempty"`
+	Spec PodSchedulingPolicySpec `json:"spec,omitempty"`
+	// +kubebuilder:default={"used": false}
 	Status PodSchedulingPolicyStatus `json:"status,omitempty"`
 }
 

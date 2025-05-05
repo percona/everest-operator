@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +35,6 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
-	"github.com/percona/everest-operator/internal/predicates"
 )
 
 // PodSchedulingPolicyReconciler reconciles a PodSchedulingPolicy object.
@@ -69,11 +67,6 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Handle any necessary cleanup.
-	if !psp.GetDeletionTimestamp().IsZero() {
-		return ctrl.Result{}, nil
-	}
-
 	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", psp.GetName())
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("Failed to fetch DB clusters that use pod scheduling policy='%s'", psp.GetName()))
@@ -82,6 +75,11 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// Update the status and finalizers of the PodSchedulingPolicy object after the reconciliation.
 	defer func() {
+		// Nothing to process on delete events
+		if !psp.GetDeletionTimestamp().IsZero() {
+			return
+		}
+
 		psp.Status.Used = len(dbList.Items) > 0
 		psp.Status.ObservedGeneration = psp.GetGeneration()
 		if err = r.Client.Status().Update(ctx, psp); err != nil {
@@ -149,29 +147,41 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error
 			return e.Object.(*everestv1alpha1.DatabaseCluster).Spec.PodSchedulingPolicyName != ""
 		},
 
-		// Allow generic events (e.g., external triggers)
+		// Nothing to process on generic events
 		GenericFunc: func(e event.GenericEvent) bool {
 			return false
 		},
 	}
 
+	pspEventsPredicate := predicate.Funcs{
+		// Nothing to process on create events
+		CreateFunc: func(e event.CreateEvent) bool {
+			return false
+		},
+
+		// Allow update events only if the policy is in the system namespace.
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectOld.GetNamespace() == common.SystemNamespace
+		},
+
+		// Nothing to process on delete events
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+
+		// Nothing to process on generic events
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("PodSchedulingPolicy").
 		For(&everestv1alpha1.PodSchedulingPolicy{},
 			// We need to filter out the events that are not in the system namespace,
 			// that is why a separate NamespaceFilter predicate is used instead of
 			// common.DefaultNamespaceFilter.
-			builder.WithPredicates(&predicates.NamespaceFilter{
-				AllowNamespaces: []string{common.SystemNamespace},
-				GetNamespace: func(ctx context.Context, name string) (*corev1.Namespace, error) {
-					namespace := &corev1.Namespace{}
-					if err := r.Client.Get(ctx, types.NamespacedName{Name: name}, namespace); err != nil {
-						return nil, err
-					}
-					return namespace, nil
-				},
-			},
-			)).
+			builder.WithPredicates(pspEventsPredicate, predicate.GenerationChangedPredicate{}),
+		).
 		// need to watch DBClusters that reference PodSchedulingPolicy to update the policy status.
 		Watches(
 			&everestv1alpha1.DatabaseCluster{},
