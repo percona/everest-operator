@@ -5,16 +5,17 @@ timeout: 10
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: perconaservermongodbs.psmdb.percona.com
+  name: perconaxtradbclusters.pxc.percona.com
 spec:
-  group: psmdb.percona.com
+  group: pxc.percona.com
   names:
-    kind: PerconaServerMongoDB
-    listKind: PerconaServerMongoDBList
-    plural: perconaservermongodbs
+    kind: PerconaXtraDBCluster
+    listKind: PerconaXtraDBClusterList
+    plural: perconaxtradbclusters
     shortNames:
-    - psmdb
-    singular: perconaservermongodb
+    - pxc
+    - pxcs
+    singular: perconaxtradbcluster
   scope: Namespaced
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -37,30 +38,15 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: percona-server-mongodb-operator
+  name: percona-xtradb-cluster-operator
 spec:
   replicas: 0
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseEngine
 metadata:
-  name: percona-server-mongodb-operator
+  name: percona-xtradb-cluster-operator
 spec:
-  type: psmdb
+  type: pxc
 status:
   status: installed
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: podschedulingpolicies.everest.percona.com
-spec:
-  group: everest.percona.com
-  names:
-    kind: PodSchedulingPolicy
-    listKind: PodSchedulingPolicyList
-    plural: podschedulingpolicies
-    shortNames:
-      - psp
-    singular: podschedulingpolicy
-  scope: Cluster
