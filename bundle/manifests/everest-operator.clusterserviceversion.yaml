@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-05T15:42:44Z"
+    createdAt: "2025-05-06T05:56:35Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -156,6 +156,7 @@ spec:
           - ""
           resources:
           - secrets
+          - serviceaccounts
           verbs:
           - create
           - delete
