@@ -34,6 +34,10 @@ type DataImportJobSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Params *runtime.RawExtension `json:"parameters,omitempty"`
+	// ServiceAccountName is the name of the service account to use for the import job.
+	// This service account must have the necessary permissions to perform the import.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 type DataImportJobSource struct {

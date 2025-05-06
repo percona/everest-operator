@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,10 +34,6 @@ type DataImporterSpec struct {
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.
 	JobSpec DataImporterJobSpec `json:"jobSpec,omitempty"`
-	// Permissions is the list of permissions that the data importer needs.
-	Permissions []rbacv1.PolicyRule `json:"permissions,omitempty"`
-	// ClusterPermissions is the list of cluster-wide permissions that the data importer needs.
-	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
 }
 
 // DataImporterConfig contains additional configuration defined for the data importer.
@@ -56,6 +51,9 @@ type DataImporterJobSpec struct {
 	// Command is the command to run the data importer.
 	// +optional
 	Command []string `json:"command,omitempty"`
+	// ServiceAccountName is the name of the service account to use for the data importer job.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // +kubebuilder:object:root=true

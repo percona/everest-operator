@@ -26,7 +26,6 @@ rules:
   - ""
   resources:
   - secrets
-  - serviceaccounts
   verbs:
   - create
   - delete
@@ -187,21 +186,6 @@ rules:
   - perconaxtradbclusterbackups
   - perconaxtradbclusterrestores
   - perconaxtradbclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - rolebindings
-  - roles
   verbs:
   - create
   - delete

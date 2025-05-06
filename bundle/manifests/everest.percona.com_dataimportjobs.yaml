@@ -68,6 +68,11 @@ spec:
                   the schema defined in the DataImporter's .spec.config.openAPIV3Schema.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName is the name of the service account to use for the import job.
+                  This service account must have the necessary permissions to perform the import.
+                type: string
               source:
                 description: Source is the source of the data to import.
                 properties:

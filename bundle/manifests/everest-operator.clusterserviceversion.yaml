@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-06T05:56:35Z"
+    createdAt: "2025-05-06T06:16:27Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -156,7 +156,6 @@ spec:
           - ""
           resources:
           - secrets
-          - serviceaccounts
           verbs:
           - create
           - delete
@@ -317,21 +316,6 @@ spec:
           - perconaxtradbclusterbackups
           - perconaxtradbclusterrestores
           - perconaxtradbclusters
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterrolebindings
-          - clusterroles
-          - rolebindings
-          - roles
           verbs:
           - create
           - delete
