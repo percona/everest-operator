@@ -56,7 +56,7 @@ type PodSchedulingPolicyReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { // nolint:nonamedreturns
+func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 	defer func() {
@@ -68,10 +68,12 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", psp.GetName())
+	pspName := psp.GetName()
+	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", pspName)
 	if err != nil {
-		logger.Error(err, fmt.Sprintf("Failed to fetch DB clusters that use pod scheduling policy='%s'", psp.GetName()))
-		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to fetch DB clusters that use pod scheduling policy='%s': %w", psp.GetName(), err))
+		fetchErr := fmt.Errorf("failed to fetch DB clusters that use pod scheduling policy='%s'", pspName)
+		logger.Error(err, fetchErr.Error())
+		return ctrl.Result{}, errors.Join(err, fetchErr)
 	}
 
 	// Update the status and finalizers of the PodSchedulingPolicy object after the reconciliation.
@@ -85,14 +87,14 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		psp.Status.LastObservedGeneration = psp.GetGeneration()
 		if err = r.Client.Status().Update(ctx, psp); err != nil {
 			rr = ctrl.Result{}
-			logger.Error(err, fmt.Sprintf("failed to update status for pod scheduling policy='%s'", psp.GetName()))
-			rerr = errors.Join(err, fmt.Errorf("failed to update status for pod scheduling policy='%s': %w", psp.GetName(), err))
+			logger.Error(err, fmt.Sprintf("failed to update status for pod scheduling policy='%s'", pspName))
+			rerr = errors.Join(err, fmt.Errorf("failed to update status for pod scheduling policy='%s': %w", pspName, err))
 		}
 	}()
 
 	if err = r.ensureFinalizers(ctx, len(dbList.Items) > 0, psp); err != nil {
-		logger.Error(err, fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", psp.GetName()))
-		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for pod scheduling policy='%s': %w", psp.GetName(), err))
+		logger.Error(err, fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", pspName))
+		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for pod scheduling policy='%s': %w", pspName, err))
 	}
 
 	return ctrl.Result{}, nil
@@ -129,14 +131,14 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager, syste
 
 		// Only allow updates when the .spec.podSchedulingPolicyName of the DatabaseCluster resource changes
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldDb, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
-			newDb, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
+			oldDB, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
+			newDB, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
 			if !oldOk || !newOk {
 				return false
 			}
 
 			// Trigger reconciliation only if the .spec.podSchedulingPolicyName field has changed
-			return oldDb.Spec.PodSchedulingPolicyName != newDb.Spec.PodSchedulingPolicyName
+			return oldDB.Spec.PodSchedulingPolicyName != newDB.Spec.PodSchedulingPolicyName
 		},
 
 		// Allow delete events only if the .spec.podSchedulingPolicyName is set

@@ -494,7 +494,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
@@ -503,7 +503,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNam
 		Named("DatabaseCluster").
 		For(&everestv1alpha1.DatabaseCluster{})
 
-	r.initWatchers(ctrlBuilder, common.DefaultNamespaceFilter, systemNamespace)
+	r.initWatchers(ctrlBuilder, common.DefaultNamespaceFilter)
 
 	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
 	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
@@ -652,7 +652,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	return err
 }
 
-func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate, systemNamespace string) {
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) {
 	controller.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
@@ -780,7 +780,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		// We need to filter out the events that are not in the system namespace,
 		// that is why a separate predicate.Funcs predicate is used instead of
 		// common.DefaultNamespaceFilter.
-		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(systemNamespace),
+		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(r.SystemNamespace),
 			predicate.GenerationChangedPredicate{}),
 	)
 

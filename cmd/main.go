@@ -241,7 +241,7 @@ func main() {
 		Cache:           mgr.GetCache(),
 		SystemNamespace: cfg.SystemNamespace,
 	}
-	if err := clusterReconciler.SetupWithManager(mgr, cfg.SystemNamespace); err != nil {
+	if err := clusterReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
 		os.Exit(1)
 	}
