@@ -276,12 +276,26 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = common.MergeAnnotations(
+			common.ExposeInternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		expose.ServiceLabels = common.MergeLabels(
+			common.ExposeInternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
-			expose.ServiceAnnotations = annotations
-		}
+		expose.ServiceAnnotations = common.MergeAnnotations(
+			common.ExposeExternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		expose.ServiceLabels = common.MergeLabels(
+			common.ExposeExternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
+
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -294,13 +308,26 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.Enabled = false
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = common.MergeAnnotations(
+			common.ExposeInternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		expose.ServiceLabels = common.MergeLabels(
+			common.ExposeInternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
-			expose.ServiceAnnotations = annotations
-		}
+		expose.ServiceAnnotations = common.MergeAnnotations(
+			common.ExposeExternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		expose.ServiceLabels = common.MergeLabels(
+			common.ExposeExternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}

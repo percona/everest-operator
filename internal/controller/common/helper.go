@@ -144,6 +144,26 @@ func GetClusterType(ctx context.Context, c client.Client) (ClusterType, error) {
 	return clusterType, nil
 }
 
+func MergeAnnotations(annotationMaps ...map[string]string) map[string]string {
+	result := make(map[string]string)
+
+	for _, annotations := range annotationMaps {
+		if annotations == nil || len(annotations) == 0 {
+			continue
+		}
+
+		for key, value := range annotations {
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+func MergeLabels(labelMaps ...map[string]string) map[string]string {
+	return MergeAnnotations(labelMaps...)
+}
+
 func mergeMap(dst map[string]interface{}, src map[string]interface{}) error {
 	return mergeMapInternal(dst, src, "")
 }

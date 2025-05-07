@@ -191,14 +191,27 @@ func (p *applier) Proxy() error {
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type: string(corev1.ServiceTypeClusterIP),
 		}
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = common.MergeAnnotations(
+			common.ExposeInternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Labels = common.MergeLabels(
+			common.ExposeInternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
 	case everestv1alpha1.ExposeTypeExternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
-			pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = annotations
-		}
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = common.MergeAnnotations(
+			common.ExposeExternalAnnotationsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Annotations,
+		)
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Labels = common.MergeLabels(
+			common.ExposeExternalLabelsMap[p.clusterType],
+			database.Spec.Proxy.Expose.Labels,
+		)
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
