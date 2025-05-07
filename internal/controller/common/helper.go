@@ -574,11 +574,11 @@ func GetDBMonitoringConfig(
 }
 
 // GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
-func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
+func GetPodSchedulingPolicy(ctx context.Context, c client.Client, systemNamespace, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
 	psp := &everestv1alpha1.PodSchedulingPolicy{}
 	if pspName != "" {
 		if err := c.Get(ctx, types.NamespacedName{
-			Namespace: SystemNamespace,
+			Namespace: systemNamespace,
 			Name:      pspName,
 		}, psp); err != nil {
 			return nil, err

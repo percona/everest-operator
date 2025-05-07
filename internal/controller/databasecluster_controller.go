@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -57,6 +56,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/providers/pg"
 	"github.com/percona/everest-operator/internal/controller/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/providers/pxc"
+	"github.com/percona/everest-operator/internal/predicates"
 )
 
 const (
@@ -93,7 +93,8 @@ type DatabaseClusterReconciler struct {
 	Cache  cache.Cache
 	Scheme *runtime.Scheme
 
-	controller *controllerWatcherRegistry
+	controller      *controllerWatcherRegistry
+	SystemNamespace string
 }
 
 // dbProvider provides an abstraction for managing the reconciliation
@@ -215,7 +216,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Monitoring(); err != nil {
 			return err
 		}
-		if err := applier.PodSchedulingPolicy(); err != nil {
+		if err := applier.PodSchedulingPolicy(r.SystemNamespace); err != nil {
 			return err
 		}
 		if err := applier.Backup(); err != nil {
@@ -493,7 +494,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	if err := r.initIndexers(context.Background(), mgr); err != nil {
 		return err
 	}
@@ -502,7 +503,7 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("DatabaseCluster").
 		For(&everestv1alpha1.DatabaseCluster{})
 
-	r.initWatchers(ctrlBuilder, common.DefaultNamespaceFilter)
+	r.initWatchers(ctrlBuilder, common.DefaultNamespaceFilter, systemNamespace)
 
 	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
 	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
@@ -651,7 +652,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	return err
 }
 
-func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) {
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate, systemNamespace string) {
 	controller.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
@@ -779,26 +780,8 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		// We need to filter out the events that are not in the system namespace,
 		// that is why a separate predicate.Funcs predicate is used instead of
 		// common.DefaultNamespaceFilter.
-		builder.WithPredicates(predicate.GenerationChangedPredicate{},
-			predicate.Funcs{
-				// Nothing to process on create events
-				CreateFunc: func(e event.CreateEvent) bool {
-					return false
-				},
-				// Allow update events only if the policy is in the system namespace.
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					return e.ObjectOld.GetNamespace() == common.SystemNamespace
-				},
-				// Nothing to process on delete events
-				DeleteFunc: func(e event.DeleteEvent) bool {
-					return false
-				},
-				// Nothing to process on generic events
-				GenericFunc: func(e event.GenericEvent) bool {
-					return false
-				},
-			},
-		),
+		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(systemNamespace),
+			predicate.GenerationChangedPredicate{}),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
@@ -870,21 +853,6 @@ func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx contex
 	}
 	return result
 }
-
-// databaseClustersThatReferenceObject returns a list of DatabaseClusters that
-// reference the given object by the provided keyPath.
-// func (r *DatabaseClusterReconciler) databaseClustersThatReferenceObject(
-// 	ctx context.Context,
-// 	keyPath, namespace, name string,
-// ) (*everestv1alpha1.DatabaseClusterList, error) {
-// 	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
-// 	listOps := &client.ListOptions{
-// 		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
-// 		Namespace:     namespace,
-// 	}
-// 	err := r.List(ctx, attachedDatabaseClusters, listOps)
-// 	return attachedDatabaseClusters, err
-// }
 
 // databaseClustersThatReferenceSecret returns a list of reconcile
 // requests for all DatabaseClusters that reference the given secret.

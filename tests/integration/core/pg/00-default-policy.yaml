@@ -1,38 +1,17 @@
 apiVersion: kuttl.dev/v1
-kind: TestAssert
+kind: TestStep
 timeout: 10
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: everest-system
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: podschedulingpolicies.everest.percona.com
-spec:
-  group: everest.percona.com
-  names:
-    kind: PodSchedulingPolicy
-    listKind: PodSchedulingPolicyList
-    plural: podschedulingpolicies
-    shortNames:
-      - psp
-    singular: podschedulingpolicy
-  scope: Namespaced
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
-  name: everest-default-pxc
-  namespace: everest-system
+  name: everest-default-postgresql
   finalizers:
     - everest.percona.com/readonly-protection
 spec:
-  engineType: pxc
+  engineType: postgresql
   affinityConfig:
-    pxc:
+    postgresql:
       engine:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

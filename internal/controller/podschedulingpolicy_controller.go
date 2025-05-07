@@ -20,13 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -35,6 +35,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
+	"github.com/percona/everest-operator/internal/predicates"
 )
 
 // PodSchedulingPolicyReconciler reconciles a PodSchedulingPolicy object.
@@ -55,7 +56,7 @@ type PodSchedulingPolicyReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) {
+func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { // nolint:nonamedreturns
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 	defer func() {
@@ -80,8 +81,8 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 			return
 		}
 
-		psp.Status.Used = len(dbList.Items) > 0
-		psp.Status.ObservedGeneration = psp.GetGeneration()
+		psp.Status.InUse = len(dbList.Items) > 0
+		psp.Status.LastObservedGeneration = psp.GetGeneration()
 		if err = r.Client.Status().Update(ctx, psp); err != nil {
 			rr = ctrl.Result{}
 			logger.Error(err, fmt.Sprintf("failed to update status for pod scheduling policy='%s'", psp.GetName()))
@@ -98,25 +99,14 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, used bool, psp *everestv1alpha1.PodSchedulingPolicy) error {
-	currentFinalizers := psp.GetFinalizers()
-	var desiredFinalizers []string
+	var updated bool
 	if used {
-		desiredFinalizers = append(currentFinalizers, everestv1alpha1.UsedResourceFinalizer)
-		// remove duplicates
-		desiredFinalizers = slices.Compact(desiredFinalizers)
+		updated = controllerutil.AddFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
 	} else {
-		// Remove the finalizer
-		desiredFinalizers = append([]string{}, psp.GetFinalizers()...)
-		desiredFinalizers = slices.DeleteFunc(desiredFinalizers, func(f string) bool {
-			return f == everestv1alpha1.UsedResourceFinalizer
-		})
+		updated = controllerutil.RemoveFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
 	}
 
-	slices.Sort(currentFinalizers)
-	slices.Sort(desiredFinalizers)
-
-	if !slices.Equal(currentFinalizers, desiredFinalizers) {
-		psp.SetFinalizers(desiredFinalizers)
+	if updated {
 		if err := r.Update(ctx, psp); err != nil {
 			return err
 		}
@@ -125,67 +115,58 @@ func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, us
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
 	// Predicate to trigger reconciliation only on .spec.podSchedulingPolicyName changes in the DatabaseCluster resource.
 	dbClusterEventsPredicate := predicate.Funcs{
 		// Allow create events only if the .spec.podSchedulingPolicyName is set
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.(*everestv1alpha1.DatabaseCluster).Spec.PodSchedulingPolicyName != ""
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return db.Spec.PodSchedulingPolicyName != ""
 		},
 
 		// Only allow updates when the .spec.podSchedulingPolicyName of the DatabaseCluster resource changes
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldObj := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
-			newObj := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
+			oldDb, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
+			newDb, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
+			if !oldOk || !newOk {
+				return false
+			}
 
 			// Trigger reconciliation only if the .spec.podSchedulingPolicyName field has changed
-			return oldObj.Spec.PodSchedulingPolicyName != newObj.Spec.PodSchedulingPolicyName
+			return oldDb.Spec.PodSchedulingPolicyName != newDb.Spec.PodSchedulingPolicyName
 		},
 
 		// Allow delete events only if the .spec.podSchedulingPolicyName is set
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.(*everestv1alpha1.DatabaseCluster).Spec.PodSchedulingPolicyName != ""
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return db.Spec.PodSchedulingPolicyName != ""
 		},
 
 		// Nothing to process on generic events
-		GenericFunc: func(e event.GenericEvent) bool {
+		GenericFunc: func(_ event.GenericEvent) bool {
 			return false
 		},
 	}
 
-	pspEventsPredicate := predicate.Funcs{
-		// Nothing to process on create events
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-
-		// Allow update events only if the policy is in the system namespace.
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetNamespace() == common.SystemNamespace
-		},
-
-		// Nothing to process on delete events
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-
-		// Nothing to process on generic events
-		GenericFunc: func(e event.GenericEvent) bool {
-			return false
-		},
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("PodSchedulingPolicy").
 		For(&everestv1alpha1.PodSchedulingPolicy{},
 			// We need to filter out the events that are not in the system namespace,
 			// that is why a separate NamespaceFilter predicate is used instead of
 			// common.DefaultNamespaceFilter.
-			builder.WithPredicates(pspEventsPredicate, predicate.GenerationChangedPredicate{}),
+			builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(systemNamespace),
+				predicate.GenerationChangedPredicate{}),
 		).
 		// need to watch DBClusters that reference PodSchedulingPolicy to update the policy status.
 		Watches(
 			&everestv1alpha1.DatabaseCluster{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 				db := &everestv1alpha1.DatabaseCluster{}
 				var ok bool
 				if db, ok = obj.(*everestv1alpha1.DatabaseCluster); !ok {
@@ -200,7 +181,7 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error
 					{
 						NamespacedName: types.NamespacedName{
 							Name:      db.Spec.PodSchedulingPolicyName,
-							Namespace: common.SystemNamespace,
+							Namespace: systemNamespace,
 						},
 					},
 				}

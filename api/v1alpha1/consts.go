@@ -20,7 +20,7 @@ const (
 	// User cannot delete resources marked by this finalizer directly.
 	ReadOnlyFinalizer = "everest.percona.com/readonly-protection"
 
-	// UsedResourceFinalizer is the finalizer for marking the resource as "in-use"
+	// InUseResourceFinalizer is the finalizer for marking the resource as "in-use"
 	// and prevents deletion of the resource.
-	UsedResourceFinalizer = "everest.percona.com/used-protection"
+	InUseResourceFinalizer = "everest.percona.com/used-protection"
 )

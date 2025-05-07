@@ -291,7 +291,7 @@ func (p *applier) Monitoring() error {
 	return nil
 }
 
-func (p *applier) PodSchedulingPolicy() error {
+func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
 	// NOTE: this method shall be called after Engine() and Proxy() methods
 	// because it extends the engine and proxy specs with the affinity rules.
 	//
@@ -339,9 +339,7 @@ func (p *applier) PodSchedulingPolicy() error {
 		return nil
 	}
 
-	var psp *everestv1alpha1.PodSchedulingPolicy
-	var err error
-	psp, err = common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, systemNamespace, pspName)
 	if err != nil {
 		// Not found or other error.
 		// Covers case 2.

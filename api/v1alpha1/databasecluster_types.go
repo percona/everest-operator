@@ -130,7 +130,7 @@ type Applier interface {
 	Proxy() error
 	DataSource() error
 	Monitoring() error
-	PodSchedulingPolicy() error
+	PodSchedulingPolicy(systemNamespace string) error
 	Backup() error
 	Metadata() error
 }

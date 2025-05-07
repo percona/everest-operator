@@ -20,12 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// PXCAffinityConfig contains Affinity configurations for PXC Engine and Proxy pods.
 type PXCAffinityConfig struct {
 	// Engine is the affinity configuration for the DB Engine pods.
 	Engine *corev1.Affinity `json:"engine,omitempty"`
 	// Proxy is the affinity configuration for the DB Proxy pods.
 	Proxy *corev1.Affinity `json:"proxy,omitempty"`
 }
+
+// PostgreSQLAffinityConfig contains Affinity configurations for PostgreSQL Engine and Proxy pods.
 type PostgreSQLAffinityConfig struct {
 	// Engine is the affinity configuration for the DB Engine pods.
 	Engine *corev1.Affinity `json:"engine,omitempty"`
@@ -33,6 +36,7 @@ type PostgreSQLAffinityConfig struct {
 	Proxy *corev1.Affinity `json:"proxy,omitempty"`
 }
 
+// PSMDBAffinityConfig contains Affinity configurations for PSMDB Engine, Proxy and Config Server pods.
 type PSMDBAffinityConfig struct {
 	// Engine is the affinity configuration for the DB Engine pods.
 	Engine *corev1.Affinity `json:"engine,omitempty"`
@@ -64,11 +68,11 @@ type PodSchedulingPolicySpec struct {
 
 // PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
 type PodSchedulingPolicyStatus struct {
-	// Used is a flag that indicates if the policy is used by any DB cluster.
+	// InUse is a flag that indicates if the policy is used by any DB cluster.
 	// +kubebuilder:default=false
-	Used bool `json:"used,omitempty"`
-	// ObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	InUse bool `json:"inUse,omitempty"`
+	// LastObservedGeneration is the most recent generation observed for this PodSchedulingPolicy.
+	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -76,7 +80,7 @@ type PodSchedulingPolicyStatus struct {
 // +kubebuilder:resource:shortName=psp
 // +kubebuilder:selectablefield:JSONPathstring=".spec.engineType"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".spec.engineType",description="DB engine type the policy can be applied to"
-// +kubebuilder:printcolumn:name="Used",type="string",JSONPath=".status.used",description="Indicates if the policy is used by any DB cluster"
+// +kubebuilder:printcolumn:name="InUse",type="string",JSONPath=".status.inUse",description="Indicates if the policy is used by any DB cluster"
 
 // PodSchedulingPolicy is the Schema for the Pod Scheduling Policy API.
 type PodSchedulingPolicy struct {
@@ -84,7 +88,7 @@ type PodSchedulingPolicy struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec PodSchedulingPolicySpec `json:"spec,omitempty"`
-	// +kubebuilder:default={"used": false}
+	// +kubebuilder:default={"inUse": false}
 	Status PodSchedulingPolicyStatus `json:"status,omitempty"`
 }
 

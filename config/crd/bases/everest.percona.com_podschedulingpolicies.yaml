@@ -22,8 +22,8 @@ spec:
       name: Engine
       type: string
     - description: Indicates if the policy is used by any DB cluster
-      jsonPath: .status.used
-      name: Used
+      jsonPath: .status.inUse
+      name: InUse
       type: string
     name: v1alpha1
     schema:
@@ -6559,19 +6559,19 @@ spec:
             type: object
           status:
             default:
-              used: false
+              inUse: false
             description: PodSchedulingPolicyStatus defines the observed state of PodSchedulingPolicy.
             properties:
-              observedGeneration:
-                description: ObservedGeneration is the most recent generation observed
-                  for this PodSchedulingPolicy.
+              inUse:
+                default: false
+                description: InUse is a flag that indicates if the policy is used
+                  by any DB cluster.
+                type: boolean
+              lastObservedGeneration:
+                description: LastObservedGeneration is the most recent generation
+                  observed for this PodSchedulingPolicy.
                 format: int64
                 type: integer
-              used:
-                default: false
-                description: Used is a flag that indicates if the policy is used by
-                  any DB cluster.
-                type: boolean
             type: object
         type: object
     served: true

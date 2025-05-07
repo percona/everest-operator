@@ -2,22 +2,16 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: everest-system
----
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
-  name: everest-default-psmdb
-  namespace: everest-system
+  name: everest-default-pxc
   finalizers:
     - everest.percona.com/readonly-protection
 spec:
-  engineType: psmdb
+  engineType: pxc
   affinityConfig:
-    psmdb:
+    pxc:
       engine:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -25,12 +19,6 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 1
       proxy:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-      configServer:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
