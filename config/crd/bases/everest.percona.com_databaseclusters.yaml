@@ -321,6 +321,10 @@ spec:
                   expose:
                     description: Expose is the proxy expose configuration
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
                       ipSourceRanges:
                         description: |-
                           IPSourceRanges is the list of IP source ranges (CIDR notation)
@@ -330,6 +334,10 @@ spec:
                             notation or without a netmask.
                           type: string
                         type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
                       type:
                         default: internal
                         description: Type is the expose type, can be internal or external

@@ -78,12 +78,21 @@ const (
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 )
 
-// ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
-var ExposeAnnotationsMap = map[ClusterType]map[string]string{
+// ExposeExternalAnnotationsMap is a map of annotations needed for exposing the database cluster externally.
+var ExposeExternalAnnotationsMap = map[ClusterType]map[string]string{
 	ClusterTypeEKS: {
 		"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
 	},
 }
+
+// ExposeInternalAnnotationsMap is a map of annotations needed for exposing the database cluster internally.
+var ExposeInternalAnnotationsMap = map[ClusterType]map[string]string{}
+
+// ExposeExternalLabelsMap is a map of labels needed for exposing the database cluster externally.
+var ExposeExternalLabelsMap = map[ClusterType]map[string]string{}
+
+// ExposeInternalLabelsMap is a map of labels needed for exposing the database cluster internally.
+var ExposeInternalLabelsMap = map[ClusterType]map[string]string{}
 
 //noling:gochecknoglobals
 var (

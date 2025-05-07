@@ -403,13 +403,21 @@ func (p *applier) applyHAProxyCfg() error {
 	case everestv1alpha1.ExposeTypeInternal:
 		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations := common.ExposeAnnotationsMap[p.clusterType]
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
-			Annotations:              annotations,
 		}
+
+		expose.Annotations = common.MergeAnnotations(
+			common.ExposeExternalAnnotationsMap[p.clusterType],
+			p.DB.Spec.Proxy.Expose.Annotations,
+		)
+		expose.Labels = common.MergeLabels(
+			common.ExposeExternalLabelsMap[p.clusterType],
+			p.DB.Spec.Proxy.Expose.Labels,
+		)
+
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	default:
@@ -521,6 +529,16 @@ func (p *applier) applyProxySQLCfg() error {
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
+
+		expose.Annotations = common.MergeAnnotations(
+			common.ExposeExternalAnnotationsMap[p.clusterType],
+			p.DB.Spec.Proxy.Expose.Annotations,
+		)
+		expose.Labels = common.MergeLabels(
+			common.ExposeExternalLabelsMap[p.clusterType],
+			p.DB.Spec.Proxy.Expose.Labels,
+		)
+
 		proxySQL.Expose = expose
 	default:
 		return fmt.Errorf("invalid expose type %s", p.DB.Spec.Proxy.Expose.Type)
