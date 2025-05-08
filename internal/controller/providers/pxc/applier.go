@@ -291,7 +291,7 @@ func (p *applier) Monitoring() error {
 	return nil
 }
 
-func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
+func (p *applier) PodSchedulingPolicy() error {
 	// NOTE: this method shall be called after Engine() and Proxy() methods
 	// because it extends the engine and proxy specs with the affinity rules.
 	//
@@ -320,26 +320,10 @@ func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 	if pspName == "" {
 		// Covers case 1.
-
-		// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-		// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-		// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-		// if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		// 	pxc.Spec.PXC.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.PXC.Affinity
-		// }
-		// // Changing proxy type is not supported, so we copy affinity rules from the previous state of the same proxy type
-		// switch p.DB.Spec.Proxy.Type {
-		// case everestv1alpha1.ProxyTypeHAProxy:
-		// 	pxc.Spec.HAProxy.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Affinity
-		// case everestv1alpha1.ProxyTypeProxySQL:
-		// 	pxc.Spec.ProxySQL.PodSpec.Affinity = p.currentPerconaXtraDBClusterSpec.ProxySQL.PodSpec.Affinity
-		// default:
-		// 	return fmt.Errorf("invalid proxy type %s", p.DB.Spec.Proxy.Type)
-		// }
 		return nil
 	}
 
-	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, systemNamespace, pspName)
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
 	if err != nil {
 		// Not found or other error.
 		// Covers case 2.

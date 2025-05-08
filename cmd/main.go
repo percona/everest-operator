@@ -236,10 +236,9 @@ func main() {
 	}
 	// Initialise the controllers.
 	clusterReconciler := &controllers.DatabaseClusterReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Cache:           mgr.GetCache(),
-		SystemNamespace: cfg.SystemNamespace,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  mgr.GetCache(),
 	}
 	if err := clusterReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseCluster")
@@ -288,7 +287,7 @@ func main() {
 	if err = (&controllers.PodSchedulingPolicyReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, cfg.SystemNamespace); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PodSchedulingPolicy")
 		os.Exit(1)
 	}

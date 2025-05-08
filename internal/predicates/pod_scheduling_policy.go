@@ -21,16 +21,16 @@ import (
 )
 
 // GetPodSchedulingPolicyPredicate returns a predicate that filters events for PodSchedulingPolicy resources.
-func GetPodSchedulingPolicyPredicate(systemNamespace string) predicate.Predicate {
+func GetPodSchedulingPolicyPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		// Nothing to process on create events
 		CreateFunc: func(_ event.CreateEvent) bool {
 			return false
 		},
 
-		// Allow update events only if the policy is in the system namespace.
+		// Allow update events.
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetNamespace() == systemNamespace
+			return true
 		},
 
 		// Nothing to process on delete events

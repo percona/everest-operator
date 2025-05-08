@@ -22,5 +22,5 @@ const (
 
 	// InUseResourceFinalizer is the finalizer for marking the resource as "in-use"
 	// and prevents deletion of the resource.
-	InUseResourceFinalizer = "everest.percona.com/used-protection"
+	InUseResourceFinalizer = "everest.percona.com/in-use-protection"
 )

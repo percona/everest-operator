@@ -253,7 +253,7 @@ func (p *applier) Monitoring() error {
 	return nil
 }
 
-func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
+func (p *applier) PodSchedulingPolicy() error {
 	// NOTE: this method shall be called after Engine() and Proxy() methods
 	// because it extends the engine and proxy specs with the affinity rules.
 	//
@@ -278,27 +278,10 @@ func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 	if pspName == "" {
 		// Covers case 1.
-
-		// New affinity settings (added in 1.2.0) shall be applied only for new clusters, or on existing clusters that
-		// have been upgraded to CRVersion 2.4.1.
-		// This is a temporary workaround to make sure we can apply this change without an automatic restart.
-		// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
-
-		// crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-		// if p.DB.Status.Status == everestv1alpha1.AppStateReady &&
-		// 	crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
-		//
-		// 	for i := range len(pg.Spec.InstanceSets) {
-		// 		// all instances in sets have the same affinity configuration.
-		// 		pg.Spec.InstanceSets[i].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
-		// 	}
-		// 	pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
-		// }
-
 		return nil
 	}
 
-	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, systemNamespace, pspName)
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
 	if err != nil {
 		// Not found or other error.
 		// Covers case 2.

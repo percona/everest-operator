@@ -327,7 +327,7 @@ func (p *applier) Monitoring() error {
 	return nil
 }
 
-func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
+func (p *applier) PodSchedulingPolicy() error {
 	// NOTE: this method shall be called after Engine() and Proxy() methods
 	// because it extends the engine and proxy specs with the affinity rules.
 	//
@@ -358,32 +358,10 @@ func (p *applier) PodSchedulingPolicy(systemNamespace string) error {
 
 	if pspName == "" {
 		// Covers case 1.
-
-		// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-		// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-		// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-
-		// if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		// 	// ReplicaSets
-		//
-		// 	for i := range len(psmdb.Spec.Replsets) {
-		// 		// all replsets have the same affinity config.
-		// 		psmdb.Spec.Replsets[i].MultiAZ.Affinity = p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity
-		// 	}
-		//
-		// 	// check that sharding was enabled in a previous state of the upstream cluster.
-		// 	if p.currentPSMDBSpec.Sharding.Enabled {
-		// 		// Config Server
-		// 		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = p.currentPSMDBSpec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity
-		// 		// Proxy
-		// 		psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = p.currentPSMDBSpec.Sharding.Mongos.MultiAZ.Affinity
-		// 	}
-		// }
-
 		return nil
 	}
 
-	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, systemNamespace, pspName)
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
 	if err != nil {
 		// Not found or other error.
 		// Covers case 2.

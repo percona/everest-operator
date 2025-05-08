@@ -93,8 +93,7 @@ type DatabaseClusterReconciler struct {
 	Cache  cache.Cache
 	Scheme *runtime.Scheme
 
-	controller      *controllerWatcherRegistry
-	SystemNamespace string
+	controller *controllerWatcherRegistry
 }
 
 // dbProvider provides an abstraction for managing the reconciliation
@@ -216,7 +215,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Monitoring(); err != nil {
 			return err
 		}
-		if err := applier.PodSchedulingPolicy(r.SystemNamespace); err != nil {
+		if err := applier.PodSchedulingPolicy(); err != nil {
 			return err
 		}
 		if err := applier.Backup(); err != nil {
@@ -777,10 +776,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		// We need to filter out the events that are not in the system namespace,
-		// that is why a separate predicate.Funcs predicate is used instead of
-		// common.DefaultNamespaceFilter.
-		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(r.SystemNamespace),
+		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(),
 			predicate.GenerationChangedPredicate{}),
 	)
 

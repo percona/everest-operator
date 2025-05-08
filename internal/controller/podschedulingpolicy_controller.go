@@ -117,7 +117,7 @@ func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, us
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager, systemNamespace string) error {
+func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Predicate to trigger reconciliation only on .spec.podSchedulingPolicyName changes in the DatabaseCluster resource.
 	dbClusterEventsPredicate := predicate.Funcs{
 		// Allow create events only if the .spec.podSchedulingPolicyName is set
@@ -159,10 +159,7 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager, syste
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("PodSchedulingPolicy").
 		For(&everestv1alpha1.PodSchedulingPolicy{},
-			// We need to filter out the events that are not in the system namespace,
-			// that is why a separate NamespaceFilter predicate is used instead of
-			// common.DefaultNamespaceFilter.
-			builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(systemNamespace),
+			builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(),
 				predicate.GenerationChangedPredicate{}),
 		).
 		// need to watch DBClusters that reference PodSchedulingPolicy to update the policy status.
@@ -182,8 +179,7 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager, syste
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
-							Name:      db.Spec.PodSchedulingPolicyName,
-							Namespace: systemNamespace,
+							Name: db.Spec.PodSchedulingPolicyName,
 						},
 					},
 				}
