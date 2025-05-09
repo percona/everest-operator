@@ -109,9 +109,7 @@ func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, us
 	}
 
 	if updated {
-		if err := r.Update(ctx, psp); err != nil {
-			return err
-		}
+		return r.Update(ctx, psp)
 	}
 	return nil
 }
