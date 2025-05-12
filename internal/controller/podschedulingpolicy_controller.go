@@ -181,7 +181,9 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error
 					},
 				}
 			}),
-			builder.WithPredicates(common.DefaultNamespaceFilter, dbClusterEventsPredicate),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{},
+				dbClusterEventsPredicate,
+				common.DefaultNamespaceFilter),
 		).
 		Complete(r)
 }

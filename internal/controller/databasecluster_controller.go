@@ -75,7 +75,6 @@ const (
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 
 	databaseClusterNameLabel     = "clusterName"
-	monitoringConfigNameLabel    = "monitoringConfigName"
 	podSchedulingPolicyNameLabel = "podSchedulingPolicyName"
 	backupStorageNameLabelTmpl   = "backupStorage-%s"
 	backupStorageLabelValue      = "used"
@@ -255,7 +254,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
 
@@ -443,16 +442,6 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 
 	for _, schedule := range database.Spec.Backup.Schedules {
 		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-	}
-
-	monitoring := pointer.Get(database.Spec.Monitoring)
-	monitoringConfigName, foundMC := updated[monitoringConfigNameLabel]
-	if monitoring.MonitoringConfigName != "" {
-		if !foundMC || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
-			updated[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
-		}
-	} else if foundMC {
-		delete(updated, monitoringConfigNameLabel)
 	}
 
 	if database.Spec.PodSchedulingPolicyName != "" {
@@ -732,7 +721,6 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
-	controller.Owns(&everestv1alpha1.MonitoringConfig{})
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -753,7 +741,9 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetMonitoringConfigPredicate(),
+			defaultPredicate),
 	)
 
 	controller.Watches(
@@ -776,8 +766,8 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(),
-			predicate.GenerationChangedPredicate{}),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetPodSchedulingPolicyPredicate()),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
