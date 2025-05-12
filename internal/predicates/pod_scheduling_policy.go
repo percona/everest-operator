@@ -21,7 +21,7 @@ import (
 )
 
 // GetPodSchedulingPolicyPredicate returns a predicate that filters events for PodSchedulingPolicy resources.
-func GetPodSchedulingPolicyPredicate() predicate.Predicate {
+func GetPodSchedulingPolicyPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		// Nothing to process on create events
 		CreateFunc: func(_ event.CreateEvent) bool {
@@ -29,7 +29,7 @@ func GetPodSchedulingPolicyPredicate() predicate.Predicate {
 		},
 
 		// Allow update events.
-		UpdateFunc: func(e event.UpdateEvent) bool {
+		UpdateFunc: func(_ event.UpdateEvent) bool {
 			return true
 		},
 

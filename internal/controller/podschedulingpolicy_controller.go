@@ -164,9 +164,8 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(
 			&everestv1alpha1.DatabaseCluster{},
 			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
-				db := &everestv1alpha1.DatabaseCluster{}
-				var ok bool
-				if db, ok = obj.(*everestv1alpha1.DatabaseCluster); !ok {
+				db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+				if !ok {
 					return []reconcile.Request{}
 				}
 
