@@ -104,3 +104,24 @@ type PodSchedulingPolicyList struct {
 func init() {
 	SchemeBuilder.Register(&PodSchedulingPolicy{}, &PodSchedulingPolicyList{})
 }
+
+// HasRules returns true in case policy as at least 1 affinity rule.
+func (psp *PodSchedulingPolicy) HasRules() bool {
+	if psp.Spec.AffinityConfig == nil {
+		return false
+	}
+	switch psp.Spec.EngineType {
+	case DatabaseEnginePXC:
+		return psp.Spec.AffinityConfig.PXC != nil &&
+			(psp.Spec.AffinityConfig.PXC.Engine != nil || psp.Spec.AffinityConfig.PXC.Proxy != nil)
+	case DatabaseEnginePostgresql:
+		return psp.Spec.AffinityConfig.PostgreSQL != nil &&
+			(psp.Spec.AffinityConfig.PostgreSQL.Engine != nil || psp.Spec.AffinityConfig.PostgreSQL.Proxy != nil)
+	case DatabaseEnginePSMDB:
+		return psp.Spec.AffinityConfig.PSMDB != nil &&
+			(psp.Spec.AffinityConfig.PSMDB.Engine != nil ||
+				psp.Spec.AffinityConfig.PSMDB.Proxy != nil ||
+				psp.Spec.AffinityConfig.PSMDB.ConfigServer != nil)
+	}
+	return false
+}

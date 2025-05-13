@@ -294,8 +294,7 @@ func (p *applier) PodSchedulingPolicy() error {
 			pspName, everestv1alpha1.DatabaseEnginePostgresql)
 	}
 
-	pspAffinityConfig := psp.Spec.AffinityConfig
-	if pspAffinityConfig == nil || pspAffinityConfig.PostgreSQL == nil {
+	if !psp.HasRules() {
 		// Nothing to do.
 		// Covers case 4.
 		// The affinity rules will be applied later once admin sets them in policy.
@@ -303,6 +302,7 @@ func (p *applier) PodSchedulingPolicy() error {
 	}
 
 	// Covers case 5.
+	pspAffinityConfig := psp.Spec.AffinityConfig
 
 	// Engine
 	if pspAffinityConfig.PostgreSQL.Engine != nil {

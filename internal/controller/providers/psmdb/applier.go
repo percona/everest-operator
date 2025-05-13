@@ -374,8 +374,7 @@ func (p *applier) PodSchedulingPolicy() error {
 			pspName, everestv1alpha1.DatabaseEnginePSMDB)
 	}
 
-	pspAffinityConfig := psp.Spec.AffinityConfig
-	if pspAffinityConfig == nil || pspAffinityConfig.PSMDB == nil {
+	if !psp.HasRules() {
 		// Nothing to do.
 		// Covers case 4.
 		// The affinity rules will be applied later once admin sets them in policy.
@@ -383,6 +382,7 @@ func (p *applier) PodSchedulingPolicy() error {
 	}
 
 	// Covers case 5.
+	pspAffinityConfig := psp.Spec.AffinityConfig
 	// ReplicaSets
 	if pspAffinityConfig.PSMDB.Engine != nil {
 		engineAffinityConfig := &psmdbv1.PodAffinity{
