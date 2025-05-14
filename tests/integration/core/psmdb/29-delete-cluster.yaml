@@ -5,5 +5,5 @@ commands:
   - script: kubectl -n $NAMESPACE delete db test-psmdb-cluster --wait=false && sleep 5
   - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
   - command: kubectl wait --for=delete db/test-psmdb-cluster -n $NAMESPACE
-  - command: kubectl patch podschedulingpolicy/everest-default-psmdb -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl delete podschedulingpolicy/everest-default-psmdb --wait=true
+  - command: kubectl patch podschedulingpolicy/everest-default-mongodb -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl delete podschedulingpolicy/everest-default-mongodb --wait=true

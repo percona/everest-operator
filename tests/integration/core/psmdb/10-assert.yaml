@@ -8,9 +8,9 @@ metadata:
   name: test-psmdb-cluster
   labels:
     clusterName: test-psmdb-cluster
-    podSchedulingPolicyName: everest-default-psmdb
+    podSchedulingPolicyName: everest-default-mongodb
 spec:
-  podSchedulingPolicyName: everest-default-psmdb
+  podSchedulingPolicyName: everest-default-mongodb
   engine:
     replicas: 3
     resources:

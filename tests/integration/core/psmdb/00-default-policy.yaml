@@ -5,7 +5,7 @@ timeout: 10
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
-  name: everest-default-psmdb
+  name: everest-default-mongodb
   finalizers:
     - everest.percona.com/readonly-protection
 spec:

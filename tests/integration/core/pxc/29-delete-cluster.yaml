@@ -4,5 +4,5 @@ commands:
   - script: kubectl -n $NAMESPACE delete db test-pxc-cluster --wait=false && sleep 5
   - command: kubectl patch pxc test-pxc-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
   - command: kubectl wait --for=delete db/test-pxc-cluster -n $NAMESPACE
-  - command: kubectl patch podschedulingpolicy/everest-default-pxc -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl delete podschedulingpolicy/everest-default-pxc --wait=true
+  - command: kubectl patch podschedulingpolicy/everest-default-mysql -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl delete podschedulingpolicy/everest-default-mysql --wait=true

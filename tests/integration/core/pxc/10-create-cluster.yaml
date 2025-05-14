@@ -6,7 +6,7 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 spec:
-  podSchedulingPolicyName: everest-default-pxc
+  podSchedulingPolicyName: everest-default-mysql
   engine:
     replicas: 3
     resources:

@@ -18,9 +18,9 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-pxc-cluster
-    podSchedulingPolicyName: everest-default-pxc
+    podSchedulingPolicyName: everest-default-mysql
 spec:
-  podSchedulingPolicyName: everest-default-pxc
+  podSchedulingPolicyName: everest-default-mysql
   backup:
     pitr:
       enabled: false
