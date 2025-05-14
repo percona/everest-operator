@@ -121,12 +121,34 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-test-features: build local-env-up ## Run integration tests against kind cluster
-	minikube kubectl -- config view --flatten --minify > ~/.kube/test-minikube
-	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl-eks-features.yml
-test-core: build local-env-up ## Run integration tests against kind cluster
-	minikube kubectl -- config view --flatten --minify > ~/.kube/test-minikube
-	KUBECONFIG=~/.kube/test-minikube kubectl kuttl test --config ./e2e-tests/kuttl-eks-core.yml
+PXC_OPERATOR_VERSION ?= 1.17.0
+PSMDB_OPERATOR_VERSION ?= 1.19.1
+PG_OPERATOR_VERSION ?= 2.6.0
+PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
+PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
+PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
+PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
+test-core: build ## Run core tests against kind cluster
+	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
+ 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
+ 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
+ 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+test-features: build ## Run feature tests against kind cluster
+	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
+ 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
+ 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
+ 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
+	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
+ 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
+ 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
+ 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
+ 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
+ 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
+	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 ##@ Build
 
 .PHONY: build

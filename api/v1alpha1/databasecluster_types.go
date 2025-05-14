@@ -130,6 +130,7 @@ type Applier interface {
 	Proxy() error
 	DataSource() error
 	Monitoring() error
+	PodSchedulingPolicy() error
 	Backup() error
 	Metadata() error
 }
@@ -371,6 +372,8 @@ type DatabaseClusterSpec struct {
 	Monitoring *Monitoring `json:"monitoring,omitempty"`
 	// Sharding is the sharding configuration. PSMDB-only
 	Sharding *Sharding `json:"sharding,omitempty"`
+	// PodSchedulingPolicyName is the name of the PodSchedulingPolicy CR that defines rules for DB cluster pods allocation across the cluster.
+	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
 }
 
 const (
@@ -422,8 +425,8 @@ type DatabaseClusterStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=db;dbc;dbcluster
 // +kubebuilder:printcolumn:name="Size",type="string",JSONPath=".status.size"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready"
@@ -440,7 +443,7 @@ type DatabaseCluster struct {
 	Status DatabaseClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DatabaseClusterList contains a list of DatabaseCluster.
 type DatabaseClusterList struct {

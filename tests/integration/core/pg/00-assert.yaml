@@ -2,48 +2,25 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 10
 ---
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: perconapgclusters.pgv2.percona.com
-spec:
-  group: pgv2.percona.com
-  names:
-    kind: PerconaPGCluster
-    listKind: PerconaPGClusterList
-    plural: perconapgclusters
-    singular: perconapgcluster
-  scope: Namespaced
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: databaseclusters.everest.percona.com
-spec:
-  group: everest.percona.com
-  names:
-    kind: DatabaseCluster
-    listKind: DatabaseClusterList
-    plural: databaseclusters
-    shortNames:
-    - db
-    - dbc
-    - dbcluster
-    singular: databasecluster
-  scope: Namespaced
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: percona-postgresql-operator
-spec:
-  replicas: 0
----
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseEngine
+kind: PodSchedulingPolicy
 metadata:
-  name: percona-postgresql-operator
+  name: everest-default-postgresql
+  finalizers:
+    - everest.percona.com/readonly-protection
 spec:
-  type: postgresql
-status:
-  status: installed
+  engineType: postgresql
+  affinityConfig:
+    postgresql:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1

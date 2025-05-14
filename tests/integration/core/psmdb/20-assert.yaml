@@ -11,7 +11,9 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-psmdb-cluster
+    podSchedulingPolicyName: everest-default-mongodb
 spec:
+  podSchedulingPolicyName: everest-default-mongodb
   backup:
     pitr:
       enabled: false

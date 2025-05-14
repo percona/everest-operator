@@ -8,3 +8,6 @@ testDirs:
 - tests/integration/core
 manifestDirs:
 - tests/manifests
+commands:
+- command: kubectl wait --for condition=established --timeout=10s crd podschedulingpolicies.everest.percona.com
+- command: kubectl wait --for condition=established --timeout=10s crd databaseclusters.everest.percona.com

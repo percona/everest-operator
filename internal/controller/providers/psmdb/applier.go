@@ -173,9 +173,6 @@ func rsName(i int) string {
 func (p *applier) configureConfigsvrReplSet(configsvr *psmdbv1.ReplsetSpec) error {
 	database := p.DB
 	configsvr.Size = database.Spec.Sharding.ConfigServer.Replicas
-	configsvr.MultiAZ.Affinity = &psmdbv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
 
 	currentReplSet := p.currentPSMDBSpec.Sharding.ConfigsvrReplSet
 	if err := configureStorage(p.ctx, p.C, configsvr, currentReplSet, p.DB); err != nil {
@@ -195,16 +192,6 @@ func (p *applier) configureReplSetSpec(spec *psmdbv1.ReplsetSpec, name string) e
 		spec.Configuration = psmdbv1.MongoConfiguration(psmdbDefaultConfigurationTemplate)
 	}
 
-	affinity := &psmdbv1.PodAffinity{
-		Advanced: common.DefaultAffinitySettings().DeepCopy(),
-	}
-	// We preserve the settings for existing DBs, otherwise restarts are seen when upgrading Everest.
-	// TODO: Remove this once we figure out how to apply such spec changes without automatic restarts.
-	// See: https://perconadev.atlassian.net/browse/EVEREST-1413
-	if p.DB.Status.Status == everestv1alpha1.AppStateReady {
-		affinity = p.currentPSMDBSpec.Replsets[0].MultiAZ.Affinity
-	}
-	spec.MultiAZ.Affinity = affinity
 	spec.Size = dbEngine.Replicas
 
 	currentReplSet := p.getCurrentReplSet(name)
@@ -243,9 +230,6 @@ func (p *applier) Proxy() error {
 	if psmdb.Spec.Sharding.Mongos == nil {
 		psmdb.Spec.Sharding.Mongos = &psmdbv1.MongosSpec{
 			MultiAZ: psmdbv1.MultiAZ{
-				Affinity: &psmdbv1.PodAffinity{
-					Advanced: common.DefaultAffinitySettings().DeepCopy(),
-				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{},
 				},
@@ -340,6 +324,95 @@ func (p *applier) Monitoring() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (p *applier) PodSchedulingPolicy() error {
+	// NOTE: this method shall be called after Engine() and Proxy() methods
+	// because it extends the engine and proxy specs with the affinity rules.
+	//
+	// The following cases are possible:
+	// 1. The user did not specify a .spec.podSchedulingPolicyName -> do nothing.
+	// 2. The user specified a .spec.podSchedulingPolicyName, but it does not exist -> return error.
+	// 3. The user specified a .spec.podSchedulingPolicyName, and it exists, but it is not applicable to the upstream cluster -> return error.
+	// 4. The user specified a .spec.podSchedulingPolicyName, and it exists, but affinity configuration is absent there -> do nothing.
+	// 5. The user specified a .spec.podSchedulingPolicyName, and it exists, and it is applicable to the upstream cluster ->
+	// copy the affinity rules to the upstream cluster spec from policy.
+
+	psmdb := p.PerconaServerMongoDB
+	// --------------------------------- //
+	// Special workaround, need to reset all affinity params in p.PerconaServerMongoDB before moving further.
+	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
+	for i := range len(psmdb.Spec.Replsets) {
+		psmdb.Spec.Replsets[i].MultiAZ.Affinity = nil
+	}
+
+	if psmdb.Spec.Sharding.Enabled {
+		// Config Server
+		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = nil
+		// Proxy
+		psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = nil
+	}
+	// --------------------------------- //
+	pspName := p.DB.Spec.PodSchedulingPolicyName
+
+	if pspName == "" {
+		// Covers case 1.
+		return nil
+	}
+
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
+	if err != nil {
+		// Not found or other error.
+		// Covers case 2.
+		return err
+	}
+
+	if psp.Spec.EngineType != everestv1alpha1.DatabaseEnginePSMDB {
+		// Covers case 3.
+		return fmt.Errorf("requested pod scheduling policy='%s' is not applicable to engineType='%s'",
+			pspName, everestv1alpha1.DatabaseEnginePSMDB)
+	}
+
+	if !psp.HasRules() {
+		// Nothing to do.
+		// Covers case 4.
+		// The affinity rules will be applied later once admin sets them in policy.
+		return nil
+	}
+
+	// Covers case 5.
+	pspAffinityConfig := psp.Spec.AffinityConfig
+	// ReplicaSets
+	if pspAffinityConfig.PSMDB.Engine != nil {
+		engineAffinityConfig := &psmdbv1.PodAffinity{
+			Advanced: pspAffinityConfig.PSMDB.Engine.DeepCopy(),
+		}
+		for i := range len(psmdb.Spec.Replsets) {
+			// Copy Affinity rules to Engine pods spec from policy.
+			psmdb.Spec.Replsets[i].MultiAZ.Affinity = engineAffinityConfig
+		}
+	}
+
+	// check whether sharding is requested for the upstream cluster.
+	if p.DB.Spec.Sharding != nil && p.DB.Spec.Sharding.Enabled {
+		// Config Server
+		if pspAffinityConfig.PSMDB.ConfigServer != nil {
+			// Copy Affinity rules to ConfigServer pods spec from policy.
+			psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = &psmdbv1.PodAffinity{
+				Advanced: pspAffinityConfig.PSMDB.ConfigServer.DeepCopy(),
+			}
+		}
+
+		// Proxy
+		if pspAffinityConfig.PSMDB.Proxy != nil {
+			// Copy Affinity rules to Mongos pods spec from policy.
+			psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = &psmdbv1.PodAffinity{
+				Advanced: pspAffinityConfig.PSMDB.Proxy.DeepCopy(),
+			}
+		}
+	}
+
 	return nil
 }
 
