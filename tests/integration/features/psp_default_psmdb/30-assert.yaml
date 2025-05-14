@@ -1,0 +1,88 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-mongodb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-mongodb
+  finalizers:
+    - everest.percona.com/readonly-protection
+    - everest.percona.com/in-use-protection
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-psp
+  labels:
+    clusterName: psmdb-psp
+spec:
+  podSchedulingPolicyName: everest-default-mongodb
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: psmdb-psp
+spec:
+  replsets:
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+      name: rs0
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+      name: rs1
+  sharding:
+    configsvrReplSet:
+      affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+    mongos:
+      affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1

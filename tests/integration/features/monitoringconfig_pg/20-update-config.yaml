@@ -5,7 +5,13 @@ apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
   name: test-mc
+#  finalizers:
+#    - everest.percona.com/vmagent
+#    - everest.percona.com/in-use-protection
 spec:
+#  type: pmm
+#  credentialsSecretName: mc-secret
+#  verifyTLS: false
   pmm:
     url: http://localhost2
     image: percona/pmm-client:2

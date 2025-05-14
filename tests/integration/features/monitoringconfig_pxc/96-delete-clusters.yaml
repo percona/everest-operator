@@ -1,7 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE delete db pxc-mc --wait=false && sleep 5
-  - command: kubectl patch pxc pxc-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl wait --for=delete db/pxc-mc -n $NAMESPACE
+  - script: kubectl -n $NAMESPACE delete db/pxc-mc --wait=false && sleep 5
+  - command: kubectl patch db/pxc-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - script: kubectl -n $NAMESPACE delete pxc/pxc-mc --wait=false && sleep 5
+  - command: kubectl patch pxc/pxc-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl -n $NAMESPACE delete monitoringconfig/test-mc --wait=false
+  - command: kubectl -n $NAMESPACE delete secret/everest-secrets-pxc-mc --wait=false

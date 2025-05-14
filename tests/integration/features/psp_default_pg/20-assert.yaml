@@ -1,0 +1,63 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-postgresql -o yaml
+  - command: kubectl -n $NAMESPACE get db/pg-psp -o yaml
+  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-psp -o yaml
+commands:
+  - script: |-
+      set -o errexit
+      db_spec_psp=$(kubectl get -n $NAMESPACE db/pg-psp -o jsonpath='{.spec.podSchedulingPolicyName}')
+      echo "db_spec_psp: $db_spec_psp"
+      [ -z "$db_spec_psp" ] && exit 0 || exit 2
+
+  - script: |-
+      set -o errexit
+      pg_instance_affinity=$(kubectl get -n $NAMESPACE perconapgclusters/pg-psp -o jsonpath='{.spec.instances[0].affinity}')
+      echo "pg_instance_affinity: $pg_instance_affinity"
+      [ -z "$pg_instance_affinity" ] && exit 0 || exit 2
+
+  - script: |-
+      set -o errexit
+      pg_proxy_affinity=$(kubectl get -n $NAMESPACE perconapgclusters/pg-psp -o jsonpath='{.spec.proxy.pgBouncer.affinity}')
+      echo "pg_proxy_affinity: $pg_proxy_affinity"
+      [ -z "$pg_proxy_affinity" ] && exit 0 || exit 2
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-postgresql
+  finalizers:
+    - everest.percona.com/readonly-protection
+spec:
+  engineType: postgresql
+  affinityConfig:
+    postgresql:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: false
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-psp
+  labels:
+    clusterName: pg-psp
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: pg-psp
+

@@ -18,9 +18,7 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-pxc-cluster
-    podSchedulingPolicyName: everest-default-mysql
 spec:
-  podSchedulingPolicyName: everest-default-mysql
   backup:
     pitr:
       enabled: false
@@ -57,13 +55,6 @@ spec:
       resources: {}
       storageName: ""
   haproxy:
-    affinity:
-      advanced:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
     configuration: |2
 
           global
@@ -151,13 +142,6 @@ spec:
         memory: 1G
     sidecarResources: {}
   pxc:
-    affinity:
-      advanced:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
     configuration: "[mysqld]\nbinlog_cache_size = 131072\nbinlog_expire_logs_seconds
       = 604800\nbinlog_format = ROW\nbinlog_stmt_cache_size = 131072\nglobal-connection-memory-limit
       = 18446744073709551615\nglobal-connection-memory-tracking = false\ninnodb_adaptive_hash_index

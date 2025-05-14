@@ -9,6 +9,8 @@ commands:
   - command: kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v${PSMDB_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/crd.yaml
+  - command: kubectl wait --for condition=established --timeout=10s crd podschedulingpolicies.everest.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd databaseclusters.everest.percona.com
 testDirs:
 - tests/integration/features
 manifestDirs:

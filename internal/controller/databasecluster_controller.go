@@ -74,11 +74,10 @@ const (
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 
-	databaseClusterNameLabel     = "clusterName"
-	podSchedulingPolicyNameLabel = "podSchedulingPolicyName"
-	backupStorageNameLabelTmpl   = "backupStorage-%s"
-	backupStorageLabelValue      = "used"
-	defaultRequeueAfter          = 5 * time.Second
+	databaseClusterNameLabel   = "clusterName"
+	backupStorageNameLabelTmpl = "backupStorage-%s"
+	backupStorageLabelValue    = "used"
+	defaultRequeueAfter        = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -442,14 +441,6 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 
 	for _, schedule := range database.Spec.Backup.Schedules {
 		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-	}
-
-	if database.Spec.PodSchedulingPolicyName != "" {
-		// If the .spec.podSchedulingPolicyName is set, we need to set the label
-		updated[podSchedulingPolicyNameLabel] = database.Spec.PodSchedulingPolicyName
-	} else {
-		// If the .spec.podSchedulingPolicyName is not set, we need to remove the label (if any).
-		delete(updated, podSchedulingPolicyNameLabel)
 	}
 
 	// Remove labels for backup storage that are not in the spec

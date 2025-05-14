@@ -8,6 +8,7 @@ metadata:
 spec:
   type: pmm
   credentialsSecretName: mc-secret
+  verifyTLS: false
   pmm:
     url: http://localhost
     image: percona/pmm-client:latest
@@ -16,13 +17,14 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mc-secret
+type: Opaque
 data:
   apiKey: YWJjZGVm
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: mongo-mc
+  name: psmdb-mc
 spec:
   monitoring:
     resources:
@@ -45,4 +47,3 @@ spec:
   proxy:
     type: mongos
     replicas: 1
-

@@ -1,17 +1,24 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl get psp/everest-default-mysql -o yaml
+  - command: kubectl -n $NAMESPACE get db/pxc-psp -o yaml
+  - command: kubectl -n $NAMESPACE get pxc/pxc-psp -o yaml
+commands:
+  - command: kubectl wait --for=delete db/pxc-psp -n $NAMESPACE
+  - command: kubectl wait --for=delete pxc/pxc-psp -n $NAMESPACE
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
-  name: everest-default-postgresql
+  name: everest-default-mysql
   finalizers:
     - everest.percona.com/readonly-protection
 spec:
-  engineType: postgresql
+  engineType: pxc
   affinityConfig:
-    postgresql:
+    pxc:
       engine:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -24,3 +31,5 @@ spec:
             - podAffinityTerm:
                 topologyKey: kubernetes.io/hostname
               weight: 1
+status:
+  inUse: false

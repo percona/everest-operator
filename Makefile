@@ -128,17 +128,20 @@ PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
 PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
 PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
 PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
+OPERATOR_ROOT_PATH = $(shell pwd)
 test-core: build ## Run core tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
  	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
  	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
  	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
  	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 test-features: build ## Run feature tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
  	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
  	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
  	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
 	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
@@ -148,6 +151,7 @@ test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
  	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
  	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
  	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
 	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 ##@ Build
 

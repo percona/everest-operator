@@ -1,6 +1,57 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl -n $NAMESPACE get db/pxc-mc -o yaml
+  - command: kubectl -n $NAMESPACE get monitoringconfig/test-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/mc-secret -o yaml
+  - command: kubectl -n $NAMESPACE get pxc/pxc-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/everest-secrets-pxc-mc -o yaml
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pxc-mc
+  labels:
+    clusterName: pxc-mc
+spec:
+  monitoring:
+    monitoringConfigName: test-mc
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc
+  finalizers:
+    - everest.percona.com/vmagent
+    - everest.percona.com/in-use-protection
+spec:
+  type: pmm
+  credentialsSecretName: mc-secret
+  verifyTLS: false
+  pmm:
+    url: http://localhost2
+    image: percona/pmm-client:2
+status:
+  inUse: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-secret
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: test-mc
+type: Opaque
+data:
+  apiKey: YXNkZmcxMjM=
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -9,8 +60,18 @@ metadata:
 spec:
   pmm:
     enabled: true
+    serverHost: localhost2
+    image: percona/pmm-client:2
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  secretsName: everest-secrets-pxc-mc
 ---
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
+apiVersion: v1
+kind: Secret
 metadata:
-  name: pxc-mc
+  name: everest-secrets-pxc-mc
+type: Opaque
+data:
+  pmmserverkey: YXNkZmcxMjM=

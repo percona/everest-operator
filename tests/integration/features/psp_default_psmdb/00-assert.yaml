@@ -1,6 +1,8 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-mongodb -o yaml
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy

@@ -8,9 +8,7 @@ metadata:
   name: test-psmdb-cluster
   labels:
     clusterName: test-psmdb-cluster
-    podSchedulingPolicyName: everest-default-mongodb
 spec:
-  podSchedulingPolicyName: everest-default-mongodb
   engine:
     replicas: 3
     resources:
@@ -53,14 +51,7 @@ spec:
         cpu: 500m
         memory: 300M
   replsets:
-  - affinity:
-      advanced:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
-    arbiter:
+  - arbiter:
       enabled: false
       resources: {}
       size: 0

@@ -1,14 +1,84 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 120
+timeout: 30
+collectors:
+  - command: kubectl -n $NAMESPACE get db/pg-mc -o yaml
+  - command: kubectl -n $NAMESPACE get monitoringconfig/test-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/mc-secret -o yaml
+  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/everest-secrets-pg-mc-pmm -o yaml
 commands:
   - script: |-
       set -o errexit
+      db_monitoring_spec=$(kubectl get -n $NAMESPACE db/pg-mc -o jsonpath='{.spec.monitoring.monitoringConfigName}')
+      echo "db_monitoring_spec: $db_monitoring_spec"
+      [ -z "$db_monitoring_spec" ] && exit 0 || exit 2
 
-      generation=$(kubectl -n $NAMESPACE get db pg-mc -o jsonpath='{.metadata.generation}')
-      [ "$generation" -gt "3" ] && exit 0 || exit 2
   - script: |-
       set -o errexit
-
-      pmm_spec=$(kubectl -n $NAMESPACE get pg pg-mc -o jsonpath='{.spec.pmm}')
+      pmm_spec=$(kubectl get -n $NAMESPACE perconapgcluster/pg-mc -o jsonpath='{.spec.pmm}')
+      echo "pmm_spec: $pmm_spec"
       [ -z "$pmm_spec" ] && exit 0 || exit 2
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-mc
+  labels:
+    clusterName: pg-mc
+spec:
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: test-mc
+  finalizers:
+    - everest.percona.com/vmagent
+spec:
+  type: pmm
+  credentialsSecretName: mc-secret
+  verifyTLS: false
+  pmm:
+    url: http://localhost2
+    image: percona/pmm-client:2
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-secret
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: test-mc
+type: Opaque
+data:
+  apiKey: YXNkZmcxMjM=
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: pg-mc
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: everest-secrets-pg-mc-pmm
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DatabaseCluster
+      name: pg-mc
+type: Opaque
+data:
+  PMM_SERVER_KEY: YXNkZmcxMjM=
+

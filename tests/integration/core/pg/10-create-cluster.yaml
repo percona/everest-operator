@@ -6,7 +6,6 @@ kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
 spec:
-  podSchedulingPolicyName: everest-default-postgresql
   engine:
     replicas: 2
     resources:

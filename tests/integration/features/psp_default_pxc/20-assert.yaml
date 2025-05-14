@@ -1,0 +1,62 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-mysql -o yaml
+  - command: kubectl -n $NAMESPACE get db/pxc-psp -o yaml
+  - command: kubectl -n $NAMESPACE get pxc/pxc-psp -o yaml
+commands:
+  - script: |-
+      set -o errexit
+      db_spec_psp=$(kubectl get -n $NAMESPACE db/pxc-psp -o jsonpath='{.spec.podSchedulingPolicyName}')
+      echo "db_spec_psp: $db_spec_psp"
+      [ -z "$db_spec_psp" ] && exit 0 || exit 2
+
+  - script: |-
+      set -o errexit
+      pxc_haproxy_affinity=$(kubectl get -n $NAMESPACE pxc/pxc-psp -o jsonpath='{.spec.haproxy.affinity}')
+      echo "pxc_haproxy_affinity: $pxc_haproxy_affinity"
+      [ -z "$pxc_haproxy_affinity" ] && exit 0 || exit 2
+
+  - script: |-
+      set -o errexit
+      pxc_affinity=$(kubectl get -n $NAMESPACE pxc/pxc-psp -o jsonpath='{.spec.pxc.affinity}')
+      echo "pxc_affinity: $pxc_affinity"
+      [ -z "$pxc_affinity" ] && exit 0 || exit 2
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-mysql
+  finalizers:
+    - everest.percona.com/readonly-protection
+spec:
+  engineType: pxc
+  affinityConfig:
+    pxc:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: false
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pxc-psp
+  labels:
+    clusterName: pxc-psp
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: pxc-psp

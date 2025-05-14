@@ -11,9 +11,7 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-pg-cluster
-    podSchedulingPolicyName: everest-default-postgresql
 spec:
-  podSchedulingPolicyName: everest-default-postgresql
   backup:
     pitr:
       enabled: false
@@ -65,13 +63,7 @@ spec:
     builtin: {}
     storage: {}
   instances:
-  - affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - podAffinityTerm:
-            topologyKey: kubernetes.io/hostname
-          weight: 1
-    dataVolumeClaimSpec:
+  - dataVolumeClaimSpec:
       accessModes:
       - ReadWriteOnce
       resources:
@@ -95,12 +87,6 @@ spec:
   port: 5432
   proxy:
     pgBouncer:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
       config: {}
       expose:
         type: ClusterIP

@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+commands:
+  - command: kubectl wait --for=delete db/test-pxc-cluster -n $NAMESPACE
+  - command: kubectl wait --for=delete pxc/test-pxc-cluster -n $NAMESPACE

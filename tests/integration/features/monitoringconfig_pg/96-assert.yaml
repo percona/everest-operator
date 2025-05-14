@@ -1,0 +1,16 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl -n $NAMESPACE get db/pg-mc -o yaml
+  - command: kubectl -n $NAMESPACE get monitoringconfig/test-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/mc-secret -o yaml
+  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-mc -o yaml
+  - command: kubectl -n $NAMESPACE get secret/everest-secrets-pg-mc-pmm -o yaml
+commands:
+  - command: kubectl wait --for=delete db/pg-mc -n $NAMESPACE
+  - command: kubectl wait --for=delete perconapgclusters/pg-mc -n $NAMESPACE
+  - command: kubectl wait --for=delete monitoringconfig/test-mc -n $NAMESPACE
+  - command: kubectl wait --for=delete secret/mc-secret -n $NAMESPACE
+  - command: kubectl wait --for=delete vmagent/everest-monitoring -n $NAMESPACE
+  - command: kubectl wait --for=delete secret/everest-secrets-pg-mc-pmm -n $NAMESPACE

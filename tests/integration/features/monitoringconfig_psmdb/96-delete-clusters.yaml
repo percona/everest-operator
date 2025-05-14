@@ -1,9 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE delete db mongo-mc --wait=false && sleep 5
-  - command: kubectl patch psmdb mongo-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-    ignoreFailure: true
-  - command: kubectl patch monitoringconfig test-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-    ignoreFailure: true
-  - command: kubectl wait --for=delete db/test-mc --timeout=5m
+  - script: kubectl -n $NAMESPACE delete db/psmdb-mc --wait=false && sleep 5
+  - command: kubectl patch db/psmdb-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - script: kubectl -n $NAMESPACE delete psmdb/psmdb-mc --wait=false && sleep 5
+  - command: kubectl patch psmdb/psmdb-mc -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl -n $NAMESPACE delete monitoringconfig/test-mc --wait=false
+  - command: kubectl -n $NAMESPACE delete secret/everest-secrets-psmdb-mc --wait=false

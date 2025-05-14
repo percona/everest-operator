@@ -1,0 +1,41 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get psp/everest-default-mongodb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+commands:
+  - command: kubectl wait --for=delete db/psmdb-psp -n $NAMESPACE
+  - command: kubectl wait --for=delete psmdb/psmdb-psp -n $NAMESPACE
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-mongodb
+  finalizers:
+    - everest.percona.com/readonly-protection
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: false

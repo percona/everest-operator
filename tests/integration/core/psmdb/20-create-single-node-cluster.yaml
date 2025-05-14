@@ -6,7 +6,6 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
 spec:
-  podSchedulingPolicyName: everest-default-mongodb
   engine:
     replicas: 1
     resources:
