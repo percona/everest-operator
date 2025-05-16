@@ -399,31 +399,35 @@ func (p *pgReposReconciler) pgBackRestIniBytes() ([]byte, error) {
 	return pgBackrestSecretBuf.Bytes(), nil
 }
 
-func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage) ([]crunchyv1beta1.PGBackRestRepo, error) {
-	// The PG operator requires a repo to be set up in order to create
-	// replicas. Without any credentials we can't set a cloud-based repo so we
-	// define a PVC-backed repo in case the user doesn't define any cloud-based
-	// repos. Moreover, we need to keep this repo in the list even if the user
-	// defines a cloud-based repo because the PG operator will restart the
-	// cluster if the only repo in the list is changed.
-	newRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1",
-			Volume: &crunchyv1beta1.RepoPVC{
-				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					StorageClassName: engineStorage.Class,
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: engineStorage.Size,
-						},
+func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage, oldRepos []crunchyv1beta1.PGBackRestRepo) ([]crunchyv1beta1.PGBackRestRepo, error) {
+	// for the already restored_from_source clusters, the repo1 will be present but empty.
+	// to keep the existing reconciliation logic which excludes the repo1 from consideration.
+	defaultRepo := crunchyv1beta1.PGBackRestRepo{
+		Name: "repo1",
+	}
+	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, 4)
+	if !isRestoredCluster(oldRepos) {
+		// The PG operator requires a repo to be set up in order to create
+		// replicas. Without any credentials we can't set a cloud-based repo so we
+		// define a PVC-backed repo in case the user doesn't define any cloud-based
+		// repos. Moreover, we need to keep this repo in the list even if the user
+		// defines a cloud-based repo because the PG operator will restart the
+		// cluster if the only repo in the list is changed.
+		defaultRepo.Volume = &crunchyv1beta1.RepoPVC{
+			VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteOnce,
+				},
+				StorageClassName: engineStorage.Class,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: engineStorage.Size,
 					},
 				},
 			},
-		},
+		}
 	}
+	newRepos = append(newRepos, defaultRepo)
 
 	// Add the reconciled repos to the list of repos
 	for e := p.reposReconciled.Front(); e != nil; e = e.Next() {
@@ -435,6 +439,37 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	}
 	sortByName(newRepos)
 	return newRepos, nil
+}
+
+func isRestoredCluster(oldRepos []crunchyv1beta1.PGBackRestRepo) bool {
+	for _, repo := range oldRepos {
+		if repo.Name == "repo1" {
+			// If repo1 exists, the cluster considered as restored if Volume is not defined
+			return repo.Volume == nil
+		}
+	}
+	return false
+}
+
+func (p *pgReposReconciler) addDataSourceRepo(
+	db *everestv1alpha1.DatabaseCluster,
+	bs *everestv1alpha1.BackupStorage,
+	bsSecret *corev1.Secret,
+) ([]crunchyv1beta1.PGBackRestRepo, error) {
+	repo := crunchyv1beta1.PGBackRestRepo{
+		Name: "repo1",
+		S3: &crunchyv1beta1.RepoS3{
+			Bucket:   bs.Spec.Bucket,
+			Endpoint: bs.Spec.EndpointURL,
+			Region:   bs.Spec.Region,
+		},
+	}
+	p.addRepoToPGGlobal(bs.Spec.VerifyTLS, repo.Name, bs.Spec.ForcePathStyle, pointer.ToInt32(0), db)
+	err := updatePGIni(p.pgBackRestSecretIni, bsSecret, repo)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
+	}
+	return []crunchyv1beta1.PGBackRestRepo{repo}, nil
 }
 
 func sortByName(repos []crunchyv1beta1.PGBackRestRepo) {

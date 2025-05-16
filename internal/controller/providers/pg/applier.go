@@ -924,49 +924,91 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		}
 	}
 
-	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
-	if err != nil {
-		return pgv2.Backups{}, err
-	}
-
-	backupStorages := map[string]everestv1alpha1.BackupStorage{}
-	backupStoragesSecrets := map[string]*corev1.Secret{}
-
-	// Add backup storages used by on-demand backups to the list
-	if err := p.addBackupStoragesByOnDemandBackups(backupList, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
-	}
-
-	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
-	if err != nil {
-		return pgv2.Backups{}, err
-	}
-
-	// Add backup storages used by restores to the list
-	if err := p.addBackupStoragesByRestores(backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
-	}
-
-	backupSchedules := database.Spec.Backup.Schedules
-
-	// Add backup storages used by backup schedules to the list
-	if err := p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
-		return pgv2.Backups{}, err
-	}
-
-	pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err := reconcilePGBackRestRepos(
-		oldBackups.PGBackRest.Repos,
-		backupSchedules,
-		backupList.Items,
-		backupStorages,
-		backupStoragesSecrets,
-		database.Spec.Engine.Storage,
-		database,
+	var (
+		pgBackrestRepos      []crunchyv1beta1.PGBackRestRepo
+		pgBackrestGlobal     map[string]string
+		pgBackrestSecretData []byte
+		err                  error
 	)
-	if err != nil {
-		return pgv2.Backups{}, err
+	// If DataSource is not empty, then the "restore to a new cluster" is happening.
+	// The DataSource storage is placed into repo1.
+	// All other storages (e.g. from schedules) are ignored until the restoration is complete (which leads to the DataSource deletion)
+	// to prevent buckets duplication in pg repos.
+	//
+	// Note: In fact, restoring to a new cluster is supported only from a backup (not the backup source) since Everest
+	// only copies the storage secret from the backup when reconciling a DB cluster which has the DataSource field defined.
+	// Everest also does not provide any UI for restoring from a backup source, so this case goes out of consideration so far.
+	if database.Spec.DataSource != nil && database.Spec.DataSource.DBClusterBackupName != "" {
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err = p.C.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, backup)
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+		backupStorage := &everestv1alpha1.BackupStorage{}
+		err = p.C.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+		backupStorageSecret := &corev1.Secret{}
+		key := types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.GetNamespace()}
+		err = c.Get(ctx, key, backupStorageSecret)
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err = reconcileDataSourceRepo(
+			backupStorage,
+			backupStorageSecret,
+			database,
+		)
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+	} else {
+		// List DatabaseClusterBackup objects for this database
+		backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		backupStorages := map[string]everestv1alpha1.BackupStorage{}
+		backupStoragesSecrets := map[string]*corev1.Secret{}
+
+		// Add backup storages used by on-demand backups to the list
+		if err = p.addBackupStoragesByOnDemandBackups(backupList, backupStorages, backupStoragesSecrets); err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		// List DatabaseClusterRestore objects for this database
+		restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		// Add backup storages used by restores to the list
+		if err := p.addBackupStoragesByRestores(backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		backupSchedules := database.Spec.Backup.Schedules
+
+		// Add backup storages used by backup schedules to the list
+		if err = p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
+			return pgv2.Backups{}, err
+		}
+
+		pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err = reconcilePGBackRestRepos(
+			oldBackups.PGBackRest.Repos,
+			backupSchedules,
+			backupList.Items,
+			backupStorages,
+			backupStoragesSecrets,
+			database.Spec.Engine.Storage,
+			database,
+		)
+		if err != nil {
+			return pgv2.Backups{}, err
+		}
 	}
 
 	pgBackrestSecret, err := createPGBackrestSecret(
@@ -1034,6 +1076,38 @@ func createPGBackrestSecret(
 	return pgBackrestSecret, nil
 }
 
+// When the restoring from DataSource is in progress, only the repo DataSource repo (repo1) is reconciled.
+// When the restoring process is complete, all the repos start to reconcile again as usual.
+func reconcileDataSourceRepo(
+	bs *everestv1alpha1.BackupStorage,
+	bsSecret *corev1.Secret,
+	db *everestv1alpha1.DatabaseCluster,
+) (
+	[]crunchyv1beta1.PGBackRestRepo,
+	map[string]string,
+	[]byte,
+	error,
+) {
+	// create the pg reconciler as if we didn't have any repos and schedules to reconcile only the dataSource repo
+	reposReconciler, err := newPGReposReconciler([]crunchyv1beta1.PGBackRestRepo{}, []everestv1alpha1.BackupSchedule{})
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
+			errors.Join(err, errors.New("failed to initialize PGBackrest repos reconciler"))
+	}
+
+	newRepos, err := reposReconciler.addDataSourceRepo(db, bs, bsSecret)
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
+	}
+
+	pgBackrestIniBytes, err := reposReconciler.pgBackRestIniBytes()
+	if err != nil {
+		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
+	}
+
+	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
+}
+
 func reconcilePGBackRestRepos(
 	oldRepos []crunchyv1beta1.PGBackRestRepo,
 	backupSchedules []everestv1alpha1.BackupSchedule,
@@ -1077,7 +1151,7 @@ func reconcilePGBackRestRepos(
 			errors.Join(err, errors.New("failed to add new backup schedules"))
 	}
 
-	newRepos, err := reposReconciler.addDefaultRepo(engineStorage)
+	newRepos, err := reposReconciler.addDefaultRepo(engineStorage, oldRepos)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}

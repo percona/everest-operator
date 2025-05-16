@@ -19,7 +19,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/workqueue"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"strings"
 	"time"
 
@@ -667,20 +670,8 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 	}
 
 	log := log.FromContext(ctx)
-	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
-		// This source is the same as calling Owns() on the controller builder.
-		// I.e, &DatabaseClusterRestore{} owns obj.
-		src := source.Kind(
-			r.Cache,
-			obj,
-			handler.EnqueueRequestForOwner(
-				r.Scheme,
-				r.RESTMapper(),
-				&everestv1alpha1.DatabaseClusterRestore{},
-				handler.OnlyControllerOwner(),
-			),
-		)
-		if err := r.controller.addWatchers(string(dbEngineType), src); err != nil {
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
+		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
 		return nil
@@ -692,15 +683,15 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 		}
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
-			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}); err != nil {
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}, nil); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &pgv2.PerconaPGRestore{}); err != nil {
+			if err := addWatcher(t, &pgv2.PerconaPGRestore{}, r.tryCreatePG); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}); err != nil {
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}, nil); err != nil {
 				return err
 			}
 		default:
@@ -709,4 +700,135 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 		}
 	}
 	return nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+	return handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			r.tryCreateDBRestore(ctx, e.Object, creationFunc)
+			q.Add(reconcileRequestFromObject(e.Object))
+		},
+		DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			r.tryDeleteDBRestore(ctx, e.Object)
+			q.Add(reconcileRequestFromObject(e.Object))
+		},
+	}
+}
+
+func (r *DatabaseClusterRestoreReconciler) tryCreateDBRestore(
+	ctx context.Context,
+	obj client.Object,
+	createRestoreFunc func(ctx context.Context, obj client.Object) error,
+) {
+	if createRestoreFunc == nil {
+		return
+	}
+	logger := log.FromContext(ctx)
+	if len(obj.GetOwnerReferences()) == 0 {
+		err := createRestoreFunc(ctx, obj)
+		if err != nil {
+			logger.Error(err, "Failed to create DatabaseClusterRestore "+obj.GetName())
+		}
+	}
+}
+
+func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj client.Object) error {
+	pgRestore := &pgv2.PerconaPGRestore{}
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	if err := r.Get(ctx, namespacedName, pgRestore); err != nil {
+		// if such upstream restore is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	pg := &pgv2.PerconaPGCluster{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: pgRestore.Spec.PGCluster}, pg); err != nil {
+		// if such upstream cluster is not found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	storages := &everestv1alpha1.BackupStorageList{}
+	if err := r.List(ctx, storages, &client.ListOptions{}); err != nil {
+		// if no backup storages found - do nothing
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	restore := &everestv1alpha1.DatabaseClusterRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      namespacedName.Name,
+			Namespace: namespacedName.Namespace,
+		},
+	}
+
+	err := r.Get(ctx, namespacedName, restore)
+	// if such everest restore already exists - do nothing
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	restore.Spec.DBClusterName = pgRestore.Spec.PGCluster
+
+	cluster := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: pgRestore.Spec.PGCluster, Namespace: pgRestore.Namespace}, cluster)
+	if err != nil {
+		return err
+	}
+	name, nErr := backupStorageName(pgRestore.Spec.RepoName, pg, storages)
+	if nErr != nil {
+		return nErr
+	}
+
+	restore.Spec.DataSource.BackupSource = &everestv1alpha1.BackupSource{
+		Path:              "",
+		BackupStorageName: name,
+	}
+	restore.ObjectMeta.Labels = map[string]string{
+		databaseClusterNameLabel:                      pgRestore.Spec.PGCluster,
+		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
+	}
+	if err = controllerutil.SetControllerReference(cluster, restore, r.Scheme); err != nil {
+		return err
+	}
+
+	return r.Create(ctx, restore)
+}
+
+func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Context, obj client.Object) {
+	logger := log.FromContext(ctx)
+	dbb := &everestv1alpha1.DatabaseClusterRestore{}
+	name := obj.GetName()
+	namespacedName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      name,
+	}
+
+	if err := r.Get(ctx, namespacedName, dbb); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+		logger.Error(err, "Failed to get the DatabaseClusterRestore", "name", name)
+		return
+	}
+
+	if err := r.Delete(ctx, dbb); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return
+		}
+		logger.Error(err, "Failed to delete the DatabaseClusterRestore", "name", name)
+	}
 }
