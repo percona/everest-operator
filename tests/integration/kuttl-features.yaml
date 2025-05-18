@@ -1,17 +1,25 @@
 apiVersion: kuttl.dev/v1
 kind: TestSuite
-crdDir: config/crd/bases
 artifactsDir: /tmp/
 startKIND: true
-skipDelete: true
-parallel: 1
+kindContainers:
+  - perconalab/everest-operator:0.0.0
+skipDelete: false
 commands:
-  - command: kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
+  # Deploy Everest Operator into KIND cluster
+  - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
+    # Install upstream DB operators CRDs.
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v${PSMDB_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/crd.yaml
-  - command: kubectl wait --for condition=established --timeout=10s crd podschedulingpolicies.everest.percona.com
-  - command: kubectl wait --for condition=established --timeout=10s crd databaseclusters.everest.percona.com
+  # Check that upstream DB operators CRDs are installed.
+  - command: kubectl wait --for condition=established --timeout=10s crd perconapgclusters.pgv2.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd perconaservermongodbs.psmdb.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd perconaxtradbclusters.pxc.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
+  # Wait for Everest Operator to be ready.
+  - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
 testDirs:
-- tests/integration/features
+  - tests/integration/features
 manifestDirs:
-- tests/manifests
+  - tests/manifests

@@ -1,0 +1,71 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get backupstorage/aws -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+  labels:
+    backupStorage-aws: used
+    clusterName: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    userSecretsName: pxc-sample-secrets
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 5
+        backupStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        backupStorageName: aws
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  backup:
+    storages:
+      aws:
+        type: s3
+        s3:
+          credentialsSecret: test-cluster-backup-s3
+          region: us-west-1
+    schedule:
+      - name: daily-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: aws
+      - name: monthly-backup
+        schedule: "0 0 1 * *"
+        keep: 5
+        storageName: aws
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  verifyTLS: true
+  credentialsSecretName: test-cluster-backup-s3
+  endpointURL: https://s3.us-west-1.amazonaws.com
+  region: us-west-1

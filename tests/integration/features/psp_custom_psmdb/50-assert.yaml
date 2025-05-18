@@ -1,0 +1,54 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get psp/psp-custom-psmdb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: psp-custom-psmdb
+    ref: psp
+assertAll:
+  - celExpr: "!has(psp.metadata.finalizers)"
+    message: "psp has finalizers"
+
+  - celExpr: "!has(psp.spec.affinityConfig.proxy)"
+    message: "psp.spec.affinityConfig.proxy is not empty"
+commands:
+  - command: kubectl wait --for=delete db/psmdb-psp -n $NAMESPACE
+  - command: kubectl wait --for=delete psmdb/psmdb-psp -n $NAMESPACE
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: psp-custom-psmdb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/disk
+              weight: 2
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/cpu
+              weight: 2
+status:
+  inUse: false

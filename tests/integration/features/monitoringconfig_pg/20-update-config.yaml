@@ -4,14 +4,10 @@ kind: TestStep
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
-  name: test-mc
-#  finalizers:
-#    - everest.percona.com/vmagent
-#    - everest.percona.com/in-use-protection
+  name: mc-pg
 spec:
-#  type: pmm
-#  credentialsSecretName: mc-secret
-#  verifyTLS: false
+  type: pmm
+  credentialsSecretName: mc-pg-secret
   pmm:
-    url: http://localhost2
-    image: percona/pmm-client:2
+    url: http://localhost-mc-pg-updated
+    image: percona/pmm-client:updated

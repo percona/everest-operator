@@ -1,0 +1,26 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get backupstorage/aws -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete db/test-pxc-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=delete db/test-psmdb-cluster -n ${NAMESPACE}
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  verifyTLS: true
+  credentialsSecretName: test-cluster-backup-s3
+  endpointURL: https://s3.us-west-1.amazonaws.com
+  region: us-west-1

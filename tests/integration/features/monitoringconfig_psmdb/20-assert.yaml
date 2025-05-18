@@ -2,11 +2,41 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 30
 collectors:
-  - command: kubectl -n $NAMESPACE get db/psmdb-mc -o yaml
-  - command: kubectl -n $NAMESPACE get monitoringconfig/test-mc -o yaml
-  - command: kubectl -n $NAMESPACE get secret/mc-secret -o yaml
-  - command: kubectl -n $NAMESPACE get psmdb/psmdb-mc -o yaml
-  - command: kubectl -n $NAMESPACE get secret/everest-secrets-psmdb-mc -o yaml
+  - command: kubectl get monitoringconfig/mc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-psmdb-secret -n ${NAMESPACE} -o yaml
+  - command: kubectl get vmagent/everest-monitoring -n everest-system -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get psmdb/psmdb-mc -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/everest-secrets-psmdb-mc -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: MonitoringConfig
+    name: mc-psmdb
+    ref: mc
+  - apiVersion: operator.victoriametrics.com/v1beta1
+    kind: VMAgent
+    name: everest-monitoring
+    namespace: everest-system
+    ref: vmagent
+assertAll:
+  - celExpr: "mc.metadata.finalizers.size() == 3"
+    message: "mc has finalizers != 3"
+
+  - celExpr: "'everest.percona.com/vmagent' in mc.metadata.finalizers"
+    message: "'everest.percona.com/vmagent' is absent in mc.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/cleanup-secrets' in mc.metadata.finalizers"
+    message: "'everest.percona.com/cleanup-secrets' is absent in mc.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in mc.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in mc.metadata.finalizers"
+
+  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-psmdb-updated/victoriametrics/api/v1/write')"
+    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-psmdb-updated/victoriametrics/api/v1/write'"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -16,7 +46,7 @@ metadata:
     clusterName: psmdb-mc
 spec:
   monitoring:
-    monitoringConfigName: test-mc
+    monitoringConfigName: mc-psmdb
     resources:
       limits:
         memory: "128Mi"
@@ -25,30 +55,27 @@ spec:
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
-  name: test-mc
-  finalizers:
-    - everest.percona.com/vmagent
-    - everest.percona.com/in-use-protection
+  name: mc-psmdb
 spec:
   type: pmm
-  credentialsSecretName: mc-secret
+  credentialsSecretName: mc-psmdb-secret
   verifyTLS: false
   pmm:
-    url: http://localhost2
-    image: percona/pmm-client:2
+    url: http://localhost-mc-psmdb-updated
+    image: percona/pmm-client:updated
 status:
   inUse: true
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mc-secret
+  name: mc-psmdb-secret
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       blockOwnerDeletion: true
       controller: true
       kind: MonitoringConfig
-      name: test-mc
+      name: mc-psmdb
 type: Opaque
 data:
   apiKey: YWJjZGVm
@@ -60,8 +87,8 @@ metadata:
 spec:
   pmm:
     enabled: true
-    serverHost: localhost2
-    image: percona/pmm-client:2
+    serverHost: localhost-mc-psmdb-updated
+    image: percona/pmm-client:updated
     resources:
       limits:
         memory: "128Mi"
@@ -76,3 +103,9 @@ metadata:
 type: Opaque
 data:
   PMM_SERVER_API_KEY: YWJjZGVm
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: everest-monitoring
+  namespace: everest-system

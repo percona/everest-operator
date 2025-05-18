@@ -1,36 +1,37 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 30
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: perconapgclusters.pgv2.percona.com
-spec:
-  group: pgv2.percona.com
-  names:
-    kind: PerconaPGCluster
-    listKind: PerconaPGClusterList
-    plural: perconapgclusters
-    singular: perconapgcluster
-  scope: Namespaced
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: databaseclusters.everest.percona.com
-spec:
-  group: everest.percona.com
-  names:
-    kind: DatabaseCluster
-    listKind: DatabaseClusterList
-    plural: databaseclusters
-    shortNames:
-    - db
-    - dbc
-    - dbcluster
-    singular: databasecluster
-  scope: Namespaced
+collectors:
+  - command: kubectl get monitoringconfig/mc-pg -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-pg-secret -n ${NAMESPACE} -o yaml
+  - command: kubectl get vmagent/everest-monitoring -n everest-system -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: MonitoringConfig
+    name: mc-pg
+    ref: mc
+  - apiVersion: operator.victoriametrics.com/v1beta1
+    kind: VMAgent
+    name: everest-monitoring
+    namespace: everest-system
+    ref: vmagent
+assertAll:
+  - celExpr: "mc.metadata.finalizers.size() == 2"
+    message: "mc has finalizers != 2"
+
+  - celExpr: "'everest.percona.com/vmagent' in mc.metadata.finalizers"
+    message: "'everest.percona.com/vmagent' is absent in mc.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/cleanup-secrets' in mc.metadata.finalizers"
+    message: "'everest.percona.com/cleanup-secrets' is absent in mc.metadata.finalizers"
+
+  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pg/victoriametrics/api/v1/write')"
+    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pg/victoriametrics/api/v1/write'"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,3 +48,36 @@ spec:
   type: postgresql
 status:
   status: installed
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: MonitoringConfig
+metadata:
+  name: mc-pg
+spec:
+  type: pmm
+  credentialsSecretName: mc-pg-secret
+  verifyTLS: false
+  pmm:
+    url: http://localhost-mc-pg
+    image: percona/pmm-client:latest
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mc-pg-secret
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: MonitoringConfig
+      name: mc-pg
+data:
+  apiKey: YWJjZGVm
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: everest-monitoring
+  namespace: everest-system

@@ -5,14 +5,37 @@ collectors:
   - command: kubectl get psp/everest-default-mongodb -o yaml
   - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
   - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: everest-default-mongodb
+    ref: psp
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: psmdb-psp
+    ref: db
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-psp
+    ref: psmdb
+assertAll:
+  - celExpr: "psp.metadata.finalizers.size() == 2"
+    message: "psp has finalizers != 2"
+
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in psp.metadata.finalizers"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
   name: everest-default-mongodb
-  finalizers:
-    - everest.percona.com/readonly-protection
-    - everest.percona.com/in-use-protection
 spec:
   engineType: psmdb
   affinityConfig:

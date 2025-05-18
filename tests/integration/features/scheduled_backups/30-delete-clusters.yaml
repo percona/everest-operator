@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - script: kubectl -n $NAMESPACE delete db/test-pxc-cluster pxc/test-pxc-cluster db/test-psmdb-cluster psmdb/test-psmdb-cluster --wait=false && sleep 5
+  - command: kubectl patch db/test-pxc-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl patch pxc/test-pxc-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl patch db/test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl patch psmdb/test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge

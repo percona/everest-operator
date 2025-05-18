@@ -1,0 +1,80 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get backupstorage/aws -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+  labels:
+    backupStorage-aws: used
+    clusterName: test-psmdb-cluster
+spec:
+  engine:
+    type: psmdb
+    config: |
+      operationProfiling:
+         mode: slowOp
+    userSecretsName: psmdb-sample-secrets
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 5
+        backupStorageName: aws
+      - name: monthly-backup
+        enabled: true
+        schedule: "0 0 1 * *"
+        retentionCopies: 5
+        backupStorageName: aws
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  secrets:
+    users:  psmdb-sample-secrets
+  backup:
+    enabled: true
+    storages:
+      aws:
+        type: s3
+        s3:
+          bucket: test
+          credentialsSecret: test-cluster-backup-s3
+          region: us-west-1
+    tasks:
+      - name: daily-backup
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: aws
+        enabled: true
+      - name: monthly-backup
+        schedule: "0 0 1 * *"
+        keep: 5
+        storageName: aws
+        enabled: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: aws
+spec:
+  type: s3
+  bucket: test
+  verifyTLS: true
+  credentialsSecretName: test-cluster-backup-s3
+  endpointURL: https://s3.us-west-1.amazonaws.com
+  region: us-west-1

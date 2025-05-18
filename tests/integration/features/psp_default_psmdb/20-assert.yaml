@@ -5,42 +5,46 @@ collectors:
   - command: kubectl get psp/everest-default-mongodb -o yaml
   - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
   - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
-commands:
-  - script: |-
-      set -o errexit
-      db_spec_psp=$(kubectl get -n $NAMESPACE db/psmdb-psp -o jsonpath='{.spec.podSchedulingPolicyName}')
-      echo "db_spec_psp: $db_spec_psp"
-      [ -z "$db_spec_psp" ] && exit 0 || exit 2
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: everest-default-mongodb
+    ref: psp
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: psmdb-psp
+    ref: db
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-psp
+    ref: psmdb
+assertAll:
+  - celExpr: "psp.metadata.finalizers.size() == 1"
+    message: "psp has finalizers != 1"
 
-  - script: |-
-      set -o errexit
-      psmdb_instance_affinity=$(kubectl get -n $NAMESPACE psmdb/psmdb-psp -o jsonpath='{.spec.replsets[0].affinity}')
-      echo "psmdb_instance_affinity: $psmdb_instance_affinity"
-      [ -z "$psmdb_instance_affinity" ] && exit 0 || exit 2
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
 
-  - script: |-
-      set -o errexit
-      psmdb_instance_affinity=$(kubectl get -n $NAMESPACE psmdb/psmdb-psp -o jsonpath='{.spec.replsets[1].affinity}')
-      echo "psmdb_instance_affinity: $psmdb_instance_affinity"
-      [ -z "$psmdb_instance_affinity" ] && exit 0 || exit 2
+  - celExpr: "!has(db.spec.podSchedulingPolicyName)"
+    message: "db.spec.podSchedulingPolicyName is not empty"
 
-  - script: |-
-      set -o errexit
-      psmdb_cfgSrv_affinity=$(kubectl get -n $NAMESPACE psmdb/psmdb-psp -o jsonpath='{.spec.sharding.configsvrReplSet.affinity}')
-      echo "psmdb_cfgSrv_affinity: $psmdb_cfgSrv_affinity"
-      [ -z "$psmdb_cfgSrv_affinity" ] && exit 0 || exit 2
-  - script: |-
-      set -o errexit
-      psmdb_mongos_affinity=$(kubectl get -n $NAMESPACE psmdb/psmdb-psp -o jsonpath='{.spec.sharding.mongos.affinity}')
-      echo "psmdb_mongos_affinity: $psmdb_mongos_affinity"
-      [ -z "$psmdb_mongos_affinity" ] && exit 0 || exit 2
+  - celExpr: "psmdb.spec.replsets.all(i, !has(i.affinity))"
+    message: "psmdb.spec.replsets[*].affinity is not empty"
+
+  - celExpr: "!has(psmdb.spec.sharding.configsvrReplSet.affinity)"
+    message: "psmdb.spec.sharding.configsvrReplSet.affinity is not empty"
+
+  - celExpr: "!has(psmdb.spec.sharding.mongos.affinity)"
+    message: "psmdb.spec.sharding.mongos.affinity is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
   name: everest-default-mongodb
-  finalizers:
-    - everest.percona.com/readonly-protection
 spec:
   engineType: psmdb
   affinityConfig:

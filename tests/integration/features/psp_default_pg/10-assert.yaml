@@ -5,14 +5,37 @@ collectors:
   - command: kubectl get psp/everest-default-postgresql -o yaml
   - command: kubectl -n $NAMESPACE get db/pg-psp -o yaml
   - command: kubectl -n $NAMESPACE get perconapgcluster/pg-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: PodSchedulingPolicy
+      name: everest-default-postgresql
+      ref: psp
+    - apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseCluster
+      name: pg-psp
+      ref: db
+    - apiVersion: pgv2.percona.com/v2
+      kind: PerconaPGCluster
+      name: pg-psp
+      ref: pg
+assertAll:
+  - celExpr: "psp.metadata.finalizers.size() == 2"
+    message: "psp has finalizers != 2"
+
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in psp.metadata.finalizers"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
   name: everest-default-postgresql
-  finalizers:
-    - everest.percona.com/readonly-protection
-    - everest.percona.com/in-use-protection
 spec:
   engineType: postgresql
   affinityConfig:
