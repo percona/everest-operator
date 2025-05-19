@@ -44,7 +44,7 @@ metadata:
     clusterName: test-psmdb-cluster
 spec:
   engine:
-    replicas: 3
+    replicas: 1
     resources:
       cpu: "1"
       memory: 4G
@@ -82,30 +82,30 @@ spec:
         cpu: 500m
         memory: 300M
   replsets:
-  - arbiter:
-      enabled: false
-      resources: {}
-      size: 0
-    expose:
-      enabled: false
-      type: ClusterIP
-    name: rs0
-    nonvoting:
-      enabled: false
-      resources: {}
-      size: 0
-    podDisruptionBudget:
-      maxUnavailable: 1
-    resources:
-      limits:
-        cpu: "1"
-        memory: 4G
-    size: 3
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 25Gi
+    - arbiter:
+        enabled: false
+        resources: {}
+        size: 0
+      expose:
+        enabled: false
+        type: ClusterIP
+      name: rs0
+      nonvoting:
+        enabled: false
+        resources: {}
+        size: 0
+      podDisruptionBudget:
+        maxUnavailable: 1
+      resources:
+        limits:
+          cpu: "1"
+          memory: 4G
+      size: 1
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 25Gi
   secrets:
     encryptionKey: test-psmdb-cluster-mongodb-encryption-key
     users: everest-secrets-test-psmdb-cluster

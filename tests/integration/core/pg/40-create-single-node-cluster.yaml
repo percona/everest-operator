@@ -5,17 +5,22 @@ timeout: 10
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
-  name: test-psmdb-cluster
+  name: test-pg-cluster
 spec:
   engine:
-    replicas: 3
+    replicas: 1
     resources:
       cpu: "1"
-      memory: 4G
+      memory: 2G
     storage:
       size: 25Gi
-    type: psmdb
-    userSecretsName: everest-secrets-test-psmdb-cluster
+    type: postgresql
+    userSecretsName: everest-secrets-test-pg-cluster
   proxy:
     expose:
       type: internal
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 30M
+    type: pgbouncer

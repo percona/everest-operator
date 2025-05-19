@@ -8,7 +8,7 @@ metadata:
   name: test-psmdb-cluster
 spec:
   engine:
-    replicas: 3
+    replicas: 2
     resources:
       cpu: "1"
       memory: 4G

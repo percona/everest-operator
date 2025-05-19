@@ -47,7 +47,7 @@ spec:
     pitr:
       enabled: false
   engine:
-    replicas: 3
+    replicas: 1
     resources:
       cpu: "1"
       memory: 2G
@@ -58,7 +58,7 @@ spec:
   proxy:
     expose:
       type: internal
-    replicas: 3
+    replicas: 1
     resources:
       cpu: "1"
       memory: 30M
@@ -98,7 +98,7 @@ spec:
           requests:
             storage: 25Gi
       name: instance1
-      replicas: 3
+      replicas: 1
       resources:
         limits:
           cpu: "1"
@@ -120,7 +120,7 @@ spec:
         type: ClusterIP
       exposeSuperusers: true
       port: 5432
-      replicas: 3
+      replicas: 1
       resources:
         limits:
           cpu: "1"

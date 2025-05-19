@@ -1,21 +1,47 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
 resourceRefs:
-- apiVersion: v1
-  kind: Secret
-  name: everest-secrets-test-pxc-cluster
-  ref: secret
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-pxc-cluster
+    ref: db
+  - apiVersion: pxc.percona.com/v1
+    kind: PerconaXtraDBCluster
+    name: test-pxc-cluster
+    ref: pxc
 assertAll:
-- celExpr: "has(secret.data.proxyadmin) && !secret.data.proxyadmin.contains(\"*\")"
+  - celExpr: "db.metadata.finalizers.size() == 2"
+    message: "db has finalizers != 2"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+
+  - celExpr: "pxc.metadata.finalizers.size() == 3"
+    message: "pxc has finalizers != 3"
+
+  - celExpr: "'delete-pxc-pods-in-order' in pxc.metadata.finalizers"
+    message: "'delete-pxc-pods-in-order' is absent in pxc.metadata.finalizers"
+
+  - celExpr: "'delete-pxc-pvc' in pxc.metadata.finalizers"
+    message: "delete-pxc-pvc' is absent in pxc.metadata.finalizers"
+
+  - celExpr: "'delete-ssl' in pxc.metadata.finalizers"
+    message: "delete-ssl' is absent in pxc.metadata.finalizers"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-  - everest.percona.com/upstream-cluster-cleanup
-  - foregroundDeletion
   labels:
     clusterName: test-pxc-cluster
 spec:
@@ -44,10 +70,6 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
-  finalizers:
-    - delete-pxc-pods-in-order
-    - delete-pxc-pvc
-    - delete-ssl
 spec:
   backup:
     pitr:
