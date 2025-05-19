@@ -12,6 +12,10 @@ resources:
 - bases/everest.percona.com_dataimporters.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
+# Add annotations to all resources
+commonAnnotations:
+  everest.percona.com/release-version: v0.0.0
+
 patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD

@@ -59,6 +59,17 @@ spec:
                       importer.
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
+              databaseClusterConstraints:
+                description: DatabaseClusterConstraints contains constraints for the
+                  DatabaseCluster that the data importer can be used with.
+                properties:
+                  requiredFields:
+                    description: RequiredFields contains a list of fields that must
+                      be set in the DatabaseCluster spec.
+                    items:
+                      type: string
+                    type: array
+                type: object
               description:
                 description: Description is the description of the data importer.
                 type: string
@@ -77,8 +88,9 @@ spec:
                     description: Image is the image of the data importer.
                     type: string
                   serviceAccountName:
-                    description: ServiceAccountName is the name of the service account
-                      to use for the data importer job.
+                    description: |-
+                      ServiceAccountName is the name of the service account to use for the data importer job.
+                      This is useful if your Job needs to access the Kubernetes API or other resources.
                     type: string
                 type: object
               supportedEngines:

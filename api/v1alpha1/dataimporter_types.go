@@ -34,6 +34,9 @@ type DataImporterSpec struct {
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.
 	JobSpec DataImporterJobSpec `json:"jobSpec,omitempty"`
+	// DatabaseClusterConstraints contains constraints for the DatabaseCluster that the data importer can be used with.
+	// +optional
+	DatabaseClusterConstraints DataImporter_DatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
 }
 
 // DataImporterConfig contains additional configuration defined for the data importer.
@@ -52,8 +55,15 @@ type DataImporterJobSpec struct {
 	// +optional
 	Command []string `json:"command,omitempty"`
 	// ServiceAccountName is the name of the service account to use for the data importer job.
+	// This is useful if your Job needs to access the Kubernetes API or other resources.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
+type DataImporter_DatabaseClusterConstraints struct {
+	// RequiredFields contains a list of fields that must be set in the DatabaseCluster spec.
+	// +optional
+	RequiredFields []string `json:"requiredFields,omitempty"`
 }
 
 // +kubebuilder:object:root=true
