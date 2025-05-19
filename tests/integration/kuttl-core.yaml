@@ -4,7 +4,11 @@ crdDir: config/crd/bases
 artifactsDir: /tmp/
 startKIND: true
 skipDelete: true
+parallel: 1
 testDirs:
 - tests/integration/core
 manifestDirs:
 - tests/manifests
+commands:
+- command: kubectl wait --for condition=established --timeout=10s crd podschedulingpolicies.everest.percona.com
+- command: kubectl wait --for condition=established --timeout=10s crd databaseclusters.everest.percona.com

@@ -18,7 +18,9 @@ metadata:
   - foregroundDeletion
   labels:
     clusterName: test-pxc-cluster
+    podSchedulingPolicyName: everest-default-mysql
 spec:
+  podSchedulingPolicyName: everest-default-mysql
   backup:
     pitr:
       enabled: false
@@ -139,8 +141,6 @@ spec:
         cpu: 500m
         memory: 300M
   proxysql:
-    affinity:
-      antiAffinityTopologyKey: none
     expose: {}
     lifecycle: {}
     livenessProbes: {}
