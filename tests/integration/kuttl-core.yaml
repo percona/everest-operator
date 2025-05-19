@@ -4,6 +4,7 @@ crdDir: config/crd/bases
 artifactsDir: /tmp/
 startKIND: true
 skipDelete: true
+parallel: 1
 testDirs:
 - tests/integration/core
 manifestDirs:
