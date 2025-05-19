@@ -43,6 +43,8 @@ type pgReposReconciler struct {
 	reposToBeReconciled           *list.List
 }
 
+const maxStorages = 4
+
 func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedules []everestv1alpha1.BackupSchedule) (*pgReposReconciler, error) {
 	iniFile, err := ini.Load([]byte{})
 	if err != nil {
@@ -60,10 +62,7 @@ func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedu
 		backupSchedulesToBeReconciled.PushBack(backupSchedule)
 	}
 
-	const (
-		maxStorages                = 4
-		maxPGBackrestOptionsNumber = 150 // the full potential list https://pgbackrest.org/configuration.html
-	)
+	const maxPGBackrestOptionsNumber = 150 // the full potential list https://pgbackrest.org/configuration.html
 
 	pgBackRestGlobal := make(map[string]string, maxPGBackrestOptionsNumber*maxStorages)
 	pgBackRestGlobal["repo1-retention-full"] = "1"
@@ -405,7 +404,7 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	defaultRepo := crunchyv1beta1.PGBackRestRepo{
 		Name: "repo1",
 	}
-	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, 4)
+	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, maxStorages)
 	if !isRestoredCluster(oldRepos) {
 		// The PG operator requires a repo to be set up in order to create
 		// replicas. Without any credentials we can't set a cloud-based repo so we

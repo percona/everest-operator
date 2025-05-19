@@ -3426,6 +3426,7 @@ func TestIsRestoredCluster(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.isRestored, isRestoredCluster(tc.oldRepos))
 		})
 	}
@@ -3477,7 +3478,7 @@ func TestReconcileDataSourceRepo(t *testing.T) {
 			EndpointURL: "https://url.com",
 		},
 	}
-	var testCases = []testCase{
+	testCases := []testCase{
 		{
 			name: "add storage to repo1",
 			bs:   storage1,
@@ -3505,17 +3506,17 @@ func TestReconcileDataSourceRepo(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			repos, pgBackrestGlobal, _, err := reconcileDataSourceRepo(
 				tc.bs,
 				tc.bsSecret,
 				tc.db,
 			)
 			if tc.err == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Equal(t, tc.expRepos, repos)
 			assert.Equal(t, tc.pgBackrestGlobal, pgBackrestGlobal)
 		})
 	}
-
 }

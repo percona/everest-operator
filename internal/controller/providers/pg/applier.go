@@ -53,6 +53,11 @@ const (
 	pgBackRestStoragePathStyle     = "path"
 )
 
+var (
+	errDataSourceNotFound               = errors.New("data source is not found")
+	errBackupSourceNotFoundInDataSource = errors.New("no backup storage found in data source")
+)
+
 type applier struct {
 	*Provider
 	ctx context.Context //nolint:containedctx
@@ -753,14 +758,14 @@ func (p *applier) createPGBackrestSecret(
 }
 
 // Add backup storages used by restores to the list.
-func (p *applier) addBackupStoragesByRestores(
+func addBackupStoragesByRestores(
+	ctx context.Context,
+	c client.Client,
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	restoreList *everestv1alpha1.DatabaseClusterRestoreList,
 	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
-	ctx := p.ctx
-	c := p.C
 	for _, restore := range restoreList.Items {
 		// If the restore has already completed, skip it.
 		if restore.IsComplete() {
@@ -830,14 +835,14 @@ func (p *applier) addBackupStoragesByRestores(
 }
 
 // Add backup storages used by backup schedules to the list.
-func (p *applier) addBackupStoragesBySchedules(
+func addBackupStoragesBySchedules(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
 	backupSchedules []everestv1alpha1.BackupSchedule,
 	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
-	ctx := p.ctx
-	database := p.DB
-	c := p.C
 	// Add backup storages used by backup schedules to the list
 	for _, schedule := range backupSchedules {
 		// Check if we already fetched that backup storage
@@ -863,13 +868,13 @@ func (p *applier) addBackupStoragesBySchedules(
 }
 
 // Add backup storages used by on-demand backups to the list.
-func (p *applier) addBackupStoragesByOnDemandBackups(
+func addBackupStoragesByOnDemandBackups(
+	ctx context.Context,
+	c client.Client,
 	backupList *everestv1alpha1.DatabaseClusterBackupList,
 	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
 ) error {
-	ctx := p.ctx
-	c := p.C
 	for _, backup := range backupList.Items {
 		// Check if we already fetched that backup storage
 		if _, ok := backupStorages[backup.Spec.BackupStorageName]; ok {
@@ -930,32 +935,13 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		pgBackrestSecretData []byte
 		err                  error
 	)
-	// If DataSource is not empty, then the "restore to a new cluster" is happening.
-	// The DataSource storage is placed into repo1.
-	// All other storages (e.g. from schedules) are ignored until the restoration is complete (which leads to the DataSource deletion)
-	// to prevent buckets duplication in pg repos.
-	//
-	// Note: In fact, restoring to a new cluster is supported only from a backup (not the backup source) since Everest
-	// only copies the storage secret from the backup when reconciling a DB cluster which has the DataSource field defined.
-	// Everest also does not provide any UI for restoring from a backup source, so this case goes out of consideration so far.
-	if database.Spec.DataSource != nil && database.Spec.DataSource.DBClusterBackupName != "" {
-		backup := &everestv1alpha1.DatabaseClusterBackup{}
-		err = p.C.Get(ctx, types.NamespacedName{Name: database.Spec.DataSource.DBClusterBackupName, Namespace: database.Namespace}, backup)
-		if err != nil {
-			return pgv2.Backups{}, err
-		}
-		backupStorage := &everestv1alpha1.BackupStorage{}
-		err = p.C.Get(ctx, types.NamespacedName{Name: backup.Spec.BackupStorageName, Namespace: database.Namespace}, backupStorage)
-		if err != nil {
-			return pgv2.Backups{}, err
-		}
-		backupStorageSecret := &corev1.Secret{}
-		key := types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.GetNamespace()}
-		err = c.Get(ctx, key, backupStorageSecret)
-		if err != nil {
-			return pgv2.Backups{}, err
-		}
 
+	// If DataSource is not empty, it means the "restore to a new cluster" is happening.
+	// The DataSource storage is placed into repo1.
+	// All other storages (e.g. from schedules) are ignored until the restoration is complete (Everest deletes the DataSource once restoration is complete)
+	// to prevent buckets duplication in pg repos.
+	backupStorage, backupStorageSecret, err := getDataSourceStorage(ctx, c, database)
+	if err == nil {
 		pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err = reconcileDataSourceRepo(
 			backupStorage,
 			backupStorageSecret,
@@ -964,43 +950,17 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		if err != nil {
 			return pgv2.Backups{}, err
 		}
-	} else {
-		// List DatabaseClusterBackup objects for this database
-		backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	}
+	// if there was no DataSource - reconcile as usual
+	if errors.Is(err, errDataSourceNotFound) {
+		backupStorages, backupStoragesSecrets, backups, err := getRelatedStorages(ctx, c, database)
 		if err != nil {
 			return pgv2.Backups{}, err
 		}
-
-		backupStorages := map[string]everestv1alpha1.BackupStorage{}
-		backupStoragesSecrets := map[string]*corev1.Secret{}
-
-		// Add backup storages used by on-demand backups to the list
-		if err = p.addBackupStoragesByOnDemandBackups(backupList, backupStorages, backupStoragesSecrets); err != nil {
-			return pgv2.Backups{}, err
-		}
-
-		// List DatabaseClusterRestore objects for this database
-		restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
-		if err != nil {
-			return pgv2.Backups{}, err
-		}
-
-		// Add backup storages used by restores to the list
-		if err := p.addBackupStoragesByRestores(backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
-			return pgv2.Backups{}, err
-		}
-
-		backupSchedules := database.Spec.Backup.Schedules
-
-		// Add backup storages used by backup schedules to the list
-		if err = p.addBackupStoragesBySchedules(backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
-			return pgv2.Backups{}, err
-		}
-
 		pgBackrestRepos, pgBackrestGlobal, pgBackrestSecretData, err = reconcilePGBackRestRepos(
 			oldBackups.PGBackRest.Repos,
-			backupSchedules,
-			backupList.Items,
+			database.Spec.Backup.Schedules,
+			backups,
 			backupStorages,
 			backupStoragesSecrets,
 			database.Spec.Engine.Storage,
@@ -1037,6 +997,84 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	newBackups.PGBackRest.Repos = pgBackrestRepos
 	newBackups.PGBackRest.Global = pgBackrestGlobal
 	return newBackups, nil
+}
+
+func getDataSourceStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.BackupStorage, *corev1.Secret, error) {
+	if db.Spec.DataSource == nil {
+		return nil, nil, errDataSourceNotFound
+	}
+	var dataSourceStorageName string
+	if db.Spec.DataSource.DBClusterBackupName != "" {
+		backup := &everestv1alpha1.DatabaseClusterBackup{}
+		err := c.Get(ctx, types.NamespacedName{Name: db.Spec.DataSource.DBClusterBackupName, Namespace: db.Namespace}, backup)
+		if err != nil {
+			return nil, nil, err
+		}
+		dataSourceStorageName = backup.Spec.BackupStorageName
+	} else {
+		dataSourceStorageName = db.Spec.DataSource.BackupSource.BackupStorageName
+	}
+
+	if dataSourceStorageName == "" {
+		return nil, nil, errBackupSourceNotFoundInDataSource
+	}
+
+	backupStorage := &everestv1alpha1.BackupStorage{}
+	err := c.Get(ctx, types.NamespacedName{Name: dataSourceStorageName, Namespace: db.Namespace}, backupStorage)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	backupStorageSecret := &corev1.Secret{}
+	key := types.NamespacedName{Name: backupStorage.Spec.CredentialsSecretName, Namespace: backupStorage.GetNamespace()}
+	err = c.Get(ctx, key, backupStorageSecret)
+	if err != nil {
+		return nil, nil, err
+	}
+	return backupStorage, backupStorageSecret, nil
+}
+
+func getRelatedStorages(
+	ctx context.Context,
+	c client.Client,
+	db *everestv1alpha1.DatabaseCluster,
+) (
+	map[string]everestv1alpha1.BackupStorage,
+	map[string]*corev1.Secret,
+	[]everestv1alpha1.DatabaseClusterBackup,
+	error,
+) {
+	backupStorages := map[string]everestv1alpha1.BackupStorage{}
+	backupStoragesSecrets := map[string]*corev1.Secret{}
+
+	backupList, err := common.ListDatabaseClusterBackups(ctx, c, db.GetName(), db.GetNamespace())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Add backup storages used by on-demand backups to the list
+	if err = addBackupStoragesByOnDemandBackups(ctx, c, backupList, backupStorages, backupStoragesSecrets); err != nil {
+		return nil, nil, nil, err
+	}
+
+	// List DatabaseClusterRestore objects for this database
+	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, db.GetName(), db.GetNamespace())
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Add backup storages used by restores to the list
+	if err = addBackupStoragesByRestores(ctx, c, backupList, restoreList, backupStorages, backupStoragesSecrets); err != nil {
+		return nil, nil, nil, err
+	}
+
+	backupSchedules := db.Spec.Backup.Schedules
+
+	// Add backup storages used by backup schedules to the list
+	if err = addBackupStoragesBySchedules(ctx, c, db, backupSchedules, backupStorages, backupStoragesSecrets); err != nil {
+		return nil, nil, nil, err
+	}
+	return backupStorages, backupStoragesSecrets, backupList.Items, nil
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
