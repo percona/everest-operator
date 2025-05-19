@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	batchv1 "k8s.io/api/batch/v1"
@@ -23,6 +24,8 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/xeipuuv/gojsonschema"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 const (
@@ -67,6 +70,11 @@ func (r *DataImportJobReconciler) Reconcile(
 	l := log.FromContext(ctx)
 	l.Info("Reconciling", "name", diJob.GetName())
 
+	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted {
+		// Already complete, no need to reconcile again.
+		return ctrl.Result{}, nil
+	}
+
 	diJob.Status = everestv1alpha1.DataImportJobStatus{}
 
 	// Sync status on finishing reconciliation.
@@ -87,8 +95,6 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	// TODO: validate params (use validating webhook?)
-
 	// Get the target database cluster.
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
@@ -100,11 +106,13 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	// TODO: use validating webhook?
-	if !slices.Contains(di.Spec.SupportedEngines, db.Spec.Engine.Type) {
+	// TODO: we should move this to ValidatingWebhook config, otherwise
+	// this validation will be done on every reconcile.
+	if err := r.validate(db, di, diJob); err != nil {
+		l.Error(err, "validation failed")
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type).Error()
-		return ctrl.Result{}, nil
+		diJob.Status.Message = err.Error()
+		return ctrl.Result{}, err
 	}
 
 	// Create payload secret.
@@ -127,20 +135,61 @@ func (r *DataImportJobReconciler) Reconcile(
 		diJob.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
 		return ctrl.Result{}, err
 	}
+	return ctrl.Result{}, nil
+}
 
-	// Delete Secret after Job is complete.
-	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted {
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      dataImporterRequestSecretName(diJob),
-				Namespace: diJob.GetNamespace(),
-			},
-		}
-		if err := r.Client.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete data import request secret: %w", err)
+func (r *DataImportJobReconciler) validate(
+	db *everestv1alpha1.DatabaseCluster,
+	di *everestv1alpha1.DataImporter,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	if !slices.Contains(di.Spec.SupportedEngines, db.Spec.Engine.Type) {
+		return fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type)
+	}
+	if cfgSchema := di.Spec.Config.OpenAPIV3Schema; cfgSchema != nil {
+		if err := validateSchema(cfgSchema, diJob.Spec.Params); err != nil {
+			return fmt.Errorf("failed to validate schema: %w", err)
 		}
 	}
-	return ctrl.Result{}, nil
+	return nil
+}
+
+// validateSchema validates the given parameters against the provided OpenAPI v3 schema.
+func validateSchema(schema *v1.JSONSchemaProps, params *runtime.RawExtension) error {
+	if schema == nil || params == nil {
+		return nil // Nothing to validate if schema or params are nil
+	}
+
+	// Unmarshal the parameters into a generic map
+	var paramsMap map[string]interface{}
+	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
+		return fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	// Convert the OpenAPI v3 schema to a JSON schema validator
+	schemaJSON, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal OpenAPI v3 schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewStringLoader(string(schemaJSON))
+	paramsLoader := gojsonschema.NewGoLoader(paramsMap)
+
+	// Validate the parameters against the schema
+	result, err := gojsonschema.Validate(schemaLoader, paramsLoader)
+	if err != nil {
+		return fmt.Errorf("failed to validate parameters: %w", err)
+	}
+
+	if !result.Valid() {
+		var validationErrors []string
+		for _, err := range result.Errors() {
+			validationErrors = append(validationErrors, err.String())
+		}
+		return fmt.Errorf("parameter validation failed: %s", strings.Join(validationErrors, "; "))
+	}
+
+	return nil
 }
 
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
@@ -160,6 +209,16 @@ func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob 
 
 	for _, c := range job.Status.Conditions {
 		if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+			// Job is complete, delete the secret.
+			if err := r.Client.Delete(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+
+					Name:      dataImporterRequestSecretName(diJob),
+					Namespace: diJob.GetNamespace(),
+				},
+			}); err != nil {
+				return fmt.Errorf("failed to delete data import request secret: %w", err)
+			}
 			diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseCompleted
 			return nil
 		}
