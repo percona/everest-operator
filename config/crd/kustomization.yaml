@@ -8,6 +8,7 @@ resources:
 - bases/everest.percona.com_databaseclusterbackups.yaml
 - bases/everest.percona.com_backupstorages.yaml
 - bases/everest.percona.com_monitoringconfigs.yaml
+- bases/everest.percona.com_podschedulingpolicies.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

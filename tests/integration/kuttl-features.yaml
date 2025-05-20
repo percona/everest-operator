@@ -4,6 +4,7 @@ crdDir: config/crd/bases
 artifactsDir: /tmp/
 startKIND: true
 skipDelete: true
+parallel: 1
 commands:
   - command: kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v${PSMDB_OPERATOR_VERSION}/deploy/crd.yaml
