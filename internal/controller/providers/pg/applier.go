@@ -28,7 +28,6 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/go-ini/ini"
-	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -141,17 +140,6 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("failed to configure storage: %w", err)
 	}
 
-	// New affinity settings (added in 1.2.0) shall be applied only for new clusters, or on existing clusters that
-	// have been upgraded to CRVersion 2.4.1.
-	// This is a temporary workaround to make sure we can apply this change without an automatic restart.
-	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
-	pg.Spec.InstanceSets[0].Affinity = common.DefaultAffinitySettings().DeepCopy()
-	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
-		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
-		pg.Spec.InstanceSets[0].Affinity = p.currentPGSpec.InstanceSets[0].Affinity
-	}
-
 	image, err := common.GetOperatorImage(p.ctx, p.C, types.NamespacedName{
 		Name:      common.PGDeploymentName,
 		Namespace: p.DB.GetNamespace(),
@@ -216,15 +204,6 @@ func (p *applier) Proxy() error {
 			SecretName: crunchyv1beta1.PostgresIdentifier(database.Spec.Engine.UserSecretsName),
 		},
 	}
-	pg.Spec.Proxy.PGBouncer.Affinity = common.DefaultAffinitySettings().DeepCopy()
-	// New affinity settings (added in 1.2.0) must be applied only when PG is upgraded to 2.4.1.
-	// This is a temporary workaround to make sure we can make this change without an automatic restart.
-	// TODO: fix this once https://perconadev.atlassian.net/browse/EVEREST-1413 is addressed.
-	crVersion := goversion.Must(goversion.NewVersion(pg.Spec.CRVersion))
-	if p.DB.Status.Status != everestv1alpha1.AppStateNew &&
-		crVersion.LessThan(goversion.Must(goversion.NewVersion("2.4.1"))) {
-		pg.Spec.Proxy.PGBouncer.Affinity = p.currentPGSpec.Proxy.PGBouncer.Affinity
-	}
 
 	return nil
 }
@@ -271,6 +250,73 @@ func (p *applier) Monitoring() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (p *applier) PodSchedulingPolicy() error {
+	// NOTE: this method shall be called after Engine() and Proxy() methods
+	// because it extends the engine and proxy specs with the affinity rules.
+	//
+	// The following cases are possible:
+	// 1. The user did not specify a .spec.podSchedulingPolicyName -> do nothing.
+	// 2. The user specified a .spec.podSchedulingPolicyName, but it does not exist -> return error.
+	// 3. The user specified a .spec.podSchedulingPolicyName, and it exists, but it is not applicable to the upstream cluster -> return error.
+	// 4. The user specified a .spec.podSchedulingPolicyName, and it exists, but affinity configuration is absent there -> do nothing.
+	// 5. The user specified a .spec.podSchedulingPolicyName, and it exists, and it is applicable to the upstream cluster ->
+	// copy the affinity rules to the upstream cluster spec from policy.
+
+	pg := p.PerconaPGCluster
+	// --------------------------------- //
+	// Special workaround, need to reset all affinity params in p.PerconaPGCluster before moving further.
+	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
+	for i := range len(pg.Spec.InstanceSets) {
+		// all instances in sets have the same affinity configuration.
+		pg.Spec.InstanceSets[i].Affinity = nil
+	}
+	pg.Spec.Proxy.PGBouncer.Affinity = nil
+	// --------------------------------- //
+	pspName := p.DB.Spec.PodSchedulingPolicyName
+	if pspName == "" {
+		// Covers case 1.
+		return nil
+	}
+
+	psp, err := common.GetPodSchedulingPolicy(p.ctx, p.C, pspName)
+	if err != nil {
+		// Not found or other error.
+		// Covers case 2.
+		return err
+	}
+
+	if psp.Spec.EngineType != everestv1alpha1.DatabaseEnginePostgresql {
+		// Covers case 3.
+		return fmt.Errorf("requested pod scheduling policy='%s' is not applicable to engineType='%s'",
+			pspName, everestv1alpha1.DatabaseEnginePostgresql)
+	}
+
+	if !psp.HasRules() {
+		// Nothing to do.
+		// Covers case 4.
+		// The affinity rules will be applied later once admin sets them in policy.
+		return nil
+	}
+
+	// Covers case 5.
+	pspAffinityConfig := psp.Spec.AffinityConfig
+
+	// Engine
+	if pspAffinityConfig.PostgreSQL.Engine != nil {
+		engineAffinityConfig := pspAffinityConfig.PostgreSQL.Engine.DeepCopy()
+		for i := range len(pg.Spec.InstanceSets) {
+			pg.Spec.InstanceSets[i].Affinity = engineAffinityConfig
+		}
+	}
+
+	// Proxy
+	if pspAffinityConfig.PostgreSQL.Proxy != nil {
+		pg.Spec.Proxy.PGBouncer.Affinity = pspAffinityConfig.PostgreSQL.Proxy.DeepCopy()
+	}
+
 	return nil
 }
 
