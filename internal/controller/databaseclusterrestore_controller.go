@@ -441,6 +441,19 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 
 func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
 	logger := log.FromContext(ctx)
+	pgCR := &pgv2.PerconaPGRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      restore.Name,
+			Namespace: restore.Namespace,
+		},
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, pgCR)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	if restore.IsComplete() {
+		return r.updateStatusPG(ctx, restore, pgCR)
+	}
 
 	var backupStorageName string
 	var backupBaseName string
@@ -463,7 +476,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	}
 
 	pgDBCR := &pgv2.PerconaPGCluster{}
-	err := r.Get(ctx, types.NamespacedName{Name: restore.Spec.DBClusterName, Namespace: restore.Namespace}, pgDBCR)
+	err = r.Get(ctx, types.NamespacedName{Name: restore.Spec.DBClusterName, Namespace: restore.Namespace}, pgDBCR)
 	if err != nil {
 		logger.Error(err, "unable to fetch PerconaPGCluster")
 		return err
@@ -491,16 +504,10 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		return ErrBackupStorageUndefined
 	}
 
-	pgCR := &pgv2.PerconaPGRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      restore.Name,
-			Namespace: restore.Namespace,
-		},
-	}
-	if err := controllerutil.SetControllerReference(restore, pgCR, r.Client.Scheme()); err != nil {
-		return err
-	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
+		if err := controllerutil.SetControllerReference(restore, pgCR, r.Client.Scheme()); err != nil {
+			return err
+		}
 		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
 		pgCR.Spec.RepoName = repoName
 		pgCR.Spec.Options, err = getPGRestoreOptions(restore.Spec.DataSource, backupBaseName)
@@ -510,9 +517,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		return err
 	}
 
+	return r.updateStatusPG(ctx, restore, pgCR)
+}
+
+func (r *DatabaseClusterRestoreReconciler) updateStatusPG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore, pgCR *pgv2.PerconaPGRestore) error {
 	restore.Status.State = everestv1alpha1.GetDBRestoreState(pgCR)
 	restore.Status.CompletedAt = pgCR.Status.CompletedAt
-
 	return r.Status().Update(ctx, restore)
 }
 
@@ -619,6 +629,10 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 }
 
 func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName string) ([]string, error) {
+	// it happens for bootstraped restores, they only appear with the repoName and clusterName, no details about the particular backup
+	if backupBaseName == "." {
+		return []string{}, nil
+	}
 	options := []string{
 		"--set=" + backupBaseName,
 	}
@@ -707,6 +721,10 @@ func (r *DatabaseClusterRestoreReconciler) watchHandler(creationFunc func(ctx co
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryCreateDBRestore(ctx, e.Object, creationFunc)
 			q.Add(reconcileRequestFromObject(e.Object))
+		},
+		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			r.tryCreateDBRestore(ctx, e.ObjectNew, creationFunc)
+			q.Add(reconcileRequestFromObject(e.ObjectNew))
 		},
 		DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryDeleteDBRestore(ctx, e.Object)
