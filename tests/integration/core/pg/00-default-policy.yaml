@@ -1,17 +1,17 @@
 apiVersion: kuttl.dev/v1
-kind: TestAssert
+kind: TestStep
 timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: PodSchedulingPolicy
 metadata:
-  name: everest-default-mongodb
+  name: everest-default-postgresql
   finalizers:
     - everest.percona.com/readonly-protection
 spec:
-  engineType: psmdb
+  engineType: postgresql
   affinityConfig:
-    psmdb:
+    postgresql:
       engine:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -19,12 +19,6 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 1
       proxy:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-      configServer:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:

@@ -34,4 +34,6 @@ resources:
 - databaseengine_viewer_role.yaml
 - databasecluster_editor_role.yaml
 - databasecluster_viewer_role.yaml
+- podschedulingpolicy_editor_role.yaml
+- podschedulingpolicy_viewer_role.yaml
 

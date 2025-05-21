@@ -88,7 +88,7 @@ jobs:
       - name: Run core tests
         if: always()
         run: |
-          kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+               make test-core
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -98,7 +98,7 @@ jobs:
       - name: Run features tests
         if: always()
         run: |
-          kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+            make test-features
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -108,7 +108,7 @@ jobs:
       - name: Run operator upgrade tests
         if: always()
         run: |
-          kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+            make test-operator-upgrade
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1

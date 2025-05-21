@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-05-06T06:16:27Z"
+    createdAt: "2025-05-21T05:38:44Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -124,6 +124,9 @@ spec:
       displayName: Monitoring Config
       kind: MonitoringConfig
       name: monitoringconfigs.everest.percona.com
+      version: v1alpha1
+    - kind: PodSchedulingPolicy
+      name: podschedulingpolicies.everest.percona.com
       version: v1alpha1
   description: Deploy database clusters easily with Everest operator
   displayName: Everest operator
@@ -203,6 +206,7 @@ spec:
           - databaseengines
           - dataimportjobs
           - monitoringconfigs
+          - podschedulingpolicies
           verbs:
           - create
           - delete
@@ -233,6 +237,7 @@ spec:
           - databaseengines/status
           - dataimportjobs/status
           - monitoringconfigs/status
+          - podschedulingpolicies/status
           verbs:
           - get
           - patch

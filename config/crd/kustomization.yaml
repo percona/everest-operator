@@ -10,6 +10,7 @@ resources:
 - bases/everest.percona.com_monitoringconfigs.yaml
 - bases/everest.percona.com_dataimportjobs.yaml
 - bases/everest.percona.com_dataimporters.yaml
+- bases/everest.percona.com_podschedulingpolicies.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # Add annotations to all resources
