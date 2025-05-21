@@ -281,6 +281,8 @@ type DataSource struct {
 	BackupSource *BackupSource `json:"backupSource,omitempty"`
 	// PITR is the point-in-time recovery configuration
 	PITR *PITR `json:"pitr,omitempty"`
+	// DataImport allows importing data from an external backup source.
+	DataImport *DataImportJobSpec_Common `json:"dataImport,omitempty"`
 }
 
 // BackupSchedule is the backup schedule configuration.

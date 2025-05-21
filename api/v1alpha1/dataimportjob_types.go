@@ -23,21 +23,24 @@ type DataImportJob struct {
 
 type DataImportJobSpec struct {
 	// TargetClusterRef is the reference to the target cluster.
-	TargetClusterRef corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
+	// +kubebuilder:validation:Required
+	TargetClusterRef         *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
+	DataImportJobSpec_Common `json:",inline"`
+}
+
+type DataImportJobSpec_Common struct {
 	// DataImporterRef is the reference to the data importer.
-	DataImporterRef corev1.LocalObjectReference `json:"dataImporterRef,omitempty"`
+	// +kubebuilder:validation:Required
+	DataImporterRef *corev1.LocalObjectReference `json:"dataImporterRef,omitempty"`
 	// Source is the source of the data to import.
-	Source DataImportJobSource `json:"source,omitempty"`
+	// +kubebuilder:validation:Required
+	Source *DataImportJobSource `json:"source,omitempty"`
 	// Params defines the configuration parameters for the data import job.
 	// These parameters are specific to the DataImporter being used and must conform to
 	// the schema defined in the DataImporter's .spec.config.openAPIV3Schema.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Params *runtime.RawExtension `json:"parameters,omitempty"`
-	// ServiceAccountName is the name of the service account to use for the import job.
-	// This service account must have the necessary permissions to perform the import.
-	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 type DataImportJobSource struct {
