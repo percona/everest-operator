@@ -24,8 +24,8 @@ type DataImportJob struct {
 type DataImportJobSpec struct {
 	// TargetClusterRef is the reference to the target cluster.
 	// +kubebuilder:validation:Required
-	TargetClusterRef         *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
-	DataImportJobSpec_Common `json:",inline"`
+	TargetClusterRef          *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
+	*DataImportJobSpec_Common `json:",inline"`
 }
 
 type DataImportJobSpec_Common struct {
