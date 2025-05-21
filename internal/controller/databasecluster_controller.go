@@ -240,7 +240,64 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if dataimport := db.Spec.DataSource.DataImport; dataimport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
+		if err := r.handleDataImport(ctx, db); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
+}
+
+func (re *DatabaseClusterReconciler) handleDataImport(
+	ctx context.Context,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	dijob, err := re.ensureDataImportJob(ctx, db.Spec.DataSource.DataImport, db.Name, db.Namespace)
+	if err != nil {
+		return err
+	}
+	sts := dijob.Status
+
+	db.Status.DataImportJobRef = &corev1.LocalObjectReference{
+		Name: dijob.GetName(),
+	}
+	switch {
+	case sts.Phase == everestv1alpha1.DataImportJobPhaseRunning:
+		db.Status.Status = everestv1alpha1.AppStateImporting
+	case sts.Phase == everestv1alpha1.DataImportJobPhaseFailed:
+		db.Status.Status = everestv1alpha1.AppStateError
+		db.Status.Message = "Data import job failed"
+	}
+	return nil
+}
+
+func (re *DatabaseClusterReconciler) ensureDataImportJob(
+	ctx context.Context,
+	dataImportSpec *everestv1alpha1.DataImportJobSpec_Common,
+	dbName, namespace string,
+) (everestv1alpha1.DataImportJob, error) {
+	dijob := &everestv1alpha1.DataImportJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("data-import-%s", dbName),
+			Namespace: namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, dijob, func() error {
+		dijob.Spec = everestv1alpha1.DataImportJobSpec{
+			TargetClusterRef: &corev1.LocalObjectReference{
+				Name: dbName,
+			},
+			DataImportJobSpec_Common: dataImportSpec,
+		}
+		if err := controllerutil.SetControllerReference(dijob, dijob, re.Scheme); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return *dijob, err
+	}
+	return *dijob, nil
 }
 
 // +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -258,6 +315,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 // +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -658,6 +716,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(defaultPredicate),
 	)
 	controller.Owns(&everestv1alpha1.BackupStorage{})
+	controller.Owns(&everestv1alpha1.DataImportJob{})
 	controller.Watches(
 		&everestv1alpha1.BackupStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
