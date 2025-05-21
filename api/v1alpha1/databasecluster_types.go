@@ -55,6 +55,8 @@ const (
 	AppStateUpgrading AppState = "upgrading"
 	// AppStateResizingVolumes is the state when PVCs are being resized.
 	AppStateResizingVolumes = "resizingVolumes"
+	// AppStateImporting is the state when a data import job is being executed for the cluster.
+	AppStateImporting AppState = "importing"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 
@@ -420,6 +422,10 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// DataImportJobRef is the reference to the DataImportJob CR.
+	// This is set only when .spec.dataSource.dataImport is set.
+	// +optional
+	DataImportJobRef *corev1.LocalObjectReference `json:"dataImportJobRef,omitempty"`
 	// Conditions contains the observed conditions of the DatabaseCluster.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

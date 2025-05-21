@@ -566,6 +566,22 @@ spec:
                 description: CRVersion is the observed version of the CR used with
                   the underlying operator.
                 type: string
+              dataImportJobRef:
+                description: |-
+                  DataImportJobRef is the reference to the DataImportJob CR.
+                  This is set only when .spec.dataSource.dataImport is set.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               details:
                 description: Details provides full status of the upstream cluster
                   as a plain text.

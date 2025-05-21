@@ -168,11 +168,20 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              lastObservedGeneration:
+                description: LastObservedGeneration is the last observed generation
+                  of the data import job.
+                format: int64
+                type: integer
               message:
                 description: Message is the message of the data import job.
                 type: string
               phase:
                 description: Phase is the current phase of the data import job.
+                type: string
+              startedAt:
+                description: StartedAt is the time when the data import job started.
+                format: date-time
                 type: string
             type: object
         type: object
