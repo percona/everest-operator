@@ -75,7 +75,13 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, nil
 	}
 
+	// Reset the status, we will build a new one by observing the current state on each reconcile.
+	startedAt := diJob.Status.StartedAt
 	diJob.Status = everestv1alpha1.DataImportJobStatus{}
+	diJob.Status.LastObservedGeneration = diJob.GetGeneration()
+	if startedAt != nil && !startedAt.Time.IsZero() {
+		diJob.Status.StartedAt = startedAt
+	}
 
 	// Sync status on finishing reconciliation.
 	defer func() {
@@ -446,6 +452,7 @@ func (r *DataImportJobReconciler) ensureImportJob(
 	if err := controllerutil.SetControllerReference(diJob, job, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
+	job.Status.StartTime = pointer.To(metav1.Now())
 	return r.Client.Create(ctx, job)
 }
 
