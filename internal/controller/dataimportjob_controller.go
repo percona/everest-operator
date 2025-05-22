@@ -263,7 +263,7 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		Host:     db.Status.Hostname,
 		Port:     strconv.Itoa(int(db.Status.Port)),
 		Type:     string(db.Spec.Engine.Type),
-		DatabaseClusterRef: dataimporterspec.DatabaseClusterRef{
+		DatabaseClusterRef: &dataimporterspec.ObjectReference{
 			Name:      db.GetName(),
 			Namespace: db.GetNamespace(),
 		},
@@ -317,8 +317,8 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 func (r *DataImportJobReconciler) getS3InfoFromBackupStorage(
 	ctx context.Context,
 	bsName, namespace string,
-) (*dataimporterspec.S3Source, error) {
-	info := dataimporterspec.S3Source{}
+) (*dataimporterspec.S3, error) {
+	info := dataimporterspec.S3{}
 	backupStorage := &everestv1alpha1.BackupStorage{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name:      bsName,
@@ -336,24 +336,24 @@ func (r *DataImportJobReconciler) getS3InfoFromBackupStorage(
 		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
 	info.AccessKeyID = keyID
-	info.SecretAccessKey = keySecret
+	info.SecretKey = keySecret
 	return &info, nil
 }
 
 func (r *DataImportJobReconciler) getS3Info(
 	ctx context.Context,
 	dij *everestv1alpha1.DataImportJob,
-) (*dataimporterspec.S3Source, error) {
+) (*dataimporterspec.S3, error) {
 	if dij.Spec.Source.S3Ref == nil {
 		return nil, errors.New("s3 info not provided")
 	}
-	info := dataimporterspec.S3Source{}
+	info := dataimporterspec.S3{}
 	keyId, keySecret, err := r.getS3Credentials(ctx, dij.Spec.Source.S3Ref.CredentialsSecretRef.Name, dij.GetNamespace())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
 	info.AccessKeyID = keyId
-	info.SecretAccessKey = keySecret
+	info.SecretKey = keySecret
 	info.Bucket = dij.Spec.Source.S3Ref.Bucket
 	info.Region = dij.Spec.Source.S3Ref.Region
 	info.EndpointURL = dij.Spec.Source.S3Ref.EndpointURL

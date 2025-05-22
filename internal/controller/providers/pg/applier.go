@@ -223,6 +223,11 @@ func (p *applier) DataSource() error {
 		return nil
 	}
 
+	if p.DB.Spec.DataSource.DataImport != nil {
+		p.PerconaPGCluster.Spec.DataSource = nil
+		return nil
+	}
+
 	// If the Database is ready, we will remove the DataSource.
 	// This will prevent the restore from happening again.
 	if p.DB.Status.Status == everestv1alpha1.AppStateReady {

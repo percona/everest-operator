@@ -168,6 +168,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		}
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
+
+		if err := r.observeDataImportState(ctx, db); err != nil {
+			rr = ctrl.Result{}
+			rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+		}
+
 		if err := r.Client.Status().Update(ctx, db); err != nil {
 			rr = ctrl.Result{}
 			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
@@ -176,6 +182,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if status.Status != everestv1alpha1.AppStateReady {
 			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
 		}
+
 	}()
 
 	log := log.FromContext(ctx)
@@ -241,27 +248,31 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, err
 	}
 
-	if dataimport := db.Spec.DataSource.DataImport; dataimport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
-		if err := r.handleDataImport(ctx, db); err != nil {
+	if dataimport := pointer.Get(db.Spec.DataSource).DataImport; dataimport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
+		if err := r.ensureDataImportJob(ctx, db); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
-func (re *DatabaseClusterReconciler) handleDataImport(
+func (re *DatabaseClusterReconciler) observeDataImportState(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
-	dijob, err := re.ensureDataImportJob(ctx, db.Spec.DataSource.DataImport, db.Name, db.Namespace)
-	if err != nil {
-		return err
+	diJob := &everestv1alpha1.DataImportJob{}
+	if err := re.Get(ctx, types.NamespacedName{
+		Name:      common.DataImportJobName(db),
+		Namespace: db.GetNamespace(),
+	}, diJob); err != nil {
+		return client.IgnoreNotFound(err)
 	}
-	sts := dijob.Status
 
 	db.Status.DataImportJobRef = &corev1.LocalObjectReference{
-		Name: dijob.GetName(),
+		Name: diJob.GetName(),
 	}
+
+	sts := diJob.Status
 	switch {
 	case sts.Phase == everestv1alpha1.DataImportJobPhaseRunning:
 		db.Status.Status = everestv1alpha1.AppStateImporting
@@ -274,30 +285,32 @@ func (re *DatabaseClusterReconciler) handleDataImport(
 
 func (re *DatabaseClusterReconciler) ensureDataImportJob(
 	ctx context.Context,
-	dataImportSpec *everestv1alpha1.DataImportJobSpec_Common,
-	dbName, namespace string,
-) (everestv1alpha1.DataImportJob, error) {
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+
+	namespace := db.GetNamespace()
+	dataImportSpec := db.Spec.DataSource.DataImport
 	dijob := &everestv1alpha1.DataImportJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("data-import-%s", dbName),
+			Name:      common.DataImportJobName(db),
 			Namespace: namespace,
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, dijob, func() error {
 		dijob.Spec = everestv1alpha1.DataImportJobSpec{
 			TargetClusterRef: &corev1.LocalObjectReference{
-				Name: dbName,
+				Name: db.GetName(),
 			},
 			DataImportJobSpec_Common: dataImportSpec,
 		}
-		if err := controllerutil.SetControllerReference(dijob, dijob, re.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(db, dijob, re.Scheme); err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return *dijob, err
+		return err
 	}
-	return *dijob, nil
+	return nil
 }
 
 // +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
