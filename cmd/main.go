@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
@@ -44,6 +45,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -53,8 +55,8 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	controllers "github.com/percona/everest-operator/internal/controller"
 	"github.com/percona/everest-operator/internal/controller/common"
-	"github.com/percona/everest-operator/internal/controller/webhooks"
 	"github.com/percona/everest-operator/internal/predicates"
+	"github.com/percona/everest-operator/internal/webhooks"
 )
 
 var (
@@ -95,6 +97,10 @@ type Config struct {
 	// If set, watches only those namespaces that have the specified labels.
 	// This setting is ignored if DBNamespaces is set.
 	NamespaceLabels map[string]string
+
+	WebhookCertPath string
+	WebhookCertName string
+	WebhookCertKey  string
 }
 
 var cfg = &Config{}
@@ -154,6 +160,25 @@ func main() {
 
 	if !cfg.EnableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
+
+	if cfg.WebhookCertPath != "" {
+		setupLog.Info("Initializing webhook certificate watcher using provided certificates",
+			"webhook-cert-path", cfg.WebhookCertPath, "webhook-cert-name", cfg.WebhookCertName, "webhook-cert-key", cfg.WebhookCertKey)
+
+		var err error
+		webhookCertWatcher, err := certwatcher.New(
+			filepath.Join(cfg.WebhookCertPath, cfg.WebhookCertName),
+			filepath.Join(cfg.WebhookCertPath, cfg.WebhookCertKey),
+		)
+		if err != nil {
+			setupLog.Error(err, "Failed to initialize webhook certificate watcher")
+			os.Exit(1)
+		}
+
+		tlsOpts = append(tlsOpts, func(config *tls.Config) {
+			config.GetCertificate = webhookCertWatcher.GetCertificate
+		})
 	}
 
 	webhookServer := webhook.NewServer(webhook.Options{
@@ -353,6 +378,13 @@ func parseConfig() error {
 		"Defaults to the value of the SYSTEM_NAMESPACE environment variable.")
 	flag.StringVar(&cfg.MonitoringNamespace, "monitoring-namespace", monitoringNamespace, "The namespace where the monitoring resources are."+
 		"Defaults to the value of the MONITORING_NAMESPACE environment variable.")
+
+	flag.StringVar(&cfg.WebhookCertPath, "webhook-cert-path", "",
+		"The path to the directory where the webhook server's TLS certificate and key are stored.")
+	flag.StringVar(&cfg.WebhookCertName, "webhook-cert-name", "tls.crt",
+		"The name of the webhook server's TLS certificate file. Defaults to 'tls.crt'.")
+	flag.StringVar(&cfg.WebhookCertKey, "webhook-cert-key", "tls.key",
+		"The name of the webhook server's TLS key file. Defaults to 'tls.key'.")
 	flag.Parse()
 
 	if cfg.SystemNamespace == "" {
