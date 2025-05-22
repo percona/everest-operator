@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -16,6 +17,7 @@ import (
 // SetupDataImportJobWebhookWithManager sets up the webhook with the manager.
 func SetupDataImportJobWebhookWithManager(mgr manager.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
+		For(&everestv1alpha1.DataImportJob{}).
 		WithValidator(&DataImportJobValidator{
 			Client: mgr.GetClient(),
 		}).
@@ -58,7 +60,9 @@ func (v *DataImportJobValidator) validate(
 	dij *everestv1alpha1.DataImportJob,
 ) error {
 	dataimporter := everestv1alpha1.DataImporter{}
-	if err := v.Client.Get(ctx, client.ObjectKeyFromObject(&dataimporter), &dataimporter); err != nil {
+	if err := v.Client.Get(ctx, types.NamespacedName{
+		Name: dij.Spec.DataImporterRef.Name,
+	}, &dataimporter); err != nil {
 		return fmt.Errorf("failed to get DataImporter: %w", err)
 	}
 	return dataimporter.Spec.Config.ValidateParams(dij.Spec.Params)
