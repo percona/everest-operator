@@ -24,11 +24,12 @@ type DataImportJob struct {
 type DataImportJobSpec struct {
 	// TargetClusterRef is the reference to the target cluster.
 	// +kubebuilder:validation:Required
-	TargetClusterRef          *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
-	*DataImportJobSpec_Common `json:",inline"`
+	TargetClusterRef       *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
+	*DataImportJobTemplate `json:",inline"`
 }
 
-type DataImportJobSpec_Common struct {
+// DataImportJobTemplate defines a shared template for the data import job.
+type DataImportJobTemplate struct {
 	// DataImporterRef is the reference to the data importer.
 	// +kubebuilder:validation:Required
 	DataImporterRef *corev1.LocalObjectReference `json:"dataImporterRef,omitempty"`
