@@ -152,10 +152,9 @@ func (r *DataImportJobReconciler) validate(
 	if !slices.Contains(di.Spec.SupportedEngines, db.Spec.Engine.Type) {
 		return fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type)
 	}
-	if cfgSchema := di.Spec.Config.OpenAPIV3Schema; cfgSchema != nil {
-		if err := validateSchema(cfgSchema, diJob.Spec.Params); err != nil {
-			return fmt.Errorf("failed to validate schema: %w", err)
-		}
+
+	if err := di.Spec.Config.ValidateParams(diJob.Spec.Params); err != nil {
+		return fmt.Errorf("failed to validate parameters: %w", err)
 	}
 	return nil
 }

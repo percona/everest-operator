@@ -1,8 +1,15 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/xeipuuv/gojsonschema"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //+kubebuilder:object:root=true
@@ -36,7 +43,7 @@ type DataImporterSpec struct {
 	JobSpec DataImporterJobSpec `json:"jobSpec,omitempty"`
 	// DatabaseClusterConstraints contains constraints for the DatabaseCluster that the data importer can be used with.
 	// +optional
-	DatabaseClusterConstraints DataImporter_DatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
+	DatabaseClusterConstraints DataImporterDatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
 }
 
 // DataImporterConfig contains additional configuration defined for the data importer.
@@ -46,6 +53,46 @@ type DataImporterConfig struct {
 	// +kubebuilder:validation:Schemaless
 	// +optional
 	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
+}
+
+// ErrSchemaValidationFailure is returned when the parameters do not conform to the DataImporter schema defined in .spec.config
+var ErrSchemaValidationFailure = errors.New("schema validation failed")
+
+// ValidateParams validates the parameters for the data importer.
+func (cfg *DataImporterConfig) ValidateParams(params *runtime.RawExtension) error {
+	schema := cfg.OpenAPIV3Schema
+	if schema == nil || params == nil {
+		return nil
+	}
+	// Unmarshal the parameters into a generic map
+	var paramsMap map[string]interface{}
+	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
+		return fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	// Convert the OpenAPI v3 schema to a JSON schema validator
+	schemaJSON, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal OpenAPI v3 schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewStringLoader(string(schemaJSON))
+	paramsLoader := gojsonschema.NewGoLoader(paramsMap)
+
+	// Validate the parameters against the schema
+	result, err := gojsonschema.Validate(schemaLoader, paramsLoader)
+	if err != nil {
+		return fmt.Errorf("failed to validate parameters: %w", err)
+	}
+
+	if !result.Valid() {
+		var validationErrors []string
+		for _, err := range result.Errors() {
+			validationErrors = append(validationErrors, err.String())
+		}
+		return errors.Join(ErrSchemaValidationFailure, fmt.Errorf("validation errors: %s", strings.Join(validationErrors, "; ")))
+	}
+	return nil
 }
 
 type DataImporterJobSpec struct {
@@ -60,7 +107,7 @@ type DataImporterJobSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
-type DataImporter_DatabaseClusterConstraints struct {
+type DataImporterDatabaseClusterConstraints struct {
 	// RequiredFields contains a list of fields that must be set in the DatabaseCluster spec.
 	// +optional
 	RequiredFields []string `json:"requiredFields,omitempty"`
