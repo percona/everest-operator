@@ -716,7 +716,7 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 	return nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+func (r *DatabaseClusterRestoreReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs { //nolint:dupl
 	return handler.Funcs{
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryCreateDBRestore(ctx, e.Object, creationFunc)
