@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -52,6 +53,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	controllers "github.com/percona/everest-operator/internal/controller"
 	"github.com/percona/everest-operator/internal/controller/common"
+	"github.com/percona/everest-operator/internal/controller/webhooks"
 	"github.com/percona/everest-operator/internal/predicates"
 )
 
@@ -295,6 +297,12 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PodSchedulingPolicy")
+		os.Exit(1)
+	}
+
+	// register webhooks
+	if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
