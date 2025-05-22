@@ -16,6 +16,19 @@ func TestValidateSchema(t *testing.T) {
 		paramsJSON string
 		expectErr  bool
 	}{
+
+		{
+			name:       "Empty schema, no parameters",
+			schemaJSON: `{}`,
+			paramsJSON: `{}`,
+			expectErr:  false,
+		},
+		{
+			name:       "Empty schema with parameters",
+			schemaJSON: `{}`,
+			paramsJSON: `{"key": "value"}`,
+			expectErr:  true,
+		},
 		{
 			name: "Valid parameters",
 			schemaJSON: `{

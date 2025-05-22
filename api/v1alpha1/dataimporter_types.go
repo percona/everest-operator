@@ -61,9 +61,12 @@ var ErrSchemaValidationFailure = errors.New("schema validation failed")
 // ValidateParams validates the parameters for the data importer.
 func (cfg *DataImporterConfig) ValidateParams(params *runtime.RawExtension) error {
 	schema := cfg.OpenAPIV3Schema
-	if schema == nil || params == nil {
-		return nil
+	if params == nil {
+		params = &runtime.RawExtension{
+			Raw: []byte("{}"),
+		}
 	}
+
 	// Unmarshal the parameters into a generic map
 	var paramsMap map[string]interface{}
 	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
