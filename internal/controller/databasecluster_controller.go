@@ -182,7 +182,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if status.Status != everestv1alpha1.AppStateReady {
 			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
 		}
-
 	}()
 
 	log := log.FromContext(ctx)
@@ -287,7 +286,6 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
-
 	namespace := db.GetNamespace()
 	dataImportSpec := db.Spec.DataSource.DataImport
 	dijob := &everestv1alpha1.DataImportJob{
@@ -301,7 +299,7 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 			TargetClusterRef: &corev1.LocalObjectReference{
 				Name: db.GetName(),
 			},
-			DataImportJobSpec_Common: dataImportSpec,
+			DataImportJobTemplate: dataImportSpec,
 		}
 		if err := controllerutil.SetControllerReference(db, dijob, re.Scheme); err != nil {
 			return err
