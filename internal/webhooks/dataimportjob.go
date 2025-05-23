@@ -2,8 +2,10 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,6 +33,7 @@ type DataImportJobValidator struct {
 	Client client.Client
 }
 
+// ValidateCreate validates the creation of a DataImportJob.
 func (v *DataImportJobValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	dij, ok := obj.(*everestv1alpha1.DataImportJob)
 	if !ok {
@@ -39,20 +42,25 @@ func (v *DataImportJobValidator) ValidateCreate(ctx context.Context, obj runtime
 	return nil, v.validate(ctx, dij)
 }
 
-func (v *DataImportJobValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	dij, ok := newObj.(*everestv1alpha1.DataImportJob)
+// ValidateUpdate validates the update of a DataImportJob.
+func (v *DataImportJobValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	updated, ok := newObj.(*everestv1alpha1.DataImportJob)
 	if !ok {
-		return nil, fmt.Errorf("expected a DataImportJob, got %T", newObj)
+		return nil, fmt.Errorf("expected a DataImportJob (new), got %T", newObj)
 	}
-	return nil, v.validate(ctx, dij)
+
+	old, ok := oldObj.(*everestv1alpha1.DataImportJob)
+	if !ok {
+		return nil, fmt.Errorf("expected a DataImportJob (old), got %T", oldObj)
+	}
+	if !updated.Spec.Equals(old.Spec) {
+		return nil, errors.New(".spec is immutable")
+	}
+	return nil, nil
 }
 
 func (v *DataImportJobValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	dij, ok := obj.(*everestv1alpha1.DataImportJob)
-	if !ok {
-		return nil, fmt.Errorf("expected a DataImportJob, got %T", obj)
-	}
-	return nil, v.validate(ctx, dij)
+	return nil, nil
 }
 
 func (v *DataImportJobValidator) validate(
@@ -61,9 +69,27 @@ func (v *DataImportJobValidator) validate(
 ) error {
 	dataimporter := everestv1alpha1.DataImporter{}
 	if err := v.Client.Get(ctx, types.NamespacedName{
-		Name: dij.Spec.DataImporterRef.Name,
+		Name: dij.Spec.DataImporterName,
 	}, &dataimporter); err != nil {
 		return fmt.Errorf("failed to get DataImporter: %w", err)
 	}
+
+	db := everestv1alpha1.DatabaseCluster{}
+	if err := v.Client.Get(ctx, types.NamespacedName{
+		Name: dij.Spec.TargetClusterName,
+	}, &db); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("target cluster %s not found: %w", dij.Spec.TargetClusterName, err)
+		}
+		return fmt.Errorf("failed to get DatabaseCluster: %w", err)
+	}
+
+	// Validate that the DataImporter supports the specified engine.
+	engineType := db.Spec.Engine.Type
+	if !dataimporter.Spec.SupportedEngines.Has(engineType) {
+		return fmt.Errorf("data importer %s does not support engine %s", dij.Spec.DataImporterName, engineType)
+	}
+
+	// Validate the params against the schema of the DataImporter
 	return dataimporter.Spec.Config.ValidateParams(dij.Spec.Params)
 }

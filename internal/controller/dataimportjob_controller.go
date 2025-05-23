@@ -94,7 +94,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Get the referenced data importer.
 	di := &everestv1alpha1.DataImporter{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name: diJob.Spec.DataImporterRef.Name,
+		Name: diJob.Spec.DataImporterName,
 	}, di); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
 		diJob.Status.Message = err.Error()
@@ -104,7 +104,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Get the target database cluster.
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      diJob.Spec.TargetClusterRef.Name,
+		Name:      diJob.Spec.TargetClusterName,
 		Namespace: diJob.GetNamespace(),
 	}, db); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError

@@ -29,6 +29,19 @@ type DataImporter struct {
 	Status DataImporterStatus `json:"status,omitempty"`
 }
 
+// EngineList is a type alias for a list of EngineType.
+type EngineList []EngineType
+
+// Has checks if the list contains the specified engine.
+func (e EngineList) Has(engine EngineType) bool {
+	for _, item := range e {
+		if item == engine {
+			return true
+		}
+	}
+	return false
+}
+
 // DataImporterSpec defines the specification of a DataImporter.
 type DataImporterSpec struct {
 	// DisplayName is a human-readable name for the data importer.
@@ -36,7 +49,7 @@ type DataImporterSpec struct {
 	// Description is the description of the data importer.
 	Description string `json:"description,omitempty"`
 	// SupportedEngines is the list of engines that the data importer supports.
-	SupportedEngines []EngineType `json:"supportedEngines,omitempty"`
+	SupportedEngines EngineList `json:"supportedEngines,omitempty"`
 	// Config contains additional configuration defined for the data importer.
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.

@@ -296,9 +296,7 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, dijob, func() error {
 		dijob.Spec = everestv1alpha1.DataImportJobSpec{
-			TargetClusterRef: &corev1.LocalObjectReference{
-				Name: db.GetName(),
-			},
+			TargetClusterName:     db.GetName(),
 			DataImportJobTemplate: dataImportSpec,
 		}
 		if err := controllerutil.SetControllerReference(db, dijob, re.Scheme); err != nil {

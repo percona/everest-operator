@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,17 +24,17 @@ type DataImportJob struct {
 }
 
 type DataImportJobSpec struct {
-	// TargetClusterRef is the reference to the target cluster.
+	// TargetClusterName is the reference to the target cluster.
 	// +kubebuilder:validation:Required
-	TargetClusterRef       *corev1.LocalObjectReference `json:"targetClusterRef,omitempty"`
+	TargetClusterName      string `json:"targetClusterRef,omitempty"`
 	*DataImportJobTemplate `json:",inline"`
 }
 
 // DataImportJobTemplate defines a shared template for the data import job.
 type DataImportJobTemplate struct {
-	// DataImporterRef is the reference to the data importer.
+	// DataImporterName is the data importer to use for the import.
 	// +kubebuilder:validation:Required
-	DataImporterRef *corev1.LocalObjectReference `json:"dataImporterRef,omitempty"`
+	DataImporterName string `json:"dataImporterRef,omitempty"`
 	// Source is the source of the data to import.
 	// +kubebuilder:validation:Required
 	Source *DataImportJobSource `json:"source,omitempty"`
@@ -108,6 +110,16 @@ type DataImportJobStatus struct {
 	// JobRef is the reference to the job that is running the data import.
 	// +optional
 	JobRef *corev1.LocalObjectReference `json:"jobRef,omitempty"`
+}
+
+// Equals compares two DataImportJobSpec objects for equality.
+func (s *DataImportJobSpec) Equals(other DataImportJobSpec) bool {
+	return reflect.DeepEqual(s, other)
+}
+
+// Equals compares two DataImportJobTemplate objects for equality.
+func (s *DataImportJobTemplate) Equals(other DataImportJobTemplate) bool {
+	return reflect.DeepEqual(s, other)
 }
 
 func init() {

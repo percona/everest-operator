@@ -59,7 +59,16 @@ type DatabaseClusterRestoreSpec struct {
 	// DBClusterName defines the cluster name to restore.
 	DBClusterName string `json:"dbClusterName"`
 	// DataSource defines a data source for restoration.
-	DataSource DataSource `json:"dataSource"`
+	DataSource DatabaseClusterRestoreDataSource `json:"dataSource"`
+}
+
+type DatabaseClusterRestoreDataSource struct {
+	// DBClusterBackupName is the name of the DB cluster backup to restore from
+	DBClusterBackupName string `json:"dbClusterBackupName,omitempty"`
+	// BackupSource is the backup source to restore from
+	BackupSource *BackupSource `json:"backupSource,omitempty"`
+	// PITR is the point-in-time recovery configuration
+	PITR *PITR `json:"pitr,omitempty"`
 }
 
 // DatabaseClusterRestoreStatus defines the observed state of DatabaseClusterRestore.
