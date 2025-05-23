@@ -26,7 +26,7 @@ type DataImportJob struct {
 type DataImportJobSpec struct {
 	// TargetClusterName is the reference to the target cluster.
 	// +kubebuilder:validation:Required
-	TargetClusterName      string `json:"targetClusterRef,omitempty"`
+	TargetClusterName      string `json:"targetClusterName,omitempty"`
 	*DataImportJobTemplate `json:",inline"`
 }
 
@@ -34,7 +34,7 @@ type DataImportJobSpec struct {
 type DataImportJobTemplate struct {
 	// DataImporterName is the data importer to use for the import.
 	// +kubebuilder:validation:Required
-	DataImporterName string `json:"dataImporterRef,omitempty"`
+	DataImporterName string `json:"dataImporterName,omitempty"`
 	// Source is the source of the data to import.
 	// +kubebuilder:validation:Required
 	Source *DataImportJobSource `json:"source,omitempty"`
@@ -49,7 +49,7 @@ type DataImportJobTemplate struct {
 type DataImportJobSource struct {
 	// BackupStorageRef is the reference to the backup storage.
 	// +optional
-	BackupStorageRef corev1.LocalObjectReference `json:"backupStorageRef,omitempty"`
+	BackupStorageRef *corev1.LocalObjectReference `json:"backupStorageRef,omitempty"`
 	// S3Ref is the reference to the S3 source.
 	// +optional
 	S3Ref *DataImportJobS3SourceRef `json:"s3,omitempty"`

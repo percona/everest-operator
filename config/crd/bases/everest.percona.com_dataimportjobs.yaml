@@ -47,7 +47,7 @@ spec:
             type: object
           spec:
             properties:
-              dataImporterRef:
+              dataImporterName:
                 description: DataImporterName is the data importer to use for the
                   import.
                 type: string
@@ -122,13 +122,13 @@ spec:
                         type: boolean
                     type: object
                 type: object
-              targetClusterRef:
+              targetClusterName:
                 description: TargetClusterName is the reference to the target cluster.
                 type: string
             required:
-            - dataImporterRef
+            - dataImporterName
             - source
-            - targetClusterRef
+            - targetClusterName
             type: object
           status:
             properties:

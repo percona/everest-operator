@@ -147,7 +147,7 @@ spec:
                     description: DataImport allows importing data from an external
                       backup source.
                     properties:
-                      dataImporterRef:
+                      dataImporterName:
                         description: DataImporterName is the data importer to use
                           for the import.
                         type: string
@@ -225,7 +225,7 @@ spec:
                             type: object
                         type: object
                     required:
-                    - dataImporterRef
+                    - dataImporterName
                     - source
                     type: object
                     x-kubernetes-validations:

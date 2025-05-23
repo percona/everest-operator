@@ -285,8 +285,9 @@ type DataSource struct {
 	// PITR is the point-in-time recovery configuration
 	PITR *PITR `json:"pitr,omitempty"`
 	// DataImport allows importing data from an external backup source.
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec.dataSource.dataImport is immutable"
-	DataImport *DataImportJobTemplate `json:"dataImport,omitempty"`
+	DataImport *DataImportJobTemplate `json:"dataImport"`
 }
 
 // BackupSchedule is the backup schedule configuration.

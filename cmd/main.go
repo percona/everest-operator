@@ -326,6 +326,10 @@ func main() {
 	}
 
 	// register webhooks
+	if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
+		os.Exit(1)
+	}
 	if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
 		os.Exit(1)

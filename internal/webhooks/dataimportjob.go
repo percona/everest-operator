@@ -76,7 +76,8 @@ func (v *DataImportJobValidator) validate(
 
 	db := everestv1alpha1.DatabaseCluster{}
 	if err := v.Client.Get(ctx, types.NamespacedName{
-		Name: dij.Spec.TargetClusterName,
+		Name:      dij.Spec.TargetClusterName,
+		Namespace: dij.GetNamespace(),
 	}, &db); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("target cluster %s not found: %w", dij.Spec.TargetClusterName, err)

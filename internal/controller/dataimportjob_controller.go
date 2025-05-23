@@ -268,9 +268,10 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		},
 	}
 
+	bsRef := pointer.Get(diJob.Spec.Source.BackupStorageRef)
 	// Get S3 info
 	switch {
-	case diJob.Spec.Source.BackupStorageRef.Name != "":
+	case bsRef.Name != "":
 		s3Info, err := r.getS3InfoFromBackupStorage(ctx, diJob.Spec.Source.BackupStorageRef.Name, diJob.GetNamespace())
 		if err != nil {
 			return fmt.Errorf("failed to get S3 info from backup storage: %w", err)
