@@ -381,6 +381,14 @@ type DatabaseClusterSpec struct {
 	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
 }
 
+func (in *DataSource) IntoDBRestoreDataSource() DatabaseClusterRestoreDataSource {
+	return DatabaseClusterRestoreDataSource{
+		DBClusterBackupName: in.DBClusterBackupName,
+		BackupSource:        in.BackupSource,
+		PITR:                in.PITR,
+	}
+}
+
 const (
 	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
 	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
