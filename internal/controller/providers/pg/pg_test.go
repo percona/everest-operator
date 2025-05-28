@@ -3392,42 +3392,42 @@ func TestIsRestoredCluster(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name       string
-		oldRepos   []crunchyv1beta1.PGBackRestRepo
+		repo1value *crunchyv1beta1.PGBackRestRepo
 		isRestored bool
 	}
 	cases := []testCase{
 		{
 			name:       "no old repos - a.k.a new cluster",
-			oldRepos:   []crunchyv1beta1.PGBackRestRepo{},
+			repo1value: nil,
 			isRestored: false,
 		},
 		{
 			name: "repo1 with pvc is present",
-			oldRepos: []crunchyv1beta1.PGBackRestRepo{{
+			repo1value: &crunchyv1beta1.PGBackRestRepo{
 				Name:   "repo1",
 				Volume: &crunchyv1beta1.RepoPVC{},
-			}},
+			},
 			isRestored: false,
 		},
 		{
 			name: "repo1 without pvc is present - the cluster was restored",
-			oldRepos: []crunchyv1beta1.PGBackRestRepo{{
+			repo1value: &crunchyv1beta1.PGBackRestRepo{
 				Name: "repo1",
-			}},
+			},
 			isRestored: true,
 		},
 		{
 			name: "no repo1 is present", // not a real case, added just to check the theory
-			oldRepos: []crunchyv1beta1.PGBackRestRepo{{
+			repo1value: &crunchyv1beta1.PGBackRestRepo{
 				Name: "repo2",
-			}},
+			},
 			isRestored: false,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.isRestored, isRestoredCluster(tc.oldRepos))
+			assert.Equal(t, tc.isRestored, isRestoredCluster(tc.repo1value))
 		})
 	}
 }

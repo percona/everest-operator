@@ -398,14 +398,14 @@ func (p *pgReposReconciler) pgBackRestIniBytes() ([]byte, error) {
 	return pgBackrestSecretBuf.Bytes(), nil
 }
 
-func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage, oldRepos []crunchyv1beta1.PGBackRestRepo) ([]crunchyv1beta1.PGBackRestRepo, error) {
+func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage, repo1 *crunchyv1beta1.PGBackRestRepo) ([]crunchyv1beta1.PGBackRestRepo, error) {
 	// for the already restored_from_source clusters, the repo1 will be present but empty.
 	// to keep the existing reconciliation logic which excludes the repo1 from consideration.
 	defaultRepo := crunchyv1beta1.PGBackRestRepo{
 		Name: "repo1",
 	}
 	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, maxStorages)
-	if !isRestoredCluster(oldRepos) {
+	if !isRestoredCluster(repo1) {
 		// The PG operator requires a repo to be set up in order to create
 		// replicas. Without any credentials we can't set a cloud-based repo so we
 		// define a PVC-backed repo in case the user doesn't define any cloud-based
@@ -440,14 +440,8 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	return newRepos, nil
 }
 
-func isRestoredCluster(oldRepos []crunchyv1beta1.PGBackRestRepo) bool {
-	for _, repo := range oldRepos {
-		if repo.Name == "repo1" {
-			// If repo1 exists, the cluster considered as restored if Volume is not defined
-			return repo.Volume == nil
-		}
-	}
-	return false
+func isRestoredCluster(repo1 *crunchyv1beta1.PGBackRestRepo) bool {
+	return repo1 != nil && repo1.Name == "repo1" && repo1.Volume == nil
 }
 
 func (p *pgReposReconciler) addDataSourceRepo(
