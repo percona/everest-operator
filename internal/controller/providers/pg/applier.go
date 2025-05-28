@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -51,6 +51,7 @@ const (
 	pgBackRestStorageVerifyTmpl    = "%s-storage-verify-tls"
 	pgBackRestStorageForcePathTmpl = "%s-s3-uri-style"
 	pgBackRestStoragePathStyle     = "path"
+	repo1Name                      = "repo1"
 )
 
 var (
@@ -629,8 +630,7 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 		return nil, err
 	}
 
-	repoName := "repo1"
-	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupStorage, backupBaseName, repoName)
+	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupStorage, backupBaseName, repo1Name)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				fmt.Sprintf(pgBackRestPathTmpl, repoName): globalDatasourceDestination(dest, database, backupStorage),
+				fmt.Sprintf(pgBackRestPathTmpl, repo1Name): globalDatasourceDestination(dest, database, backupStorage),
 			},
 			Stanza:  "db",
 			Options: options,
@@ -656,11 +656,11 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	// Handle PG Datasource based on the backup storage type.
 	switch backupStorage.Spec.Type {
 	case everestv1alpha1.BackupStorageTypeS3:
-		if err := p.handlePGDataSourceS3(repoName, pgDataSource, backupStorage, database); err != nil {
+		if err := p.handlePGDataSourceS3(repo1Name, pgDataSource, backupStorage, database); err != nil {
 			return nil, err
 		}
 	case everestv1alpha1.BackupStorageTypeAzure:
-		if err := p.handlePGDataSourceAzure(repoName, pgDataSource, backupStorage, database); err != nil {
+		if err := p.handlePGDataSourceAzure(repo1Name, pgDataSource, backupStorage, database); err != nil {
 			return nil, err
 		}
 	default:
@@ -972,7 +972,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		// internally and sets the
 		// postgres-operator.crunchydata.com/pgbackrest-backup annotation.
 		newBackups.PGBackRest.Manual = &crunchyv1beta1.PGBackRestManualBackup{
-			RepoName: "repo1",
+			RepoName: repo1Name,
 		}
 	}
 
@@ -1254,12 +1254,12 @@ func reconcilePGBackRestRepos(
 	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
 }
 
-// in order to consider repo1 separately, this function splits the list of repos excluding the repo1 from the list
+// in order to consider repo1 separately, this function splits the list of repos excluding the repo1 from the list.
 func separateRepo1(repos []crunchyv1beta1.PGBackRestRepo) ([]crunchyv1beta1.PGBackRestRepo, *crunchyv1beta1.PGBackRestRepo) {
 	var newRepos []crunchyv1beta1.PGBackRestRepo
 	var repo1 *crunchyv1beta1.PGBackRestRepo
 	for _, repo := range repos {
-		if repo.Name != "repo1" {
+		if repo.Name != repo1Name {
 			newRepos = append(newRepos, repo)
 		} else {
 			repo1 = &repo

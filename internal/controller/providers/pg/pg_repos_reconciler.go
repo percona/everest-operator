@@ -402,7 +402,7 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	// for the already restored_from_source clusters, the repo1 will be present but empty.
 	// to keep the existing reconciliation logic which excludes the repo1 from consideration.
 	defaultRepo := crunchyv1beta1.PGBackRestRepo{
-		Name: "repo1",
+		Name: repo1Name,
 	}
 	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, maxStorages)
 	if !isRestoredCluster(repo1) {
@@ -441,7 +441,7 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 }
 
 func isRestoredCluster(repo1 *crunchyv1beta1.PGBackRestRepo) bool {
-	return repo1 != nil && repo1.Name == "repo1" && repo1.Volume == nil
+	return repo1 != nil && repo1.Name == repo1Name && repo1.Volume == nil
 }
 
 func (p *pgReposReconciler) addDataSourceRepo(
@@ -450,7 +450,7 @@ func (p *pgReposReconciler) addDataSourceRepo(
 	bsSecret *corev1.Secret,
 ) ([]crunchyv1beta1.PGBackRestRepo, error) {
 	repo := crunchyv1beta1.PGBackRestRepo{
-		Name: "repo1",
+		Name: repo1Name,
 		S3: &crunchyv1beta1.RepoS3{
 			Bucket:   bs.Spec.Bucket,
 			Endpoint: bs.Spec.EndpointURL,
