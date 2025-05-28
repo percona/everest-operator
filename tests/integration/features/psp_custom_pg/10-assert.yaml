@@ -24,7 +24,7 @@ resourceRefs:
     ref: pg
 assertAll:
   - celExpr: "!has(psp.metadata.finalizers)"
-    message: "psp has finalizers"
+    message: "psp has unexpected finalizers"
 
   - celExpr: "!has(db.spec.podSchedulingPolicyName)"
     message: "db.spec.podSchedulingPolicyName is not empty"

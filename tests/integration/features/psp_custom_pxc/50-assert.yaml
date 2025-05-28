@@ -19,7 +19,7 @@ resourceRefs:
     ref: psp
 assertAll:
   - celExpr: "!has(psp.metadata.finalizers)"
-    message: "psp has finalizers"
+    message: "psp has unexpected finalizers"
 
   - celExpr: "!has(psp.spec.affinityConfig.engine)"
     message: "psp.spec.affinityConfig.engine is not empty"

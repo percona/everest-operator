@@ -19,7 +19,7 @@
 # Add the monitoring namespace to the args
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --monitoring-namespace=everest-system
+  value: --monitoring-namespace=everest-monitoring
 # Add Percona version service ENV variable
 - op: add
   path: /spec/template/spec/containers/0/env/-

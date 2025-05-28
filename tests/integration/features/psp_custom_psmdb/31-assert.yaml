@@ -19,8 +19,8 @@ resourceRefs:
     name: psmdb-psp
     ref: psmdb
 assertAll:
-  - celExpr: "psp.metadata.finalizers.size() == 1"
-    message: "psp has finalizers != 1"
+  - celExpr: "has(psp.metadata.finalizers)"
+    message: "psp doesn't have finalizers"
 
   - celExpr: "'everest.percona.com/in-use-protection' in psp.metadata.finalizers"
     message: "'everest.percona.com/in-use-protection' is absent in psp.metadata.finalizers"

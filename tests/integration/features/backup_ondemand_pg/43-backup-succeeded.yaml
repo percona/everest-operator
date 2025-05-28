@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl patch perconapgbackup/test-db-backup-s3-2  --subresource status -n $NAMESPACE -p '{"status":{"state":"Succeeded","completed":"2025-01-01T01:02:03.04Z"}}' --type=merge

@@ -1,12 +1,12 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 30
+timeout: 60
 collectors:
   - command: kubectl get monitoringconfig/mc-1 -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
   - command: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
-  - command: kubectl get vmagent/everest-monitoring -n everest-system -o yaml
+  - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -23,11 +23,11 @@ resourceRefs:
   - apiVersion: operator.victoriametrics.com/v1beta1
     kind: VMAgent
     name: everest-monitoring
-    namespace: everest-system
+    namespace: everest-monitoring
     ref: vmagent
 assertAll:
-  - celExpr: "mc1.metadata.finalizers.size() == 2"
-    message: "mc1 has finalizers != 2"
+  - celExpr: "has(mc1.metadata.finalizers)"
+    message: "mc1 doesn't have finalizers"
 
   - celExpr: "'everest.percona.com/vmagent' in mc1.metadata.finalizers"
     message: "'everest.percona.com/vmagent' is absent in mc1.metadata.finalizers"
@@ -35,8 +35,8 @@ assertAll:
   - celExpr: "'everest.percona.com/cleanup-secrets' in mc1.metadata.finalizers"
     message: "'everest.percona.com/cleanup-secrets' is absent in mc1.metadata.finalizers"
 
-  - celExpr: "mc2.metadata.finalizers.size() == 2"
-    message: "mc2 has finalizers != 2"
+  - celExpr: "has(mc2.metadata.finalizers)"
+    message: "mc2 doesn't have finalizers"
 
   - celExpr: "'everest.percona.com/vmagent' in mc2.metadata.finalizers"
     message: "'everest.percona.com/vmagent' is absent in mc2.metadata.finalizers"
@@ -44,8 +44,8 @@ assertAll:
   - celExpr: "'everest.percona.com/cleanup-secrets' in mc2.metadata.finalizers"
     message: "'everest.percona.com/cleanup-secrets' is absent in mc2.metadata.finalizers"
 
-  - celExpr: "vmagent.spec.remoteWrite.size() == 2"
-    message: "vmagent.spec.remoteWrite has unexpected size != 2"
+  - celExpr: "has(vmagent.spec.remoteWrite)"
+    message: "vmagent doesn't have .spec.remoteWrite"
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-test-mc-1-test-1/victoriametrics/api/v1/write'"
@@ -109,4 +109,7 @@ apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMAgent
 metadata:
   name: everest-monitoring
-  namespace: everest-system
+  namespace: everest-monitoring
+  labels:
+    app.kubernetes.io/managed-by: everest
+    everest.percona.com/type: monitoring

@@ -6,7 +6,7 @@ collectors:
   - command: kubectl get secret/mc-1-secret -n ${NAMESPACE} -o yaml
   - command: kubectl get monitoringconfig/mc-2 -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-2-secret -n ${NAMESPACE} -o yaml
-  - command: kubectl get vmagent/everest-monitoring -n everest-system -o yaml
+  - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
