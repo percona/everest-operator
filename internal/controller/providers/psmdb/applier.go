@@ -763,6 +763,13 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	if len(storages) > 1 {
 		return emptySpec, common.ErrPSMDBOneStorageRestriction
 	}
+	if len(storages) == 1 {
+		for _, storage := range storages {
+			// mark the first and the single one as Main
+			storage.Main = true
+			break
+		}
+	}
 
 	psmdbBackupSpec.Storages = storages
 	psmdbBackupSpec.Tasks = tasks
