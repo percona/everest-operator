@@ -3,6 +3,8 @@ kind: TestAssert
 collectors:
   - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager

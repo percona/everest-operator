@@ -54,11 +54,15 @@ metadata:
   name: test-pxc-cluster
   labels:
     clusterName: test-pxc-cluster
+status:
+  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage

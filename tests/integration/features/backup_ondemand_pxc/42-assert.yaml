@@ -73,6 +73,8 @@ metadata:
   name: test-pxc-cluster
   labels:
     clusterName: test-pxc-cluster
+status:
+  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -87,6 +89,8 @@ spec:
           credentialsSecret: test-pxc-cluster-backup-s3
           endpointUrl: s3.amazonaws.com
           region: us-east-2
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup

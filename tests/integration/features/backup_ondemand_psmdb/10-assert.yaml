@@ -48,6 +48,8 @@ spec:
   proxy:
     replicas: 1
     type: mongos
+status:
+  status: creating
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB

@@ -54,11 +54,15 @@ metadata:
   name: test-psmdb-cluster
   labels:
     clusterName: test-psmdb-cluster
+status:
+  status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage

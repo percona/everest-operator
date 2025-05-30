@@ -3,6 +3,8 @@ kind: TestAssert
 collectors:
   - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -65,6 +67,8 @@ spec:
       cpu: 200m
       memory: 200M
     type: haproxy
+status:
+  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -211,3 +215,5 @@ spec:
   upgradeOptions:
     apply: never
     schedule: 0 4 * * *
+status:
+  state: ready

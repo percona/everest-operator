@@ -47,6 +47,8 @@ metadata:
   name: test-pg-cluster
   labels:
     clusterName: test-pg-cluster
+status:
+  status: ready
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
@@ -69,6 +71,8 @@ spec:
               resources:
                 requests:
                   storage: 1G
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage

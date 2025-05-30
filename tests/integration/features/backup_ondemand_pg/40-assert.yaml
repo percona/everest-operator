@@ -66,6 +66,8 @@ metadata:
   name: test-pg-cluster
   labels:
     clusterName: test-pg-cluster
+status:
+  status: ready
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
@@ -94,6 +96,8 @@ spec:
             bucket: test-backup-bucket
             endpoint: s3.amazonaws.com
             region: us-east-2
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
