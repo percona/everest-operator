@@ -8,9 +8,6 @@ collectors:
   - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
 
-  - command: kubectl get dbb/test-scheduled-backup-1 -n ${NAMESPACE} -o yaml
-  - command: kubectl get psmdb-backup/test-scheduled-backup-1 -n ${NAMESPACE} -o yaml
-
   - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
@@ -21,14 +18,6 @@ resourceRefs:
     kind: DatabaseCluster
     name: test-psmdb-cluster
     ref: db
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: DatabaseClusterBackup
-    name: test-scheduled-backup-1
-    ref: dbb1_s3
-  - apiVersion: psmdb.percona.com/v1
-    kind: PerconaServerMongoDBBackup
-    name: test-scheduled-backup-1
-    ref: psmdbb1_s3
   - apiVersion: everest.percona.com/v1alpha1
     kind: BackupStorage
     name: test-storage-s3
@@ -43,24 +32,6 @@ assertAll:
   - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
     message: "foregroundDeletion' is absent in db.metadata.finalizers"
 
-  - celExpr: "has(dbb1_s3.metadata.finalizers)"
-    message: "dbb1_s3 doesn't have finalizers"
-
-  - celExpr: "'foregroundDeletion' in dbb1_s3.metadata.finalizers"
-    message: "foregroundDeletion' is absent in dbb1_s3.metadata.finalizers"
-
-  - celExpr: "has(dbb1_s3.status.created)"
-    message: "dbb1_s3 doesn't have status.created field"
-
-  - celExpr: "!has(dbb1_s3.status.completed)"
-    message: "dbb1_s3 has unexpected status.completed field"
-
-  - celExpr: "has(psmdbb1_s3.metadata.finalizers)"
-    message: "psmdbb1_s3 doesn't have finalizers"
-
-  - celExpr: "'percona.com/delete-backup' in psmdbb1_s3.metadata.finalizers"
-    message: "percona.com/delete-backup' is absent in psmdbb1_s3.metadata.finalizers"
-
   - celExpr: "has(bs_s3.metadata.finalizers)"
     message: "bs_s3 doesn't have finalizers"
 
@@ -74,6 +45,23 @@ metadata:
   labels:
     backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
+spec:
+  engine:
+    type: psmdb
+    replicas: 1
+    storage:
+      size: 1G
+  proxy:
+    type: mongos
+    replicas: 1
+  backup:
+    enabled: true
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 1
+        backupStorageName: test-storage-s3
 status:
   status: ready
 ---
@@ -84,14 +72,6 @@ metadata:
 spec:
   backup:
     enabled: true
-    pitr:
-      enabled: true
-      oplogSpanMin: 2
-    configuration:
-      backupOptions:
-        oplogSpanMin: 0
-        timeouts:
-          startingStatus: 120
     tasks:
       - enabled: true
         keep: 1
@@ -109,40 +89,6 @@ spec:
         type: s3
 status:
   state: ready
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterBackup
-metadata:
-  name: test-scheduled-backup-1
-  labels:
-    backupStorage-test-storage-s3: used
-    clusterName: test-psmdb-cluster
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseCluster
-      blockOwnerDeletion: true
-      controller: true
-      name: test-psmdb-cluster
-spec:
-  backupStorageName: test-storage-s3
-  dbClusterName: test-psmdb-cluster
-status:
-  state: Starting
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDBBackup
-metadata:
-  name: test-scheduled-backup-1
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      blockOwnerDeletion: true
-      kind: DatabaseClusterBackup
-      name: test-scheduled-backup-1
-spec:
-  storageName: test-storage-s3
-  clusterName: test-psmdb-cluster
-status:
-  state: requested
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage

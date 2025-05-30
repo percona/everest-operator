@@ -70,6 +70,8 @@ metadata:
   labels:
     backupStorage-test-storage-s3: used
     clusterName: test-pxc-cluster
+status:
+  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
@@ -90,6 +92,8 @@ spec:
           region: us-east-2
         type: s3
         verifyTLS: false
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup

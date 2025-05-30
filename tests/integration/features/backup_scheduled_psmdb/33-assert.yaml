@@ -80,6 +80,8 @@ metadata:
   labels:
     backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
+status:
+  status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -103,6 +105,8 @@ spec:
           insecureSkipTLSVerify: true
           region: us-east-2
         type: s3
+status:
+  state: ready
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
