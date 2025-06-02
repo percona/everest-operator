@@ -330,10 +330,6 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
 		os.Exit(1)
 	}
-	if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
