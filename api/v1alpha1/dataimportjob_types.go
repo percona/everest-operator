@@ -15,8 +15,6 @@
 package v1alpha1
 
 import (
-	"reflect"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -121,16 +119,6 @@ type DataImportJobStatus struct {
 	// JobName is the reference to the job that is running the data import.
 	// +optional
 	JobName string `json:"jobName,omitempty"`
-}
-
-// Equals compares two DataImportJobSpec objects for equality.
-func (s *DataImportJobSpec) Equals(other DataImportJobSpec) bool {
-	return reflect.DeepEqual(s, other)
-}
-
-// Equals compares two DataImportJobTemplate objects for equality.
-func (s *DataImportJobTemplate) Equals(other DataImportJobTemplate) bool {
-	return reflect.DeepEqual(s, other)
 }
 
 func init() {
