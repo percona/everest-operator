@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/AlekSi/pointer"
@@ -517,40 +518,72 @@ func GetBackupStorage(
 	return backupStorage, nil
 }
 
-// ListDatabaseClusterBackups returns a list of DatabaseClusterBackup objects
-// for the DatabaseCluster with the specified name and namespace.
-func ListDatabaseClusterBackups(
+// DatabaseClustersThatReferenceObject returns a list of DatabaseClusters that
+// reference the given name by the provided keyPath and namespace.
+func DatabaseClustersThatReferenceObject(
 	ctx context.Context,
 	c client.Client,
-	dbName, dbNs string,
-) (*everestv1alpha1.DatabaseClusterBackupList, error) {
-	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(DBClusterBackupDBClusterNameField, dbName),
-		Namespace:     dbNs,
-	}
-	backupList := &everestv1alpha1.DatabaseClusterBackupList{}
-	if err := c.List(ctx, backupList, listOps); err != nil {
-		return nil, errors.Join(err, errors.New("failed to list DatabaseClusterBackup objects"))
-	}
-	return backupList, nil
+	keyPath, namespace, keyValue string,
+) (*everestv1alpha1.DatabaseClusterList, error) {
+	attachedList := &everestv1alpha1.DatabaseClusterList{}
+	err := findObjectsThatReferenceObject(ctx, c, attachedList, keyPath, namespace, keyValue)
+	return attachedList, err
 }
 
-// ListDatabaseClusterRestores lists the DatabaseClusterRestores
-// for the database specified by the name and namespace.
-func ListDatabaseClusterRestores(
+// DatabaseClusterBackupsThatReferenceObject returns a list of DatabaseClusterBackups that
+// reference the given name by the provided keyPath and namespace.
+func DatabaseClusterBackupsThatReferenceObject(
 	ctx context.Context,
 	c client.Client,
-	dbName, dbNs string,
+	keyPath, namespace, keyValue string,
+) (*everestv1alpha1.DatabaseClusterBackupList, error) {
+	attachedList := &everestv1alpha1.DatabaseClusterBackupList{}
+	err := findObjectsThatReferenceObject(ctx, c, attachedList, keyPath, namespace, keyValue)
+	return attachedList, err
+}
+
+// DatabaseClusterRestoresThatReferenceObject returns a list of DatabaseClusterRestores that
+// reference the given name by the provided keyPath and namespace.
+func DatabaseClusterRestoresThatReferenceObject(
+	ctx context.Context,
+	c client.Client,
+	keyPath, namespace, keyValue string,
 ) (*everestv1alpha1.DatabaseClusterRestoreList, error) {
-	restoreList := &everestv1alpha1.DatabaseClusterRestoreList{}
-	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(DBClusterRestoreDBClusterNameField, dbName),
-		Namespace:     dbNs,
+	attachedList := &everestv1alpha1.DatabaseClusterRestoreList{}
+	err := findObjectsThatReferenceObject(ctx, c, attachedList, keyPath, namespace, keyValue)
+	return attachedList, err
+}
+
+// BackupStoragesThatReferenceObject returns a list of BackupStorages that
+// reference the given name by the provided keyPath and namespace.
+func BackupStoragesThatReferenceObject(
+	ctx context.Context,
+	c client.Client,
+	keyPath, namespace, keyValue string,
+) (*everestv1alpha1.BackupStorageList, error) {
+	attachedList := &everestv1alpha1.BackupStorageList{}
+	err := findObjectsThatReferenceObject(ctx, c, attachedList, keyPath, namespace, keyValue)
+	return attachedList, err
+}
+
+// MonitoringConfigsThatReferenceObject returns a list of MonitoringConfig that
+// reference the given name by the provided keyPath and namespace.
+func MonitoringConfigsThatReferenceObject(
+	ctx context.Context,
+	c client.Client,
+	keyPath, namespace, keyValue string,
+) (*everestv1alpha1.MonitoringConfigList, error) {
+	attachedList := &everestv1alpha1.MonitoringConfigList{}
+	err := findObjectsThatReferenceObject(ctx, c, attachedList, keyPath, namespace, keyValue)
+	return attachedList, err
+}
+
+func findObjectsThatReferenceObject(ctx context.Context, c client.Client, objList client.ObjectList, keyPath, namespace, keyValue string) error {
+	listOpts := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(keyPath, keyValue),
+		Namespace:     namespace,
 	}
-	if err := c.List(ctx, restoreList, listOps); err != nil {
-		return nil, fmt.Errorf("failed to list DatabaseClusterRestore objects: %w", err)
-	}
-	return restoreList, nil
+	return c.List(ctx, objList, listOpts)
 }
 
 // GetDBMonitoringConfig returns the MonitoringConfig object
@@ -586,22 +619,6 @@ func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string
 	return psp, nil
 }
 
-// DatabaseClustersThatReferenceObject returns a list of DatabaseClusters that
-// reference the given name by the provided keyPath and namespace.
-func DatabaseClustersThatReferenceObject(
-	ctx context.Context,
-	c client.Client,
-	keyPath, namespace, name string,
-) (*everestv1alpha1.DatabaseClusterList, error) {
-	attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
-	listOps := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(keyPath, name),
-		Namespace:     namespace,
-	}
-	err := c.List(ctx, attachedDatabaseClusters, listOps)
-	return attachedDatabaseClusters, err
-}
-
 // IsDatabaseClusterRestoreRunning returns true if a restore is running for the
 // specified database, otherwise false.
 func IsDatabaseClusterRestoreRunning(
@@ -610,17 +627,14 @@ func IsDatabaseClusterRestoreRunning(
 	dbName, dbNs string,
 ) (bool, error) {
 	// List restores for this database.
-	restoreList, err := ListDatabaseClusterRestores(ctx, c, dbName, dbNs)
+	restoreList, err := DatabaseClusterRestoresThatReferenceObject(ctx, c, DBClusterRestoreDBClusterNameField, dbNs, dbName)
 	if err != nil {
 		return false, err
 	}
 	// Check if any are not yet complete?
-	for _, restore := range restoreList.Items {
-		if !restore.IsComplete() {
-			return true, nil
-		}
-	}
-	return false, nil
+	return slices.ContainsFunc(restoreList.Items, func(dbr everestv1alpha1.DatabaseClusterRestore) bool {
+		return dbr.IsInProgress()
+	}), nil
 }
 
 // GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage.
@@ -669,7 +683,7 @@ func deleteBackupsForDatabase(
 	c client.Client,
 	dbName, dbNs string,
 ) (bool, error) {
-	backupList, err := ListDatabaseClusterBackups(ctx, c, dbName, dbNs)
+	backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, DBClusterBackupDBClusterNameField, dbNs, dbName)
 	if err != nil {
 		return false, err
 	}
@@ -698,7 +712,7 @@ func HandleUpstreamClusterCleanup(
 ) (bool, error) {
 	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
 		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
-		backupList, err := ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+		backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 		if err != nil {
 			return false, err
 		}
@@ -915,4 +929,19 @@ func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespac
 		}
 	}
 	return false, "", nil
+}
+
+// EnsureInUseFinalizer ensures that the InUseResourceFinalizer is present or absent
+func EnsureInUseFinalizer(ctx context.Context, c client.Client, used bool, obj client.Object) error {
+	var updated bool
+	if used {
+		updated = controllerutil.AddFinalizer(obj, everestv1alpha1.InUseResourceFinalizer)
+	} else {
+		updated = controllerutil.RemoveFinalizer(obj, everestv1alpha1.InUseResourceFinalizer)
+	}
+
+	if updated {
+		return c.Update(ctx, obj)
+	}
+	return nil
 }

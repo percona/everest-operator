@@ -111,7 +111,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}()
 
-	if err = r.ensureFinalizers(ctx, len(dbList.Items) > 0, mc); err != nil {
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, mc); err != nil {
 		logger.Error(err, fmt.Sprintf("failed to update finalizers for monitoring config='%s'", mcName))
 		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for monitoring config='%s': %w", mcName, err))
 	}
@@ -147,9 +147,9 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	logger.Info("Reconciling")
+	logger.Info("Reconciling VMAgent")
 	defer func() {
-		logger.Info("Reconciled")
+		logger.Info("Reconciled VMAgent")
 	}()
 	if err := r.reconcileVMAgent(ctx); err != nil {
 		return ctrl.Result{}, err
@@ -173,12 +173,7 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmAgentResourceName,
 			Namespace: r.monitoringNamespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "everest",
-				"everest.percona.com/type":     "monitoring",
-			},
 		},
-		Spec: vmAgentSpec,
 	}
 
 	// No remote writes, delete the VMAgent.
@@ -190,6 +185,10 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
+		vmAgent.SetLabels(map[string]string{
+			"app.kubernetes.io/managed-by": "everest",
+			"everest.percona.com/type":     "monitoring",
+		})
 		vmAgent.Spec = vmAgentSpec
 		return nil
 	})
@@ -301,22 +300,12 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitor
 	return spec, nil
 }
 
-func (r *MonitoringConfigReconciler) ensureFinalizers(ctx context.Context, used bool, mc *everestv1alpha1.MonitoringConfig) error {
-	var updated bool
-	if used {
-		updated = controllerutil.AddFinalizer(mc, everestv1alpha1.InUseResourceFinalizer)
-	} else {
-		updated = controllerutil.RemoveFinalizer(mc, everestv1alpha1.InUseResourceFinalizer)
-	}
-
-	if updated {
-		return r.Update(ctx, mc)
-	}
-	return nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return err
+	}
+
 	// Predicate to trigger reconciliation only on .spec.monitoring.monitoringConfigName changes in the DatabaseCluster resource.
 	dbClusterEventsPredicate := predicate.Funcs{
 		// Allow create events only if the .spec.monitoring.monitoringConfigName is set
@@ -359,7 +348,10 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringConfig").
 		For(&everestv1alpha1.MonitoringConfig{}).
-		Watches(&vmv1beta1.VMAgent{}, r.enqueueMonitoringConfigs()).
+		Owns(&vmv1beta1.VMAgent{}).
+		Watches(&vmv1beta1.VMAgent{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueMonitoringConfigs),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
 		// need to watch DBClusters that reference MonitoringConfig to update the it's status.
@@ -390,34 +382,50 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 		Complete(r)
 }
 
+func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the credentialsSecretName field in MonitoringConfig.
+	err := mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
+		func(o client.Object) []string {
+			var res []string
+			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return res
+			}
+			res = append(res, mc.Spec.CredentialsSecretName)
+			return res
+		},
+	)
+
+	return err
+}
+
 // enqueueMonitoringConfigs enqueues MonitoringConfig objects for reconciliation when a VMAgent is created/updated/deleted.
-//
-//nolint:ireturn
-func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		vmAgent, ok := o.(*vmv1beta1.VMAgent)
-		if !ok {
-			return nil
-		}
-		if vmAgent.GetNamespace() != r.monitoringNamespace {
-			return nil
-		}
-		list := &everestv1alpha1.MonitoringConfigList{}
-		err := r.List(ctx, list)
-		if err != nil {
-			return nil
-		}
-		requests := make([]reconcile.Request, 0, len(list.Items))
-		for _, mc := range list.Items {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      mc.GetName(),
-					Namespace: mc.GetNamespace(),
-				},
-			})
-		}
-		return requests
-	})
+func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs(ctx context.Context, o client.Object) []reconcile.Request {
+	vmAgent, ok := o.(*vmv1beta1.VMAgent)
+	if !ok {
+		return nil
+	}
+	if vmAgent.GetNamespace() != r.monitoringNamespace {
+		return nil
+	}
+
+	list := &everestv1alpha1.MonitoringConfigList{}
+	err := r.List(ctx, list)
+	if err != nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, mc := range list.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      mc.GetName(),
+				Namespace: mc.GetNamespace(),
+			},
+		})
+	}
+	return requests
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.

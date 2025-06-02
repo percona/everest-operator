@@ -577,16 +577,18 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
-	// Index the credentialsSecretName field in MonitoringConfig.
+	// Index the monitoringConfigName field in DatabaseCluster.
 	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
+		ctx, &everestv1alpha1.DatabaseCluster{}, monitoringConfigNameField,
 		func(o client.Object) []string {
 			var res []string
-			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
+			dc, ok := o.(*everestv1alpha1.DatabaseCluster)
 			if !ok {
 				return res
 			}
-			res = append(res, mc.Spec.CredentialsSecretName)
+			if dc.Spec.Monitoring != nil {
+				res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
+			}
 			return res
 		},
 	)
@@ -715,7 +717,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, monitoringConfigNameField, obj.GetNamespace(), obj.GetName())
+			mc, ok := obj.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				monitoringConfigNameField, mc.GetNamespace(), mc.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
