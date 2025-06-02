@@ -25,8 +25,11 @@ const (
 
 	// DBClusterRestoreDBClusterNameField is the field in the DatabaseClusterRestore CR.
 	DBClusterRestoreDBClusterNameField = ".spec.dbClusterName"
+
 	// DBClusterBackupDBClusterNameField is the field in the DatabaseClusterBackup CR.
 	DBClusterBackupDBClusterNameField = ".spec.dbClusterName"
+	// DBClusterBackupBackupStorageNameField is the field in the DatabaseClusterBackup CR.
+	DBClusterBackupBackupStorageNameField = ".spec.backupStorageName"
 
 	// TopologyKeyHostname is the topology key for hostname.
 	TopologyKeyHostname = "kubernetes.io/hostname"

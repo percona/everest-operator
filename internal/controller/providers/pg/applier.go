@@ -971,7 +971,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	}
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return pgv2.Backups{}, err
 	}

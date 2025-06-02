@@ -17,7 +17,11 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
 
+	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,10 +45,10 @@ type BackupStorageReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;watch;list
+// +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;watch;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -55,10 +59,14 @@ type BackupStorageReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	bs := &everestv1alpha1.BackupStorage{}
+func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
+	logger.Info("Reconciling")
+	defer func() {
+		logger.Info("Reconciled")
+	}()
 
+	bs := &everestv1alpha1.BackupStorage{}
 	err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, bs)
 	if err != nil {
 		// NotFound cannot be fixed by requeuing so ignore it. During background
@@ -69,34 +77,69 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return reconcile.Result{}, err
 	}
-	defaultSecret := &corev1.Secret{}
+
+	bsSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
-		Name:      req.Name,
+		Name:      bs.Spec.CredentialsSecretName,
 		Namespace: req.Namespace,
 	},
-		defaultSecret)
+		bsSecret)
 	if err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
-			logger.Error(err, "unable to fetch Secret")
+			logger.Error(err, "unable to fetch Secret", "secretName", bs.Spec.CredentialsSecretName)
 		}
 		return ctrl.Result{}, err
 	}
 
 	// If the default secret is not owned/controlled by anyone, we will adopt it.
-	if controller := metav1.GetControllerOf(defaultSecret); controller == nil {
+	if controller := metav1.GetControllerOf(bsSecret); controller == nil {
 		logger.Info("setting controller reference for the secret")
-		if err := controllerutil.SetControllerReference(bs, defaultSecret, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(bs, bsSecret, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.Update(ctx, defaultSecret); err != nil {
+		if err := r.Update(ctx, bsSecret); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
+
+	bsName := bs.GetName()
+	bsUsed, err := r.isBackupStorageUsed(ctx, bs)
+	if err != nil {
+		msg := fmt.Sprintf("failed to check if backup storage='%s' is used", bs.GetName())
+		logger.Error(err, msg)
+		return ctrl.Result{}, fmt.Errorf("%s: %v", msg, err)
+	}
+	// Update the status of the BackupStorage object after the reconciliation.
+	defer func() {
+		// Nothing to process on delete events
+		if !bs.GetDeletionTimestamp().IsZero() {
+			return
+		}
+
+		bs.Status.InUse = bsUsed
+		bs.Status.LastObservedGeneration = bs.GetGeneration()
+		if err = r.Client.Status().Update(ctx, bs); err != nil {
+			rr = ctrl.Result{}
+			msg := fmt.Sprintf("failed to update status for backup storage='%s'", bsName)
+			logger.Error(err, msg)
+			rerr = fmt.Errorf("%s: %v", msg, err)
+		}
+	}()
+
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, bsUsed, bs); err != nil {
+		logger.Error(err, fmt.Sprintf("failed to update finalizers for backup storage='%s'", bsName))
+		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for backup storage='%s': %w", bsName, err))
+	}
+
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("BackupStorage").
 		For(&everestv1alpha1.BackupStorage{}).
@@ -106,12 +149,122 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageForSecret),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
-		WithEventFilter(common.DefaultNamespaceFilter).
 		Watches(
 			&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.BackupStorageList{}),
 		).
+		// need to watch DatabaseClusterBackup that reference BackupStorage to update the storage status.
+		Watches(
+			&everestv1alpha1.DatabaseClusterBackup{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				dbb, ok := obj.(*everestv1alpha1.DatabaseClusterBackup)
+				if !ok || dbb.Spec.BackupStorageName == "" {
+					return []reconcile.Request{}
+				}
+
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      dbb.Spec.BackupStorageName,
+							Namespace: dbb.GetNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
+		// need to watch DatabaseCluster that reference BackupStorage to update the storage status.
+		Watches(
+			&everestv1alpha1.DatabaseCluster{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+				if !ok {
+					return []reconcile.Request{}
+				}
+
+				// use map to avoid duplicates of BackupStorage name+namespace pairs
+				bsToReconcileMap := make(map[types.NamespacedName]struct{})
+
+				// get BackupStorage from scheduled backups
+				for _, bsName := range db.Spec.Backup.Schedules {
+					if bsName.BackupStorageName == "" {
+						// No BackupStorageName specified, no need to enqueue
+						continue
+					}
+					bsToReconcileMap[types.NamespacedName{
+						Name:      bsName.BackupStorageName,
+						Namespace: db.GetNamespace(),
+					}] = struct{}{}
+				}
+
+				// get BackupStorage from PITR backups
+				if db.Spec.Backup.PITR.Enabled &&
+					pointer.Get(db.Spec.Backup.PITR.BackupStorageName) != "" {
+					bsToReconcileMap[types.NamespacedName{
+						Name:      pointer.Get(db.Spec.Backup.PITR.BackupStorageName),
+						Namespace: db.GetNamespace(),
+					}] = struct{}{}
+				}
+
+				// get BackupStorage from spec.dataSource.backupSource
+				if pointer.Get(pointer.Get(db.Spec.DataSource).BackupSource).BackupStorageName != "" {
+					bsToReconcileMap[types.NamespacedName{
+						Name:      pointer.Get(pointer.Get(db.Spec.DataSource).BackupSource).BackupStorageName,
+						Namespace: db.GetNamespace(),
+					}] = struct{}{}
+				}
+
+				requests := make([]reconcile.Request, len(bsToReconcileMap))
+				for bs := range bsToReconcileMap {
+					requests = append(requests, reconcile.Request{NamespacedName: bs})
+				}
+
+				return requests
+			}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
+		// need to watch DatabaseClusterRestore that reference BackupStorage to update the storage status.
+		Watches(
+			&everestv1alpha1.DatabaseClusterRestore{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				dbr, ok := obj.(*everestv1alpha1.DatabaseClusterRestore)
+				if !ok || pointer.Get(dbr.Spec.DataSource.BackupSource).BackupStorageName == "" {
+					return []reconcile.Request{}
+				}
+
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      dbr.Spec.DataSource.BackupSource.BackupStorageName,
+							Namespace: dbr.GetNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		WithEventFilter(common.DefaultNamespaceFilter).
 		Complete(r)
+}
+
+func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the BackupStorage's CredentialsSecretName field so that it can be
+	// used by the databaseClustersThatReferenceSecret function to
+	// find all DatabaseClusters that reference a specific secret through the
+	// BackupStorage's CredentialsSecretName field
+	err := mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField,
+		func(o client.Object) []string {
+			var res []string
+			backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
+			if !ok {
+				return res
+			}
+			return append(res, backupStorage.Spec.CredentialsSecretName)
+		},
+	)
+
+	return err
 }
 
 func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Context, obj client.Object) []reconcile.Request {
@@ -129,4 +282,46 @@ func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Contex
 			Namespace: secret.GetNamespace(),
 		},
 	}}
+}
+
+func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
+	// Check if the backup storage is used by any database cluster backups through the DBClusterBackupBackupStorageNameField field
+	if dbbList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client, common.DBClusterBackupBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB cluster backups that use backup storage='%s' through '%s' field: %v", bs.GetName(), common.DBClusterBackupBackupStorageNameField, err)
+	} else if len(dbbList.Items) > 0 {
+		return true, nil
+	}
+
+	// Check if the backup storage is used by any database clusters through the BackupStorageName field
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, backupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), backupStorageNameField, err)
+	} else if len(dbList.Items) > 0 {
+		return true, nil
+	}
+
+	// Check if the backup storage is used by any database clusters through the PITRBackupStorageName field
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, pitrBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), pitrBackupStorageNameField, err)
+	} else if len(dbList.Items) > 0 {
+		return true, nil
+	}
+
+	// Check if the backup storage is used by any database clusters through the DBClusterDataSourceBackupStorageNameField field
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, dataSourceBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), dataSourceBackupStorageNameField, err)
+	} else if len(dbList.Items) > 0 {
+		return true, nil
+	}
+
+	// Check if the backup storage is used by any database cluster restore through the dbClusterRestoreDataSourceBackupStorageNameField field
+	if dbrList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, r.Client, dbClusterRestoreDataSourceBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB cluster restores that use backup storage='%s' through '%s' field: %v", bs.GetName(), dbClusterRestoreDataSourceBackupStorageNameField, err)
+	} else if len(dbrList.Items) > 0 {
+		return slices.ContainsFunc(dbrList.Items, func(dbr everestv1alpha1.DatabaseClusterRestore) bool {
+			// If any of the restores is in progress, we consider the backup storage as used.
+			return dbr.IsInProgress()
+		}), nil
+	}
+
+	return false, nil
 }

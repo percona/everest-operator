@@ -717,7 +717,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return emptySpec, err
 	}

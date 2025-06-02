@@ -736,7 +736,7 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	storages := make(map[string]*pxcv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(p.ctx, p.C, database.GetName(), database.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(p.ctx, p.C, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return nil, err
 	}
