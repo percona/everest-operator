@@ -20,9 +20,9 @@ components:
           type: object
           description: specifies the database cluster and connection details for the import operation.
           "$ref": '#/components/schemas/Target'
-        params:
+        config:
           type: object
-          description: Contains parameters for customizing the import process, specific to the DataImporter used.
+          description: Contains configuration for customizing the import process, specific to the DataImporter used.
           additionalProperties: true
           x-go-type-skip-optional-pointer: true
       required:

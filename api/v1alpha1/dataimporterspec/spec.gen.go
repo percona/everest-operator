@@ -53,8 +53,8 @@ type Source struct {
 //
 // This serves as a contract between Everest and external importers.
 type Spec struct {
-	// Params Contains parameters for customizing the import process, specific to the DataImporter used.
-	Params map[string]interface{} `json:"params,omitempty"`
+	// Config Contains configuration for customizing the import process, specific to the DataImporter used.
+	Config map[string]interface{} `json:"config,omitempty"`
 
 	// Source contains the location and method for the data to be imported.
 	Source Source `json:"source"`
