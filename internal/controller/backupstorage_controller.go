@@ -272,16 +272,17 @@ func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Contex
 	if !ok {
 		return nil
 	}
-	backupStorageName, ok := secret.Labels[common.LabelBackupStorageName]
-	if !ok {
-		return nil
+
+	if owners := secret.GetOwnerReferences(); len(owners) != 0 {
+		return []reconcile.Request{{
+			NamespacedName: types.NamespacedName{
+				Name:      owners[0].Name,
+				Namespace: secret.GetNamespace(),
+			},
+		}}
 	}
-	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Name:      backupStorageName,
-			Namespace: secret.GetNamespace(),
-		},
-	}}
+
+	return nil
 }
 
 func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {

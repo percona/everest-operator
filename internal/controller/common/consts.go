@@ -62,8 +62,6 @@ const (
 	// ClusterTypeMinikube represents the Minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
 
-	// LabelBackupStorageName is the label for backup storage name.
-	LabelBackupStorageName = "percona.com/backup-storage-name"
 	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
 	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 
