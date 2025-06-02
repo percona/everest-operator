@@ -47,17 +47,17 @@ spec:
             type: object
           spec:
             properties:
+              config:
+                description: |-
+                  Config defines the configuration for the data import job.
+                  These options are specific to the DataImporter being used and must conform to
+                  the schema defined in the DataImporter's .spec.config.openAPIV3Schema.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               dataImporterName:
                 description: DataImporterName is the data importer to use for the
                   import.
                 type: string
-              parameters:
-                description: |-
-                  Params defines the configuration parameters for the data import job.
-                  These parameters are specific to the DataImporter being used and must conform to
-                  the schema defined in the DataImporter's .spec.config.openAPIV3Schema.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               source:
                 description: Source is the source of the data to import.
                 properties:

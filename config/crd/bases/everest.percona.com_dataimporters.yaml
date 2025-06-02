@@ -64,8 +64,10 @@ spec:
                   DatabaseCluster that the data importer can be used with.
                 properties:
                   requiredFields:
-                    description: RequiredFields contains a list of fields that must
-                      be set in the DatabaseCluster spec.
+                    description: |-
+                      RequiredFields contains a list of fields that must be set in the DatabaseCluster spec.
+                      Each key is a JSON path expressions that points to a field in the DatabaseCluster spec.
+                      For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
                     items:
                       type: string
                     type: array
