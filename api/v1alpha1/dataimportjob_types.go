@@ -17,7 +17,6 @@ package v1alpha1
 import (
 	"reflect"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -25,7 +24,7 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName=dij
-//+kubebuilder:printcolumn:name="TargetCluster",type="string",JSONPath=".spec.targetClusterRef.name"
+//+kubebuilder:printcolumn:name="TargetCluster",type="string",JSONPath=".spec.targetClusterName"
 //+kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 
 // DataImportJob is the schema for the dataimportjobs API.
@@ -61,19 +60,16 @@ type DataImportJobTemplate struct {
 }
 
 type DataImportJobSource struct {
-	// BackupStorageRef is the reference to the backup storage.
+	// S3 contains the S3 information for the data import.
 	// +optional
-	BackupStorageRef *corev1.LocalObjectReference `json:"backupStorageRef,omitempty"`
-	// S3Ref is the reference to the S3 source.
-	// +optional
-	S3Ref *DataImportJobS3SourceRef `json:"s3,omitempty"`
+	S3 *DataImportJobS3Source `json:"s3,omitempty"`
 	// Path is the path to the directory to import the data from.
 	// This may be a path to a file or a directory, depending on the data importer.
 	// +optional
 	Path string `json:"path,omitempty"`
 }
 
-type DataImportJobS3SourceRef struct {
+type DataImportJobS3Source struct {
 	// Bucket is the name of the S3 bucket.
 	Bucket string `json:"bucket,omitempty"`
 	// Region is the region of the S3 bucket.
@@ -90,9 +86,10 @@ type DataImportJobS3SourceRef struct {
 	//
 	// +kubebuilder:default:=false
 	ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
-	// CredentialsSecretRef is the reference to the secret containing the S3 credentials.
+	// CredentialsSecreName is the reference to the secret containing the S3 credentials.
 	// The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-	CredentialsSecretRef corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
+	// +kubebuilder:validation:Required
+	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -121,9 +118,9 @@ type DataImportJobStatus struct {
 	Phase DataImportJobPhase `json:"phase,omitempty"`
 	// Message is the message of the data import job.
 	Message string `json:"message,omitempty"`
-	// JobRef is the reference to the job that is running the data import.
+	// JobName is the reference to the job that is running the data import.
 	// +optional
-	JobRef *corev1.LocalObjectReference `json:"jobRef,omitempty"`
+	JobName string `json:"jobName,omitempty"`
 }
 
 // Equals compares two DataImportJobSpec objects for equality.

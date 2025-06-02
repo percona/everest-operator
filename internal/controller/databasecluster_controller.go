@@ -267,9 +267,7 @@ func (re *DatabaseClusterReconciler) observeDataImportState(
 		return client.IgnoreNotFound(err)
 	}
 
-	db.Status.DataImportJobRef = &corev1.LocalObjectReference{
-		Name: diJob.GetName(),
-	}
+	db.Status.DataImportJobName = pointer.To(diJob.GetName())
 
 	sts := diJob.Status
 	switch {

@@ -435,10 +435,10 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
-	// DataImportJobRef is the reference to the DataImportJob CR.
+	// DataImportJobName refers to the DataImportJob that is used to import data into the cluster.
 	// This is set only when .spec.dataSource.dataImport is set.
 	// +optional
-	DataImportJobRef *corev1.LocalObjectReference `json:"dataImportJobRef,omitempty"`
+	DataImportJobName *string `json:"dataImportJobName,omitempty"`
 	// Conditions contains the observed conditions of the DatabaseCluster.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

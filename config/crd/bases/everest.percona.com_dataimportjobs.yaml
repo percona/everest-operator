@@ -17,7 +17,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.targetClusterRef.name
+    - jsonPath: .spec.targetClusterName
       name: TargetCluster
       type: string
     - jsonPath: .status.phase
@@ -61,47 +61,22 @@ spec:
               source:
                 description: Source is the source of the data to import.
                 properties:
-                  backupStorageRef:
-                    description: BackupStorageRef is the reference to the backup storage.
-                    properties:
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
                   path:
                     description: |-
                       Path is the path to the directory to import the data from.
                       This may be a path to a file or a directory, depending on the data importer.
                     type: string
                   s3:
-                    description: S3Ref is the reference to the S3 source.
+                    description: S3 contains the S3 information for the data import.
                     properties:
                       bucket:
                         description: Bucket is the name of the S3 bucket.
                         type: string
-                      credentialsSecretRef:
+                      credentialsSecretName:
                         description: |-
-                          CredentialsSecretRef is the reference to the secret containing the S3 credentials.
+                          CredentialsSecreName is the reference to the secret containing the S3 credentials.
                           The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-                        properties:
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
+                        type: string
                       endpointURL:
                         description: EndpointURL is an endpoint URL of backup storage.
                         type: string
@@ -120,6 +95,8 @@ spec:
                           VerifyTLS is set to ensure TLS/SSL verification.
                           If unspecified, the default value is true.
                         type: boolean
+                    required:
+                    - credentialsSecretName
                     type: object
                 type: object
               targetClusterName:
@@ -132,21 +109,10 @@ spec:
             type: object
           status:
             properties:
-              jobRef:
-                description: JobRef is the reference to the job that is running the
+              jobName:
+                description: JobName is the reference to the job that is running the
                   data import.
-                properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
+                type: string
               lastObservedGeneration:
                 description: LastObservedGeneration is the last observed generation
                   of the data import job.

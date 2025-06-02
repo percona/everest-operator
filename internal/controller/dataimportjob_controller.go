@@ -198,7 +198,7 @@ func validateSchema(schema *v1.JSONSchemaProps, params *runtime.RawExtension) er
 }
 
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
-	jobName := pointer.Get(diJob.Status.JobRef).Name
+	jobName := diJob.Status.JobName
 	if jobName == "" {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhasePending
 		return nil
@@ -268,23 +268,12 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		},
 	}
 
-	bsRef := pointer.Get(diJob.Spec.Source.BackupStorageRef)
 	// Get S3 info
-	switch {
-	case bsRef.Name != "":
-		s3Info, err := r.getS3InfoFromBackupStorage(ctx, diJob.Spec.Source.BackupStorageRef.Name, diJob.GetNamespace())
-		if err != nil {
-			return fmt.Errorf("failed to get S3 info from backup storage: %w", err)
-		}
-		req.Source.S3 = s3Info
-	case diJob.Spec.Source.S3Ref != nil:
-		s3Info, err := r.getS3Info(ctx, diJob)
-		if err != nil {
-			return fmt.Errorf("failed to get S3 info: %w", err)
-		}
-		req.Source.S3 = s3Info
+	s3Info, err := r.getS3Info(ctx, diJob)
+	if err != nil {
+		return fmt.Errorf("failed to get S3 info: %w", err)
 	}
-
+	req.Source.S3 = s3Info
 	req.Source.Path = diJob.Spec.Source.Path
 
 	cfgMap := map[string]any{}
@@ -344,21 +333,21 @@ func (r *DataImportJobReconciler) getS3Info(
 	ctx context.Context,
 	dij *everestv1alpha1.DataImportJob,
 ) (*dataimporterspec.S3, error) {
-	if dij.Spec.Source.S3Ref == nil {
+	if dij.Spec.Source.S3 == nil {
 		return nil, errors.New("s3 info not provided")
 	}
 	info := dataimporterspec.S3{}
-	keyId, keySecret, err := r.getS3Credentials(ctx, dij.Spec.Source.S3Ref.CredentialsSecretRef.Name, dij.GetNamespace())
+	keyId, keySecret, err := r.getS3Credentials(ctx, dij.Spec.Source.S3.CredentialsSecretName, dij.GetNamespace())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
 	info.AccessKeyID = keyId
 	info.SecretKey = keySecret
-	info.Bucket = dij.Spec.Source.S3Ref.Bucket
-	info.Region = dij.Spec.Source.S3Ref.Region
-	info.EndpointURL = dij.Spec.Source.S3Ref.EndpointURL
-	info.VerifyTLS = pointer.Get(dij.Spec.Source.S3Ref.VerifyTLS)
-	info.ForcePathStyle = pointer.Get(dij.Spec.Source.S3Ref.ForcePathStyle)
+	info.Bucket = dij.Spec.Source.S3.Bucket
+	info.Region = dij.Spec.Source.S3.Region
+	info.EndpointURL = dij.Spec.Source.S3.EndpointURL
+	info.VerifyTLS = pointer.Get(dij.Spec.Source.S3.VerifyTLS)
+	info.ForcePathStyle = pointer.Get(dij.Spec.Source.S3.ForcePathStyle)
 	return &info, nil
 }
 
@@ -433,9 +422,7 @@ func (r *DataImportJobReconciler) ensureImportJob(
 	}
 
 	defer func() {
-		diJob.Status.JobRef = &corev1.LocalObjectReference{
-			Name: job.GetName(),
-		}
+		diJob.Status.JobName = job.GetName()
 	}()
 
 	// Check if the job already exists.
