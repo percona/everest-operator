@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -92,27 +91,13 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}()
 
-	if err = r.ensureFinalizers(ctx, len(dbList.Items) > 0, psp); err != nil {
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, psp); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", pspName)
 		logger.Error(err, msg)
 		return ctrl.Result{}, fmt.Errorf("%s: %v", msg, err)
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, used bool, psp *everestv1alpha1.PodSchedulingPolicy) error {
-	var updated bool
-	if used {
-		updated = controllerutil.AddFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
-	} else {
-		updated = controllerutil.RemoveFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
-	}
-
-	if updated {
-		return r.Update(ctx, psp)
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

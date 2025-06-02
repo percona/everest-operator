@@ -66,13 +66,13 @@ const (
 	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey = "everest.percona.com/restart"
 
-	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
-	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
-	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
-	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameDBBackupField  = ".spec.backupStorageName"
-	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
+	monitoringConfigNameField        = ".spec.monitoring.monitoringConfigName"
+	monitoringConfigSecretNameField  = ".spec.credentialsSecretName" //nolint:gosec
+	backupStorageNameField           = ".spec.backup.schedules.backupStorageName"
+	pitrBackupStorageNameField       = ".spec.backup.pitr.backupStorageName"
+	credentialsSecretNameField       = ".spec.credentialsSecretName" //nolint:gosec
+	podSchedulingPolicyNameField     = ".spec.podSchedulingPolicyName"
+	dataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
 
 	databaseClusterNameLabel   = "clusterName"
 	backupStorageNameLabelTmpl = "backupStorage-%s"
@@ -700,7 +700,10 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetBackupStoragePredicate(),
+			defaultPredicate,
+		),
 	)
 
 	// We watch DBEngines since they contain the result of the operator upgrades.
@@ -748,7 +751,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&everestv1alpha1.PodSchedulingPolicy{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", obj.GetName())
+			psp, ok := obj.(*everestv1alpha1.PodSchedulingPolicy)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				podSchedulingPolicyNameField, "", psp.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -767,6 +776,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		}),
 		builder.WithPredicates(predicate.GenerationChangedPredicate{},
 			predicates.GetPodSchedulingPolicyPredicate()),
+		// defaultPredicate is not needed here since PodSchedulingPolicy doesn't belong to any namespace.
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
@@ -779,7 +789,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{}, defaultPredicate),
 	)
 
 	controller.Watches(
