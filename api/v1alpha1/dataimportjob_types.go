@@ -38,12 +38,12 @@ type DataImportJobTemplate struct {
 	// Source is the source of the data to import.
 	// +kubebuilder:validation:Required
 	Source *DataImportJobSource `json:"source,omitempty"`
-	// Params defines the configuration parameters for the data import job.
-	// These parameters are specific to the DataImporter being used and must conform to
+	// Config defines the configuration for the data import job.
+	// These options are specific to the DataImporter being used and must conform to
 	// the schema defined in the DataImporter's .spec.config.openAPIV3Schema.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Params *runtime.RawExtension `json:"parameters,omitempty"`
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 type DataImportJobSource struct {

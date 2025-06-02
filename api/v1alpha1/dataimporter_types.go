@@ -71,8 +71,8 @@ type DataImporterConfig struct {
 // ErrSchemaValidationFailure is returned when the parameters do not conform to the DataImporter schema defined in .spec.config
 var ErrSchemaValidationFailure = errors.New("schema validation failed")
 
-// ValidateParams validates the parameters for the data importer.
-func (cfg *DataImporterConfig) ValidateParams(params *runtime.RawExtension) error {
+// Validate the config for the data importer.
+func (cfg *DataImporterConfig) Validate(params *runtime.RawExtension) error {
 	schema := cfg.OpenAPIV3Schema
 	if schema == nil && params != nil {
 		return ErrSchemaValidationFailure
@@ -126,6 +126,8 @@ type DataImporterJobSpec struct {
 
 type DataImporterDatabaseClusterConstraints struct {
 	// RequiredFields contains a list of fields that must be set in the DatabaseCluster spec.
+	// Each key is a JSON path expressions that points to a field in the DatabaseCluster spec.
+	// For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
 	// +optional
 	RequiredFields []string `json:"requiredFields,omitempty"`
 }

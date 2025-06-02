@@ -454,8 +454,8 @@ func (in *DataImportJobTemplate) DeepCopyInto(out *DataImportJobTemplate) {
 		*out = new(DataImportJobSource)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Params != nil {
-		in, out := &in.Params, &out.Params
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}

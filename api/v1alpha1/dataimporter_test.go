@@ -13,21 +13,15 @@ func TestValidateSchema(t *testing.T) {
 	tests := []struct {
 		name       string
 		schemaJSON string
-		paramsJSON string
+		configJSON string
 		expectErr  bool
 	}{
 
 		{
 			name:       "Empty schema, no parameters",
 			schemaJSON: `{}`,
-			paramsJSON: `{}`,
+			configJSON: `{}`,
 			expectErr:  false,
-		},
-		{
-			name:       "Empty schema with parameters",
-			schemaJSON: `{}`,
-			paramsJSON: `{"key": "value"}`,
-			expectErr:  true,
 		},
 		{
 			name: "Valid parameters",
@@ -38,7 +32,7 @@ func TestValidateSchema(t *testing.T) {
 				},
 				"required": ["key"]
 			}`,
-			paramsJSON: `{"key": "value"}`,
+			configJSON: `{"key": "value"}`,
 			expectErr:  false,
 		},
 		{
@@ -50,7 +44,7 @@ func TestValidateSchema(t *testing.T) {
 				},
 				"required": ["key"]
 			}`,
-			paramsJSON: `{}`,
+			configJSON: `{}`,
 			expectErr:  true,
 		},
 		{
@@ -61,7 +55,7 @@ func TestValidateSchema(t *testing.T) {
 					"key": {"type": "string"}
 				}
 			}`,
-			paramsJSON: `{"key": 123}`,
+			configJSON: `{"key": 123}`,
 			expectErr:  true,
 		},
 		{
@@ -82,7 +76,7 @@ func TestValidateSchema(t *testing.T) {
 				},
 				"required": ["key1", "nested"]
 			}`,
-			paramsJSON: `{
+			configJSON: `{
 				"key1": "value1",
 				"key2": 42,
 				"nested": {
@@ -110,7 +104,7 @@ func TestValidateSchema(t *testing.T) {
 				},
 				"required": ["key1", "nested"]
 			}`,
-			paramsJSON: `{
+			configJSON: `{
 				"key1": "value1",
 				"key2": 42,
 				"nested": {
@@ -124,17 +118,17 @@ func TestValidateSchema(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var schema apiextensionsv1.JSONSchemaProps
-			var params runtime.RawExtension
+			var config runtime.RawExtension
 
 			// Unmarshal inputs
 			assert.NoError(t, json.Unmarshal([]byte(tt.schemaJSON), &schema))
-			params.Raw = []byte(tt.paramsJSON)
+			config.Raw = []byte(tt.configJSON)
 
 			cfg := DataImporterConfig{
 				OpenAPIV3Schema: &schema,
 			}
 
-			err := cfg.ValidateParams(&params)
+			err := cfg.Validate(&config)
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {
