@@ -52,9 +52,10 @@ const (
 	pgRestoreCRDName    = "perconapgrestores.pgv2.percona.com"
 	clusterReadyTimeout = 15 * time.Minute
 
-	dbClusterRestoreDBClusterNameField = ".spec.dbClusterName"
-	pgBackupTypeDate                   = "time"
-	pgBackupTypeImmediate              = "immediate"
+	dbClusterRestoreDBClusterNameField               = ".spec.dbClusterName"
+	dbClusterRestoreDataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
+	pgBackupTypeDate                                 = "time"
+	pgBackupTypeImmediate                            = "immediate"
 )
 
 var (
@@ -72,9 +73,9 @@ type DatabaseClusterRestoreReconciler struct {
 	controller *controllerWatcherRegistry
 }
 
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/finalizers,verbs=update
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusterrestores/finalizers,verbs=update
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusterrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbrestores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgrestores,verbs=get;list;watch;create;update;patch;delete
@@ -83,8 +84,10 @@ type DatabaseClusterRestoreReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("reconciling", "request", req)
-	time.Sleep(time.Second)
+	logger.Info("Reconciling", "request", req)
+	defer func() {
+		logger.Info("Reconciled", "request", req)
+	}()
 
 	cr := &everestv1alpha1.DatabaseClusterRestore{}
 	err := r.Get(ctx, req.NamespacedName, cr)
@@ -515,25 +518,18 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return err
+	}
+
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		Named("DatabaseClusterRestore").
 		For(&everestv1alpha1.DatabaseClusterRestore{}).
 		Watches(
 			&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterRestoreList{}),
-		)
-	if err := mgr.GetFieldIndexer().IndexField(
-		context.Background(),
-		&everestv1alpha1.DatabaseClusterRestore{},
-		dbClusterRestoreDBClusterNameField,
-		func(rawObj client.Object) []string {
-			res := rawObj.(*everestv1alpha1.DatabaseClusterRestore) //nolint:forcetypeassert
-			return []string{res.Spec.DBClusterName}
-		},
-	); err != nil {
-		return err
-	}
-	ctrlBuilder.WithEventFilter(common.DefaultNamespaceFilter)
+		).
+		WithEventFilter(common.DefaultNamespaceFilter)
 
 	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
 	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
@@ -544,6 +540,39 @@ func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) er
 	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterRestore")
 	r.controller = newControllerWatcherRegistry(log, ctrl)
 	return nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	err := mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseClusterRestore{}, dbClusterRestoreDBClusterNameField,
+		func(rawObj client.Object) []string {
+			var res []string
+			dbr, ok := rawObj.(*everestv1alpha1.DatabaseClusterRestore)
+			if !ok {
+				return res
+			}
+			return append(res, dbr.Spec.DBClusterName)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseClusterRestore{}, dbClusterRestoreDataSourceBackupStorageNameField,
+		func(rawObj client.Object) []string {
+			var res []string
+			dbr, ok := rawObj.(*everestv1alpha1.DatabaseClusterRestore)
+			if !ok {
+				return res
+			}
+			if pointer.Get(dbr.Spec.DataSource.BackupSource).BackupStorageName != "" {
+				res = append(res, dbr.Spec.DataSource.BackupSource.BackupStorageName)
+			}
+			return res
+		},
+	)
+	return err
 }
 
 func parsePrefixFromDestination(url string) string {
