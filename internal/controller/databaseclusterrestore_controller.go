@@ -45,11 +45,6 @@ import (
 )
 
 const (
-	psmdbRestoreKind    = "PerconaServerMongoDBRestore"
-	psmdbRestoreAPI     = "psmdb.percona.com/v1"
-	psmdbRestoreCRDName = "perconaservermongodbrestores.psmdb.percona.com"
-	pxcRestoreCRDName   = "perconaxtradbclusterrestores.pxc.percona.com"
-	pgRestoreCRDName    = "perconapgrestores.pgv2.percona.com"
 	clusterReadyTimeout = 15 * time.Minute
 
 	dbClusterRestoreDBClusterNameField               = ".spec.dbClusterName"
@@ -109,11 +104,6 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	if len(cr.ObjectMeta.Labels) == 0 {
 		cr.ObjectMeta.Labels = map[string]string{
 			databaseClusterNameLabel: cr.Spec.DBClusterName,
-		}
-
-		if cr.Spec.DataSource.BackupSource != nil {
-			key := fmt.Sprintf(backupStorageNameLabelTmpl, cr.Spec.DataSource.BackupSource.BackupStorageName)
-			cr.ObjectMeta.Labels[key] = backupStorageLabelValue
 		}
 
 		if err := r.Update(ctx, cr); err != nil {

@@ -107,7 +107,6 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-db-backup-s3
   labels:
-    backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1

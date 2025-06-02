@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"regexp"
 	"strings"
 	"time"
 
@@ -58,10 +57,6 @@ import (
 )
 
 const (
-	psmdbCRDName         = "perconaservermongodbs.psmdb.percona.com"
-	pxcCRDName           = "perconaxtradbclusters.pxc.percona.com"
-	pgCRDName            = "perconapgclusters.pgv2.percona.com"
-	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey = "everest.percona.com/restart"
 
 	monitoringConfigNameField        = ".spec.monitoring.monitoringConfigName"
@@ -72,10 +67,8 @@ const (
 	podSchedulingPolicyNameField     = ".spec.podSchedulingPolicyName"
 	dataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
 
-	databaseClusterNameLabel   = "clusterName"
-	backupStorageNameLabelTmpl = "backupStorage-%s"
-	backupStorageLabelValue    = "used"
-	defaultRequeueAfter        = 5 * time.Second
+	databaseClusterNameLabel = "clusterName"
+	defaultRequeueAfter      = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -409,59 +402,10 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	maps.Copy(updated, current)
 
 	updated[databaseClusterNameLabel] = database.GetName()
-	if database.Spec.DataSource != nil {
-		if database.Spec.DataSource.DBClusterBackupName != "" {
-			// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
-			dbBackup := &everestv1alpha1.DatabaseClusterBackup{}
-			err := r.Get(ctx, types.NamespacedName{
-				Name:      database.Spec.DataSource.DBClusterBackupName,
-				Namespace: database.GetNamespace(),
-			}, dbBackup)
-			if err != nil {
-				return errors.Join(err, fmt.Errorf("could not get DB backup '%s' to obtain backup storage name for DB cluster='%s' in namespace='%s'",
-					database.Spec.DataSource.DBClusterBackupName,
-					database.GetName(),
-					database.GetNamespace()))
-			}
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = backupStorageLabelValue
-		}
-
-		// .spec.dataSource.backupSource.backupStorageName can be set via API directly.
-		// UI doesn't set it right now.
-		if database.Spec.DataSource.BackupSource != nil && database.Spec.DataSource.BackupSource.BackupStorageName != "" {
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupSource.BackupStorageName)] = backupStorageLabelValue
-		}
-	}
-
-	if bkpStorageName := pointer.Get(database.Spec.Backup.PITR.BackupStorageName); bkpStorageName != "" {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, bkpStorageName)] = backupStorageLabelValue
-	}
-
-	for _, schedule := range database.Spec.Backup.Schedules {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-	}
-
-	// Remove labels for backup storage that are not in the spec
-	keyMatchesBackupStorageName := func(key string) bool {
-		regexPattern := "^" + strings.Replace(backupStorageNameLabelTmpl, "%s", `\w+`, 1) + "$"
-		re := regexp.MustCompile(regexPattern)
-		return re.MatchString(key)
-	}
-	for key := range updated {
-		if !keyMatchesBackupStorageName(key) {
-			continue
-		}
-		found := false
-		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			delete(updated, key)
-		}
-	}
+	// Remove labels for backup storage
+	maps.DeleteFunc(updated, func(key string, _ string) bool {
+		return strings.HasPrefix(key, "backupStorage-")
+	})
 
 	if !maps.Equal(updated, current) {
 		database.SetLabels(updated)

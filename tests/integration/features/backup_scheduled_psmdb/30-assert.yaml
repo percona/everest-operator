@@ -59,7 +59,6 @@ kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
   labels:
-    backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
 status:
   status: ready
@@ -94,7 +93,6 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-scheduled-backup-1
   labels:
-    backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
@@ -128,7 +126,6 @@ kind: DatabaseClusterBackup
 metadata:
   name: test-scheduled-backup-2
   labels:
-    backupStorage-test-storage-s3: used
     clusterName: test-psmdb-cluster
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
