@@ -183,7 +183,7 @@ jobs:
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
           CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
 
       - name: Run upgrade tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
@@ -332,7 +332,7 @@ jobs:
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
         env:
           CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers"
+          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
 
       - name: Clean up resources and CRDs
         if: always()
