@@ -92,5 +92,5 @@ func (v *DataImportJobValidator) validate(
 	}
 
 	// Validate the params against the schema of the DataImporter
-	return dataimporter.Spec.Config.ValidateParams(dij.Spec.Params)
+	return dataimporter.Spec.Config.Validate(dij.Spec.Config)
 }

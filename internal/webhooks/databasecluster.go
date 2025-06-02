@@ -2,7 +2,10 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -42,22 +45,6 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 
 // ValidateUpdate validates the update of a DatabaseCluster.
 func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	// updated, ok := newObj.(*everestv1alpha1.DatabaseCluster)
-	// if !ok {
-	// 	return nil, fmt.Errorf("expected a DatabaseCluster (new), got %T", newObj)
-	// }
-
-	// old, ok := newObj.(*everestv1alpha1.DatabaseCluster)
-	// if !ok {
-	// 	return nil, fmt.Errorf("expected a DatabaseCluster (old), got %T", newObj)
-	// }
-
-	// updatedImportTpl := pointer.Get(updated.Spec.DataSource).DataImport
-	// oldImportTpl := pointer.Get(old.Spec.DataSource).DataImport
-
-	// if !updatedImportTpl.Equals(pointer.Get(oldImportTpl)) {
-	// 	return nil, errors.New(".spec.dataSource.dataImport is immutable")
-	// }
 	return nil, nil
 }
 
@@ -88,6 +75,59 @@ func (v *DatabaseClusterValidator) validate(
 		return fmt.Errorf("data importer %s does not support engine %s", dataImport.DataImporterName, engineType)
 	}
 
+	if requiredFields := dataimporter.Spec.DatabaseClusterConstraints.RequiredFields; len(requiredFields) > 0 {
+		if err := validateDataImportRequiredFields(requiredFields, db); err != nil {
+			return fmt.Errorf("data import validation failed: %w", err)
+		}
+	}
+
 	// Validate the params against the schema of the DataImporter
-	return dataimporter.Spec.Config.ValidateParams(dataImport.Params)
+	return dataimporter.Spec.Config.Validate(dataImport.Config)
+}
+
+func validateDataImportRequiredFields(requiredFields []string, db *everestv1alpha1.DatabaseCluster) error {
+	for _, field := range requiredFields {
+		exists, err := checkJSONKeyExists(field, db.Spec.DataSource.DataImport.Config)
+		if err != nil {
+			return fmt.Errorf("error checking key %s: %w", field, err)
+		}
+		if !exists {
+			return fmt.Errorf("required field %s is missing in .spec.dataSource.dataImport.config", field)
+		}
+	}
+	return nil
+}
+
+// checkJSONKeyExists returns true if the specified key exists in the JSON object.
+// The keyExpr is a dot-separated string representing the path to the key in the JSON object.
+func checkJSONKeyExists(keyExpr string, obj any) (bool, error) {
+	objB, err := json.Marshal(obj)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal object: %w", err)
+	}
+	objMap := make(map[string]any)
+	if err := json.Unmarshal(objB, &objMap); err != nil {
+		return false, fmt.Errorf("failed to unmarshal object: %w", err)
+	}
+
+	subKeys := slices.DeleteFunc(strings.Split(keyExpr, "."), func(s string) bool {
+		return s == ""
+	})
+	currentSubObject := objMap
+	for _, key := range subKeys {
+		if value, exists := currentSubObject[key]; exists {
+			switch v := value.(type) {
+			case map[string]any:
+				currentSubObject = v
+				continue
+			case int, int32, int64, float32, float64:
+				return value != 0, nil
+			case string:
+				return value != "", nil
+			}
+			continue
+		}
+		return false, nil
+	}
+	return true, nil
 }

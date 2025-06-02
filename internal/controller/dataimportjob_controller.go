@@ -153,7 +153,7 @@ func (r *DataImportJobReconciler) validate(
 		return fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type)
 	}
 
-	if err := di.Spec.Config.ValidateParams(diJob.Spec.Params); err != nil {
+	if err := di.Spec.Config.Validate(diJob.Spec.Config); err != nil {
 		return fmt.Errorf("failed to validate parameters: %w", err)
 	}
 	return nil
@@ -287,14 +287,14 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 
 	req.Source.Path = diJob.Spec.Source.Path
 
-	paramsMap := map[string]any{}
+	cfgMap := map[string]any{}
 
-	if params := diJob.Spec.Params; params != nil {
-		if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
+	if cfg := diJob.Spec.Config; cfg != nil {
+		if err := json.Unmarshal(cfg.Raw, &cfgMap); err != nil {
 			return fmt.Errorf("failed to unmarshal data import job parameters: %w", err)
 		}
 	}
-	req.Params = paramsMap
+	req.Config = cfgMap
 
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
