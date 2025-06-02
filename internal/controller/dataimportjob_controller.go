@@ -303,32 +303,6 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 	return nil
 }
 
-func (r *DataImportJobReconciler) getS3InfoFromBackupStorage(
-	ctx context.Context,
-	bsName, namespace string,
-) (*dataimporterspec.S3, error) {
-	info := dataimporterspec.S3{}
-	backupStorage := &everestv1alpha1.BackupStorage{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      bsName,
-		Namespace: namespace,
-	}, backupStorage); err != nil {
-		return nil, fmt.Errorf("failed to get backup storage: %w", err)
-	}
-	info.Bucket = backupStorage.Spec.Bucket
-	info.Region = backupStorage.Spec.Region
-	info.EndpointURL = backupStorage.Spec.EndpointURL
-	info.VerifyTLS = pointer.Get(backupStorage.Spec.VerifyTLS)
-	info.ForcePathStyle = pointer.Get(backupStorage.Spec.ForcePathStyle)
-	keyID, keySecret, err := r.getS3Credentials(ctx, backupStorage.Spec.CredentialsSecretName, backupStorage.GetNamespace())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
-	}
-	info.AccessKeyID = keyID
-	info.SecretKey = keySecret
-	return &info, nil
-}
-
 func (r *DataImportJobReconciler) getS3Info(
 	ctx context.Context,
 	dij *everestv1alpha1.DataImportJob,
