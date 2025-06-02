@@ -65,8 +65,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pxc-psp
-  labels:
-    clusterName: pxc-psp
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster

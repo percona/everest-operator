@@ -56,8 +56,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pg-mc
-  labels:
-    clusterName: pg-mc
 spec:
   monitoring:
     resources:

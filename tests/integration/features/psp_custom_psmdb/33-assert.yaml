@@ -66,8 +66,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: psmdb-psp
-  labels:
-    clusterName: psmdb-psp
 spec:
   podSchedulingPolicyName: psp-custom-psmdb
 ---

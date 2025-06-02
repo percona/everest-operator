@@ -74,8 +74,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: psmdb-psp
-  labels:
-    clusterName: psmdb-psp
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB

@@ -29,8 +29,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
-  labels:
-    clusterName: test-psmdb-cluster
 spec:
   engine:
     replicas: 3

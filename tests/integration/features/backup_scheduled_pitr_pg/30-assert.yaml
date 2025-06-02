@@ -67,8 +67,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
-  labels:
-    clusterName: test-pg-cluster
 status:
   status: ready
 ---

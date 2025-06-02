@@ -59,8 +59,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pg-psp
-  labels:
-    clusterName: pg-psp
 spec:
   podSchedulingPolicyName: everest-default-postgresql
 ---

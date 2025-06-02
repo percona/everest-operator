@@ -55,8 +55,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
-  labels:
-    clusterName: test-pxc-cluster
 status:
   status: ready
 ---

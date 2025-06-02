@@ -45,8 +45,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: psmdb-mc
-  labels:
-    clusterName: psmdb-mc
 spec:
   monitoring:
     monitoringConfigName: mc-psmdb

@@ -59,8 +59,6 @@ apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: pxc-psp
-  labels:
-    clusterName: pxc-psp
 spec:
   podSchedulingPolicyName: everest-default-mysql
 ---

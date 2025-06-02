@@ -401,7 +401,6 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	updated := make(map[string]string, len(current))
 	maps.Copy(updated, current)
 
-	updated[databaseClusterNameLabel] = database.GetName()
 	// Remove labels for backup storage
 	maps.DeleteFunc(updated, func(key string, _ string) bool {
 		return strings.HasPrefix(key, "backupStorage-")
