@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-commands:
-  - command: kubectl patch dbb a-scheduled-backup -n $NAMESPACE -p '{"metadata":{"finalizers":["everest.percona.com/dbb-storage-protection"]}}' --type merge
-  - command: kubectl delete dbb a-scheduled-backup -n $NAMESPACE
