@@ -9,6 +9,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +41,26 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	if !ok {
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
-	return nil, v.validate(ctx, db)
+
+	// If a user secret is specified by the user, ensure that it exists.
+	if userSecretsName := db.Spec.Engine.UserSecretsName; userSecretsName != "" {
+		// ensure that this secret exists.
+		secret := corev1.Secret{}
+		if err := v.Client.Get(ctx, types.NamespacedName{
+			Name:      userSecretsName,
+			Namespace: db.GetNamespace(),
+		}, &secret); err != nil {
+			return nil, fmt.Errorf("failed to get user secrets %s: %w", userSecretsName, err)
+		}
+	}
+
+	// If a data import source is specified, validate it.
+	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
+		if err := v.validateDataImport(ctx, db); err != nil {
+			return nil, fmt.Errorf("data import validation failed: %w", err)
+		}
+	}
+	return nil, nil
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
@@ -53,7 +73,7 @@ func (v *DatabaseClusterValidator) ValidateDelete(ctx context.Context, obj runti
 	return nil, nil
 }
 
-func (v *DatabaseClusterValidator) validate(
+func (v *DatabaseClusterValidator) validateDataImport(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
