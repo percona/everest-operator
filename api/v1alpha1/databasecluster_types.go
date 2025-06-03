@@ -382,8 +382,21 @@ type DatabaseClusterSpec struct {
 	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
 }
 
+// IntoDBRestoreDataSource converts the DataSource into a DatabaseClusterRestoreDataSource.
 func (in *DataSource) IntoDBRestoreDataSource() DatabaseClusterRestoreDataSource {
 	return DatabaseClusterRestoreDataSource{
+		DBClusterBackupName: in.DBClusterBackupName,
+		BackupSource:        in.BackupSource,
+		PITR:                in.PITR,
+	}
+}
+
+// IntoDataSource converts the DatabaseClusterRestoreDataSource into a DataSource.
+func (in *DatabaseClusterRestoreDataSource) IntoDataSource() *DataSource {
+	if in == nil {
+		return nil
+	}
+	return &DataSource{
 		DBClusterBackupName: in.DBClusterBackupName,
 		BackupSource:        in.BackupSource,
 		PITR:                in.PITR,
