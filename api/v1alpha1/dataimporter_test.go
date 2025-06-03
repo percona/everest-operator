@@ -38,6 +38,12 @@ func TestValidateSchema(t *testing.T) {
 			expectErr:  false,
 		},
 		{
+			name:       "Empty schema with parameters",
+			schemaJSON: `{}`,
+			configJSON: `{"key": "value"}`,
+			expectErr:  true,
+		},
+		{
 			name: "Valid parameters",
 			schemaJSON: `{
 				"type": "object",
@@ -48,6 +54,17 @@ func TestValidateSchema(t *testing.T) {
 			}`,
 			configJSON: `{"key": "value"}`,
 			expectErr:  false,
+		},
+		{
+			name: "Unknown fields",
+			schemaJSON: `{
+				"type": "object",
+				"properties": {
+					"key": {"type": "string"}
+				}
+			}`,
+			configJSON: `{"someUnknownKey": "value"}`,
+			expectErr:  true,
 		},
 		{
 			name: "Missing required field",

@@ -95,6 +95,11 @@ func (cfg *DataImporterConfig) Validate(params *runtime.RawExtension) error {
 		return nil
 	}
 
+	// Additional properties are implicitly disallowed
+	schema.AdditionalProperties = &apiextensionsv1.JSONSchemaPropsOrBool{
+		Allows: false,
+	}
+
 	// Unmarshal the parameters into a generic map
 	var paramsMap map[string]interface{}
 	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
