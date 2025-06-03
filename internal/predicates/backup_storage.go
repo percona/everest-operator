@@ -27,7 +27,7 @@ func GetBackupStoragePredicate() predicate.Funcs {
 	return predicate.Funcs{
 		// When BackupStorage is created, it is not used in any DatabaseCluster yet.
 		// Nothing to process.
-		CreateFunc: func(e event.CreateEvent) bool {
+		CreateFunc: func(_ event.CreateEvent) bool {
 			return false
 		},
 
@@ -49,7 +49,7 @@ func GetBackupStoragePredicate() predicate.Funcs {
 		},
 
 		// BackupStorage can be deleted only in case it is not used -> no need to reconcile DatabaseClusters.
-		DeleteFunc: func(e event.DeleteEvent) bool {
+		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return false
 		},
 

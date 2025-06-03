@@ -71,7 +71,7 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err != nil {
 		msg := fmt.Sprintf("failed to fetch DB clusters that use pod scheduling policy='%s'", pspName)
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %v", msg, err)
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	// Update the status and finalizers of the PodSchedulingPolicy object after the reconciliation.
@@ -87,14 +87,14 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 			rr = ctrl.Result{}
 			msg := fmt.Sprintf("failed to update status for pod scheduling policy='%s'", pspName)
 			logger.Error(err, msg)
-			rerr = fmt.Errorf("%s: %v", msg, err)
+			rerr = fmt.Errorf("%s: %w", msg, err)
 		}
 	}()
 
 	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, psp); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", pspName)
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %v", msg, err)
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	return ctrl.Result{}, nil

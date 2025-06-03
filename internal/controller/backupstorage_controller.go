@@ -107,7 +107,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		msg := fmt.Sprintf("failed to check if backup storage='%s' is used", bs.GetName())
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %v", msg, err)
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 	// Update the status of the BackupStorage object after the reconciliation.
 	defer func() {
@@ -122,7 +122,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			rr = ctrl.Result{}
 			msg := fmt.Sprintf("failed to update status for backup storage='%s'", bsName)
 			logger.Error(err, msg)
-			rerr = fmt.Errorf("%s: %v", msg, err)
+			rerr = fmt.Errorf("%s: %w", msg, err)
 		}
 	}()
 
@@ -214,7 +214,7 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					}] = struct{}{}
 				}
 
-				requests := make([]reconcile.Request, len(bsToReconcileMap))
+				requests := make([]reconcile.Request, 0, len(bsToReconcileMap))
 				for bs := range bsToReconcileMap {
 					requests = append(requests, reconcile.Request{NamespacedName: bs})
 				}
@@ -287,36 +287,46 @@ func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Contex
 
 func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
 	// Check if the backup storage is used by any database cluster backups through the DBClusterBackupBackupStorageNameField field
-	if dbbList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client, common.DBClusterBackupBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
-		return false, fmt.Errorf("failed to fetch DB cluster backups that use backup storage='%s' through '%s' field: %v", bs.GetName(), common.DBClusterBackupBackupStorageNameField, err)
+	if dbbList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client, common.DBClusterBackupBackupStorageNameField,
+		bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB cluster backups that use backup storage='%s' through '%s' field: %w",
+			bs.GetName(), common.DBClusterBackupBackupStorageNameField, err)
 	} else if len(dbbList.Items) > 0 {
 		return true, nil
 	}
 
 	// Check if the backup storage is used by any database clusters through the BackupStorageName field
-	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, backupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
-		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), backupStorageNameField, err)
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, backupStorageNameField,
+		bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %w",
+			bs.GetName(), backupStorageNameField, err)
 	} else if len(dbList.Items) > 0 {
 		return true, nil
 	}
 
 	// Check if the backup storage is used by any database clusters through the PITRBackupStorageName field
-	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, pitrBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
-		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), pitrBackupStorageNameField, err)
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, pitrBackupStorageNameField,
+		bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %w",
+			bs.GetName(), pitrBackupStorageNameField, err)
 	} else if len(dbList.Items) > 0 {
 		return true, nil
 	}
 
 	// Check if the backup storage is used by any database clusters through the DBClusterDataSourceBackupStorageNameField field
-	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, dataSourceBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
-		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %v", bs.GetName(), dataSourceBackupStorageNameField, err)
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, dataSourceBackupStorageNameField,
+		bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %w",
+			bs.GetName(), dataSourceBackupStorageNameField, err)
 	} else if len(dbList.Items) > 0 {
 		return true, nil
 	}
 
 	// Check if the backup storage is used by any database cluster restore through the dbClusterRestoreDataSourceBackupStorageNameField field
-	if dbrList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, r.Client, dbClusterRestoreDataSourceBackupStorageNameField, bs.GetNamespace(), bs.GetName()); err != nil {
-		return false, fmt.Errorf("failed to fetch DB cluster restores that use backup storage='%s' through '%s' field: %v", bs.GetName(), dbClusterRestoreDataSourceBackupStorageNameField, err)
+	if dbrList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, r.Client, dbClusterRestoreDataSourceBackupStorageNameField,
+		bs.GetNamespace(), bs.GetName()); err != nil {
+		return false, fmt.Errorf("failed to fetch DB cluster restores that use backup storage='%s' through '%s' field: %w",
+			bs.GetName(), dbClusterRestoreDataSourceBackupStorageNameField, err)
 	} else if len(dbrList.Items) > 0 {
 		return slices.ContainsFunc(dbrList.Items, func(dbr everestv1alpha1.DatabaseClusterRestore) bool {
 			// If any of the restores is in progress, we consider the backup storage as used.

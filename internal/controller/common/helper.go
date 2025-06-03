@@ -782,9 +782,7 @@ func StatusAsPlainTextOrEmptyString(status interface{}) string {
 
 // EnqueueObjectsInNamespace returns an event handler that should be attached with Namespace watchers.
 // It enqueues all objects specified by the type of list in the triggered namespace.
-//
-//nolint:ireturn
-func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler {
+func EnqueueObjectsInNamespace(c client.Client, list client.ObjectList) handler.EventHandler { //nolint:ireturn
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		if _, ok := o.(*corev1.Namespace); !ok {
 			panic("EnqueueObjectsInNamespace should be called on a Namespace")
@@ -931,7 +929,7 @@ func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespac
 	return false, "", nil
 }
 
-// EnsureInUseFinalizer ensures that the InUseResourceFinalizer is present or absent
+// EnsureInUseFinalizer ensures that the InUseResourceFinalizer is present or absent.
 func EnsureInUseFinalizer(ctx context.Context, c client.Client, used bool, obj client.Object) error {
 	var updated bool
 	if used {

@@ -74,7 +74,7 @@ func (p *applier) Paused(paused bool) {
 	p.PerconaServerMongoDB.Spec.Pause = paused
 }
 
-//nolint:staticcheck //using deprecated field for backward compatibility
+//nolint:staticcheck
 func (p *applier) AllowUnsafeConfig() {
 	p.PerconaServerMongoDB.Spec.UnsafeConf = false
 	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
@@ -85,6 +85,7 @@ func (p *applier) AllowUnsafeConfig() {
 		TerminationGracePeriod: p.DB.Spec.AllowUnsafeConfiguration,
 		BackupIfUnhealthy:      p.DB.Spec.AllowUnsafeConfiguration,
 	}
+	// using deprecated field for backward compatibility
 	if p.DB.Spec.AllowUnsafeConfiguration {
 		p.PerconaServerMongoDB.Spec.TLS = &psmdbv1.TLSSpec{
 			Mode: psmdbv1.TLSModeDisabled,

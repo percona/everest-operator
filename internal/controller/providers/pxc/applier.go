@@ -69,11 +69,12 @@ func (p *applier) Paused(paused bool) {
 	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }
 
-//nolint:staticcheck //using deprecated field for backward compatibility
+//nolint:staticcheck
 func (p *applier) AllowUnsafeConfig() {
 	p.PerconaXtraDBCluster.Spec.AllowUnsafeConfig = false
 	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
 	p.PerconaXtraDBCluster.Spec.Unsafe = pxcv1.UnsafeFlags{
+		// using deprecated field for backward compatibility
 		TLS:               p.DB.Spec.AllowUnsafeConfiguration,
 		PXCSize:           useInsecureSize,
 		ProxySize:         useInsecureSize,

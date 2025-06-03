@@ -540,7 +540,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 	return err
 }
 
-func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) {
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) { //nolint:gocognit
 	controller.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
@@ -743,12 +743,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
-	var result []reconcile.Request
 	dbs := &everestv1alpha1.DatabaseClusterList{}
 	err := r.List(ctx, dbs, client.InNamespace(obj.GetNamespace()))
 	if err != nil {
-		return result
+		return nil
 	}
+
+	result := make([]reconcile.Request, 0, len(dbs.Items))
 	for _, db := range dbs.Items {
 		result = append(result, reconcile.Request{
 			NamespacedName: types.NamespacedName{

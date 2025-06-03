@@ -74,7 +74,7 @@ type MonitoringConfigReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) {
+func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling")
 	defer func() {
