@@ -227,8 +227,11 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Backup(); err != nil {
 			return err
 		}
-		if err := applier.DataSource(); err != nil {
-			return err
+		// DataSource is run only if we're not importing external data.
+		if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport == nil {
+			if err := applier.DataSource(); err != nil {
+				return err
+			}
 		}
 		return nil
 	}

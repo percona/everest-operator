@@ -112,7 +112,7 @@ func validateDataImportRequiredFields(requiredFields []string, db *everestv1alph
 			return fmt.Errorf("error checking key %s: %w", field, err)
 		}
 		if !exists {
-			return fmt.Errorf("required field %s is missing in .spec.dataSource.dataImport.config", field)
+			return fmt.Errorf("required field %s is missing in databasecluster", field)
 		}
 	}
 	return nil
