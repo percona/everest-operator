@@ -88,6 +88,11 @@ type DataImportJobS3Source struct {
 	// The Secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 	// +kubebuilder:validation:Required
 	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
+
+	// INTERNAL FIELDS.
+	// Used by the Everest API, these fields are not part of the CRD.
+	AccessKeyID     string `json:"-" yaml:"-"`
+	SecretAccessKey string `json:"-" yaml:"-"`
 }
 
 // +kubebuilder:object:root=true
