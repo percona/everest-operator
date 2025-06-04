@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
@@ -1043,8 +1042,6 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 
 	newBackups.PGBackRest.Repos = pgBackrestRepos
 	newBackups.PGBackRest.Global = pgBackrestGlobal
-	logger := log.FromContext(ctx)
-	logger.Info("!!!!!!! ", "newbackups", newBackups)
 	return newBackups, nil
 }
 

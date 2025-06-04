@@ -451,8 +451,15 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
+	defer func() {
+		updErr := r.updateStatusPG(ctx, restore, pgCR)
+		if updErr != nil {
+			logger.Error(updErr, "failed to update status of PG resource")
+		}
+	}()
+
 	if restore.IsComplete() {
-		return r.updateStatusPG(ctx, restore, pgCR)
+		return nil
 	}
 
 	var backupStorageName string
@@ -513,11 +520,7 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		pgCR.Spec.Options, err = getPGRestoreOptions(restore.Spec.DataSource, backupBaseName)
 		return err
 	})
-	if err != nil {
-		return err
-	}
-
-	return r.updateStatusPG(ctx, restore, pgCR)
+	return err
 }
 
 func (r *DatabaseClusterRestoreReconciler) updateStatusPG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore, pgCR *pgv2.PerconaPGRestore) error {
@@ -775,7 +778,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	}
 
 	storages := &everestv1alpha1.BackupStorageList{}
-	if err := r.List(ctx, storages, &client.ListOptions{}); err != nil {
+	if err := r.List(ctx, storages, &client.ListOptions{Namespace: namespacedName.Namespace}); err != nil {
 		// if no backup storages found - do nothing
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -783,12 +786,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		return err
 	}
 
-	restore := &everestv1alpha1.DatabaseClusterRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      namespacedName.Name,
-			Namespace: namespacedName.Namespace,
-		},
-	}
+	restore := &everestv1alpha1.DatabaseClusterRestore{}
 
 	err := r.Get(ctx, namespacedName, restore)
 	// if such everest restore already exists - do nothing

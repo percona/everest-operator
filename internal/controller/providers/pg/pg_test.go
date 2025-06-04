@@ -247,7 +247,6 @@ func TestReconcilePGBackRestReposEmptyAddRequest(t *testing.T) {
 			},
 		},
 	}
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -312,8 +311,6 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 			},
 		},
 	}
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
-
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -352,7 +349,6 @@ func TestReconcilePGBackRestReposEmptyAddSchedule(t *testing.T) {
 
 func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -433,7 +429,6 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddRequest(t *testing.T) {
 
 func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -521,7 +516,6 @@ func TestReconcilePGBackRestReposSameStorageOneRequestAddSchedule(t *testing.T) 
 func TestReconcilePGBackRestReposSameStorageOneScheduleAddRequest(t *testing.T) {
 	t.Parallel()
 	testSchedule := "0 0 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -612,7 +606,6 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -713,7 +706,6 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleAddSchedule(t *testing.T)
 func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequest(t *testing.T) {
 	t.Parallel()
 	testSchedule := "0 0 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -826,7 +818,6 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddSchedule(t *testi
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -942,7 +933,6 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1057,7 +1047,6 @@ func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddScheduleNoOrder(t
 func TestReconcilePGBackRestReposDifferentStorageOneScheduleAddRequestNoOrder(t *testing.T) {
 	t.Parallel()
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1170,7 +1159,6 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeSchedule(t *testing
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1256,7 +1244,6 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
 	testSchedule3 := "0 2 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1357,7 +1344,6 @@ func TestReconcilePGBackRestReposSameStorageOneScheduleChangeScheduleAddSchedule
 func TestReconcilePGBackRestReposSameStorageOneScheduleDeleteScheduleAddRequest(t *testing.T) {
 	t.Parallel()
 	testSchedule := "0 0 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1438,7 +1424,6 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete2ndSchedule(t *tes
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1534,7 +1519,6 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1629,7 +1613,6 @@ func TestReconcilePGBackRestReposSameStorageTwoSchedulesDelete1stSchedule(t *tes
 func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 	t.Parallel()
 	testSchedule1 := "0 0 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1678,7 +1661,6 @@ func TestReconcilePGBackRestReposOneScheduleDeleteSchedule(t *testing.T) {
 
 func TestReconcilePGBackRestReposOneRequestDeleteRequest(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1728,7 +1710,6 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 	testSchedule2 := "0 1 * * *"
 	testSchedule3 := "0 2 * * *"
 	testSchedule4 := "0 3 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1835,7 +1816,6 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddSchedule(t *testing
 
 func TestReconcilePGBackRestReposDifferentStorageThreeRequestsAddRequest(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -1974,7 +1954,6 @@ func TestReconcilePGBackRestReposSameStorageThreeSchedulesAddRequest(t *testing.
 	testSchedule1 := "0 0 * * *"
 	testSchedule2 := "0 1 * * *"
 	testSchedule3 := "0 2 * * *"
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name:   "repo1",
@@ -2130,7 +2109,6 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 	}
 	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	expRepos := []crunchyv1beta1.PGBackRestRepo{}
 
 	repos, _, _, err := reconcilePGBackRestRepos(
@@ -2153,7 +2131,6 @@ func TestReconcilePGBackRestReposUnknownStorageRequest(t *testing.T) {
 
 func TestReconcilePGBackRestReposScheduleAfterOnDemandToAnotherStorage(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2244,7 +2221,6 @@ func TestReconcilePGBackRestReposScheduleAfterOnDemandToAnotherStorage(t *testin
 
 func TestReconcilePGBackRestReposOnDemandAfterScheduleToAnotherStorage(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2338,7 +2314,6 @@ func TestReconcilePGBackRestReposOnDemandAfterScheduleToAnotherStorage(t *testin
 
 func TestReconcilePGBackRestReposScheduleAfter3OnDemands(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2469,7 +2444,6 @@ func TestReconcilePGBackRestReposScheduleAfter3OnDemands(t *testing.T) {
 
 func TestReconcilePGBackRestReposOnDemand3OnDemandsAndSchedule(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2608,7 +2582,6 @@ func TestReconcilePGBackRestReposOnDemand3OnDemandsAndSchedule(t *testing.T) {
 
 func TestReconcilePGBackRestBackupAndScheduleToTheSameStorage(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2687,7 +2660,6 @@ func TestReconcilePGBackRestBackupAndScheduleToTheSameStorage(t *testing.T) {
 
 func TestReconcilePGBackRestNewBackupAndNewScheduleToTheSameStorage(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -2759,7 +2731,6 @@ func TestReconcilePGBackRestNewBackupAndNewScheduleToTheSameStorage(t *testing.T
 
 func TestReconcilePGBackRestRestoreFromDataSource_NoSchedules_NoBackups(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
@@ -2796,7 +2767,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_NoSchedules_NoBackups(t *testi
 
 func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_SameStorage(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1",
@@ -2866,7 +2836,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_SameStorage(
 
 func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_DifferentStorage(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1",
@@ -2954,7 +2923,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_DifferentSto
 
 func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_NoSchedules_NoBackups(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
@@ -2989,7 +2957,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_NoSchedules_NoBackups(t 
 
 func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_SameStorage(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
@@ -3058,7 +3025,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_SameSt
 
 func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_DifferentStorage(t *testing.T) {
 	t.Parallel()
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
@@ -3145,7 +3111,6 @@ func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_Differ
 
 func TestReconcilePGBackRestBackupAndNewScheduleToTheSameStorage(t *testing.T) {
 	t.Parallel()
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 	s3Repo2 := &crunchyv1beta1.RepoS3{
 		Bucket: "bucket1",
 	}
@@ -3234,7 +3199,6 @@ func TestReconcilePGBackRestReposUnknownStorageSchedule(t *testing.T) {
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
 	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
-	_, testEngineStorage := pvcVolumeAndEngineStorage()
 
 	expRepos := []crunchyv1beta1.PGBackRestRepo{}
 
@@ -3263,7 +3227,6 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
 	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}
-	pvcVolume, testEngineStorage := pvcVolumeAndEngineStorage()
 
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
@@ -3431,6 +3394,8 @@ func TestIsRestoredCluster(t *testing.T) {
 		})
 	}
 }
+
+var pvcVolume, testEngineStorage = pvcVolumeAndEngineStorage()
 
 func pvcVolumeAndEngineStorage() (*crunchyv1beta1.RepoPVC, everestv1alpha1.Storage) {
 	testEngineStorageSize, _ := resource.ParseQuantity("15G")
