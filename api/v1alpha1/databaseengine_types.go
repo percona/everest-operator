@@ -83,11 +83,14 @@ type DatabaseEngineSpec struct {
 	SecretKeys SecretKeys `json:"secretKeys,omitempty"`
 }
 
+// SecretKeys contains the definition of the various Secrets that
+// the given DBEngine supports.
 type SecretKeys struct {
 	// User secret keys are used to store the details of the users.
 	User []SecretKey `json:"user,omitempty"`
 }
 
+// SecretKey defines a single Secret key.
 type SecretKey struct {
 	// Name is the name of the Secret key.
 	Name string `json:"name,omitempty"`

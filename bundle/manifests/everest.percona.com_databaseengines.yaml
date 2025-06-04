@@ -66,6 +66,7 @@ spec:
                     description: User secret keys are used to store the details of
                       the users.
                     items:
+                      description: SecretKey defines a single Secret key.
                       properties:
                         description:
                           description: Description is a human-readable description
