@@ -39,6 +39,9 @@ func SetupDatabaseClusterWebhookWithManager(mgr manager.Manager) error {
 		WithValidator(&DatabaseClusterValidator{
 			Client: mgr.GetClient(),
 		}).
+		WithDefaulter(&DatabaseClusterDefaulter{
+			Client: mgr.GetClient(),
+		}).
 		Complete()
 }
 

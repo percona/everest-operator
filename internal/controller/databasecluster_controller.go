@@ -293,6 +293,9 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.DataImportJobName(db),
 			Namespace: namespace,
+			Labels: map[string]string{
+				databaseClusterNameLabel: db.GetName(),
+			},
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, dijob, func() error {

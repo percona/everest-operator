@@ -170,6 +170,14 @@ spec:
                             description: S3 contains the S3 information for the data
                               import.
                             properties:
+                              accessKeyId:
+                                description: |-
+                                  AccessKeyID allows specifying the S3 access key ID inline.
+                                  It is provided as a write-only input field for convenience.
+                                  When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+                                  and empties this field.
+                                  This field is not stored in the API.
+                                type: string
                               bucket:
                                 description: Bucket is the name of the S3 bucket.
                                 type: string
@@ -190,6 +198,14 @@ spec:
                                 type: boolean
                               region:
                                 description: Region is the region of the S3 bucket.
+                                type: string
+                              secretAccessKey:
+                                description: |-
+                                  SecretAccessKey allows specifying the S3 secret access key inline.
+                                  It is provided as a write-only input field for convenience.
+                                  When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+                                  and empties this field.
+                                  This field is not stored in the API.
                                 type: string
                               verifyTLS:
                                 default: true

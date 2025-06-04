@@ -89,10 +89,20 @@ type DataImportJobS3Source struct {
 	// +kubebuilder:validation:Required
 	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 
-	// INTERNAL FIELDS.
-	// Used by the Everest API, these fields are not part of the CRD.
-	AccessKeyID     string `json:"-" yaml:"-"`
-	SecretAccessKey string `json:"-" yaml:"-"`
+	// AccessKeyID allows specifying the S3 access key ID inline.
+	// It is provided as a write-only input field for convenience.
+	// When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+	// and empties this field.
+	// This field is not stored in the API.
+	// +optional
+	AccessKeyID string `json:"accessKeyId,omitempty"`
+	// SecretAccessKey allows specifying the S3 secret access key inline.
+	// It is provided as a write-only input field for convenience.
+	// When this field is set, a webhook writes this value in the Secret specified by `credentialsSecretName`
+	// and empties this field.
+	// This field is not stored in the API.
+	// +optional
+	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
 // +kubebuilder:object:root=true

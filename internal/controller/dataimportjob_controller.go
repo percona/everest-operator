@@ -7,15 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/AlekSi/pointer"
-	"github.com/xeipuuv/gojsonschema"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -112,15 +108,6 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
-	// TODO: we should move this to ValidatingWebhook config, otherwise
-	// this validation will be done on every reconcile.
-	if err := r.validate(db, di, diJob); err != nil {
-		l.Error(err, "validation failed")
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = err.Error()
-		return ctrl.Result{}, err
-	}
-
 	// Create payload secret.
 	if err := r.ensureDataImportPayloadSecret(ctx, diJob, di, db); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
@@ -142,59 +129,6 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func (r *DataImportJobReconciler) validate(
-	db *everestv1alpha1.DatabaseCluster,
-	di *everestv1alpha1.DataImporter,
-	diJob *everestv1alpha1.DataImportJob,
-) error {
-	if !slices.Contains(di.Spec.SupportedEngines, db.Spec.Engine.Type) {
-		return fmt.Errorf("unsupported database engine type: %s", db.Spec.Engine.Type)
-	}
-
-	if err := di.Spec.Config.Validate(diJob.Spec.Config); err != nil {
-		return fmt.Errorf("failed to validate parameters: %w", err)
-	}
-	return nil
-}
-
-// validateSchema validates the given parameters against the provided OpenAPI v3 schema.
-func validateSchema(schema *v1.JSONSchemaProps, params *runtime.RawExtension) error {
-	if schema == nil || params == nil {
-		return nil // Nothing to validate if schema or params are nil
-	}
-
-	// Unmarshal the parameters into a generic map
-	var paramsMap map[string]interface{}
-	if err := json.Unmarshal(params.Raw, &paramsMap); err != nil {
-		return fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	// Convert the OpenAPI v3 schema to a JSON schema validator
-	schemaJSON, err := json.Marshal(schema)
-	if err != nil {
-		return fmt.Errorf("failed to marshal OpenAPI v3 schema: %w", err)
-	}
-
-	schemaLoader := gojsonschema.NewStringLoader(string(schemaJSON))
-	paramsLoader := gojsonschema.NewGoLoader(paramsMap)
-
-	// Validate the parameters against the schema
-	result, err := gojsonschema.Validate(schemaLoader, paramsLoader)
-	if err != nil {
-		return fmt.Errorf("failed to validate parameters: %w", err)
-	}
-
-	if !result.Valid() {
-		var validationErrors []string
-		for _, err := range result.Errors() {
-			validationErrors = append(validationErrors, err.String())
-		}
-		return fmt.Errorf("parameter validation failed: %s", strings.Join(validationErrors, "; "))
-	}
-
-	return nil
 }
 
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
@@ -311,7 +245,8 @@ func (r *DataImportJobReconciler) getS3Info(
 		return nil, errors.New("s3 info not provided")
 	}
 	info := dataimporterspec.S3{}
-	keyId, keySecret, err := r.getS3Credentials(ctx, dij.Spec.Source.S3.CredentialsSecretName, dij.GetNamespace())
+
+	keyId, keySecret, err := r.getS3Credentials(ctx, dij)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
@@ -327,8 +262,10 @@ func (r *DataImportJobReconciler) getS3Info(
 
 func (r *DataImportJobReconciler) getS3Credentials(
 	ctx context.Context,
-	secretName, namespace string,
+	dij *everestv1alpha1.DataImportJob,
 ) (string, string, error) {
+	namespace := dij.GetNamespace()
+	secretName := dij.Spec.Source.S3.CredentialsSecretName
 	secret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name:      secretName,
@@ -336,6 +273,16 @@ func (r *DataImportJobReconciler) getS3Credentials(
 	}, secret); err != nil {
 		return "", "", err
 	}
+
+	// Take ownership of the secret
+	if err := controllerutil.SetControllerReference(dij, secret, r.Scheme); err != nil &&
+		!errors.Is(err, &controllerutil.AlreadyOwnedError{}) {
+		return "", "", fmt.Errorf("failed to set controller reference for secret %s: %w", secretName, err)
+	}
+	if err := r.Client.Update(ctx, secret); err != nil {
+		return "", "", fmt.Errorf("failed to update secret %s: %w", secretName, err)
+	}
+
 	accessKey := secret.Data["AWS_ACCESS_KEY_ID"]
 	secretKey := secret.Data["AWS_SECRET_ACCESS_KEY"]
 	return string(accessKey), string(secretKey), nil
