@@ -97,6 +97,8 @@ type Config struct {
 	// If set, watches only those namespaces that have the specified labels.
 	// This setting is ignored if DBNamespaces is set.
 	NamespaceLabels map[string]string
+	// DisableWebhookServer is true if the webhook server should not be started.
+	DisableWebhookServer bool
 
 	WebhookCertPath string
 	WebhookCertName string
@@ -209,10 +211,9 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	managerOptions := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: cfg.ProbeAddr,
 		LeaderElection:         cfg.EnableLeaderElection,
 		LeaderElectionID:       cfg.LeaderElectionID,
@@ -228,7 +229,12 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	if !cfg.DisableWebhookServer {
+		managerOptions.WebhookServer = webhookServer
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -326,13 +332,15 @@ func main() {
 	}
 
 	// register webhooks
-	if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
-		os.Exit(1)
-	}
-	if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
-		os.Exit(1)
+	if !cfg.DisableWebhookServer {
+		if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
+			os.Exit(1)
+		}
+		if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
@@ -360,6 +368,8 @@ func parseConfig() error {
 	cfg.PodName = podName
 	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
 	var namespaceLabelFilter string
+	flag.BoolVar(&cfg.DisableWebhookServer, "disable-webhook-server", false,
+		"If set, the webhook server will not be started. This is useful for testing purposes or if you don't need webhooks.")
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
