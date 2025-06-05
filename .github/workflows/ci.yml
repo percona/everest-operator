@@ -325,6 +325,52 @@ jobs:
           sleep 10
           kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true
           kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
+          
+      - name: Run data importer tests
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+        run: |
+          kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+        env:
+          PXC_OPERATOR_VERSION: 1.17.0
+          PSMDB_OPERATOR_VERSION: 1.19.1
+          PG_OPERATOR_VERSION: 2.5.0
+          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+
+      - name: Clean up custom resources
+        if: always()
+        run: |
+          namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get pxc -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pxc -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get pg -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pg -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          namespaces=$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}')
+          for namespace in ${namespaces[@]}
+          do
+            kubectl -n $namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+          done
+
+          kubectl delete db --all-namespaces --all --cascade=foreground
+          kubectl delete pvc --all-namespaces --all
+          kubectl delete backupstorage --all-namespaces --all
+          kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+          kubectl delete ns operators olm --ignore-not-found=true --wait=false
+          sleep 10
+          kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true
+          kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
 
       - name: Scale down cluster
         if: always()
