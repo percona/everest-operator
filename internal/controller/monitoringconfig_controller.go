@@ -354,7 +354,7 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
-		// need to watch DBClusters that reference MonitoringConfig to update the it's status.
+		// need to watch DBClusters that reference MonitoringConfig to update the status.
 		Watches(
 			&everestv1alpha1.DatabaseCluster{},
 			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
