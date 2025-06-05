@@ -124,7 +124,7 @@ func (v *DatabaseClusterValidator) validateDataImport(
 
 func validateDataImportRequiredFields(requiredFields []string, db *everestv1alpha1.DatabaseCluster) error {
 	for _, field := range requiredFields {
-		exists, err := checkJSONKeyExists(field, db.Spec.DataSource.DataImport.Config)
+		exists, err := checkJSONKeyExists(field, db)
 		if err != nil {
 			return fmt.Errorf("error checking key %s: %w", field, err)
 		}

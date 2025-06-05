@@ -15,11 +15,20 @@
 package webhooks
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCheckJSONKeyExists(t *testing.T) {
@@ -72,4 +81,211 @@ func TestCheckJSONKeyExists(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, exists, tc.expected, "Key existence check failed for key: %s", tc.key)
 	}
+}
+
+func TestDatabaseClusterDefaulter(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = everestv1alpha1.AddToScheme(scheme)
+
+	const (
+		ns         = "test-ns"
+		secretName = "s3-creds"
+		accessKey  = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey"
+		secretKey  = "ZmFrZVNlY3JldEtleQ==" // base64 for "fakeSecretKey"
+	)
+
+	db := &everestv1alpha1.DatabaseCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: ns,
+		},
+		Spec: everestv1alpha1.DatabaseClusterSpec{
+			DataSource: &everestv1alpha1.DataSource{
+				DataImport: &everestv1alpha1.DataImportJobTemplate{
+					DataImporterName: "importer",
+					Source: &everestv1alpha1.DataImportJobSource{
+						S3: &everestv1alpha1.DataImportJobS3Source{
+							Bucket:                "bucket",
+							Region:                "region",
+							EndpointURL:           "https://s3.example.com",
+							CredentialsSecretName: secretName,
+							AccessKeyID:           accessKey,
+							SecretAccessKey:       secretKey,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	defaulter := &DatabaseClusterDefaulter{Client: client}
+
+	err := defaulter.Default(context.TODO(), db)
+	assert.NoError(t, err)
+
+	// Check that the credentials are removed from the spec
+	assert.Empty(t, db.Spec.DataSource.DataImport.Source.S3.AccessKeyID)
+	assert.Empty(t, db.Spec.DataSource.DataImport.Source.S3.SecretAccessKey)
+
+	// Check that the secret was created and contains the expected data
+	secret := &corev1.Secret{}
+	err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: secretName}, secret)
+	assert.NoError(t, err)
+	assert.Equal(t, accessKey, string(secret.Data[AccessKeyIDSecretKey]))
+	assert.Equal(t, secretKey, string(secret.Data[SecretAccessKeySecretKey]))
+}
+
+func TestDatabaseClusterValidator(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = everestv1alpha1.AddToScheme(scheme)
+
+	t.Run("ValidateCreate", func(t *testing.T) {
+		ns := "test-ns"
+		userSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "user-secret",
+				Namespace: ns,
+			},
+		}
+		// Minimal OpenAPI schema for config with a required string field "foo"
+		schema := map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"foo": map[string]any{"type": "string"}},
+			"required":   []string{"foo"},
+		}
+		schemaBytes, _ := json.Marshal(schema)
+		var openAPISchema apiextensionsv1.JSONSchemaProps
+		_ = json.Unmarshal(schemaBytes, &openAPISchema)
+
+		dataImporter := &everestv1alpha1.DataImporter{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "importer",
+			},
+			Spec: everestv1alpha1.DataImporterSpec{
+				SupportedEngines: everestv1alpha1.EngineList{everestv1alpha1.DatabaseEnginePSMDB},
+				DatabaseClusterConstraints: everestv1alpha1.DataImporterDatabaseClusterConstraints{
+					RequiredFields: []string{".spec.engine.userSecretsName"},
+				},
+				Config: everestv1alpha1.DataImporterConfig{
+					OpenAPIV3Schema: &openAPISchema,
+				},
+			},
+		}
+
+		testCases := []struct {
+			name      string
+			objects   []runtime.Object
+			modify    func(*everestv1alpha1.DatabaseCluster)
+			wantError string
+		}{
+			{
+				name:    "missing user secret",
+				objects: nil,
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					db.Spec.Engine.UserSecretsName = "user-secret"
+				},
+				wantError: "failed to get user secrets",
+			},
+			{
+				name:    "present user secret",
+				objects: []runtime.Object{userSecret},
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					db.Spec.Engine.UserSecretsName = "user-secret"
+				},
+				wantError: "",
+			},
+			{
+				name:    "missing DataImporter",
+				objects: []runtime.Object{userSecret},
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					config := &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
+					db.Spec.DataSource = &everestv1alpha1.DataSource{
+						DataImport: &everestv1alpha1.DataImportJobTemplate{
+							DataImporterName: "importer",
+							Config:           config,
+						},
+					}
+				},
+				wantError: "failed to get DataImporter",
+			},
+			{
+				name:    "unsupported engine",
+				objects: []runtime.Object{userSecret, dataImporter},
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					config := &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
+					db.Spec.DataSource = &everestv1alpha1.DataSource{
+						DataImport: &everestv1alpha1.DataImportJobTemplate{
+							DataImporterName: "importer",
+							Config:           config,
+						},
+					}
+					db.Spec.Engine.Type = "not-supported"
+				},
+				wantError: "does not support engine",
+			},
+			{
+				name:    "missing required field",
+				objects: []runtime.Object{userSecret, dataImporter},
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					config := &runtime.RawExtension{Raw: []byte(`{}`)}
+					db.Spec.DataSource = &everestv1alpha1.DataSource{
+						DataImport: &everestv1alpha1.DataImportJobTemplate{
+							DataImporterName: "importer",
+							Config:           config,
+						},
+					}
+					db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePSMDB
+				},
+				wantError: "required field .spec.engine.userSecretsName is missing",
+			},
+			{
+				name:    "valid config",
+				objects: []runtime.Object{userSecret, dataImporter},
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					config := &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
+					db.Spec.DataSource = &everestv1alpha1.DataSource{
+						DataImport: &everestv1alpha1.DataImportJobTemplate{
+							DataImporterName: "importer",
+							Config:           config,
+						},
+					}
+					db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePSMDB
+					db.Spec.Engine.UserSecretsName = "user-secret"
+				},
+				wantError: "",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				db := &everestv1alpha1.DatabaseCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-db",
+						Namespace: ns,
+					},
+					Spec: everestv1alpha1.DatabaseClusterSpec{
+						Engine: everestv1alpha1.Engine{},
+					},
+				}
+				if tc.modify != nil {
+					tc.modify(db)
+				}
+				// fake.NewClientBuilder().WithObjects expects client.Object, so we must ensure all objects are client.Object
+				objs := make([]runtime.Object, 0, len(tc.objects))
+
+				objs = append(objs, tc.objects...)
+				client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+				validator := &DatabaseClusterValidator{Client: client}
+				_, err := validator.ValidateCreate(context.TODO(), db)
+				if tc.wantError == "" {
+					assert.NoError(t, err)
+				} else {
+					assert.ErrorContains(t, err, tc.wantError)
+				}
+			})
+		}
+	})
 }
