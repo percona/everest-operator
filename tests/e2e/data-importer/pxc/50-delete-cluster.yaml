@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+commands:
+  - script: kubectl -n $NAMESPACE delete db test-pxc-cluster
+  - script: kubectl delete dataimporter test-pxc-data-importer
+  

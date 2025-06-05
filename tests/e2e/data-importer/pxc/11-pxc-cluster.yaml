@@ -1,0 +1,34 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-s3-secret
+stringData:
+  AWS_ACCESS_KEY_ID: test-key
+  AWS_SECRET_ACCESS_KEY: test-key
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    replicas: 1
+    storage:
+      size: 1G
+  proxy:
+    type: haproxy
+    replicas: 1
+  dataSource:
+    dataImport:
+      dataImporterName: test-pxc-data-importer
+      source:
+        path: test.sql
+        s3:
+          bucket: my-test-bucket
+          region: us-west-2
+          endpointURL: https://s3.us-west-2.amazonaws.com
+          credentialsSecretName: test-s3-secret
