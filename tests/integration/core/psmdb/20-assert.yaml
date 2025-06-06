@@ -1,24 +1,50 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl get dbc/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-psmdb-cluster
+    ref: db
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: test-psmdb-cluster
+    ref: psmdb
+assertAll:
+  - celExpr: "has(db.metadata.finalizers)"
+    message: "db doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+
+  - celExpr: "has(psmdb.metadata.finalizers)"
+    message: "psmdb doesn't have finalizers"
+
+  - celExpr: "'percona.com/delete-psmdb-pods-in-order' in psmdb.metadata.finalizers"
+    message: "'percona.com/delete-psmdb-pods-in-order' is absent in psmdb.metadata.finalizers"
+
+  - celExpr: "'percona.com/delete-psmdb-pvc' in psmdb.metadata.finalizers"
+    message: "percona.com/delete-psmdb-pvc' is absent in psmdb.metadata.finalizers"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-  - everest.percona.com/upstream-cluster-cleanup
-  - foregroundDeletion
-  labels:
-    clusterName: test-psmdb-cluster
-    podSchedulingPolicyName: everest-default-mongodb
 spec:
-  podSchedulingPolicyName: everest-default-mongodb
-  backup:
-    pitr:
-      enabled: false
   engine:
-    replicas: 1
+    replicas: 2
     resources:
       cpu: "1"
       memory: 4G
@@ -29,17 +55,13 @@ spec:
   proxy:
     expose:
       type: internal
-    resources:
-      cpu: "0"
-      memory: "0"
+status:
+  status: ready
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
-  finalizers:
-    - percona.com/delete-psmdb-pods-in-order
-    - percona.com/delete-psmdb-pvc
 spec:
   backup:
     configuration:
@@ -62,37 +84,30 @@ spec:
         cpu: 500m
         memory: 300M
   replsets:
-  - affinity:
-      advanced:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
-    arbiter:
-      enabled: false
-      resources: {}
-      size: 0
-    expose:
-      enabled: false
-      type: ClusterIP
-    name: rs0
-    nonvoting:
-      enabled: false
-      resources: {}
-      size: 0
-    podDisruptionBudget:
-      maxUnavailable: 1
-    resources:
-      limits:
-        cpu: "1"
-        memory: 4G
-    size: 1
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 25Gi
+    - arbiter:
+        enabled: false
+        resources: {}
+        size: 0
+      expose:
+        enabled: false
+        type: ClusterIP
+      name: rs0
+      nonvoting:
+        enabled: false
+        resources: {}
+        size: 0
+      podDisruptionBudget:
+        maxUnavailable: 1
+      resources:
+        limits:
+          cpu: "1"
+          memory: 4G
+      size: 2
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 25Gi
   secrets:
     encryptionKey: test-psmdb-cluster-mongodb-encryption-key
     users: everest-secrets-test-psmdb-cluster
@@ -105,3 +120,5 @@ spec:
     apply: disabled
     schedule: 0 4 * * *
     setFCV: true
+status:
+  state: ready

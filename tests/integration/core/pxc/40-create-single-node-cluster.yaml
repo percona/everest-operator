@@ -1,0 +1,26 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 2G
+    storage:
+      size: 25Gi
+    type: pxc
+    userSecretsName: everest-secrets-test-pxc-cluster
+  proxy:
+    expose:
+      type: internal
+    replicas: 1
+    resources:
+      cpu: 200m
+      memory: 200M
+    type: haproxy

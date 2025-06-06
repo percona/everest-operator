@@ -1,8 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 10
-delete:
-  - apiVersion: pgv2.percona.com/v2
-    kind: PerconaPGBackup
-    name: a-scheduled-backup
-

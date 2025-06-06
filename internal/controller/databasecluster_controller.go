@@ -21,8 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -36,7 +34,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,26 +57,18 @@ import (
 )
 
 const (
-	psmdbCRDName         = "perconaservermongodbs.psmdb.percona.com"
-	pxcCRDName           = "perconaxtradbclusters.pxc.percona.com"
-	pgCRDName            = "perconapgclusters.pgv2.percona.com"
-	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
 	restartAnnotationKey = "everest.percona.com/restart"
 
-	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
-	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
-	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
-	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameDBBackupField  = ".spec.backupStorageName"
-	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
+	monitoringConfigNameField        = ".spec.monitoring.monitoringConfigName"
+	monitoringConfigSecretNameField  = ".spec.credentialsSecretName" //nolint:gosec
+	backupStorageNameField           = ".spec.backup.schedules.backupStorageName"
+	pitrBackupStorageNameField       = ".spec.backup.pitr.backupStorageName"
+	credentialsSecretNameField       = ".spec.credentialsSecretName" //nolint:gosec
+	podSchedulingPolicyNameField     = ".spec.podSchedulingPolicyName"
+	dataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
 
-	databaseClusterNameLabel     = "clusterName"
-	monitoringConfigNameLabel    = "monitoringConfigName"
-	podSchedulingPolicyNameLabel = "podSchedulingPolicyName"
-	backupStorageNameLabelTmpl   = "backupStorage-%s"
-	backupStorageLabelValue      = "used"
-	defaultRequeueAfter          = 5 * time.Second
+	databaseClusterNameLabel = "clusterName"
+	defaultRequeueAfter      = 5 * time.Second
 )
 
 var everestFinalizers = []string{
@@ -255,7 +244,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
 
@@ -412,78 +401,10 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	updated := make(map[string]string, len(current))
 	maps.Copy(updated, current)
 
-	updated[databaseClusterNameLabel] = database.GetName()
-	if database.Spec.DataSource != nil {
-		if database.Spec.DataSource.DBClusterBackupName != "" {
-			// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
-			dbBackup := &everestv1alpha1.DatabaseClusterBackup{}
-			err := r.Get(ctx, types.NamespacedName{
-				Name:      database.Spec.DataSource.DBClusterBackupName,
-				Namespace: database.GetNamespace(),
-			}, dbBackup)
-			if err != nil {
-				return errors.Join(err, fmt.Errorf("could not get DB backup '%s' to obtain backup storage name for DB cluster='%s' in namespace='%s'",
-					database.Spec.DataSource.DBClusterBackupName,
-					database.GetName(),
-					database.GetNamespace()))
-			}
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = backupStorageLabelValue
-		}
-
-		// .spec.dataSource.backupSource.backupStorageName can be set via API directly.
-		// UI doesn't set it right now.
-		if database.Spec.DataSource.BackupSource != nil && database.Spec.DataSource.BackupSource.BackupStorageName != "" {
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupSource.BackupStorageName)] = backupStorageLabelValue
-		}
-	}
-
-	if bkpStorageName := pointer.Get(database.Spec.Backup.PITR.BackupStorageName); bkpStorageName != "" {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, bkpStorageName)] = backupStorageLabelValue
-	}
-
-	for _, schedule := range database.Spec.Backup.Schedules {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
-	}
-
-	monitoring := pointer.Get(database.Spec.Monitoring)
-	monitoringConfigName, foundMC := updated[monitoringConfigNameLabel]
-	if monitoring.MonitoringConfigName != "" {
-		if !foundMC || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
-			updated[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
-		}
-	} else if foundMC {
-		delete(updated, monitoringConfigNameLabel)
-	}
-
-	if database.Spec.PodSchedulingPolicyName != "" {
-		// If the .spec.podSchedulingPolicyName is set, we need to set the label
-		updated[podSchedulingPolicyNameLabel] = database.Spec.PodSchedulingPolicyName
-	} else {
-		// If the .spec.podSchedulingPolicyName is not set, we need to remove the label (if any).
-		delete(updated, podSchedulingPolicyNameLabel)
-	}
-
-	// Remove labels for backup storage that are not in the spec
-	keyMatchesBackupStorageName := func(key string) bool {
-		regexPattern := "^" + strings.Replace(backupStorageNameLabelTmpl, "%s", `\w+`, 1) + "$"
-		re := regexp.MustCompile(regexPattern)
-		return re.MatchString(key)
-	}
-	for key := range updated {
-		if !keyMatchesBackupStorageName(key) {
-			continue
-		}
-		found := false
-		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			delete(updated, key)
-		}
-	}
+	// Remove labels for backup storage
+	maps.DeleteFunc(updated, func(key string, _ string) bool {
+		return strings.HasPrefix(key, "backupStorage-")
+	})
 
 	if !maps.Equal(updated, current) {
 		database.SetLabels(updated)
@@ -516,31 +437,11 @@ func (r *DatabaseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
-	// Index the BackupStorage's CredentialsSecretName field so that it can be
-	// used by the databaseClustersThatReferenceSecret function to
-	// find all DatabaseClusters that reference a specific secret through the
-	// BackupStorage's CredentialsSecretName field
-	err := mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.BackupStorage{}, credentialsSecretNameField,
-		func(o client.Object) []string {
-			var res []string
-			backupStorage, ok := o.(*everestv1alpha1.BackupStorage)
-			if !ok {
-				return res
-			}
-			res = append(res, backupStorage.Spec.CredentialsSecretName)
-			return res
-		},
-	)
-	if err != nil {
-		return err
-	}
-
 	// Index the BackupStorageName so that it can be used by the
 	// databaseClustersThatReferenceObject function to find all
 	// DatabaseClusters that reference a specific BackupStorage through the
 	// BackupStorageName field
-	err = mgr.GetFieldIndexer().IndexField(
+	err := mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseCluster{}, backupStorageNameField,
 		func(o client.Object) []string {
 			var res []string
@@ -570,8 +471,27 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			if !ok || !database.Spec.Backup.PITR.Enabled || database.Spec.Backup.PITR.BackupStorageName == nil {
 				return res
 			}
-			res = append(res, *database.Spec.Backup.PITR.BackupStorageName)
-			return res
+			return append(res, *database.Spec.Backup.PITR.BackupStorageName)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Index the BackupStorageName of the .spec.dataSource.backupSource spec so that it can be used by
+	// the databaseClustersThatReferenceObject function to find all
+	// DatabaseClusters that reference a specific BackupStorage through the
+	// dataSourceBackupStorageNameField field
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, dataSourceBackupStorageNameField,
+		func(o client.Object) []string {
+			var res []string
+			database, ok := o.(*everestv1alpha1.DatabaseCluster)
+			dsBackupStoreageName := pointer.Get(pointer.Get(database.Spec.DataSource).BackupSource).BackupStorageName
+			if !ok || dsBackupStoreageName == "" {
+				return res
+			}
+			return append(res, dsBackupStoreageName)
 		},
 	)
 	if err != nil {
@@ -590,23 +510,6 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			if dc.Spec.Monitoring != nil {
 				res = append(res, dc.Spec.Monitoring.MonitoringConfigName)
 			}
-			return res
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	// Index the credentialsSecretName field in MonitoringConfig.
-	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
-		func(o client.Object) []string {
-			var res []string
-			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
-			if !ok {
-				return res
-			}
-			res = append(res, mc.Spec.CredentialsSecretName)
 			return res
 		},
 	)
@@ -634,38 +537,31 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
-	// Index the backupStorageNameDBBackupField field in DatabaseClusterBackup.
-	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.DatabaseClusterBackup{}, backupStorageNameDBBackupField,
-		func(o client.Object) []string {
-			var res []string
-			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
-			if !ok {
-				return res
-			}
-			res = append(res, dbb.Spec.BackupStorageName)
-			return res
-		},
-	)
-
 	return err
 }
 
-func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) {
+func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, defaultPredicate predicate.Predicate) { //nolint:gocognit
 	controller.Watches(
 		&corev1.Namespace{},
 		common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterList{}),
 		builder.WithPredicates(defaultPredicate),
 	)
-	controller.Owns(&everestv1alpha1.BackupStorage{})
+
 	controller.Watches(
 		&everestv1alpha1.BackupStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			bs, ok := obj.(*everestv1alpha1.BackupStorage)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			// use map to avoid duplicates of DatabaseCluster name+namespace pairs
 			dbsToReconcileMap := make(map[types.NamespacedName]struct{})
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the BackupStorageName field
-			attachedDBs, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, backupStorageNameField, obj.GetNamespace(), obj.GetName())
+			attachedDBs, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				backupStorageNameField, bs.GetNamespace(), bs.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -678,7 +574,8 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			// Find all DatabaseClusters that reference the BackupStorage
 			// through the PITRBackupStorageName field
-			attachedDBs, err = common.DatabaseClustersThatReferenceObject(ctx, r.Client, pitrBackupStorageNameField, obj.GetNamespace(), obj.GetName())
+			attachedDBs, err = common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				pitrBackupStorageNameField, bs.GetNamespace(), bs.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -691,12 +588,8 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			// Find all DatabaseClusters that are referenced by
 			// DatabaseClusterBackups that reference the BackupStorage
-			attachedDBBs := &everestv1alpha1.DatabaseClusterBackupList{}
-			listOps := &client.ListOptions{
-				FieldSelector: fields.OneTermEqualSelector(backupStorageNameDBBackupField, obj.GetName()),
-				Namespace:     obj.GetNamespace(),
-			}
-			err = r.List(ctx, attachedDBBs, listOps)
+			attachedDBBs, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client,
+				common.DBClusterBackupBackupStorageNameField, bs.GetNamespace(), bs.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -718,7 +611,10 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetBackupStoragePredicate(),
+			defaultPredicate,
+		),
 	)
 
 	// We watch DBEngines since they contain the result of the operator upgrades.
@@ -732,11 +628,16 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
 	)
 
-	controller.Owns(&everestv1alpha1.MonitoringConfig{})
 	controller.Watches(
 		&everestv1alpha1.MonitoringConfig{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, monitoringConfigNameField, obj.GetNamespace(), obj.GetName())
+			mc, ok := obj.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				monitoringConfigNameField, mc.GetNamespace(), mc.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -753,13 +654,21 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetMonitoringConfigPredicate(),
+			defaultPredicate),
 	)
 
 	controller.Watches(
 		&everestv1alpha1.PodSchedulingPolicy{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", obj.GetName())
+			psp, ok := obj.(*everestv1alpha1.PodSchedulingPolicy)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				podSchedulingPolicyNameField, "", psp.GetName())
 			if err != nil {
 				return []reconcile.Request{}
 			}
@@ -776,8 +685,9 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 
 			return requests
 		}),
-		builder.WithPredicates(predicates.GetPodSchedulingPolicyPredicate(),
-			predicate.GenerationChangedPredicate{}),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetPodSchedulingPolicyPredicate()),
+		// defaultPredicate is not needed here since PodSchedulingPolicy doesn't belong to any namespace.
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
@@ -790,7 +700,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&corev1.Secret{},
 		handler.EnqueueRequestsFromMapFunc(r.databaseClustersThatReferenceSecret),
-		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{}, defaultPredicate),
 	)
 
 	controller.Watches(
@@ -833,12 +743,13 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 }
 
 func (r *DatabaseClusterReconciler) databaseClustersInObjectNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
-	result := []reconcile.Request{}
 	dbs := &everestv1alpha1.DatabaseClusterList{}
 	err := r.List(ctx, dbs, client.InNamespace(obj.GetNamespace()))
 	if err != nil {
-		return result
+		return nil
 	}
+
+	result := make([]reconcile.Request, 0, len(dbs.Items))
 	for _, db := range dbs.Items {
 		result = append(result, reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -856,62 +767,48 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	logger := log.FromContext(ctx)
 
 	// BackupStorage
-	var res []reconcile.Request
-	bsList := &everestv1alpha1.BackupStorageList{}
-	err := r.findObjectsBySecretName(ctx, secret, credentialsSecretNameField, bsList)
-	if err != nil {
-		logger.Error(err, "could not find BackupStorage by secret name")
-	}
-	if err == nil {
-		var items []client.Object
-		for _, i := range bsList.Items {
+	if bsList, err := common.BackupStoragesThatReferenceObject(ctx, r.Client,
+		credentialsSecretNameField, secret.GetNamespace(), secret.GetName()); err != nil {
+		logger.Error(err, fmt.Sprintf("could not find BackupStorages by secret name='%s' in namespace='%s'", secret.GetName(), secret.GetNamespace()))
+	} else {
+		objs := make([]client.Object, len(bsList.Items))
+		for i, item := range bsList.Items {
 			// With the move to go 1.22 it's safe to reuse the same variable,
 			// see https://go.dev/blog/loopvar-preview. However, exportloopref
 			// linter doesn't like it. Let's disable them for this line until
 			// they are updated to support go 1.22.
-			items = append(items, &i) //nolint:exportloopref
+			objs[i] = &item //nolint:exportloopref
 		}
-		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, backupStorageNameField)...)
+		return r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, objs, backupStorageNameField)
 	}
 
 	// MonitoringConfig
-	mcList := &everestv1alpha1.MonitoringConfigList{}
-	err = r.findObjectsBySecretName(ctx, secret, monitoringConfigSecretNameField, mcList)
-	if err != nil {
-		logger.Error(err, "could not find MonitoringConfig by secret name")
-	}
-	if err == nil {
-		var items []client.Object
-		for _, i := range mcList.Items {
+	if mcList, err := common.MonitoringConfigsThatReferenceObject(ctx, r.Client,
+		monitoringConfigSecretNameField, secret.GetNamespace(), secret.GetName()); err != nil {
+		logger.Error(err, fmt.Sprintf("could not find MonitoringConfigs by secret name='%s' in namespace='%s'", secret.GetName(), secret.GetNamespace()))
+	} else {
+		objs := make([]client.Object, len(mcList.Items))
+		for i, item := range mcList.Items {
 			// With the move to go 1.22 it's safe to reuse the same variable,
 			// see https://go.dev/blog/loopvar-preview. However, exportloopref
 			// linter doesn't like it. Let's disable them for this line until
 			// they are updated to support go 1.22.
-			items = append(items, &i) //nolint:exportloopref
+			objs[i] = &item //nolint:exportloopref
 		}
-		res = append(res, r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, items, monitoringConfigNameField)...)
+		return r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, objs, monitoringConfigNameField)
 	}
 
-	return res
-}
-
-func (r *DatabaseClusterReconciler) findObjectsBySecretName(ctx context.Context, secret client.Object, fieldPath string, obj client.ObjectList) error {
-	listOpts := &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(fieldPath, secret.GetName()),
-		Namespace:     secret.GetNamespace(),
-	}
-	return r.List(ctx, obj, listOpts)
+	return nil
 }
 
 func (r *DatabaseClusterReconciler) getDBClustersReconcileRequestsByRelatedObjectName(ctx context.Context, items []client.Object, fieldPath string) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
 	var requests []reconcile.Request
 	for _, i := range items {
-		attachedDatabaseClusters := &everestv1alpha1.DatabaseClusterList{}
-		listOps := &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(fieldPath, i.GetName()),
-			Namespace:     i.GetNamespace(),
-		}
-		if err := r.List(ctx, attachedDatabaseClusters, listOps); err != nil {
+		attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, fieldPath, i.GetNamespace(), i.GetName())
+		if err != nil {
+			logger.Error(err, fmt.Sprintf("could not find DatabaseClusters by '%s'='%s' in namespace='%s'", fieldPath, i.GetName(), i.GetNamespace()))
 			return []reconcile.Request{}
 		}
 
@@ -936,18 +833,16 @@ func (r *DatabaseClusterReconciler) ensureFinalizers(
 	if !database.DeletionTimestamp.IsZero() {
 		return nil
 	}
-	// Combine everest finalizers and finalizers applied by the user.
-	desiredFinalizers := append([]string{}, everestFinalizers...)
-	desiredFinalizers = append(desiredFinalizers, database.GetFinalizers()...)
-	slices.Sort(desiredFinalizers)
-	desiredFinalizers = slices.Compact(desiredFinalizers) // remove duplicates
 
-	currentFinalizers := database.GetFinalizers()
-	slices.Sort(currentFinalizers)
+	var updated bool
+	for _, f := range everestFinalizers {
+		if controllerutil.AddFinalizer(database, f) {
+			updated = true
+		}
+	}
 
-	if !slices.Equal(desiredFinalizers, currentFinalizers) {
-		database.SetFinalizers(desiredFinalizers)
-		return r.Update(ctx, database)
+	if updated {
+		return r.Client.Update(ctx, database)
 	}
 	return nil
 }

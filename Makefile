@@ -128,17 +128,20 @@ PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
 PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
 PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
 PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
-test-core: build ## Run core tests against kind cluster
+OPERATOR_ROOT_PATH = $(shell pwd)
+test-core: docker-build ## Run core tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
  	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
  	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
  	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
  	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
-test-features: build ## Run feature tests against kind cluster
+test-features: docker-build ## Run feature tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
  	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
  	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
  	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
 	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
@@ -148,6 +151,7 @@ test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
  	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
  	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
  	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
+ 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
 	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 ##@ Build
 
@@ -166,7 +170,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
 .PHONY: docker-push
@@ -208,6 +212,10 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: deploy-test
+deploy-test: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/test | kubectl apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

@@ -64,22 +64,28 @@ type BackupStorageSpec struct {
 // BackupStorageStatus defines the observed state of BackupStorage.
 type BackupStorageStatus struct {
 	// Deprecated: BackupStorages are now used only in the namespaces where they are created.
-	UsedNamespaces map[string]bool `json:"usedNamespaces"`
+	UsedNamespaces map[string]bool `json:"usedNamespaces,omitempty"`
+	// InUse is a flag that indicates if any DB cluster uses the backup storage.
+	// +kubebuilder:default=false
+	InUse bool `json:"inUse,omitempty"`
+	// LastObservedGeneration is the most recent generation observed for this BackupStorage.
+	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // BackupStorage is the Schema for the backupstorages API.
 type BackupStorage struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BackupStorageSpec   `json:"spec,omitempty"`
+	Spec BackupStorageSpec `json:"spec,omitempty"`
+	// +kubebuilder:default={"inUse": false}
 	Status BackupStorageStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // BackupStorageList contains a list of BackupStorage.
 type BackupStorageList struct {

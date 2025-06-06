@@ -1,0 +1,87 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get backupstorage/test-storage-s3 -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/test-pg-cluster-backup-s3 -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get db/test-pg-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get perconapgcluster/test-pg-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-pg-cluster
+    ref: db
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: BackupStorage
+    name: test-storage-s3
+    ref: bs_s3
+assertAll:
+  - celExpr: "has(db.metadata.finalizers)"
+    message: "db doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+
+  - celExpr: "!has(bs_s3.metadata.finalizers)"
+    message: "bs_s3 has unexpected finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  engine:
+    replicas: 1
+    type: postgresql
+  proxy:
+    replicas: 1
+    type: pgbouncer
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  instances:
+    - name: instance1
+      replicas: 1
+  proxy:
+    pgBouncer:
+      replicas: 1
+      expose:
+        type: ClusterIP
+  backups:
+    pgbackrest:
+      configuration:
+        - secret:
+            name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+      manual:
+        repoName: repo1
+      repos:
+        - name: repo1
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1G
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-s3
+status:
+  inUse: false

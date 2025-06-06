@@ -1,0 +1,54 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get psp/everest-default-mongodb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete db/psmdb-psp -n $NAMESPACE
+  - command: kubectl wait --for=delete psmdb/psmdb-psp -n $NAMESPACE
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: everest-default-mongodb
+    ref: psp
+assertAll:
+  - celExpr: "has(psp.metadata.finalizers)"
+    message: "psp doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-mongodb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: false

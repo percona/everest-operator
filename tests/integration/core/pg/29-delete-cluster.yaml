@@ -1,9 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 30
-commands:
-  - script: kubectl -n $NAMESPACE delete db test-pg-cluster --wait=false && sleep 5
-  - command: kubectl patch perconapgclusters test-pg-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl wait --for=delete db/test-pg-cluster -n $NAMESPACE
-  - command: kubectl patch podschedulingpolicy/everest-default-postgresql -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl delete podschedulingpolicy/everest-default-postgresql --wait=true

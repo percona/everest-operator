@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// controllerWatcherRegistry is a wrapper arond controller.Controller that provides a way to
+// controllerWatcherRegistry is a wrapper around controller.Controller that provides a way to
 // store and keep track of the sources that have been added to the controller.
 type controllerWatcherRegistry struct {
 	controller.Controller
@@ -39,7 +39,7 @@ func newControllerWatcherRegistry(log logr.Logger, c controller.Controller) *con
 	}
 }
 
-// addWatchers adds the provided sources to the controller's watch, and stores the name of the sources in a map to avoid adding them again.
+// addWatchers adds the provided sources to the controller's watch and stores the name of the sources in a map to avoid adding them again.
 func (c *controllerWatcherRegistry) addWatchers(
 	name string,
 	sources ...source.Source,

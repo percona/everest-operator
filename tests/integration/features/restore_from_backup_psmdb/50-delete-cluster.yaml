@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  #  must be set on DatabaseClusterBackup to ensure that storage is NOT cleaned up.
+  - script: kubectl -n $NAMESPACE delete db/test-psmdb-cluster --wait=false && sleep 3
+  - command: kubectl patch psmdb/test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge

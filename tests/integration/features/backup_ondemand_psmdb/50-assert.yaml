@@ -1,0 +1,38 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get backupstorage/test-storage-s3 -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/test-psmdb-cluster-backup-s3 -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get dbb/test-db-backup-s3-2 -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb-backup/test-db-backup-s3-2 -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete psmdb-backup/test-db-backup-s3-2 -n ${NAMESPACE}
+  - command: kubectl wait --for=delete dbb/test-db-backup-s3-2 -n ${NAMESPACE}
+  - command: kubectl wait --for=delete psmdb/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=delete db/test-psmdb-cluster -n ${NAMESPACE}
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: BackupStorage
+    name: test-storage-s3
+    ref: bs_s3
+assertAll:
+  - celExpr: "!has(bs_s3.metadata.finalizers)"
+    message: "bs_s3 has unexpected finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-s3
+status:
+  inUse: false

@@ -1,12 +1,12 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
+timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
 spec:
-  podSchedulingPolicyName: everest-default-postgresql
   engine:
     replicas: 2
     resources:
