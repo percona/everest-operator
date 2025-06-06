@@ -115,11 +115,18 @@ type DataImportJobList struct {
 type DataImportJobPhase string
 
 const (
-	DataImportJobPhasePending   DataImportJobPhase = "Pending"
-	DataImportJobPhaseRunning   DataImportJobPhase = "Running"
+	// DataImportJobPhasePending indicates that the data import job is pending.
+	DataImportJobPhasePending DataImportJobPhase = "Pending"
+	// DataImportJobPhaseRunning indicates that the data import job is currently running.
+	DataImportJobPhaseRunning DataImportJobPhase = "Running"
+	// DataImportJobPhaseCompleted indicates that the data import job has completed successfully.
 	DataImportJobPhaseCompleted DataImportJobPhase = "Completed"
-	DataImportJobPhaseFailed    DataImportJobPhase = "Failed"
-	DataImportJobPhaseError     DataImportJobPhase = "Error"
+	// DataImportJobPhaseFailed indicates that the data import job has failed.
+	// Once the job is in this phase, it cannot be retried.
+	DataImportJobPhaseFailed DataImportJobPhase = "Failed"
+	// DataImportJobPhaseError indicates that the data import job has encountered an error.
+	// This phase is used for transient errors that may allow the job to be retried.
+	DataImportJobPhaseError DataImportJobPhase = "Error"
 )
 
 type DataImportJobStatus struct {
