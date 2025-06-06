@@ -22,6 +22,7 @@ import (
 	_ "github.com/apache/skywalking-eyes/cmd/license-eye"
 	_ "github.com/daixiang0/gci"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen"
 	_ "github.com/reviewdog/reviewdog/cmd/reviewdog"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "mvdan.cc/gofumpt"
@@ -34,3 +35,4 @@ import (
 //go:generate go build -o ../bin/go-sumtype github.com/BurntSushi/go-sumtype
 //go:generate go build -o ../bin/reviewdog github.com/reviewdog/reviewdog/cmd/reviewdog
 //go:generate go build -o ../bin/golangci-lint github.com/golangci/golangci-lint/cmd/golangci-lint
+//go:generate go build -o ../bin/oapi-codegen github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
