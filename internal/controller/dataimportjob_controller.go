@@ -123,7 +123,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	}
 
 	// Create payload secret.
-	if err := r.ensureDataImportPayloadSecret(ctx, diJob, di, db); err != nil {
+	if err := r.ensureDataImportPayloadSecret(ctx, diJob, db); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
 		diJob.Status.Message = fmt.Errorf("failed to create data import payload secret: %w", err).Error()
 		return ctrl.Result{}, err
@@ -188,7 +188,6 @@ func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob 
 func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 	ctx context.Context,
 	diJob *everestv1alpha1.DataImportJob,
-	di *everestv1alpha1.DataImporter,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	secret := &corev1.Secret{

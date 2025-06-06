@@ -63,7 +63,6 @@ func handleS3CredentialsSecret(
 	namespace string,
 	tpl *everestv1alpha1.DataImportJobTemplate,
 ) error {
-	logger.Info("called?")
 	if tpl == nil || tpl.Source == nil || tpl.Source.S3 == nil {
 		return nil
 	}
