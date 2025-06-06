@@ -81,7 +81,8 @@ func (r *DataImportJobReconciler) Reconcile(
 	l := log.FromContext(ctx)
 	l.Info("Reconciling", "name", diJob.GetName())
 
-	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted {
+	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted ||
+		diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseFailed {
 		// Already complete, no need to reconcile again.
 		return ctrl.Result{}, nil
 	}
