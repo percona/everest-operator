@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -140,6 +141,34 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Predicate to filter events of DatabaseClusterRestore resource.
+	dbClusterRestoreEventsPredicate := predicate.Funcs{
+		// Allow CREATE events.
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+
+		// Only allow UPDATE events when the .status.state field has changed.
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldDbr, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseClusterRestore)
+			newDbr, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseClusterRestore)
+			if !oldOk || !newOk {
+				return false
+			}
+			return oldDbr.Status.State != newDbr.Status.State
+		},
+
+		// Nothing to process on DELETE events.
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return false
+		},
+
+		// Nothing to process on GENERIC events.
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("BackupStorage").
 		For(&everestv1alpha1.BackupStorage{}).
@@ -241,7 +270,7 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					},
 				}
 			}),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(dbClusterRestoreEventsPredicate),
 		).
 		WithEventFilter(common.DefaultNamespaceFilter).
 		Complete(r)
