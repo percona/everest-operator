@@ -144,7 +144,7 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Predicate to filter events of DatabaseClusterRestore resource.
 	dbClusterRestoreEventsPredicate := predicate.Funcs{
 		// Allow CREATE events.
-		CreateFunc: func(e event.CreateEvent) bool {
+		CreateFunc: func(_ event.CreateEvent) bool {
 			return true
 		},
 
