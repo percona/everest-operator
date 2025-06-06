@@ -80,6 +80,10 @@ const (
 	backupStorageNameLabelTmpl   = "backupStorage-%s"
 	backupStorageLabelValue      = "used"
 	defaultRequeueAfter          = 5 * time.Second
+
+	// setting this annotation on a DatabaseCluster will pause the reconciliation.
+	pauseReconcileAnnotation          = "everest.percona.com/reconcile-paused"
+	pauseReconcileAnnotationValueTrue = "true"
 )
 
 var everestFinalizers = []string{
@@ -185,16 +189,19 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}()
 
 	log := log.FromContext(ctx)
+
+	// Run pre-reconcile hook.
 	hr, err := p.RunPreReconcileHook(ctx)
 	if err != nil {
 		log.Error(err, "RunPreReconcileHook failed")
 		return ctrl.Result{}, err
 	}
-	if hr.Requeue {
+	switch {
+	case hr.Requeue:
 		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
 		return ctrl.Result{Requeue: true}, nil
-	}
-	if hr.RequeueAfter > 0 {
+	case hr.RequeueAfter > 0:
+
 		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
@@ -351,6 +358,17 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			logger.Error(err, "unable to fetch DatabaseCluster")
 		}
 		return reconcile.Result{}, err
+	}
+
+	logger = logger.WithValues(
+		"cluster", database.GetName(),
+		"namespace", database.GetNamespace(),
+	)
+
+	// If the reconcile is paused, we return immediately.
+	if val, ok := database.GetAnnotations()[pauseReconcileAnnotation]; ok && val == pauseReconcileAnnotationValueTrue {
+		logger.Info("Reconciliation is paused")
+		return reconcile.Result{}, nil
 	}
 
 	if err = r.reconcileLabels(ctx, database); err != nil {
