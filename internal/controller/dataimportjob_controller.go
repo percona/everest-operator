@@ -41,6 +41,7 @@ import (
 const (
 	dataImporterRequestSecretNameSuffix = "-data-import-request"
 	dataImportJSONSecretKey             = "request.json"
+	payloadMountPath                    = "/payload"
 )
 
 type DataImportJobReconciler struct {
@@ -400,11 +401,11 @@ func (r *DataImportJobReconciler) getJobSpec(
 					Name:    "importer",
 					Image:   di.Spec.JobSpec.Image,
 					Command: di.Spec.JobSpec.Command,
-					Args:    []string{fmt.Sprintf("/payload/%s", dataImportJSONSecretKey)},
+					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, dataImportJSONSecretKey)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "payload",
-							MountPath: "/payload",
+							MountPath: payloadMountPath,
 							ReadOnly:  true,
 						},
 					},
