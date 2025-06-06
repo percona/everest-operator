@@ -108,7 +108,7 @@ func (r *DataImportJobReconciler) Reconcile(
 		Name: diJob.Spec.DataImporterName,
 	}, di); err != nil {
 		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = err.Error()
+		diJob.Status.Message = fmt.Errorf("failed to get data importer: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
