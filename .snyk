@@ -1,0 +1,39 @@
+#SNYK - Percona/Everest-Operator
+
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+# SAST_EXCLUDED_PATHS: spec, test, tests, tmp, assets, logs, refactor, vendor, */public/js
+# Exclude a single file. For example, - test.spec.js
+        - file_name.ext
+        # Exclude a single directory. For example, - src/lib
+        - source/directory_name
+        # Exclude any file with a specific extension in the specific directory. For example, - tests/.js
+        - directory_name/.ext
+        # Exclude files with a specific ending in any directory. For example, - “*.spec.js”
+        - "*.ending.ext"
+        # Exclude files in directories that have the same name with a different ending, like “test” and “tests”. The last character before the question mark is optional. For example, - tests?/
+        - directory_name?/
+        # Exclude all files and directories located within any specified folder within your Project. For example, directory_name/** matches and excludes all contents under any directory named directory_name. It is not constrained to the root level or the location of the .snyk file.
+        - directory_name/**
+
+
+exclude:
+  global:
+- config/crd/patches/webhook_in_databaseengines.yaml
+- config/rbac/auth_proxy_client_clusterrole.yaml
+- config/crd/patches/cainjection_in_monitoringconfigs.yaml
+- config/crd/patches/webhook_in_backupstorages.yaml
+- config/crd/patches/cainjection_in_backupstorages.yaml
+- config/crd/patches/webhook_in_monitoringconfigs.yaml
+- config/crd/patches/webhook_in_databaseclusters.yaml
+- config/rbac/auth_proxy_service.yaml
+- config/crd/patches/cainjection_in_databaseclusterbackups.yaml
+- config/rbac/auth_proxy_role.yaml
+- config/crd/patches/webhook_in_databaseclusterrestores.yaml
+- config/crd/patches/webhook_in_databaseclusterbackups.yaml
+- config/crd/patches/cainjection_in_databaseengines.yaml
+- bundle/**
+- docs/**
+
+version: v1.25.0
+ignore: {}
+patch: {}
