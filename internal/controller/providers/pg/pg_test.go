@@ -2744,7 +2744,8 @@ func TestReconcilePGBackRestRestoreFromDataSource_NoSchedules_NoBackups(t *testi
 	testBackupStoragesSecrets := map[string]*corev1.Secret{}         // does not matter because no schedules no backups
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
+			Name:   "repo1",
+			Volume: pvcVolume,
 		},
 	}
 
@@ -2804,7 +2805,8 @@ func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_SameStorage(
 	}
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
+			Name:   "repo1",
+			Volume: pvcVolume,
 		},
 		{
 			Name: "repo2",
@@ -2885,195 +2887,8 @@ func TestReconcilePGBackRestRestoreFromDataSource_1Schedule_1Backup_DifferentSto
 	}
 	expRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
-		},
-		{
-			Name: "repo2",
-			S3: &crunchyv1beta1.RepoS3{
-				Bucket: "bucket1",
-			},
-		},
-		{
-			Name: "repo3",
-			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
-				Full: pointer.To("20 * * * *"),
-			},
-			S3: &crunchyv1beta1.RepoS3{
-				Bucket: "bucket2",
-			},
-		},
-	}
-
-	repos, _, _, _ := reconcilePGBackRestRepos( //nolint:dogsled
-		testRepos,
-		testBackupSchedules,
-		testBackupRequests,
-		testBackupStorages,
-		testBackupStoragesSecrets,
-		testEngineStorage,
-		&everestv1alpha1.DatabaseCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-				UID:  "123",
-			},
-		},
-	)
-	assert.Equal(t, expRepos, repos)
-}
-
-func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_NoSchedules_NoBackups(t *testing.T) {
-	t.Parallel()
-	testRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
-		},
-	}
-	var testBackupRequests []everestv1alpha1.DatabaseClusterBackup
-	var testBackupSchedules []everestv1alpha1.BackupSchedule
-	testBackupStorages := map[string]everestv1alpha1.BackupStorage{} // does not matter in this case
-	testBackupStoragesSecrets := map[string]*corev1.Secret{}         // does not matter in this case
-	expRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
-		},
-	}
-
-	repos, _, _, _ := reconcilePGBackRestRepos( //nolint:dogsled
-		testRepos,
-		testBackupSchedules,
-		testBackupRequests,
-		testBackupStorages,
-		testBackupStoragesSecrets,
-		testEngineStorage,
-		&everestv1alpha1.DatabaseCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-				UID:  "123",
-			},
-		},
-	)
-	assert.Equal(t, expRepos, repos)
-}
-
-func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_SameStorage(t *testing.T) {
-	t.Parallel()
-	testRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
-		},
-	}
-	testBackupSchedules := []everestv1alpha1.BackupSchedule{{
-		Enabled:           true,
-		Name:              "sched1",
-		Schedule:          "20 * * * *",
-		BackupStorageName: "bs1",
-	}}
-	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{
-		{
-			Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-				BackupStorageName: "bs1",
-			},
-		},
-	}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
-		"bs1": {
-			Spec: everestv1alpha1.BackupStorageSpec{
-				Type:   "s3",
-				Bucket: "bucket1",
-			},
-		},
-	}
-	testBackupStoragesSecrets := map[string]*corev1.Secret{
-		"bs1": {
-			Data: map[string][]byte{
-				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
-				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
-			},
-		},
-	}
-	expRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
-		},
-		{
-			Name: "repo2",
-			BackupSchedules: &crunchyv1beta1.PGBackRestBackupSchedules{
-				Full: pointer.To("20 * * * *"),
-			},
-			S3: &crunchyv1beta1.RepoS3{
-				Bucket: "bucket1",
-			},
-		},
-	}
-
-	repos, _, _, _ := reconcilePGBackRestRepos( //nolint:dogsled
-		testRepos,
-		testBackupSchedules,
-		testBackupRequests,
-		testBackupStorages,
-		testBackupStoragesSecrets,
-		testEngineStorage,
-		&everestv1alpha1.DatabaseCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-				UID:  "123",
-			},
-		},
-	)
-	assert.Equal(t, expRepos, repos)
-}
-
-func TestReconcilePGBackRestRestoreFromDataSource_NoPVC_1Schedule_1Backup_DifferentStorage(t *testing.T) {
-	t.Parallel()
-	testRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no s3 and no Volume in repo1 means the cluster was restored from source some time ago
-		},
-	}
-	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{
-		{
-			Spec: everestv1alpha1.DatabaseClusterBackupSpec{
-				BackupStorageName: "bs1",
-			},
-		},
-	}
-	testBackupSchedules := []everestv1alpha1.BackupSchedule{{
-		Enabled:           true,
-		Name:              "sched1",
-		Schedule:          "20 * * * *",
-		BackupStorageName: "bs2",
-	}}
-	testBackupStorages := map[string]everestv1alpha1.BackupStorage{
-		"bs1": {
-			Spec: everestv1alpha1.BackupStorageSpec{
-				Type:   "s3",
-				Bucket: "bucket1",
-			},
-		},
-		"bs2": {
-			Spec: everestv1alpha1.BackupStorageSpec{
-				Type:   "s3",
-				Bucket: "bucket2",
-			},
-		},
-	}
-	testBackupStoragesSecrets := map[string]*corev1.Secret{
-		"bs1": {
-			Data: map[string][]byte{
-				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
-				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
-			},
-		},
-		"bs2": {
-			Data: map[string][]byte{
-				"AWS_ACCESS_KEY_ID":     []byte("SomeAccessKeyID"),
-				"AWS_SECRET_ACCESS_KEY": []byte("SomeSecretAccessKey"),
-			},
-		},
-	}
-	expRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1", // no S3, no PVC volume is expected here after reconciliation
+			Name:   "repo1",
+			Volume: pvcVolume,
 		},
 		{
 			Name: "repo2",
@@ -3348,50 +3163,6 @@ func TestSortPGBackRestReposByName(t *testing.T) {
 		input := tc.repos
 		sortByName(input)
 		assert.Equal(t, input, tc.sortedRepos)
-	}
-}
-
-func TestIsRestoredCluster(t *testing.T) {
-	t.Parallel()
-	type testCase struct {
-		name       string
-		repo1value *crunchyv1beta1.PGBackRestRepo
-		isRestored bool
-	}
-	cases := []testCase{
-		{
-			name:       "no old repos - a.k.a new cluster",
-			repo1value: nil,
-			isRestored: false,
-		},
-		{
-			name: "repo1 with pvc is present",
-			repo1value: &crunchyv1beta1.PGBackRestRepo{
-				Name:   "repo1",
-				Volume: &crunchyv1beta1.RepoPVC{},
-			},
-			isRestored: false,
-		},
-		{
-			name: "repo1 without pvc is present - the cluster was restored",
-			repo1value: &crunchyv1beta1.PGBackRestRepo{
-				Name: "repo1",
-			},
-			isRestored: true,
-		},
-		{
-			name: "no repo1 is present", // not a real case, added just to check the theory
-			repo1value: &crunchyv1beta1.PGBackRestRepo{
-				Name: "repo2",
-			},
-			isRestored: false,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tc.isRestored, isRestoredCluster(tc.repo1value))
-		})
 	}
 }
 

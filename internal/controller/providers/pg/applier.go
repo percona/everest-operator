@@ -1206,9 +1206,6 @@ func reconcilePGBackRestRepos(
 	[]byte,
 	error,
 ) {
-	// exclude repo1 from the list of the repos to reconcile since it's going to be reconciled separately
-	oldRepos, repo1 := separateRepo1(oldRepos)
-
 	reposReconciler, err := newPGReposReconciler(oldRepos, backupSchedules)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
@@ -1238,7 +1235,7 @@ func reconcilePGBackRestRepos(
 			errors.Join(err, errors.New("failed to add new backup schedules"))
 	}
 
-	newRepos, err := reposReconciler.addDefaultRepo(engineStorage, repo1)
+	newRepos, err := reposReconciler.addDefaultRepo(engineStorage)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}
@@ -1249,20 +1246,6 @@ func reconcilePGBackRestRepos(
 	}
 
 	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
-}
-
-// in order to consider repo1 separately, this function splits the list of repos excluding the repo1 from the list.
-func separateRepo1(repos []crunchyv1beta1.PGBackRestRepo) ([]crunchyv1beta1.PGBackRestRepo, *crunchyv1beta1.PGBackRestRepo) {
-	var newRepos []crunchyv1beta1.PGBackRestRepo
-	var repo1 *crunchyv1beta1.PGBackRestRepo
-	for _, repo := range repos {
-		if repo.Name != repo1Name {
-			newRepos = append(newRepos, repo)
-		} else {
-			repo1 = &repo
-		}
-	}
-	return newRepos, repo1
 }
 
 func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorage, repo crunchyv1beta1.PGBackRestRepo, dbNamespace string) string {

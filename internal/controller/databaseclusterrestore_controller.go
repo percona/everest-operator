@@ -227,11 +227,28 @@ func (r *DatabaseClusterRestoreReconciler) ensureClusterIsReady(ctx context.Cont
 
 func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 	ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore,
-) error {
+) (rerr error) {
 	logger := log.FromContext(ctx)
 	if err := r.ensureClusterIsReady(ctx, restore); err != nil {
 		return err
 	}
+
+	psmdbCR := &psmdbv1.PerconaServerMongoDBRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      restore.Name,
+			Namespace: restore.Namespace,
+		},
+	}
+	err := r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, psmdbCR)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	defer func() {
+		rerr = r.updateStatusPSMDB(ctx, restore, psmdbCR)
+		if rerr != nil {
+			logger.Error(rerr, "failed to update status of PXC resource")
+		}
+	}()
 
 	// We need to check if the storage used by the backup is defined in the
 	// PerconaServerMongoDB CR. If not, we requeue the restore to give the
@@ -272,16 +289,10 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		}
 	}
 
-	psmdbCR := &psmdbv1.PerconaServerMongoDBRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      restore.Name,
-			Namespace: restore.Namespace,
-		},
-	}
 	if err := controllerutil.SetControllerReference(restore, psmdbCR, r.Client.Scheme()); err != nil {
 		return err
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, psmdbCR, func() error {
 		psmdbCR.Spec.ClusterName = restore.Spec.DBClusterName
 		if restore.Spec.DataSource.DBClusterBackupName != "" {
 			psmdbCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
@@ -333,16 +344,14 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 
 		return nil
 	})
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	psmdbCR = &psmdbv1.PerconaServerMongoDBRestore{}
-	err = r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, psmdbCR)
-	if err != nil {
-		return err
-	}
-
+func (r *DatabaseClusterRestoreReconciler) updateStatusPSMDB(
+	ctx context.Context,
+	restore *everestv1alpha1.DatabaseClusterRestore,
+	psmdbCR *psmdbv1.PerconaServerMongoDBRestore,
+) error {
 	restore.Status.State = everestv1alpha1.GetDBRestoreState(psmdbCR)
 	restore.Status.CompletedAt = psmdbCR.Status.CompletedAt
 	restore.Status.Message = psmdbCR.Status.Error
@@ -354,18 +363,29 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 	ctx context.Context,
 	restore *everestv1alpha1.DatabaseClusterRestore,
 	db *everestv1alpha1.DatabaseCluster,
-) error {
+) (rerr error) {
+	logger := log.FromContext(ctx)
 	pxcCR := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restore.Name,
 			Namespace: restore.Namespace,
 		},
 	}
+	err := r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, pxcCR)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	defer func() {
+		rerr = r.updateStatusPXC(ctx, restore, pxcCR)
+		if rerr != nil {
+			logger.Error(rerr, "failed to update status of PXC resource")
+		}
+	}()
 
 	if err := controllerutil.SetControllerReference(restore, pxcCR, r.Client.Scheme()); err != nil {
 		return err
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pxcCR, func() error {
 		pxcCR.Spec.PXCCluster = restore.Spec.DBClusterName
 		if restore.Spec.DataSource.DBClusterBackupName != "" {
 			pxcCR.Spec.BackupName = restore.Spec.DataSource.DBClusterBackupName
@@ -422,24 +442,21 @@ func (r *DatabaseClusterRestoreReconciler) restorePXC(
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	pxcCR = &pxcv1.PerconaXtraDBClusterRestore{}
-	err = r.Get(ctx, types.NamespacedName{Name: restore.Name, Namespace: restore.Namespace}, pxcCR)
-	if err != nil {
-		return err
-	}
-
+func (r *DatabaseClusterRestoreReconciler) updateStatusPXC(
+	ctx context.Context,
+	restore *everestv1alpha1.DatabaseClusterRestore,
+	pxcCR *pxcv1.PerconaXtraDBClusterRestore,
+) error {
 	restore.Status.State = everestv1alpha1.GetDBRestoreState(pxcCR)
 	restore.Status.CompletedAt = pxcCR.Status.CompletedAt
-	restore.Status.Message = pxcCR.Status.Comments
 
 	return r.Status().Update(ctx, restore)
 }
 
-func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) error {
+func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restore *everestv1alpha1.DatabaseClusterRestore) (rerr error) {
 	logger := log.FromContext(ctx)
 	pgCR := &pgv2.PerconaPGRestore{
 		ObjectMeta: metav1.ObjectMeta{
@@ -452,9 +469,9 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 		return err
 	}
 	defer func() {
-		updErr := r.updateStatusPG(ctx, restore, pgCR)
-		if updErr != nil {
-			logger.Error(updErr, "failed to update status of PG resource")
+		rerr = r.updateStatusPG(ctx, restore, pgCR)
+		if rerr != nil {
+			logger.Error(rerr, "failed to update status of PG resource")
 		}
 	}()
 
@@ -786,7 +803,12 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		return err
 	}
 
-	restore := &everestv1alpha1.DatabaseClusterRestore{}
+	restore := &everestv1alpha1.DatabaseClusterRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
+		},
+	}
 
 	err := r.Get(ctx, namespacedName, restore)
 	// if such everest restore already exists - do nothing
@@ -814,8 +836,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		BackupStorageName: name,
 	}
 	restore.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel:                      pgRestore.Spec.PGCluster,
-		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
+		databaseClusterNameLabel: pgRestore.Spec.PGCluster,
 	}
 	if err = controllerutil.SetControllerReference(cluster, restore, r.Scheme); err != nil {
 		return err
@@ -826,25 +847,19 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 
 func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Context, obj client.Object) {
 	logger := log.FromContext(ctx)
-	dbb := &everestv1alpha1.DatabaseClusterRestore{}
 	name := obj.GetName()
-	namespacedName := types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      name,
+	namespace := obj.GetNamespace()
+	dbr := &everestv1alpha1.DatabaseClusterRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
 	}
 
-	if err := r.Get(ctx, namespacedName, dbb); err != nil {
+	if err := r.Delete(ctx, dbr); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return
 		}
-		logger.Error(err, "Failed to get the DatabaseClusterRestore", "name", name)
-		return
-	}
-
-	if err := r.Delete(ctx, dbb); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return
-		}
-		logger.Error(err, "Failed to delete the DatabaseClusterRestore", "name", name)
+		logger.Error(err, "Failed to delete the DatabaseClusterRestore", "name", name, "namespace", namespace)
 	}
 }
