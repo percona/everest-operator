@@ -742,7 +742,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		if len(storages) > 1 {
 			return emptySpec, common.ErrPSMDBOneStorageRestriction
 		}
-		psmdbBackupSpec.Storages = storages
+		psmdbBackupSpec.Storages = withMarkedAsMain(storages)
 		return psmdbBackupSpec, nil
 	}
 
@@ -763,18 +763,20 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	if len(storages) > 1 {
 		return emptySpec, common.ErrPSMDBOneStorageRestriction
 	}
-	if len(storages) == 1 {
-		for key, storage := range storages {
-			// mark the first and the single one as Main
-			storage.Main = true
-			storages[key] = storage
-			break
-		}
-	}
-	psmdbBackupSpec.Storages = storages
+	psmdbBackupSpec.Storages = withMarkedAsMain(storages)
 	psmdbBackupSpec.Tasks = tasks
 
 	return psmdbBackupSpec, nil
+}
+
+func withMarkedAsMain(storages map[string]psmdbv1.BackupStorageSpec) map[string]psmdbv1.BackupStorageSpec {
+	for key, storage := range storages {
+		// mark the first and the single one as Main
+		storage.Main = true
+		storages[key] = storage
+		return storages
+	}
+	return storages
 }
 
 func (p *applier) getCurrentReplSet(name string) *psmdbv1.ReplsetSpec {
