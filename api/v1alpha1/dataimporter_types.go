@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,6 +73,14 @@ type DataImporterSpec struct {
 	// against these constraints before proceeding with the import operation.
 	// +optional
 	DatabaseClusterConstraints DataImporterDatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
+	// Permissions defines the permissions required by the data importer.
+	// These permissions are used to generate a Role for the data importer job.
+	// +optional
+	Permissions []rbacv1.PolicyRule `json:"permissions,omitempty"`
+	// ClusterPermissions defines the cluster-wide permissions required by the data importer.
+	// These permissions are used to generate a ClusterRole for the data importer job.
+	// +optional
+	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
 }
 
 // DataImporterConfig contains additional configuration defined for the data importer.
@@ -138,10 +147,6 @@ type DataImporterJobSpec struct {
 	// Command is the command to run the data importer.
 	// +optional
 	Command []string `json:"command,omitempty"`
-	// ServiceAccountName is the name of the service account to use for the data importer job.
-	// This is useful if your Job needs to access the Kubernetes API or other resources.
-	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 type DataImporterDatabaseClusterConstraints struct {
