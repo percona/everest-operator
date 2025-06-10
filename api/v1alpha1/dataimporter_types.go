@@ -68,7 +68,12 @@ type DataImporterSpec struct {
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.
 	JobSpec DataImporterJobSpec `json:"jobSpec,omitempty"`
-	// DatabaseClusterConstraints contains constraints for the DatabaseCluster that the data importer can be used with.
+	// DatabaseClusterConstraints defines compatibility requirements and prerequisites that must be satisfied
+	// by a DatabaseCluster before this data importer can be used with it. This allows the data importer to
+	// express specific requirements about the database configuration needed for successful import operations,
+	// such as required database fields, specific engine configurations, or other database properties.
+	// When a DatabaseCluster references this data importer, the operator will validate the DatabaseCluster
+	// against these constraints before proceeding with the import operation.
 	// +optional
 	DatabaseClusterConstraints DataImporterDatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
 }

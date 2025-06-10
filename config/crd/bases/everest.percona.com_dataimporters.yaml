@@ -60,8 +60,13 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
               databaseClusterConstraints:
-                description: DatabaseClusterConstraints contains constraints for the
-                  DatabaseCluster that the data importer can be used with.
+                description: |-
+                  DatabaseClusterConstraints defines compatibility requirements and prerequisites that must be satisfied
+                  by a DatabaseCluster before this data importer can be used with it. This allows the data importer to
+                  express specific requirements about the database configuration needed for successful import operations,
+                  such as required database fields, specific engine configurations, or other database properties.
+                  When a DatabaseCluster references this data importer, the operator will validate the DatabaseCluster
+                  against these constraints before proceeding with the import operation.
                 properties:
                   requiredFields:
                     description: |-

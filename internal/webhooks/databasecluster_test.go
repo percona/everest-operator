@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/percona/everest-operator/api/v1alpha1"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/percona/everest-operator/api/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 func TestCheckJSONKeyExists(t *testing.T) {
