@@ -376,7 +376,6 @@ func (r *DataImportJobReconciler) ensureImportJob(
 		return err
 	}
 	diJob.Status.StartedAt = pointer.To(metav1.Now())
-
 	return nil
 }
 
