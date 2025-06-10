@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
@@ -48,12 +49,7 @@ type EngineList []EngineType
 
 // Has checks if the list contains the specified engine.
 func (e EngineList) Has(engine EngineType) bool {
-	for _, item := range e {
-		if item == engine {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(e, engine)
 }
 
 // DataImporterSpec defines the specification of a DataImporter.
