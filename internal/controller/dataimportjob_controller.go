@@ -357,9 +357,7 @@ func (r *DataImportJobReconciler) ensureImportJob(
 		},
 	}
 
-	defer func() {
-		diJob.Status.JobName = job.GetName()
-	}()
+	diJob.Status.JobName = job.GetName()
 
 	// Check if the job already exists.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
@@ -374,8 +372,12 @@ func (r *DataImportJobReconciler) ensureImportJob(
 	if err := controllerutil.SetControllerReference(diJob, job, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
-	job.Status.StartTime = pointer.To(metav1.Now())
-	return r.Client.Create(ctx, job)
+	if err := r.Client.Create(ctx, job); err != nil {
+		return err
+	}
+	diJob.Status.StartedAt = pointer.To(metav1.Now())
+
+	return nil
 }
 
 func dataImporterJobName(diJob *everestv1alpha1.DataImportJob) string {
