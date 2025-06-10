@@ -296,12 +296,12 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      common.GetDataImportJobName(db),
 			Namespace: namespace,
-			Labels: map[string]string{
-				databaseClusterNameLabel: db.GetName(),
-			},
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, diJob, func() error {
+		diJob.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: db.GetName(),
+		}
 		diJob.Spec = everestv1alpha1.DataImportJobSpec{
 			TargetClusterName:     db.GetName(),
 			DataImportJobTemplate: dataImportSpec,
