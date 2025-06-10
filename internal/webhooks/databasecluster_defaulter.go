@@ -21,12 +21,10 @@ import (
 	"github.com/AlekSi/pointer"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
-
-var logger = logf.Log.WithName("dbwebhook")
 
 // +kubebuilder:webhook:path=/mutate-everest-percona-com-v1alpha1-databasecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusters,verbs=create;update,versions=v1alpha1,name=mdatabasecluster-v1alpha1.everest.percona.com,admissionReviewVersions=v1
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;update;get;list
@@ -43,6 +41,16 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 	if !ok {
 		return fmt.Errorf("expected a DatabaseCluster object but got %T", obj)
 	}
+
+	log := log.FromContext(ctx).WithName("DatabaseClusterDefaulter").WithValues(
+		"name", db.GetName(),
+		"namespace", db.GetNamespace(),
+	)
 	importTpl := pointer.Get(db.Spec.DataSource).DataImport
-	return handleS3CredentialsSecret(ctx, d.Client, db.GetNamespace(), importTpl)
+	err := handleS3CredentialsSecret(ctx, d.Client, db.GetNamespace(), importTpl)
+	if err != nil {
+		log.Error(err, "handleS3CredentialsSecret failed")
+		return err
+	}
+	return nil
 }

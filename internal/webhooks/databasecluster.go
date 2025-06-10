@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -60,6 +61,11 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
+	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
+		"name", db.GetName(),
+		"namespace", db.GetNamespace(),
+	)
+
 	// If a user secret is specified by the user, ensure that it exists.
 	if userSecretsName := db.Spec.Engine.UserSecretsName; userSecretsName != "" {
 		// ensure that this secret exists.
@@ -75,6 +81,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	// If a data import source is specified, validate it.
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
 		if err := v.validateDataImport(ctx, db); err != nil {
+			log.Error(err, "validateDataImport failed")
 			return nil, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}

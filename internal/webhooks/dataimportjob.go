@@ -51,11 +51,19 @@ type DataImportJobDefaulter struct {
 
 func (d *DataImportJobDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	dij, ok := obj.(*everestv1alpha1.DataImportJob)
-
 	if !ok {
 		return fmt.Errorf("expected an DataImportJob object but got %T", obj)
 	}
-	return handleS3CredentialsSecret(ctx, d.Client, dij.GetNamespace(), dij.Spec.DataImportJobTemplate)
+	log := ctrl.LoggerFrom(ctx).WithName("DataImportJobDefaulter").WithValues(
+		"name", dij.GetName(),
+		"namespace", dij.GetNamespace(),
+	)
+	err := handleS3CredentialsSecret(ctx, d.Client, dij.GetNamespace(), dij.Spec.DataImportJobTemplate)
+	if err != nil {
+		log.Error(err, "handleS3CredentialsSecret failed")
+		return err
+	}
+	return nil
 }
 
 func handleS3CredentialsSecret(
@@ -69,8 +77,6 @@ func handleS3CredentialsSecret(
 	}
 	accessKeyID := tpl.Source.S3.AccessKeyID
 	secretAccessKey := tpl.Source.S3.SecretAccessKey
-
-	logger.Info("Handling S3 credentials secret", "accessKeyID", accessKeyID, "secretAccessKey", secretAccessKey)
 
 	switch {
 	case accessKeyID != "" && secretAccessKey == "":
