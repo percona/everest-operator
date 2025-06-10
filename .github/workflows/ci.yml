@@ -234,16 +234,6 @@ jobs:
         if: always()
         run: sh ./.github/scripts/cleanup.sh
           
-      - name: Run data importer tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
-        run: |
-          make test-e2e-data-importer
-        env:
-          PXC_OPERATOR_VERSION: 1.17.0
-          PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.5.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
-
       - name: Clean up custom resources
         if: always()
         run: sh ./.github/scripts/cleanup.sh

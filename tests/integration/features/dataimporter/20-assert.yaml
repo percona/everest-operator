@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 400
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster

@@ -1,9 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestAssert
-timeout: 400
-commands:
-  - script: >
-      JOB_NAME=$(kubectl -n $NAMESPACE get db test-pg-cluster -o jsonpath='{.status.dataImportJobName}') &&
-      kubectl wait --for=jsonpath='{.status.state}'=Succeeded dataimportjob "$JOB_NAME" -n $NAMESPACE --timeout=120s
-  - script: >
-      kubectl wait --for=jsonpath='{.status.status}'=ready db test-pg-cluster -n $NAMESPACE --timeout=120s
