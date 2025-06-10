@@ -4,6 +4,6 @@ timeout: 400
 commands:
   - script: |
       JOB_NAME=$(kubectl -n $NAMESPACE get db test-psmdb-cluster -o jsonpath='{.status.dataImportJobName}') &&
-      kubectl wait --for=jsonpath='{.status.phase}'=Succeeded dataimportjob "$JOB_NAME" -n $NAMESPACE --timeout=120s
+      kubectl wait --for=jsonpath='{.status.state}'=Succeeded dataimportjob "$JOB_NAME" -n $NAMESPACE --timeout=120s
   - script: |
       kubectl wait --for=jsonpath='{.status.status}'=ready db test-psmdb-cluster -n $NAMESPACE --timeout=120s

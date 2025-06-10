@@ -134,8 +134,8 @@ type DataImportJobStatus struct {
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the data import job.
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
-	// Phase is the current state of the data import job.
-	State DataImportJobState `json:"phase,omitempty"`
+	// State is the current state of the data import job.
+	State DataImportJobState `json:"state,omitempty"`
 	// Message is the message of the data import job.
 	Message string `json:"message,omitempty"`
 	// JobName is the reference to the job that is running the data import.
