@@ -174,6 +174,7 @@ func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob 
 				return fmt.Errorf("failed to delete data import request secret: %w", err)
 			}
 			diJob.Status.State = everestv1alpha1.DataImportJobStateSucceeded
+			diJob.Status.CompletedAt = job.Status.CompletionTime
 			return nil
 		}
 

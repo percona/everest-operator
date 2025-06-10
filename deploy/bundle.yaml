@@ -1425,6 +1425,10 @@ spec:
             type: object
           status:
             properties:
+              completedAt:
+                description: CompletedAt is the time when the data import job completed successfully.
+                format: date-time
+                type: string
               jobName:
                 description: JobName is the reference to the job that is running the data import.
                 type: string

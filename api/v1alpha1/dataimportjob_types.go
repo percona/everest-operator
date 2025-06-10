@@ -132,6 +132,8 @@ const (
 type DataImportJobStatus struct {
 	// StartedAt is the time when the data import job started.
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+	// CompletedAt is the time when the data import job completed successfully.
+	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the data import job.
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 	// State is the current state of the data import job.
