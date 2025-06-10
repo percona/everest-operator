@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
@@ -48,12 +49,7 @@ type EngineList []EngineType
 
 // Has checks if the list contains the specified engine.
 func (e EngineList) Has(engine EngineType) bool {
-	for _, item := range e {
-		if item == engine {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(e, engine)
 }
 
 // DataImporterSpec defines the specification of a DataImporter.
@@ -68,7 +64,12 @@ type DataImporterSpec struct {
 	Config DataImporterConfig `json:"config,omitempty"`
 	// JobSpec is the specification of the data importer job.
 	JobSpec DataImporterJobSpec `json:"jobSpec,omitempty"`
-	// DatabaseClusterConstraints contains constraints for the DatabaseCluster that the data importer can be used with.
+	// DatabaseClusterConstraints defines compatibility requirements and prerequisites that must be satisfied
+	// by a DatabaseCluster before this data importer can be used with it. This allows the data importer to
+	// express specific requirements about the database configuration needed for successful import operations,
+	// such as required database fields, specific engine configurations, or other database properties.
+	// When a DatabaseCluster references this data importer, the operator will validate the DatabaseCluster
+	// against these constraints before proceeding with the import operation.
 	// +optional
 	DatabaseClusterConstraints DataImporterDatabaseClusterConstraints `json:"databaseClusterConstraints,omitempty"`
 }

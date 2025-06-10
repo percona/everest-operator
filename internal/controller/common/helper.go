@@ -917,8 +917,8 @@ func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespac
 	return false, "", nil
 }
 
-// DataImportJobName returns the name of the DataImport job for the given database cluster.
-func DataImportJobName(db *everestv1alpha1.DatabaseCluster) string {
+// GetDataImportJobName returns the name of the DataImport job for the given database cluster.
+func GetDataImportJobName(db *everestv1alpha1.DatabaseCluster) string {
 	prefix := "data-import-"
 	return prefix + db.GetName()
 }

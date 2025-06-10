@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 // SetupDataImportJobWebhookWithManager sets up the webhook for DataImportJob.
@@ -50,11 +51,19 @@ type DataImportJobDefaulter struct {
 
 func (d *DataImportJobDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	dij, ok := obj.(*everestv1alpha1.DataImportJob)
-
 	if !ok {
 		return fmt.Errorf("expected an DataImportJob object but got %T", obj)
 	}
-	return handleS3CredentialsSecret(ctx, d.Client, dij.GetNamespace(), dij.Spec.DataImportJobTemplate)
+	log := ctrl.LoggerFrom(ctx).WithName("DataImportJobDefaulter").WithValues(
+		"name", dij.GetName(),
+		"namespace", dij.GetNamespace(),
+	)
+	err := handleS3CredentialsSecret(ctx, d.Client, dij.GetNamespace(), dij.Spec.DataImportJobTemplate)
+	if err != nil {
+		log.Error(err, "handleS3CredentialsSecret failed")
+		return err
+	}
+	return nil
 }
 
 func handleS3CredentialsSecret(
@@ -63,14 +72,11 @@ func handleS3CredentialsSecret(
 	namespace string,
 	tpl *everestv1alpha1.DataImportJobTemplate,
 ) error {
-	logger.Info("called?")
 	if tpl == nil || tpl.Source == nil || tpl.Source.S3 == nil {
 		return nil
 	}
 	accessKeyID := tpl.Source.S3.AccessKeyID
 	secretAccessKey := tpl.Source.S3.SecretAccessKey
-
-	logger.Info("Handling S3 credentials secret", "accessKeyID", accessKeyID, "secretAccessKey", secretAccessKey)
 
 	switch {
 	case accessKeyID != "" && secretAccessKey == "":

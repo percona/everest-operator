@@ -30,7 +30,6 @@ func TestValidateSchema(t *testing.T) {
 		configJSON string
 		expectErr  bool
 	}{
-
 		{
 			name:       "Empty schema, no parameters",
 			schemaJSON: `{}`,

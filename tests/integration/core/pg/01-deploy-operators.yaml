@@ -7,4 +7,4 @@ commands:
   - script: "curl -fsSL https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/operator.yaml | sed 's/replicas: [0-9]/replicas: 0/g' | kubectl apply -n ${NAMESPACE} -f -"
   - script: SYSTEM_NAMESPACE=$NAMESPACE MONITORING_NAMESPACE=$NAMESPACE DB_NAMESPACES=$NAMESPACE ../../../../bin/manager -metrics-bind-address :0 -health-probe-bind-address :0 -disable-webhook-server=true
     background: true
-    skipLogOutput: false
+    skipLogOutput: true

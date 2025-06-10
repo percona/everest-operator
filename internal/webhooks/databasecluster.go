@@ -22,14 +22,16 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 // SetupDatabaseClusterWebhookWithManager sets up the webhook with the manager.
@@ -59,6 +61,11 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
+	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
+		"name", db.GetName(),
+		"namespace", db.GetNamespace(),
+	)
+
 	// If a user secret is specified by the user, ensure that it exists.
 	if userSecretsName := db.Spec.Engine.UserSecretsName; userSecretsName != "" {
 		// ensure that this secret exists.
@@ -74,6 +81,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	// If a data import source is specified, validate it.
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
 		if err := v.validateDataImport(ctx, db); err != nil {
+			log.Error(err, "validateDataImport failed")
 			return nil, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}

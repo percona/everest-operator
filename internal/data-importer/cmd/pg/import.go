@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
+	"github.com/cenkalti/backoff/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -40,18 +44,21 @@ func runPGImport(
 	}
 
 	var (
-		dbName          = cfg.Target.DatabaseClusterRef.Name
-		namespace       = cfg.Target.DatabaseClusterRef.Namespace
-		accessKeyId     = cfg.Source.S3.AccessKeyID
-		secretAccessKey = cfg.Source.S3.SecretKey
-		endpoint        = cfg.Source.S3.EndpointURL
-		region          = cfg.Source.S3.Region
-		backupPath      = cfg.Source.Path
-		uriStyle        = "host"
+		dbName               = cfg.Target.DatabaseClusterRef.Name
+		namespace            = cfg.Target.DatabaseClusterRef.Namespace
+		accessKeyId          = cfg.Source.S3.AccessKeyID
+		secretAccessKey      = cfg.Source.S3.SecretKey
+		endpoint             = cfg.Source.S3.EndpointURL
+		region               = cfg.Source.S3.Region
+		backupPath           = cfg.Source.Path
+		pgBackRestSecretName = "data-import-" + dbName
+		uriStyle             = "host"
 	)
 	if cfg.Source.S3.ForcePathStyle {
 		uriStyle = "path"
 	}
+
+	baseBackupName, dbDir := parseBackupPath(backupPath)
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
@@ -81,22 +88,30 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
-	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, accessKeyId,
+	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyId,
 		secretAccessKey, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
 	}
 
-	if err := preparePGBackrestRepo(ctx, k8sClient, repoName,
-		backupPath, uriStyle, cfg.Source.S3.Bucket, endpoint, region,
+	if err := preparePGBackrestRepo(ctx,
+		k8sClient, repoName, pgBackRestSecretName,
+		dbDir, uriStyle, cfg.Source.S3.Bucket, endpoint, region,
 		dbName, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest repo: %w", err)
 	}
 
-	if err := runPGRestoreAndWait(ctx, k8sClient, backupPath, repoName, dbName, namespace); err != nil {
+	if err := runPGRestoreAndWait(ctx, k8sClient, baseBackupName, repoName, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to run PG restore: %w", err)
 	}
 
 	return nil
+}
+
+// returns: [baseBackupName, DBDirectory]
+func parseBackupPath(fullPath string) (string, string) {
+	base := filepath.Base(fullPath)
+	dbDir := strings.TrimSuffix(base, "/backup/db")
+	return base, dbDir
 }
 
 func getRepoName(
@@ -108,7 +123,7 @@ func getRepoName(
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
 		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
 	}
-	repoIdx := len(pg.Spec.Backups.PGBackRest.Repos) - 1
+	repoIdx := len(pg.Spec.Backups.PGBackRest.Repos) + 1
 	if repoIdx < 0 {
 		repoIdx = 0
 	}
@@ -165,13 +180,14 @@ func preparePGBackrestSecret(
 	ctx context.Context,
 	c client.Client,
 	repoName string,
+	secretName string,
 	accessKeyId, secretAccessKey string,
 	dbName, namespace string,
 ) error {
 	content := fmt.Sprintf(pgBackrestSecretContentTpl, repoName, accessKeyId, repoName, secretAccessKey)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "data-import-" + dbName,
+			Name:      secretName,
 			Namespace: namespace,
 		},
 	}
@@ -190,12 +206,46 @@ func preparePGBackrestRepo(
 	ctx context.Context,
 	c client.Client,
 	repoName string,
-	path string,
+	secretName string,
+	dbDirPath string,
 	uriStyle string,
 	bucket, endpoint, region string,
 	dbName, namespace string,
 ) error {
-	return nil
+	pg := &pgv2.PerconaPGCluster{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
+		return fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
+	}
+
+	// configure PGBackRest secret
+	pg.Spec.Backups.PGBackRest.Configuration = append(pg.Spec.Backups.PGBackRest.Configuration, corev1.VolumeProjection{
+		Secret: &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secretName,
+			},
+		},
+	})
+
+	// configure global settings
+	pg.Spec.Backups.PGBackRest.Global[fmt.Sprintf("%s-path", repoName)] = dbDirPath
+	pg.Spec.Backups.PGBackRest.Global[fmt.Sprintf("%s-s3-uri-style", repoName)] = uriStyle
+
+	// configure PG repo
+	pg.Spec.Backups.PGBackRest.Repos = append(pg.Spec.Backups.PGBackRest.Repos, crunchyv1beta1.PGBackRestRepo{
+		Name: repoName,
+		S3: &crunchyv1beta1.RepoS3{
+			Bucket:   bucket,
+			Endpoint: endpoint,
+			Region:   region,
+		},
+	})
+
+	// retry update operation to reduce chances of conflicts
+	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
+	err := backoff.Retry(func() error {
+		return c.Update(ctx, pg)
+	}, bo)
+	return err
 }
 
 func runPGRestoreAndWait(
@@ -205,5 +255,16 @@ func runPGRestoreAndWait(
 	repoName string,
 	dbName, namespace string,
 ) error {
+	pgRestore := &pgv2.PerconaPGRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("data-import-%s", dbName),
+			Namespace: namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, c, pgRestore, func() error {
+		return nil
+	}); err != nil {
+		return err
+	}
 	return nil
 }

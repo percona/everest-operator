@@ -173,9 +173,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
 
-		if err := r.observeDataImportState(ctx, db); err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+		// if data import is set, we need to observe the state of the data import job.
+		if pointer.Get(db.Spec.DataSource).DataImport != nil {
+			if err := r.observeDataImportState(ctx, db); err != nil {
+				rr = ctrl.Result{}
+				rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+			}
 		}
 
 		if err := r.Client.Status().Update(ctx, db); err != nil {
@@ -257,7 +260,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{}, err
 	}
 
-	if dataimport := pointer.Get(db.Spec.DataSource).DataImport; dataimport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
+	if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
 		if err := r.ensureDataImportJob(ctx, db); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -271,7 +274,7 @@ func (re *DatabaseClusterReconciler) observeDataImportState(
 ) error {
 	diJob := &everestv1alpha1.DataImportJob{}
 	if err := re.Get(ctx, types.NamespacedName{
-		Name:      common.DataImportJobName(db),
+		Name:      common.GetDataImportJobName(db),
 		Namespace: db.GetNamespace(),
 	}, diJob); err != nil {
 		return client.IgnoreNotFound(err)
@@ -281,9 +284,9 @@ func (re *DatabaseClusterReconciler) observeDataImportState(
 
 	sts := diJob.Status
 	switch {
-	case sts.Phase == everestv1alpha1.DataImportJobPhaseRunning:
+	case sts.State == everestv1alpha1.DataImportJobStateRunning:
 		db.Status.Status = everestv1alpha1.AppStateImporting
-	case sts.Phase == everestv1alpha1.DataImportJobPhaseFailed:
+	case sts.State == everestv1alpha1.DataImportJobStateFailed:
 		db.Status.Status = everestv1alpha1.AppStateError
 		db.Status.Message = "Data import job failed"
 	}
@@ -296,21 +299,21 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 ) error {
 	namespace := db.GetNamespace()
 	dataImportSpec := db.Spec.DataSource.DataImport
-	dijob := &everestv1alpha1.DataImportJob{
+	diJob := &everestv1alpha1.DataImportJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.DataImportJobName(db),
+			Name:      common.GetDataImportJobName(db),
 			Namespace: namespace,
-			Labels: map[string]string{
-				databaseClusterNameLabel: db.GetName(),
-			},
 		},
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, dijob, func() error {
-		dijob.Spec = everestv1alpha1.DataImportJobSpec{
+	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, diJob, func() error {
+		diJob.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: db.GetName(),
+		}
+		diJob.Spec = everestv1alpha1.DataImportJobSpec{
 			TargetClusterName:     db.GetName(),
 			DataImportJobTemplate: dataImportSpec,
 		}
-		if err := controllerutil.SetControllerReference(db, dijob, re.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(db, diJob, re.Scheme); err != nil {
 			return err
 		}
 		return nil

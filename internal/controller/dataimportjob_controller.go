@@ -41,6 +41,7 @@ import (
 const (
 	dataImporterRequestSecretNameSuffix = "-data-import-request"
 	dataImportJSONSecretKey             = "request.json"
+	payloadMountPath                    = "/payload"
 )
 
 type DataImportJobReconciler struct {
@@ -72,15 +73,24 @@ func (r *DataImportJobReconciler) Reconcile(
 	ctx context.Context,
 	req ctrl.Request,
 ) (rr ctrl.Result, rerr error) {
+	logger := log.FromContext(ctx).
+		WithName("DataImportJobReconciler").
+		WithValues(
+			"name", req.Name,
+			"namespace", req.Namespace,
+		)
+	logger.Info("Reconciling")
+	defer func() {
+		logger.Info("Reconciled")
+	}()
+
 	diJob := &everestv1alpha1.DataImportJob{}
 	if err := r.Client.Get(ctx, req.NamespacedName, diJob); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	l := log.FromContext(ctx)
-	l.Info("Reconciling", "name", diJob.GetName())
-
-	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted {
+	if diJob.Status.State == everestv1alpha1.DataImportJobStateSucceeded ||
+		diJob.Status.State == everestv1alpha1.DataImportJobStateFailed {
 		// Already complete, no need to reconcile again.
 		return ctrl.Result{}, nil
 	}
@@ -96,7 +106,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Sync status on finishing reconciliation.
 	defer func() {
 		if updErr := r.Client.Status().Update(ctx, diJob); updErr != nil {
-			l.Error(updErr, "Failed to update data import job status")
+			logger.Error(updErr, "Failed to update data import job status")
 			rerr = errors.Join(rerr, updErr)
 		}
 	}()
@@ -106,8 +116,8 @@ func (r *DataImportJobReconciler) Reconcile(
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name: diJob.Spec.DataImporterName,
 	}, di); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
-		diJob.Status.Message = err.Error()
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
+		diJob.Status.Message = fmt.Errorf("failed to get data importer: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
@@ -117,28 +127,28 @@ func (r *DataImportJobReconciler) Reconcile(
 		Name:      diJob.Spec.TargetClusterName,
 		Namespace: diJob.GetNamespace(),
 	}, db); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to get database cluster: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Create payload secret.
-	if err := r.ensureDataImportPayloadSecret(ctx, diJob, di, db); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+	if err := r.ensureDataImportPayloadSecret(ctx, diJob, db); err != nil {
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to create data import payload secret: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Create import job.
 	if err := r.ensureImportJob(ctx, diJob, di); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to create import job: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Observe import state.
 	if err := r.observeImportState(ctx, diJob); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
 		return ctrl.Result{}, err
 	}
@@ -148,7 +158,7 @@ func (r *DataImportJobReconciler) Reconcile(
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
 	jobName := diJob.Status.JobName
 	if jobName == "" {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhasePending
+		diJob.Status.State = everestv1alpha1.DataImportJobStatePending
 		return nil
 	}
 
@@ -171,24 +181,24 @@ func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob 
 			}); err != nil {
 				return fmt.Errorf("failed to delete data import request secret: %w", err)
 			}
-			diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseCompleted
+			diJob.Status.State = everestv1alpha1.DataImportJobStateSucceeded
+			diJob.Status.CompletedAt = job.Status.CompletionTime
 			return nil
 		}
 
 		if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
-			diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseFailed
+			diJob.Status.State = everestv1alpha1.DataImportJobStateFailed
 			diJob.Status.Message = c.Message
 			return nil
 		}
 	}
-	diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseRunning
+	diJob.Status.State = everestv1alpha1.DataImportJobStateRunning
 	return nil
 }
 
 func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 	ctx context.Context,
 	diJob *everestv1alpha1.DataImportJob,
-	di *everestv1alpha1.DataImporter,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	secret := &corev1.Secret{
@@ -356,9 +366,7 @@ func (r *DataImportJobReconciler) ensureImportJob(
 		},
 	}
 
-	defer func() {
-		diJob.Status.JobName = job.GetName()
-	}()
+	diJob.Status.JobName = job.GetName()
 
 	// Check if the job already exists.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
@@ -373,8 +381,11 @@ func (r *DataImportJobReconciler) ensureImportJob(
 	if err := controllerutil.SetControllerReference(diJob, job, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
-	job.Status.StartTime = pointer.To(metav1.Now())
-	return r.Client.Create(ctx, job)
+	if err := r.Client.Create(ctx, job); err != nil {
+		return err
+	}
+	diJob.Status.StartedAt = pointer.To(metav1.Now())
+	return nil
 }
 
 func dataImporterJobName(diJob *everestv1alpha1.DataImportJob) string {
@@ -401,11 +412,11 @@ func (r *DataImportJobReconciler) getJobSpec(
 					Name:    "importer",
 					Image:   di.Spec.JobSpec.Image,
 					Command: di.Spec.JobSpec.Command,
-					Args:    []string{fmt.Sprintf("/payload/%s", dataImportJSONSecretKey)},
+					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, dataImportJSONSecretKey)},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "payload",
-							MountPath: "/payload",
+							MountPath: payloadMountPath,
 							ReadOnly:  true,
 						},
 					},
