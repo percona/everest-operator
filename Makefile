@@ -136,7 +136,7 @@ test-%: build ## Run integration tests in kind cluster
 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
-	@kubectl kuttl test --config ./tests/integration/kuttl-$*.yaml
+	kubectl kuttl test --config ./tests/integration/kuttl-$*.yaml
 ##@ Build
 
 run-e2e-%: build ## Run e2e tests in a live cluster
@@ -147,7 +147,7 @@ run-e2e-%: build ## Run e2e tests in a live cluster
 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
-	@kubectl kuttl test --config ./tests/e2e/kuttl-$*.yaml
+	kubectl kuttl test --config ./tests/e2e/kuttl-$*.yaml
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
