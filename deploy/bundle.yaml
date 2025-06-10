@@ -1412,8 +1412,8 @@ spec:
     - jsonPath: .spec.targetClusterName
       name: TargetCluster
       type: string
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .status.state
+      name: State
       type: string
     name: v1alpha1
     schema:
