@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -17,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,19 +46,20 @@ func runPGImport(
 	}
 
 	var (
-		dbName               = cfg.Target.DatabaseClusterRef.Name
-		namespace            = cfg.Target.DatabaseClusterRef.Namespace
-		accessKeyId          = cfg.Source.S3.AccessKeyID
-		secretAccessKey      = cfg.Source.S3.SecretKey
-		endpoint             = cfg.Source.S3.EndpointURL
-		region               = cfg.Source.S3.Region
-		backupPath           = cfg.Source.Path
-		pgBackRestSecretName = "data-import-" + dbName
-		uriStyle             = "host"
+		dbName          = cfg.Target.DatabaseClusterRef.Name
+		namespace       = cfg.Target.DatabaseClusterRef.Namespace
+		accessKeyId     = cfg.Source.S3.AccessKeyID
+		secretAccessKey = cfg.Source.S3.SecretKey
+		endpoint        = cfg.Source.S3.EndpointURL
+		region          = cfg.Source.S3.Region
+		backupPath      = cfg.Source.Path
+		uriStyle        = "host"
 	)
 	if cfg.Source.S3.ForcePathStyle {
 		uriStyle = "path"
 	}
+
+	log.Info().Msgf("Importing PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)
 
 	baseBackupName, dbDir := parseBackupPath(backupPath)
 
@@ -88,6 +91,7 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
+	pgBackRestSecretName := "data-import-" + dbName
 	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyId,
 		secretAccessKey, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
@@ -100,10 +104,16 @@ func runPGImport(
 		return fmt.Errorf("failed to prepare PGBackrest repo: %w", err)
 	}
 
-	if err := runPGRestoreAndWait(ctx, k8sClient, baseBackupName, repoName, dbName, namespace); err != nil {
+	restoreName := "data-import-" + dbName
+	if err := runPGRestoreAndWait(ctx, k8sClient, baseBackupName, restoreName, repoName, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to run PG restore: %w", err)
 	}
 
+	if err := cleanup(ctx, k8sClient, namespace, restoreName, pgBackRestSecretName); err != nil {
+		return fmt.Errorf("failed to cleanup after PG restore: %w", err)
+	}
+
+	log.Info().Msgf("Successfully imported PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)
 	return nil
 }
 
@@ -248,23 +258,76 @@ func preparePGBackrestRepo(
 	return err
 }
 
+const defaultRetryInterval = time.Second * 30
+
 func runPGRestoreAndWait(
 	ctx context.Context,
 	c client.Client,
-	backupPath string,
+	backupName string,
+	restoreName string,
 	repoName string,
 	dbName, namespace string,
 ) error {
 	pgRestore := &pgv2.PerconaPGRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("data-import-%s", dbName),
+			Name:      restoreName,
 			Namespace: namespace,
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, pgRestore, func() error {
+		pgRestore.Spec = pgv2.PerconaPGRestoreSpec{
+			PGCluster: dbName,
+			RepoName:  repoName,
+			Options: []string{
+				"--type=immediate", // TODO: support PITR
+				"--set=" + backupName,
+			},
+		}
 		return nil
 	}); err != nil {
 		return err
+	}
+	// wait for the restore to complete
+	return wait.PollUntilContextCancel(
+		ctx,
+		defaultRetryInterval,
+		false,
+		func(ctx context.Context) (done bool, err error) {
+			pg := &pgv2.PerconaPGRestore{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: pgRestore.Name}, pg); err != nil {
+				return false, fmt.Errorf("failed to get PerconaPGRestore %s/%s: %w", namespace, pgRestore.Name, err)
+			}
+			return pg.Status.State == pgv2.RestoreSucceeded, nil
+		},
+	)
+}
+
+func cleanup(
+	ctx context.Context,
+	c client.Client,
+	namespace,
+	pgRestoreName,
+	secretName string,
+) error {
+	// delete PG restore
+	pgRestore := &pgv2.PerconaPGRestore{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pgRestoreName,
+			Namespace: namespace,
+		},
+	}
+	if err := c.Delete(ctx, pgRestore); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete PerconaPGRestore %s/%s: %w", namespace, pgRestoreName, err)
+	}
+	// delete PGBackrest secret
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+	if err := c.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete secret %s/%s: %w", namespace, secretName, err)
 	}
 	return nil
 }
