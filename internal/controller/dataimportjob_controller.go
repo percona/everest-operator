@@ -73,13 +73,21 @@ func (r *DataImportJobReconciler) Reconcile(
 	ctx context.Context,
 	req ctrl.Request,
 ) (rr ctrl.Result, rerr error) {
+	logger := log.FromContext(ctx).
+		WithName("DataImportJobReconciler").
+		WithValues(
+			"name", req.Name,
+			"namespace", req.Namespace,
+		)
+	logger.Info("Reconciling")
+	defer func() {
+		logger.Info("Reconciled")
+	}()
+
 	diJob := &everestv1alpha1.DataImportJob{}
 	if err := r.Client.Get(ctx, req.NamespacedName, diJob); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	l := log.FromContext(ctx)
-	l.Info("Reconciling", "name", diJob.GetName())
 
 	if diJob.Status.State == everestv1alpha1.DataImportJobStateSucceeded ||
 		diJob.Status.State == everestv1alpha1.DataImportJobStateFailed {
@@ -98,7 +106,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	// Sync status on finishing reconciliation.
 	defer func() {
 		if updErr := r.Client.Status().Update(ctx, diJob); updErr != nil {
-			l.Error(updErr, "Failed to update data import job status")
+			logger.Error(updErr, "Failed to update data import job status")
 			rerr = errors.Join(rerr, updErr)
 		}
 	}()
