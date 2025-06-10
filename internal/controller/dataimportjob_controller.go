@@ -81,8 +81,8 @@ func (r *DataImportJobReconciler) Reconcile(
 	l := log.FromContext(ctx)
 	l.Info("Reconciling", "name", diJob.GetName())
 
-	if diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseCompleted ||
-		diJob.Status.Phase == everestv1alpha1.DataImportJobPhaseFailed {
+	if diJob.Status.State == everestv1alpha1.DataImportJobStateSucceeded ||
+		diJob.Status.State == everestv1alpha1.DataImportJobStateFailed {
 		// Already complete, no need to reconcile again.
 		return ctrl.Result{}, nil
 	}
@@ -108,7 +108,7 @@ func (r *DataImportJobReconciler) Reconcile(
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name: diJob.Spec.DataImporterName,
 	}, di); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to get data importer: %w", err).Error()
 		return ctrl.Result{}, err
 	}
@@ -119,28 +119,28 @@ func (r *DataImportJobReconciler) Reconcile(
 		Name:      diJob.Spec.TargetClusterName,
 		Namespace: diJob.GetNamespace(),
 	}, db); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to get database cluster: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Create payload secret.
 	if err := r.ensureDataImportPayloadSecret(ctx, diJob, db); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to create data import payload secret: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Create import job.
 	if err := r.ensureImportJob(ctx, diJob, di); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to create import job: %w", err).Error()
 		return ctrl.Result{}, err
 	}
 
 	// Observe import state.
 	if err := r.observeImportState(ctx, diJob); err != nil {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseError
+		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to observe state: %w", err).Error()
 		return ctrl.Result{}, err
 	}
@@ -150,7 +150,7 @@ func (r *DataImportJobReconciler) Reconcile(
 func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
 	jobName := diJob.Status.JobName
 	if jobName == "" {
-		diJob.Status.Phase = everestv1alpha1.DataImportJobPhasePending
+		diJob.Status.State = everestv1alpha1.DataImportJobStatePending
 		return nil
 	}
 
@@ -173,17 +173,17 @@ func (r *DataImportJobReconciler) observeImportState(ctx context.Context, diJob 
 			}); err != nil {
 				return fmt.Errorf("failed to delete data import request secret: %w", err)
 			}
-			diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseCompleted
+			diJob.Status.State = everestv1alpha1.DataImportJobStateSucceeded
 			return nil
 		}
 
 		if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
-			diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseFailed
+			diJob.Status.State = everestv1alpha1.DataImportJobStateFailed
 			diJob.Status.Message = c.Message
 			return nil
 		}
 	}
-	diJob.Status.Phase = everestv1alpha1.DataImportJobPhaseRunning
+	diJob.Status.State = everestv1alpha1.DataImportJobStateRunning
 	return nil
 }
 

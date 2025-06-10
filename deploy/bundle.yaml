@@ -1436,7 +1436,7 @@ spec:
                 description: Message is the message of the data import job.
                 type: string
               phase:
-                description: Phase is the current phase of the data import job.
+                description: Phase is the current state of the data import job.
                 type: string
               startedAt:
                 description: StartedAt is the time when the data import job started.

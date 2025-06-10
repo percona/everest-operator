@@ -112,21 +112,21 @@ type DataImportJobList struct {
 	Items           []DataImportJob `json:"items"`
 }
 
-type DataImportJobPhase string
+type DataImportJobState string
 
 const (
-	// DataImportJobPhasePending indicates that the data import job is pending.
-	DataImportJobPhasePending DataImportJobPhase = "Pending"
-	// DataImportJobPhaseRunning indicates that the data import job is currently running.
-	DataImportJobPhaseRunning DataImportJobPhase = "Running"
-	// DataImportJobPhaseCompleted indicates that the data import job has completed successfully.
-	DataImportJobPhaseCompleted DataImportJobPhase = "Completed"
-	// DataImportJobPhaseFailed indicates that the data import job has failed.
+	// DataImportJobStatePending indicates that the data import job is pending.
+	DataImportJobStatePending DataImportJobState = "Pending"
+	// DataImportJobStateRunning indicates that the data import job is currently running.
+	DataImportJobStateRunning DataImportJobState = "Running"
+	// DataImportJobStateSucceeded indicates that the data import job has completed successfully.
+	DataImportJobStateSucceeded DataImportJobState = "Succeeded"
+	// DataImportJobStateFailed indicates that the data import job has failed.
 	// Once the job is in this phase, it cannot be retried.
-	DataImportJobPhaseFailed DataImportJobPhase = "Failed"
-	// DataImportJobPhaseError indicates that the data import job has encountered an error.
+	DataImportJobStateFailed DataImportJobState = "Failed"
+	// DataImportJobStateError indicates that the data import job has encountered an error.
 	// This phase is used for transient errors that may allow the job to be retried.
-	DataImportJobPhaseError DataImportJobPhase = "Error"
+	DataImportJobStateError DataImportJobState = "Error"
 )
 
 type DataImportJobStatus struct {
@@ -134,8 +134,8 @@ type DataImportJobStatus struct {
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 	// LastObservedGeneration is the last observed generation of the data import job.
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
-	// Phase is the current phase of the data import job.
-	Phase DataImportJobPhase `json:"phase,omitempty"`
+	// Phase is the current state of the data import job.
+	State DataImportJobState `json:"phase,omitempty"`
 	// Message is the message of the data import job.
 	Message string `json:"message,omitempty"`
 	// JobName is the reference to the job that is running the data import.
