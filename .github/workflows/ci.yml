@@ -88,7 +88,7 @@ jobs:
       - name: Run core tests
         if: always()
         run: |
-               make test-core
+           make test-core
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -188,7 +188,7 @@ jobs:
       - name: Run upgrade tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
-          kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+          make test-e2e-operator-upgrade
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -209,7 +209,7 @@ jobs:
       - name: Run core tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
         run: |
-          kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+          make test-e2e-core
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -223,7 +223,7 @@ jobs:
       - name: Run db upgrade tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
         run: |
-          kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
+          make test-e2e-db-upgrade
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
@@ -237,7 +237,7 @@ jobs:
       - name: Run data importer tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
         run: |
-          kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+          make test-e2e-data-importer
         env:
           PXC_OPERATOR_VERSION: 1.17.0
           PSMDB_OPERATOR_VERSION: 1.19.1
