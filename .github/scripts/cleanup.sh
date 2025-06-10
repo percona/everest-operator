@@ -1,50 +1,27 @@
 #!/bin/bash
 
 set -e
-echo "Starting cleanup of custom resources..."
 
-# Clean up PXC resources
-echo "Cleaning up PXC resources..."
-if kubectl api-resources | grep -q "pxc"; then
-  namespaces=$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}' 2>/dev/null || echo "")
-  for namespace in $namespaces
-  do
-    kubectl -n $namespace get pxc -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pxc -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
-  done
-fi
-
-# Clean up PSMDB resources
-echo "Cleaning up PSMDB resources..."
-if kubectl api-resources | grep -q "psmdb"; then
-  namespaces=$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}' 2>/dev/null || echo "")
-  for namespace in $namespaces
-  do
-    kubectl -n $namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
-  done
-fi
-
-# Clean up PG resources
-echo "Cleaning up PG resources..."
-if kubectl api-resources | grep -q "pg"; then
-  namespaces=$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}' 2>/dev/null || echo "")
-  for namespace in $namespaces
-  do
-    kubectl -n $namespace get pg -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pg -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
-  done
-fi
-
-# Clean up DB resources
-echo "Cleaning up DB resources..."
-if kubectl api-resources | grep -q "databaseclusters"; then
-  namespaces=$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}' 2>/dev/null || echo "")
-  for namespace in $namespaces
-  do
-    kubectl -n $namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
-  done
+cleanup_db_resource() {
+  local resource_name=$1
   
-  echo "Deleting DB resources..."
-  kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true
-fi
+  echo "Cleaning up resource '$resource_name'..."
+  if kubectl api-resources | grep -q "$resource_name"; then
+    namespaces=$(kubectl get $resource_name -A -o jsonpath='{.items[*].metadata.namespace}' 2>/dev/null || echo "")
+    for namespace in $namespaces
+    do
+      kubectl -n $namespace get $resource_name -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch $resource_name -n $namespace -p '{"metadata":{"finalizers":null}}' --type merge
+    done
+  fi
+}
+
+cleanup_db_resource "pxc"
+cleanup_db_resource "pg"
+cleanup_db_resource "psmdb"
+cleanup_db_resource "databaseclusters"
+  
+echo "Deleting DB resources..."
+kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true
 
 # Clean up additional resources
 echo "Cleaning up PVCs..."
