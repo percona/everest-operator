@@ -169,9 +169,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
 
-		if err := r.observeDataImportState(ctx, db); err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+		// if data import is set, we need to observe the state of the data import job.
+		if pointer.Get(db.Spec.DataSource).DataImport != nil {
+			if err := r.observeDataImportState(ctx, db); err != nil {
+				rr = ctrl.Result{}
+				rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+			}
 		}
 
 		if err := r.Client.Status().Update(ctx, db); err != nil {
