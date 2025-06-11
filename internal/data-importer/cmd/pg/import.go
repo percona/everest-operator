@@ -134,9 +134,14 @@ func runPGImport(
 
 // returns: [baseBackupName, DBDirectory]
 func parseBackupPath(fullPath string) (string, string) {
+	// for consistency
+	fullPath = strings.TrimSuffix(fullPath, "/")
+	if !strings.HasPrefix(fullPath, "/") {
+		fullPath = "/" + fullPath
+	}
 	base := filepath.Base(fullPath)
-	dbDir := strings.TrimSuffix(base, "/backup/db")
-	return base, dbDir
+	fullPath = strings.TrimSuffix(fullPath, "backup/db/"+base)
+	return base, fullPath
 }
 
 func getRepoName(
