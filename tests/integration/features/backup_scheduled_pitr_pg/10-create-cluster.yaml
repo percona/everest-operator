@@ -1,0 +1,30 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  engine:
+    type: postgresql
+    replicas: 1
+    storage:
+      size: 1G
+  proxy:
+    type: pgbouncer
+    replicas: 1
+  backup:
+    enabled: true
+    # PITR options have no effect on an upstream PG cluster object but are required tobe set for the test
+    pitr:
+      enabled: true
+      uploadIntervalSec: 120
+      backupStorageName: test-storage-s3
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 1
+        backupStorageName: test-storage-s3

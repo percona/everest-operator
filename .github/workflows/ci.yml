@@ -79,7 +79,7 @@ jobs:
           cp kubectl "$TOOLS_PATH"
           rm kubectl
           # Kuttl
-          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
+          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
         env:
@@ -166,7 +166,7 @@ jobs:
           cp kubectl "$TOOLS_PATH"
           rm kubectl
           # Kuttl
-          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.15.0/kubectl-kuttl_0.15.0_linux_x86_64
+          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
           chmod +x ./kubectl-kuttl
           mv ./kubectl-kuttl "$TOOLS_PATH"
           # Install EKSCTL

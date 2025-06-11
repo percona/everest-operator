@@ -1,0 +1,117 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get backupstorage/test-storage-s3 -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/test-cluster-backup-s3 -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get db/test-pg-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get perconapgcluster/test-pg-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-pg-cluster
+    ref: db
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: BackupStorage
+    name: test-storage-s3
+    ref: bs_s3
+assertAll:
+  - celExpr: "has(db.metadata.finalizers)"
+    message: "db doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+
+  - celExpr: "has(bs_s3.metadata.finalizers)"
+    message: "bs_s3 doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in bs_s3.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in bs_s3.metadata.finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  engine:
+    type: postgresql
+    replicas: 1
+  backup:
+    enabled: true
+    pitr:
+      enabled: true
+      uploadIntervalSec: 120
+      backupStorageName: test-storage-s3
+    schedules:
+      - name: daily-backup
+        enabled: true
+        schedule: "0 0 * * *"
+        retentionCopies: 1
+        backupStorageName: test-storage-s3
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  instances:
+    - dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1G
+      name: instance1
+      replicas: 1
+  backups:
+    pgbackrest:
+      configuration:
+      - secret:
+          name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+        repo2-retention-full: "1"
+        repo2-storage-verify-tls: "n"
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1G
+      - name: repo2
+        s3:
+          bucket: test-backup-bucket
+          endpoint: s3.amazonaws.com
+          region: us-east-2
+        schedules:
+          full: 0 0 * * *
+  users:
+    - name: postgres
+      secretName: everest-secrets-test-pg-cluster
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: BackupStorage
+metadata:
+  name: test-storage-s3
+spec:
+  type: s3
+  bucket: test-backup-bucket
+  credentialsSecretName: test-cluster-backup-s3
+  region: us-east-2
+  endpointURL: s3.amazonaws.com
+  verifyTLS: false
+status:
+  inUse: true

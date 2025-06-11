@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestAssert
-timeout: 10
-commands:
-  - script: >
-      test "$(kubectl get PerconaXtraDBCluster -n $NAMESPACE psmdb-mc -o jsonpath='{.spec.pmm.enabled}')" = ""

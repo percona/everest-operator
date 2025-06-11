@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -58,9 +56,9 @@ type PodSchedulingPolicyReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
-	logger.Info("Reconciling", "request", req)
+	logger.Info("Reconciling")
 	defer func() {
-		logger.Info("Reconciled", "request", req)
+		logger.Info("Reconciled")
 	}()
 
 	psp := &everestv1alpha1.PodSchedulingPolicy{}
@@ -71,9 +69,9 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 	pspName := psp.GetName()
 	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, podSchedulingPolicyNameField, "", pspName)
 	if err != nil {
-		fetchErr := fmt.Errorf("failed to fetch DB clusters that use pod scheduling policy='%s'", pspName)
-		logger.Error(err, fetchErr.Error())
-		return ctrl.Result{}, errors.Join(err, fetchErr)
+		msg := fmt.Sprintf("failed to fetch DB clusters that use pod scheduling policy='%s'", pspName)
+		logger.Error(err, msg)
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	// Update the status and finalizers of the PodSchedulingPolicy object after the reconciliation.
@@ -87,31 +85,19 @@ func (r *PodSchedulingPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		psp.Status.LastObservedGeneration = psp.GetGeneration()
 		if err = r.Client.Status().Update(ctx, psp); err != nil {
 			rr = ctrl.Result{}
-			logger.Error(err, fmt.Sprintf("failed to update status for pod scheduling policy='%s'", pspName))
-			rerr = errors.Join(err, fmt.Errorf("failed to update status for pod scheduling policy='%s': %w", pspName, err))
+			msg := fmt.Sprintf("failed to update status for pod scheduling policy='%s'", pspName)
+			logger.Error(err, msg)
+			rerr = fmt.Errorf("%s: %w", msg, err)
 		}
 	}()
 
-	if err = r.ensureFinalizers(ctx, len(dbList.Items) > 0, psp); err != nil {
-		logger.Error(err, fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", pspName))
-		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for pod scheduling policy='%s': %w", pspName, err))
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, psp); err != nil {
+		msg := fmt.Sprintf("failed to update finalizers for pod scheduling policy='%s'", pspName)
+		logger.Error(err, msg)
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *PodSchedulingPolicyReconciler) ensureFinalizers(ctx context.Context, used bool, psp *everestv1alpha1.PodSchedulingPolicy) error {
-	var updated bool
-	if used {
-		updated = controllerutil.AddFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
-	} else {
-		updated = controllerutil.RemoveFinalizer(psp, everestv1alpha1.InUseResourceFinalizer)
-	}
-
-	if updated {
-		return r.Update(ctx, psp)
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -181,7 +167,9 @@ func (r *PodSchedulingPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error
 					},
 				}
 			}),
-			builder.WithPredicates(common.DefaultNamespaceFilter, dbClusterEventsPredicate),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{},
+				dbClusterEventsPredicate,
+				common.DefaultNamespaceFilter),
 		).
 		Complete(r)
 }

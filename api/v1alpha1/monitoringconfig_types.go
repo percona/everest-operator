@@ -58,22 +58,30 @@ type PMMConfig struct {
 }
 
 // MonitoringConfigStatus defines the observed state of MonitoringConfig.
-type MonitoringConfigStatus struct{}
+type MonitoringConfigStatus struct {
+	// InUse is a flag that indicates if any DB cluster uses the monitoring config.
+	// +kubebuilder:default=false
+	InUse bool `json:"inUse,omitempty"`
+	// LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
+	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
+}
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="Monitoring instance type"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="Monitoring instance type"
+// +kubebuilder:printcolumn:name="InUse",type="string",JSONPath=".status.inUse",description="Indicates if any DB cluster uses the monitoring config"
 
 // MonitoringConfig is the Schema for the monitoringconfigs API.
 type MonitoringConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MonitoringConfigSpec   `json:"spec,omitempty"`
+	Spec MonitoringConfigSpec `json:"spec,omitempty"`
+	// +kubebuilder:default={"inUse": false}
 	Status MonitoringConfigStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // MonitoringConfigList contains a list of MonitoringConfig.
 type MonitoringConfigList struct {

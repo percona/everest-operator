@@ -1,0 +1,23 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: psp-custom-psmdb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+      proxy:
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/cpu
+              weight: 2

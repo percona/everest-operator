@@ -1,0 +1,111 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-psmdb-cluster
+    ref: db
+assertAll:
+  - celExpr: "has(db.metadata.finalizers)"
+    message: "db doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  engine:
+    replicas: 1
+    resources:
+      cpu: "1"
+      memory: 4G
+    storage:
+      size: 25Gi
+    type: psmdb
+    userSecretsName: everest-secrets-test-psmdb-cluster
+  proxy:
+    expose:
+      type: internal
+status:
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+spec:
+  backup:
+    configuration:
+      backupOptions:
+        oplogSpanMin: 0
+        timeouts:
+          startingStatus: 120
+    enabled: true
+    pitr: {}
+    resources:
+      limits:
+        cpu: 300m
+        memory: 1G
+  multiCluster:
+    enabled: false
+  pmm:
+    image: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 300M
+  replsets:
+    - arbiter:
+        enabled: false
+        resources: {}
+        size: 0
+      expose:
+        enabled: false
+        type: ClusterIP
+      name: rs0
+      nonvoting:
+        enabled: false
+        resources: {}
+        size: 0
+      podDisruptionBudget:
+        maxUnavailable: 1
+      resources:
+        limits:
+          cpu: "1"
+          memory: 4G
+      size: 1
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 25Gi
+  secrets:
+    encryptionKey: test-psmdb-cluster-mongodb-encryption-key
+    users: everest-secrets-test-psmdb-cluster
+  sharding:
+    balancer: {}
+    enabled: false
+  unsafeFlags: {}
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: disabled
+    schedule: 0 4 * * *
+    setFCV: true
+status:
+  state: ready

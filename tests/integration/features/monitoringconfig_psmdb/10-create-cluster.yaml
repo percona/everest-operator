@@ -1,0 +1,30 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-mc
+spec:
+  monitoring:
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    monitoringConfigName: mc-psmdb
+  engine:
+    type: psmdb
+    version: 7.0.12-7
+    config: |
+     operationProfiling:
+        mode: slowOp
+    replicas: 1
+    storage:
+      size: 4G
+    resources:
+      cpu: 300m
+      memory: 500M
+  proxy:
+    type: mongos
+    replicas: 1

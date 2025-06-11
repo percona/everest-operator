@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl delete dbrestore/test-db-restore-s3 -n $NAMESPACE --wait=false

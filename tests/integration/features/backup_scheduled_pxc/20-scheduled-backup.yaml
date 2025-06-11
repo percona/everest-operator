@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+# mock the situation when a pxc-backup resource appears to check the databaseclusterbackup appears
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: test-scheduled-backup-1
+spec:
+  storageName: test-storage-s3
+  pxcCluster: test-pxc-cluster
