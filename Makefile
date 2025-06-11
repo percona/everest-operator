@@ -128,7 +128,7 @@ PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
 PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
 PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
 PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
-test-%: build ## Run integration tests in kind cluster
+test-integration-%: build ## Run integration tests in kind cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
@@ -139,7 +139,7 @@ test-%: build ## Run integration tests in kind cluster
 	kubectl kuttl test --config ./tests/integration/kuttl-$*.yaml
 ##@ Build
 
-run-e2e-%: build ## Run e2e tests in a live cluster
+test-e2e-%: build ## Run e2e tests in a live cluster
 	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \

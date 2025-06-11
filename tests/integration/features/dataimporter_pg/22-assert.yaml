@@ -7,7 +7,7 @@ kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
 status:
-  status: importing
+  status: ready
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
@@ -15,3 +15,10 @@ metadata:
   name: test-pg-cluster
 status:
   state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImportJob
+metadata:
+  name: data-import-test-pg-cluster
+status:
+  state: Succeeded

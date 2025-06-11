@@ -22,16 +22,19 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -42,6 +45,20 @@ const (
 	dataImporterRequestSecretNameSuffix = "-data-import-request"
 	dataImportJSONSecretKey             = "request.json"
 	payloadMountPath                    = "/payload"
+
+	kindRole        = "Role"
+	kindClusterRole = "ClusterRole"
+
+	// cleanupRBACFinalizer is a finalizer that is used to clean up cluster-wide RBAC resources.
+	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
+	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
+	cleanupRBACFinalizer = "everest.percona.com/rbac-cleanup"
+
+	// dataImportJobOwnerLabel is a label used to identify the owner of the DataImportJob.
+	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
+	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
+	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
+	dataImportJobOwnerLabel = "everest.percona.com/dataimportjob-owner"
 )
 
 type DataImportJobReconciler struct {
@@ -55,7 +72,39 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&everestv1alpha1.DataImportJob{}).
 		Owns(&batchv1.Job{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&rbacv1.RoleBinding{}).
+		Owns(&rbacv1.Role{}).
+		Watches(&rbacv1.ClusterRoleBinding{}, clusterWideResourceHandler()).
+		Watches(&rbacv1.ClusterRole{}, clusterWideResourceHandler()).
 		Complete(r)
+}
+
+// clusterWideResourceHandler returns an event handler that enqueues requests for DataImportJob
+// when cluster-wide resources like ClusterRole or ClusterRoleBinding are created, updated, or deleted.
+// It uses the `dataImportJobOwnerLabel` to find the owner DataImportJob and enqueue a request for it.
+func clusterWideResourceHandler() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []ctrl.Request {
+		labels := o.GetLabels()
+		ownerRef, ok := labels[dataImportJobOwnerLabel]
+		if !ok {
+			return nil
+		}
+		split := strings.Split(ownerRef, "/")
+		if len(split) != 2 {
+			return nil
+		}
+		namespace := split[0]
+		name := split[1]
+		return []ctrl.Request{
+			{
+				NamespacedName: client.ObjectKey{
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+		}
+	})
 }
 
 //+kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs,verbs=get;list;watch;create;update;patch;delete
@@ -63,6 +112,11 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete;bind
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete;bind
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;watch;create;update;patch;delete;escalate
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=create;get;list;watch;create;update;patch;delete;escalate
 //+kubebuilder:rbac:groups=everest.percona.com,resources=dataimporters,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -87,6 +141,13 @@ func (r *DataImportJobReconciler) Reconcile(
 	diJob := &everestv1alpha1.DataImportJob{}
 	if err := r.Client.Get(ctx, req.NamespacedName, diJob); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if !diJob.GetDeletionTimestamp().IsZero() {
+		if err := r.handleFinalizers(ctx, diJob); err != nil {
+			logger.Error(err, "Failed to handle finalizers")
+			return ctrl.Result{}, err
+		}
 	}
 
 	if diJob.Status.State == everestv1alpha1.DataImportJobStateSucceeded ||
@@ -139,8 +200,23 @@ func (r *DataImportJobReconciler) Reconcile(
 		return ctrl.Result{}, err
 	}
 
+	// Create RBAC resources.
+	requiresRbac := len(di.Spec.Permissions) > 0 || len(di.Spec.ClusterPermissions) > 0
+	if requiresRbac {
+		if err := r.ensureServiceAccount(ctx, diJob); err != nil {
+			diJob.Status.State = everestv1alpha1.DataImportJobStateError
+			diJob.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
+			return ctrl.Result{}, err
+		}
+		if err := r.ensureRBACResources(ctx, diJob, di.Spec.Permissions, di.Spec.ClusterPermissions); err != nil {
+			diJob.Status.State = everestv1alpha1.DataImportJobStateError
+			diJob.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Create import job.
-	if err := r.ensureImportJob(ctx, diJob, di); err != nil {
+	if err := r.ensureImportJob(ctx, requiresRbac, diJob, di); err != nil {
 		diJob.Status.State = everestv1alpha1.DataImportJobStateError
 		diJob.Status.Message = fmt.Errorf("failed to create import job: %w", err).Error()
 		return ctrl.Result{}, err
@@ -356,6 +432,7 @@ func (r *DataImportJobReconciler) getDBRootUserCredentials(
 
 func (r *DataImportJobReconciler) ensureImportJob(
 	ctx context.Context,
+	useServiceAccount bool,
 	diJob *everestv1alpha1.DataImportJob,
 	di *everestv1alpha1.DataImporter,
 ) error {
@@ -377,7 +454,11 @@ func (r *DataImportJobReconciler) ensureImportJob(
 		return nil
 	}
 
-	job.Spec = r.getJobSpec(diJob, di)
+	serviceAccount := ""
+	if useServiceAccount {
+		serviceAccount = r.getServiceAccountName(diJob)
+	}
+	job.Spec = r.getJobSpec(diJob, di, serviceAccount)
 	if err := controllerutil.SetControllerReference(diJob, job, r.Scheme); err != nil {
 		return fmt.Errorf("failed to set controller reference: %w", err)
 	}
@@ -402,12 +483,13 @@ func dataImporterRequestSecretName(diJob *everestv1alpha1.DataImportJob) string 
 func (r *DataImportJobReconciler) getJobSpec(
 	diJob *everestv1alpha1.DataImportJob,
 	di *everestv1alpha1.DataImporter,
+	serviceAccountName string,
 ) batchv1.JobSpec {
 	spec := batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
+				ServiceAccountName: serviceAccountName,
 				RestartPolicy:      corev1.RestartPolicyNever,
-				ServiceAccountName: di.Spec.JobSpec.ServiceAccountName,
 				Containers: []corev1.Container{{
 					Name:    "importer",
 					Image:   di.Spec.JobSpec.Image,
@@ -435,4 +517,226 @@ func (r *DataImportJobReconciler) getJobSpec(
 		},
 	}
 	return spec
+}
+
+func (r *DataImportJobReconciler) ensureRBACResources(
+	ctx context.Context,
+	diJob *everestv1alpha1.DataImportJob,
+	permissions, clusterPermissions []rbacv1.PolicyRule,
+) error {
+	if len(permissions) > 0 {
+		if err := r.ensureRole(ctx, permissions, diJob); err != nil {
+			return fmt.Errorf("failed to ensure role: %w", err)
+		}
+		if err := r.ensureRoleBinding(ctx, diJob); err != nil {
+			return fmt.Errorf("failed to ensure role binding: %w", err)
+		}
+	}
+	if len(clusterPermissions) > 0 {
+		if err := r.ensureClusterRole(ctx, clusterPermissions, diJob); err != nil {
+			return fmt.Errorf("failed to ensure cluster role: %w", err)
+		}
+		if err := r.ensureClusterRoleBinding(ctx, diJob); err != nil {
+			return fmt.Errorf("failed to ensure cluster role binding: %w", err)
+		}
+		if controllerutil.AddFinalizer(diJob, cleanupRBACFinalizer) {
+			if err := r.Client.Update(ctx, diJob); err != nil {
+				return fmt.Errorf("failed to add finalizer to data import job: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) handleFinalizers(
+	ctx context.Context,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	finalizers := diJob.GetFinalizers()
+	for _, f := range finalizers {
+		switch f {
+		case cleanupRBACFinalizer:
+			if err := r.handleRBACCleanupFinalizer(ctx, diJob); err != nil {
+				return fmt.Errorf("failed to handle RBAC cleanup finalizer: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) handleRBACCleanupFinalizer(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.getClusterRoleName(diJob),
+		},
+	}
+	if err := r.Client.Delete(ctx, cr); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete cluster role: %w", err)
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.getClusterRoleBindingName(diJob),
+		},
+	}
+	if err := r.Client.Delete(ctx, crb); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete cluster role binding: %w", err)
+	}
+	if controllerutil.RemoveFinalizer(diJob, cleanupRBACFinalizer) {
+		if err := r.Client.Update(ctx, diJob); err != nil {
+			return fmt.Errorf("failed to remove finalizer from data import job: %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) getClusterRoleBindingName(diJob *everestv1alpha1.DataImportJob) string {
+	return diJob.GetName() + "-clusterrolebinding"
+}
+
+func (r *DataImportJobReconciler) ensureClusterRoleBinding(
+	ctx context.Context,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.getClusterRoleBindingName(diJob),
+		},
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, clusterRoleBinding, func() error {
+		clusterRoleBinding.RoleRef = rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     kindClusterRole,
+			Name:     r.getClusterRoleName(diJob),
+		}
+		clusterRoleBinding.Subjects = []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      r.getServiceAccountName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		}
+		clusterRoleBinding.SetLabels(map[string]string{
+			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+		})
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to ensure cluster role binding: %w", err)
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) getClusterRoleName(diJob *everestv1alpha1.DataImportJob) string {
+	return diJob.GetName() + "-clusterrole"
+}
+
+func (r *DataImportJobReconciler) ensureClusterRole(
+	ctx context.Context,
+	permissions []rbacv1.PolicyRule,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.getClusterRoleName(diJob),
+		},
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, clusterRole, func() error {
+		clusterRole.SetLabels(map[string]string{
+			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+		})
+		clusterRole.Rules = permissions
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to ensure cluster role: %w", err)
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) getRoleBindingName(diJob *everestv1alpha1.DataImportJob) string {
+	return diJob.GetName() + "-rolebinding"
+}
+
+func (r *DataImportJobReconciler) ensureRoleBinding(
+	ctx context.Context,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.getRoleBindingName(diJob),
+			Namespace: diJob.GetNamespace(),
+		},
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, roleBinding, func() error {
+		roleBinding.RoleRef = rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     kindRole,
+			Name:     r.getRoleName(diJob),
+		}
+		roleBinding.Subjects = []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      r.getServiceAccountName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		}
+		if err := controllerutil.SetControllerReference(diJob, roleBinding, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference for rolebinding: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to ensure role binding: %w", err)
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) getRoleName(diJob *everestv1alpha1.DataImportJob) string {
+	return diJob.GetName() + "-role"
+}
+
+func (r *DataImportJobReconciler) ensureRole(
+	ctx context.Context,
+	permissions []rbacv1.PolicyRule,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.getRoleName(diJob),
+			Namespace: diJob.GetNamespace(),
+		},
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, role, func() error {
+		role.Rules = permissions
+		if err := controllerutil.SetControllerReference(diJob, role, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference for role: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to ensure role: %w", err)
+	}
+	return nil
+}
+
+func (r *DataImportJobReconciler) getServiceAccountName(diJob *everestv1alpha1.DataImportJob) string {
+	return diJob.GetName() + "-sa"
+}
+
+func (r *DataImportJobReconciler) ensureServiceAccount(
+	ctx context.Context,
+	diJob *everestv1alpha1.DataImportJob,
+) error {
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.getServiceAccountName(diJob),
+			Namespace: diJob.GetNamespace(),
+		},
+	}
+	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, serviceAccount, func() error {
+		if err := controllerutil.SetControllerReference(diJob, serviceAccount, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference for service account: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to ensure service account: %w", err)
+	}
+	return nil
 }
