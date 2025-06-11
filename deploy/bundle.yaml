@@ -911,6 +911,27 @@ spec:
                 items:
                   type: string
                 type: array
+              secretKeys:
+                description: |-
+                  SecretKeys contains the definition of the various Secrets that
+                  the given DBEngine supports.
+                  This information acts like metadata for the Everest UI to guide the users
+                  in filling out the correct Secret keys for their clusters.
+                properties:
+                  user:
+                    description: User secret keys are used to store the details of the users.
+                    items:
+                      description: SecretKey defines a single Secret key.
+                      properties:
+                        description:
+                          description: Description is a human-readable description of the Secret key.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret key.
+                          type: string
+                      type: object
+                    type: array
+                type: object
               type:
                 description: |-
                   EngineType stands for the supported database engines. Right now it's only pxc
