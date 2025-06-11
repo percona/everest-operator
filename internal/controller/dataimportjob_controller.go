@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	batchv1 "k8s.io/api/batch/v1"
@@ -83,17 +84,23 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // when cluster-wide resources like ClusterRole or ClusterRoleBinding are created, updated, or deleted.
 // It uses the `dataImportJobOwnerLabel` to find the owner DataImportJob and enqueue a request for it.
 func clusterWideResourceHandler() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []ctrl.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []ctrl.Request {
 		labels := o.GetLabels()
-		owner, ok := labels[dataImportJobOwnerLabel]
+		ownerRef, ok := labels[dataImportJobOwnerLabel]
 		if !ok {
 			return nil
 		}
+		split := strings.Split(ownerRef, "/")
+		if len(split) != 2 {
+			return nil
+		}
+		namespace := split[0]
+		name := split[1]
 		return []ctrl.Request{
 			{
 				NamespacedName: client.ObjectKey{
-					Name:      owner,
-					Namespace: o.GetNamespace(),
+					Name:      name,
+					Namespace: namespace,
 				},
 			},
 		}
@@ -609,6 +616,9 @@ func (r *DataImportJobReconciler) ensureClusterRoleBinding(
 				Namespace: diJob.GetNamespace(),
 			},
 		}
+		clusterRoleBinding.SetLabels(map[string]string{
+			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+		})
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to ensure cluster role binding: %w", err)
@@ -631,6 +641,9 @@ func (r *DataImportJobReconciler) ensureClusterRole(
 		},
 	}
 	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, clusterRole, func() error {
+		clusterRole.SetLabels(map[string]string{
+			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+		})
 		clusterRole.Rules = permissions
 		return nil
 	}); err != nil {
