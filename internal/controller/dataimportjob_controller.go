@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/AlekSi/pointer"
 	batchv1 "k8s.io/api/batch/v1"
@@ -53,12 +52,16 @@ const (
 	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
 	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
 	cleanupRBACFinalizer = "everest.percona.com/rbac-cleanup"
-
-	// dataImportJobOwnerLabel is a label used to identify the owner of the DataImportJob.
+	// dataImportJobNameLabel is a label used to identify the name of the DataImportJob that owns a cluster-wide resource.
 	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
 	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
 	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
-	dataImportJobOwnerLabel = "everest.percona.com/dataimportjob-owner"
+	dataImportJobNameLabel = "everest.percona.com/data-import-job-name"
+	// dataImportJobNamespaceLabel is a label used to identify the namespace of the DataImportJob that owns a cluster-wide resource.
+	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
+	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
+	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
+	dataImportJobNamespaceLabel = "everest.percona.com/data-import-job-namespace"
 )
 
 type DataImportJobReconciler struct {
@@ -86,16 +89,14 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func clusterWideResourceHandler() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []ctrl.Request {
 		labels := o.GetLabels()
-		ownerRef, ok := labels[dataImportJobOwnerLabel]
+		name, ok := labels[dataImportJobNameLabel]
 		if !ok {
 			return nil
 		}
-		split := strings.Split(ownerRef, "/")
-		if len(split) != 2 {
+		namespace, ok := labels[dataImportJobNamespaceLabel]
+		if !ok {
 			return nil
 		}
-		namespace := split[0]
-		name := split[1]
 		return []ctrl.Request{
 			{
 				NamespacedName: client.ObjectKey{
@@ -617,7 +618,8 @@ func (r *DataImportJobReconciler) ensureClusterRoleBinding(
 			},
 		}
 		clusterRoleBinding.SetLabels(map[string]string{
-			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+			dataImportJobNameLabel:      diJob.GetName(),
+			dataImportJobNamespaceLabel: diJob.GetNamespace(),
 		})
 		return nil
 	}); err != nil {
@@ -642,7 +644,8 @@ func (r *DataImportJobReconciler) ensureClusterRole(
 	}
 	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, clusterRole, func() error {
 		clusterRole.SetLabels(map[string]string{
-			dataImportJobOwnerLabel: diJob.GetNamespace() + "/" + diJob.GetName(),
+			dataImportJobNameLabel:      diJob.GetName(),
+			dataImportJobNamespaceLabel: diJob.GetNamespace(),
 		})
 		clusterRole.Rules = permissions
 		return nil
