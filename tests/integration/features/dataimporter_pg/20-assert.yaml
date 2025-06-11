@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 400
+timeout: 30
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
