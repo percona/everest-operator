@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
@@ -43,6 +44,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -53,6 +55,7 @@ import (
 	controllers "github.com/percona/everest-operator/internal/controller"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/predicates"
+	"github.com/percona/everest-operator/internal/webhooks"
 )
 
 var (
@@ -93,6 +96,12 @@ type Config struct {
 	// If set, watches only those namespaces that have the specified labels.
 	// This setting is ignored if DBNamespaces is set.
 	NamespaceLabels map[string]string
+	// DisableWebhookServer is true if the webhook server should not be started.
+	DisableWebhookServer bool
+
+	WebhookCertPath string
+	WebhookCertName string
+	WebhookCertKey  string
 }
 
 var cfg = &Config{}
@@ -154,6 +163,25 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
+	if cfg.WebhookCertPath != "" {
+		setupLog.Info("Initializing webhook certificate watcher using provided certificates",
+			"webhook-cert-path", cfg.WebhookCertPath, "webhook-cert-name", cfg.WebhookCertName, "webhook-cert-key", cfg.WebhookCertKey)
+
+		var err error
+		webhookCertWatcher, err := certwatcher.New(
+			filepath.Join(cfg.WebhookCertPath, cfg.WebhookCertName),
+			filepath.Join(cfg.WebhookCertPath, cfg.WebhookCertKey),
+		)
+		if err != nil {
+			setupLog.Error(err, "Failed to initialize webhook certificate watcher")
+			os.Exit(1)
+		}
+
+		tlsOpts = append(tlsOpts, func(config *tls.Config) {
+			config.GetCertificate = webhookCertWatcher.GetCertificate
+		})
+	}
+
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
 	})
@@ -182,10 +210,9 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	managerOptions := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: cfg.ProbeAddr,
 		LeaderElection:         cfg.EnableLeaderElection,
 		LeaderElectionID:       cfg.LeaderElectionID,
@@ -201,7 +228,12 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	if !cfg.DisableWebhookServer {
+		managerOptions.WebhookServer = webhookServer
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -284,12 +316,30 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MonitoringConfig")
 		os.Exit(1)
 	}
+	if err = (&controllers.DataImportJobReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataImportJob")
+	}
 	if err = (&controllers.PodSchedulingPolicyReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PodSchedulingPolicy")
 		os.Exit(1)
+	}
+
+	// register webhooks
+	if !cfg.DisableWebhookServer {
+		if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
+			os.Exit(1)
+		}
+		if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
@@ -317,6 +367,8 @@ func parseConfig() error {
 	cfg.PodName = podName
 	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
 	var namespaceLabelFilter string
+	flag.BoolVar(&cfg.DisableWebhookServer, "disable-webhook-server", false,
+		"If set, the webhook server will not be started. This is useful for testing purposes or if you don't need webhooks.")
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -339,6 +391,13 @@ func parseConfig() error {
 		"Defaults to the value of the SYSTEM_NAMESPACE environment variable.")
 	flag.StringVar(&cfg.MonitoringNamespace, "monitoring-namespace", monitoringNamespace, "The namespace where the monitoring resources are."+
 		"Defaults to the value of the MONITORING_NAMESPACE environment variable.")
+
+	flag.StringVar(&cfg.WebhookCertPath, "webhook-cert-path", "",
+		"The path to the directory where the webhook server's TLS certificate and key are stored.")
+	flag.StringVar(&cfg.WebhookCertName, "webhook-cert-name", "tls.crt",
+		"The name of the webhook server's TLS certificate file. Defaults to 'tls.crt'.")
+	flag.StringVar(&cfg.WebhookCertKey, "webhook-cert-key", "tls.key",
+		"The name of the webhook server's TLS key file. Defaults to 'tls.key'.")
 	flag.Parse()
 
 	if cfg.SystemNamespace == "" {

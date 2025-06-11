@@ -344,9 +344,9 @@ func getRestoreDataSource(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
-) everestv1alpha1.DataSource {
+) everestv1alpha1.DatabaseClusterRestoreDataSource {
 	if database.Spec.Engine.Type != everestv1alpha1.DatabaseEnginePSMDB || database.Spec.DataSource.DBClusterBackupName == "" {
-		return *database.Spec.DataSource
+		return database.Spec.DataSource.IntoDBRestoreDataSource()
 	}
 
 	// Use the full backup source instead of just the backupName to be able to
@@ -356,10 +356,10 @@ func getRestoreDataSource(
 	backup := &psmdbv1.PerconaServerMongoDBBackup{}
 	err := c.Get(ctx, types.NamespacedName{Name: backupName, Namespace: database.Namespace}, backup)
 	if err != nil {
-		return everestv1alpha1.DataSource{}
+		return everestv1alpha1.DatabaseClusterRestoreDataSource{}
 	}
 
-	return everestv1alpha1.DataSource{
+	return everestv1alpha1.DatabaseClusterRestoreDataSource{
 		BackupSource: &everestv1alpha1.BackupSource{
 			Path:              backup.Status.Destination,
 			BackupStorageName: backup.Spec.StorageName,
@@ -915,4 +915,10 @@ func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespac
 		}
 	}
 	return false, "", nil
+}
+
+// GetDataImportJobName returns the name of the DataImport job for the given database cluster.
+func GetDataImportJobName(db *everestv1alpha1.DatabaseCluster) string {
+	prefix := "data-import-"
+	return prefix + db.GetName()
 }

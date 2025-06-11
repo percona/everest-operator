@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-04T11:19:36Z"
+    createdAt: "2025-06-10T19:02:32Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -113,6 +113,12 @@ spec:
       displayName: Database Engine
       kind: DatabaseEngine
       name: databaseengines.everest.percona.com
+      version: v1alpha1
+    - kind: DataImporter
+      name: dataimporters.everest.percona.com
+      version: v1alpha1
+    - kind: DataImportJob
+      name: dataimportjobs.everest.percona.com
       version: v1alpha1
     - description: MonitoringConfig is the Schema for the monitoringconfigs API.
       displayName: Monitoring Config
@@ -153,6 +159,7 @@ spec:
           - ""
           resources:
           - secrets
+          - serviceaccounts
           verbs:
           - create
           - delete
@@ -179,6 +186,18 @@ spec:
           - list
           - watch
         - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - everest.percona.com
           resources:
           - backupstorages
@@ -186,6 +205,7 @@ spec:
           - databaseclusterrestores
           - databaseclusters
           - databaseengines
+          - dataimportjobs
           - monitoringconfigs
           - podschedulingpolicies
           verbs:
@@ -204,6 +224,7 @@ spec:
           - databaseclusterrestores/finalizers
           - databaseclusters/finalizers
           - databaseengines/finalizers
+          - dataimportjobs/finalizers
           - monitoringconfigs/finalizers
           verbs:
           - update
@@ -215,12 +236,21 @@ spec:
           - databaseclusterrestores/status
           - databaseclusters/status
           - databaseengines/status
+          - dataimportjobs/status
           - monitoringconfigs/status
           - podschedulingpolicies/status
           verbs:
           - get
           - patch
           - update
+        - apiGroups:
+          - everest.percona.com
+          resources:
+          - dataimporters
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - operator.victoriametrics.com
           resources:
@@ -301,6 +331,34 @@ spec:
           - update
           - watch
         - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - rolebindings
+          verbs:
+          - bind
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          - roles
+          verbs:
+          - create
+          - delete
+          - escalate
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - storage.k8s.io
           resources:
           - storageclasses
@@ -345,6 +403,7 @@ spec:
                 - --metrics-bind-address=:8443
                 - --leader-elect
                 - --health-probe-bind-address=:8081
+                - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
                 command:
                 - /manager
                 env:
@@ -364,6 +423,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -382,10 +445,18 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: webhook-certs
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: everest-operator-controller-manager
               terminationGracePeriodSeconds: 10
+              volumes:
+              - name: webhook-certs
+                secret:
+                  secretName: webhook-server-cert
       permissions:
       - rules:
         - apiGroups:
@@ -451,3 +522,64 @@ spec:
     name: Percona
     url: https://percona.com
   version: 0.0.0
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-webhook
+    failurePolicy: Fail
+    generateName: mdatabasecluster-v1alpha1.everest.percona.com
+    rules:
+    - apiGroups:
+      - everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - databaseclusters
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-everest-percona-com-v1alpha1-databasecluster
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-webhook
+    failurePolicy: Fail
+    generateName: mdataimportjobs-v1akpha1.everest.percona.com
+    rules:
+    - apiGroups:
+      - everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - dataimportjobs
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-everest-percona-com-v1alpha1-dataimportjob
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-webhook
+    failurePolicy: Fail
+    generateName: vdatabasecluster-v1alpha1.everest.percona.com
+    rules:
+    - apiGroups:
+      - everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - databaseclusters
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-everest-percona-com-v1alpha1-databasecluster

@@ -168,6 +168,15 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		}
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
+
+		// if data import is set, we need to observe the state of the data import job.
+		if pointer.Get(db.Spec.DataSource).DataImport != nil {
+			if err := r.observeDataImportState(ctx, db); err != nil {
+				rr = ctrl.Result{}
+				rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+			}
+		}
+
 		if err := r.Client.Status().Update(ctx, db); err != nil {
 			rr = ctrl.Result{}
 			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
@@ -221,8 +230,11 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Backup(); err != nil {
 			return err
 		}
-		if err := applier.DataSource(); err != nil {
-			return err
+		// DataSource is run only if we're not importing external data.
+		if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport == nil {
+			if err := applier.DataSource(); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -240,7 +252,68 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	}); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
+		if err := r.ensureDataImportJob(ctx, db); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
+}
+
+func (re *DatabaseClusterReconciler) observeDataImportState(
+	ctx context.Context,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	diJob := &everestv1alpha1.DataImportJob{}
+	if err := re.Get(ctx, types.NamespacedName{
+		Name:      common.GetDataImportJobName(db),
+		Namespace: db.GetNamespace(),
+	}, diJob); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	db.Status.DataImportJobName = pointer.To(diJob.GetName())
+	sts := diJob.Status
+
+	switch {
+	case sts.State != everestv1alpha1.DataImportJobStateSucceeded:
+		db.Status.Status = everestv1alpha1.AppStateImporting
+	case sts.State == everestv1alpha1.DataImportJobStateFailed:
+		db.Status.Status = everestv1alpha1.AppStateError
+		db.Status.Message = "Data import job failed"
+	}
+	return nil
+}
+
+func (re *DatabaseClusterReconciler) ensureDataImportJob(
+	ctx context.Context,
+	db *everestv1alpha1.DatabaseCluster,
+) error {
+	namespace := db.GetNamespace()
+	dataImportSpec := db.Spec.DataSource.DataImport
+	diJob := &everestv1alpha1.DataImportJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.GetDataImportJobName(db),
+			Namespace: namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, diJob, func() error {
+		diJob.ObjectMeta.Labels = map[string]string{
+			databaseClusterNameLabel: db.GetName(),
+		}
+		diJob.Spec = everestv1alpha1.DataImportJobSpec{
+			TargetClusterName:     db.GetName(),
+			DataImportJobTemplate: dataImportSpec,
+		}
+		if err := controllerutil.SetControllerReference(db, diJob, re.Scheme); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -258,6 +331,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 // +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -658,6 +732,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(defaultPredicate),
 	)
 	controller.Owns(&everestv1alpha1.BackupStorage{})
+	controller.Owns(&everestv1alpha1.DataImportJob{})
 	controller.Watches(
 		&everestv1alpha1.BackupStorage{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
