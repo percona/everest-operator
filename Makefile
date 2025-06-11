@@ -54,7 +54,7 @@ OPERATOR_SDK_VERSION ?= v1.38.0
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.0
+ENVTEST_K8S_VERSION = 1.29
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -121,38 +121,13 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-PXC_OPERATOR_VERSION ?= 1.17.0
-PSMDB_OPERATOR_VERSION ?= 1.19.1
-PG_OPERATOR_VERSION ?= 2.6.0
-PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
-PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
-PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
-PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
-OPERATOR_ROOT_PATH = $(shell pwd)
 test-core: docker-build ## Run core tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
- 	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 test-features: docker-build ## Run feature tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
-	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
- 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
- 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
-	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+
 ##@ Build
 
 .PHONY: build

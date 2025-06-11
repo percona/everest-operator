@@ -12,8 +12,6 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -21,29 +19,12 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
-          check-latest: true
+          go-version-file: 'go.mod'
+          cache: true
 
-      - name: Install tools
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-          chmod +x kubectl
-          cp kubectl "$TOOLS_PATH"
-          rm kubectl
-        env:
-          KUBECTL_VERSION: 1.27.9
       - name: Run tests
-        run:
+        run: |
           make test
-        env:
-          PXC_OPERATOR_VERSION: 1.17.0
-          PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.6.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   integration-tests:
     name: Integration tests
@@ -51,72 +32,42 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
     steps:
+      - name: Install kubectl
+        uses: marcofranssen/setup-kubectl@v1.0.0
+        with:
+          kubectlVersion: v1.29.5
+          enablePlugins: true
+          plugins: kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version
+          echo $(kubectl kuttl --version) installed
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
-          check-latest: true
-
-      - name: Build operator
-        run:
-          make build
-
-      - name: Install tools
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          # Kubectl
-          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-          chmod +x kubectl
-          cp kubectl "$TOOLS_PATH"
-          rm kubectl
-          # Kuttl
-          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
-          chmod +x ./kubectl-kuttl
-          mv ./kubectl-kuttl "$TOOLS_PATH"
-        env:
-          KUBECTL_VERSION: 1.27.9
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Run core tests
         if: always()
         run: |
                make test-core
-        env:
-          PXC_OPERATOR_VERSION: 1.17.0
-          PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.6.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run features tests
         if: always()
         run: |
             make test-features
-        env:
-          PXC_OPERATOR_VERSION: 1.17.0
-          PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.6.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Run operator upgrade tests
         if: always()
         run: |
             make test-operator-upgrade
-        env:
-          PXC_OPERATOR_VERSION: 1.17.0
-          PSMDB_OPERATOR_VERSION: 1.19.1
-          PG_OPERATOR_VERSION: 2.6.0
-          PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
-          PREVIOUS_PXC_OPERATOR_VERSION: 1.16.1
-          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
-          PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   eks-e2e-tests:
     name: E2E tests (EKS)

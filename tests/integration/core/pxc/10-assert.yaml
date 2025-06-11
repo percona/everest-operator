@@ -9,6 +9,9 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=${PXC_OPERATOR_VERSION} dbc/test-pxc-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PXC_DB_ENGINE_VERSION} dbc/test-pxc-cluster -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
