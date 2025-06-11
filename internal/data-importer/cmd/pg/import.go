@@ -79,6 +79,7 @@ func runPGImport(
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
+	everestv1alpha1.AddToScheme(scheme)
 	pgv2.AddToScheme(scheme)
 	corev1.AddToScheme(scheme)
 
