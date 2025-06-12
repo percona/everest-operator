@@ -137,6 +137,16 @@ func runPGImport(
 	}
 
 	log.Info().Msgf("Successfully imported PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)
+
+	// After restore is complete, the database users and passwords are reverted to those from the backup.
+	// This causes a mismatch between the actual database credentials and the Kubernetes User Secret.
+	// The PG operator does not automatically detect this drift, so it will not update the database passwords.
+	// To resolve this, we clear the User Secret, prompting the PG operator to regenerate new credentials
+	// and synchronize with the DB.
+	if err := resetUserSecrets(ctx, k8sClient, dbName, namespace); err != nil {
+		return fmt.Errorf("failed to reset user secrets: %w", err)
+	}
+	log.Info().Msg("User credentials have been reset")
 	return nil
 }
 
@@ -362,4 +372,58 @@ func cleanup(
 		return fmt.Errorf("failed to delete secret %s/%s: %w", namespace, secretName, err)
 	}
 	return nil
+}
+
+// After restore is complete, the database users and passwords are reverted to those from the backup.
+// This causes a mismatch between the actual database credentials and the Kubernetes User Secret.
+// The PG operator does not automatically detect this drift, so it will not update the database passwords.
+// To resolve this, we clear the User Secret, prompting the PG operator to regenerate new credentials
+// and synchronize with the DB.
+func resetUserSecrets(
+	ctx context.Context,
+	c client.Client,
+	dbName, namespace string,
+) error {
+	// We wrap this logic in a retry loop to reduce changes of conflicts or errors.
+	if err := backoff.Retry(func() error {
+		// This block simply empties the Secret so the PG operator will reconcile the DB
+		// with new Secrets.
+		db := everestv1alpha1.DatabaseCluster{}
+		if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
+			return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+		}
+		secretName := db.Spec.Engine.UserSecretsName // everest-operator guarentees that this is set
+		secret := &corev1.Secret{}
+		if err := c.Get(ctx, client.ObjectKey{
+			Namespace: namespace,
+			Name:      secretName},
+			secret); err != nil {
+			return fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
+		}
+		secret.Data = map[string][]byte{}
+		if err := c.Update(ctx, secret); err != nil {
+			return fmt.Errorf("failed to update user secret %s/%s: %w", namespace, secretName, err)
+		}
+		return nil
+	}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
+		return fmt.Errorf("failed to reset user secrets %s/%s: %w", namespace, dbName, err)
+	}
+
+	// Now wait until PG operator populates the user secrets again.
+	return wait.PollUntilContextCancel(
+		ctx,
+		defaultRetryInterval,
+		false,
+		func(ctx context.Context) (done bool, err error) {
+			db := everestv1alpha1.DatabaseCluster{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
+				return false, fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+			}
+			secretName := db.Spec.Engine.UserSecretsName
+			secret := &corev1.Secret{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: secretName}, secret); err != nil {
+				return false, fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
+			}
+			return len(secret.Data) > 0, nil
+		})
 }
