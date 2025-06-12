@@ -54,7 +54,7 @@ OPERATOR_SDK_VERSION ?= v1.38.0
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.0
+ENVTEST_K8S_VERSION = 1.29
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -121,38 +121,59 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-PXC_OPERATOR_VERSION ?= 1.17.0
-PSMDB_OPERATOR_VERSION ?= 1.19.1
-PG_OPERATOR_VERSION ?= 2.6.0
-PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
-PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
-PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
-PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
-OPERATOR_ROOT_PATH = $(shell pwd)
-test-core: docker-build ## Run core tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
- 	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
-test-features: docker-build ## Run feature tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
-	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
-test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
- 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
- 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
- 	OPERATOR_ROOT_PATH=$(OPERATOR_ROOT_PATH) \
-	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+test-integration-core: docker-build ## Run integration/core tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+test-integration-features: docker-build ## Run feature tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+
+test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+
+test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
+
+test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
+	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+
+# Cleanup all resources created by the tests
+.ONESHELL:
+.SHELLFLAGS = -e
+cluster-cleanup:
+	# Remove all resources
+	namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get pxc -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pxc -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}')
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}')
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get pg -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pg -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}')
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	kubectl delete db --all-namespaces --all --cascade=foreground
+	kubectl delete pvc --all-namespaces --all
+	kubectl delete backupstorage --all-namespaces --all
+	kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns
+	kubectl delete ns operators olm --ignore-not-found=true --wait=false
+	sleep 10
+	kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true
+	kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
+
+	kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd
+	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com
+
 ##@ Build
 
 .PHONY: build

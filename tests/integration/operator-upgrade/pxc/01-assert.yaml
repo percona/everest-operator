@@ -5,13 +5,13 @@ commands:
   # After the operator is installed, we can check the available versions match the expected versions from Version Service
   - script: >
       bash -c "
-        diff                                                                                        \
-        <(                                                                                          \
-          kubectl get dbengine/percona-xtradb-cluster-operator -n $NAMESPACE -o yaml |              \
-          yq -P '.status | sort_keys(..)'                                                           \
-        )                                                                                           \
-        <(                                                                                          \
-          curl -fsSL https://check-dev.percona.com/versions/v1/pxc-operator/$PXC_OPERATOR_VERSION | \
+        diff                                                                                                 \
+        <(                                                                                                   \
+          kubectl get dbengine/percona-xtradb-cluster-operator -n ${NAMESPACE} -o yaml |                       \
+          yq -P '.status | sort_keys(..)'                                                                    \
+        )                                                                                                    \
+        <(                                                                                                   \
+          curl -fsSL https://check-dev.percona.com/versions/v1/pxc-operator/${PREVIOUS_PXC_OPERATOR_VERSION} | \
           yq -P '
             .versions[] |
             {
@@ -65,6 +65,6 @@ commands:
                 }
             } |
             sort_keys(..)
-          '                                                                                         \
-        )                                                                                           \
+          '                                                                                                  \
+        )                                                                                                    \
       "

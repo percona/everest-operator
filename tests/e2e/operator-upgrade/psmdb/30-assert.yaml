@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 100
 commands:
-  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PSMDB_OPERATOR_VERSION psmdb/test-psmdb-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n $NAMESPACE
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
