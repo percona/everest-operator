@@ -25,6 +25,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/rs/zerolog/log"
@@ -179,7 +180,7 @@ func pauseDBReconciliation(
 	if annots == nil {
 		annots = make(map[string]string)
 	}
-	annots["everest.percona.com/reconcile-paused"] = "true"
+	annots[consts.PauseReconcileAnnotation] = consts.PauseReconcileAnnotationValueTrue
 	db.SetAnnotations(annots)
 	if err := c.Update(ctx, db); err != nil {
 		return fmt.Errorf("failed to pause reconciliation for database cluster %s/%s: %w", namespace, name, err)
@@ -199,7 +200,7 @@ func unpauseDBReconciliation(
 	if annots == nil {
 		annots = make(map[string]string)
 	}
-	delete(annots, "everest.percona.com/reconcile-paused")
+	delete(annots, consts.PauseReconcileAnnotation)
 	db.SetAnnotations(annots)
 	if err := c.Update(ctx, db); err != nil {
 		return fmt.Errorf("failed to unpause reconciliation for database cluster %s/%s: %w", namespace, name, err)
@@ -262,6 +263,10 @@ func preparePGBackrestRepo(
 			},
 		},
 	})
+
+	if pg.Spec.Backups.PGBackRest.Global == nil {
+		pg.Spec.Backups.PGBackRest.Global = make(map[string]string)
+	}
 
 	// configure global settings
 	pg.Spec.Backups.PGBackRest.Global[fmt.Sprintf("%s-path", repoName)] = dbDirPath
