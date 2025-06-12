@@ -125,7 +125,7 @@ test-core: docker-build ## Run core tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 test-features: docker-build ## Run feature tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
-test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
+test-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 ##@ Build
