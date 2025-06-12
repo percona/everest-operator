@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -52,6 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	controllers "github.com/percona/everest-operator/internal/controller"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/predicates"
@@ -365,7 +367,7 @@ func parseConfig() error {
 	dbNamespacesString := os.Getenv(dbNamespacesEnvVar)
 	podName := os.Getenv(podNameEnvVar)
 	cfg.PodName = podName
-	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", common.LabelKubernetesManagedBy, common.Everest)
+	defaultNamespaceLabelFilter := fmt.Sprintf("%s=%s", consts.KubernetesManagedByLabel, consts.Everest)
 	var namespaceLabelFilter string
 	flag.BoolVar(&cfg.DisableWebhookServer, "disable-webhook-server", false,
 		"If set, the webhook server will not be started. This is useful for testing purposes or if you don't need webhooks.")

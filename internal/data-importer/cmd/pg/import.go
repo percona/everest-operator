@@ -106,7 +106,19 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
-	pgBackRestSecretName := "data-import-" + dbName
+	var (
+		pgBackRestSecretName = "data-import-" + dbName
+		restoreName          = "data-import-" + dbName
+	)
+
+	// always clean up on exit even if we fail at some point.
+	defer func() {
+		if cleanupErr := cleanup(ctx, k8sClient, namespace, restoreName, pgBackRestSecretName); cleanupErr != nil {
+			log.Error().Err(cleanupErr).Msg("Failed to clean up after PG import")
+			err = errors.Join(err, cleanupErr)
+		}
+	}()
+
 	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyId,
 		secretAccessKey, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
@@ -119,13 +131,8 @@ func runPGImport(
 		return fmt.Errorf("failed to prepare PGBackrest repo: %w", err)
 	}
 
-	restoreName := "data-import-" + dbName
 	if err := runPGRestoreAndWait(ctx, k8sClient, baseBackupName, restoreName, repoName, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to run PG restore: %w", err)
-	}
-
-	if err := cleanup(ctx, k8sClient, namespace, restoreName, pgBackRestSecretName); err != nil {
-		return fmt.Errorf("failed to cleanup after PG restore: %w", err)
 	}
 
 	log.Info().Msgf("Successfully imported PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)

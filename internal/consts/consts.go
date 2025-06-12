@@ -13,9 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+// Package consts provides constants used across the operator.
+package consts
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
+
+// ClusterType represents the type of the cluster.
+type ClusterType string
 
 const (
 	// Everest ...
@@ -59,23 +63,8 @@ const (
 	// ClusterTypeMinikube represents the Minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
 
-	// LabelBackupStorageName is the label for backup storage name.
-	LabelBackupStorageName = "percona.com/backup-storage-name"
-	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
-	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
-
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
-
-	// DBBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
-	// Deprecated: We keep this for backward compatibility.
-	DBBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
-
-	// UpstreamClusterCleanupFinalizer is the finalizer for cleaning up the upstream cluster.
-	UpstreamClusterCleanupFinalizer = "everest.percona.com/upstream-cluster-cleanup"
-
-	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
-	ForegroundDeletionFinalizer = "foregroundDeletion"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.

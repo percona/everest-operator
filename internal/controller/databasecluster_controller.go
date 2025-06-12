@@ -51,6 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/providers"
 	"github.com/percona/everest-operator/internal/controller/providers/pg"
@@ -60,12 +61,6 @@ import (
 )
 
 const (
-	psmdbCRDName         = "perconaservermongodbs.psmdb.percona.com"
-	pxcCRDName           = "perconaxtradbclusters.pxc.percona.com"
-	pgCRDName            = "perconapgclusters.pgv2.percona.com"
-	haProxyTemplate      = "percona/percona-xtradb-cluster-operator:%s-haproxy"
-	restartAnnotationKey = "everest.percona.com/restart"
-
 	monitoringConfigNameField       = ".spec.monitoring.monitoringConfigName"
 	monitoringConfigSecretNameField = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
@@ -74,21 +69,12 @@ const (
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 
-	databaseClusterNameLabel     = "clusterName"
-	monitoringConfigNameLabel    = "monitoringConfigName"
-	podSchedulingPolicyNameLabel = "podSchedulingPolicyName"
-	backupStorageNameLabelTmpl   = "backupStorage-%s"
-	backupStorageLabelValue      = "used"
-	defaultRequeueAfter          = 5 * time.Second
-
-	// setting this annotation on a DatabaseCluster will pause the reconciliation.
-	pauseReconcileAnnotation          = "everest.percona.com/reconcile-paused"
-	pauseReconcileAnnotationValueTrue = "true"
+	defaultRequeueAfter = 5 * time.Second
 )
 
 var everestFinalizers = []string{
-	common.UpstreamClusterCleanupFinalizer,
-	common.ForegroundDeletionFinalizer,
+	consts.UpstreamClusterCleanupFinalizer,
+	consts.ForegroundDeletionFinalizer,
 }
 
 // DatabaseClusterReconciler reconciles a DatabaseCluster object.
@@ -307,7 +293,7 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, diJob, func() error {
 		diJob.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: db.GetName(),
+			consts.DatabaseClusterNameLabel: db.GetName(),
 		}
 		diJob.Spec = everestv1alpha1.DataImportJobSpec{
 			TargetClusterName:     db.GetName(),
@@ -369,7 +355,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	)
 
 	// If the reconcile is paused, we return immediately.
-	if val, ok := database.GetAnnotations()[pauseReconcileAnnotation]; ok && val == pauseReconcileAnnotationValueTrue {
+	if val, ok := database.GetAnnotations()[consts.PauseReconcileAnnotation]; ok && val == consts.PauseReconcileAnnotationValueTrue {
 		logger.Info("Reconciliation is paused")
 		return reconcile.Result{}, nil
 	}
@@ -387,7 +373,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if database.Spec.Engine.UserSecretsName == "" {
-		database.Spec.Engine.UserSecretsName = common.EverestSecretsPrefix + database.Name
+		database.Spec.Engine.UserSecretsName = consts.EverestSecretsPrefix + database.Name
 	}
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
@@ -413,7 +399,7 @@ func (r *DatabaseClusterReconciler) handleRestart(
 	logger logr.Logger,
 	database *everestv1alpha1.DatabaseCluster,
 ) error {
-	_, restartRequired := database.ObjectMeta.Annotations[restartAnnotationKey]
+	_, restartRequired := database.ObjectMeta.Annotations[consts.RestartAnnotation]
 	if !restartRequired {
 		return nil
 	}
@@ -429,7 +415,7 @@ func (r *DatabaseClusterReconciler) handleRestart(
 		database.Status.Ready == 0 {
 		logger.Info("Unpausing database cluster")
 		database.Spec.Paused = false
-		delete(database.ObjectMeta.Annotations, restartAnnotationKey)
+		delete(database.ObjectMeta.Annotations, consts.RestartAnnotation)
 		if err := r.Update(ctx, database); err != nil {
 			return err
 		}
@@ -459,7 +445,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
 	}
 
-	newSecretName := common.EverestSecretsPrefix + db.Name
+	newSecretName := consts.EverestSecretsPrefix + db.Name
 	newSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      newSecretName,
@@ -474,7 +460,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return nil
 	}
 
-	prevSecretName := common.EverestSecretsPrefix + dbb.Spec.DBClusterName
+	prevSecretName := consts.EverestSecretsPrefix + dbb.Spec.DBClusterName
 	secret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      prevSecretName,
@@ -504,7 +490,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 	updated := make(map[string]string, len(current))
 	maps.Copy(updated, current)
 
-	updated[databaseClusterNameLabel] = database.GetName()
+	updated[consts.DatabaseClusterNameLabel] = database.GetName()
 	if database.Spec.DataSource != nil {
 		if database.Spec.DataSource.DBClusterBackupName != "" {
 			// need to obtain backupStorageName by .spec.dataSource.dbClusterBackupName.dbClusterBackupName
@@ -519,45 +505,45 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 					database.GetName(),
 					database.GetNamespace()))
 			}
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = backupStorageLabelValue
+			updated[fmt.Sprintf(consts.BackupStorageNameLabelTmpl, dbBackup.Spec.BackupStorageName)] = consts.BackupStorageLabelValue
 		}
 
 		// .spec.dataSource.backupSource.backupStorageName can be set via API directly.
 		// UI doesn't set it right now.
 		if database.Spec.DataSource.BackupSource != nil && database.Spec.DataSource.BackupSource.BackupStorageName != "" {
-			updated[fmt.Sprintf(backupStorageNameLabelTmpl, database.Spec.DataSource.BackupSource.BackupStorageName)] = backupStorageLabelValue
+			updated[fmt.Sprintf(consts.BackupStorageNameLabelTmpl, database.Spec.DataSource.BackupSource.BackupStorageName)] = consts.BackupStorageLabelValue
 		}
 	}
 
 	if bkpStorageName := pointer.Get(database.Spec.Backup.PITR.BackupStorageName); bkpStorageName != "" {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, bkpStorageName)] = backupStorageLabelValue
+		updated[fmt.Sprintf(consts.BackupStorageNameLabelTmpl, bkpStorageName)] = consts.BackupStorageLabelValue
 	}
 
 	for _, schedule := range database.Spec.Backup.Schedules {
-		updated[fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName)] = backupStorageLabelValue
+		updated[fmt.Sprintf(consts.BackupStorageNameLabelTmpl, schedule.BackupStorageName)] = consts.BackupStorageLabelValue
 	}
 
 	monitoring := pointer.Get(database.Spec.Monitoring)
-	monitoringConfigName, foundMC := updated[monitoringConfigNameLabel]
+	monitoringConfigName, foundMC := updated[consts.MonitoringConfigNameLabel]
 	if monitoring.MonitoringConfigName != "" {
 		if !foundMC || monitoringConfigName != database.Spec.Monitoring.MonitoringConfigName {
-			updated[monitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
+			updated[consts.MonitoringConfigNameLabel] = database.Spec.Monitoring.MonitoringConfigName
 		}
 	} else if foundMC {
-		delete(updated, monitoringConfigNameLabel)
+		delete(updated, consts.MonitoringConfigNameLabel)
 	}
 
 	if database.Spec.PodSchedulingPolicyName != "" {
 		// If the .spec.podSchedulingPolicyName is set, we need to set the label
-		updated[podSchedulingPolicyNameLabel] = database.Spec.PodSchedulingPolicyName
+		updated[consts.PodSchedulingPolicyNameLabel] = database.Spec.PodSchedulingPolicyName
 	} else {
 		// If the .spec.podSchedulingPolicyName is not set, we need to remove the label (if any).
-		delete(updated, podSchedulingPolicyNameLabel)
+		delete(updated, consts.PodSchedulingPolicyNameLabel)
 	}
 
 	// Remove labels for backup storage that are not in the spec
 	keyMatchesBackupStorageName := func(key string) bool {
-		regexPattern := "^" + strings.Replace(backupStorageNameLabelTmpl, "%s", `\w+`, 1) + "$"
+		regexPattern := "^" + strings.Replace(consts.BackupStorageNameLabelTmpl, "%s", `\w+`, 1) + "$"
 		re := regexp.MustCompile(regexPattern)
 		return re.MatchString(key)
 	}
@@ -567,7 +553,7 @@ func (r *DatabaseClusterReconciler) reconcileLabels(
 		}
 		found := false
 		for _, schedule := range database.Spec.Backup.Schedules {
-			if key == fmt.Sprintf(backupStorageNameLabelTmpl, schedule.BackupStorageName) {
+			if key == fmt.Sprintf(consts.BackupStorageNameLabelTmpl, schedule.BackupStorageName) {
 				found = true
 				break
 			}
