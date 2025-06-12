@@ -9,8 +9,7 @@ spec:
   supportedEngines:
   - postgresql
   jobSpec:
-    # image: "percona/everest-operator"
-    image: "asia-south1-docker.pkg.dev/percona-everest/mayank-everest-test/everest-operator"
+    image: "percona/everest-operator"
     command: ["/data-importer", "pg"]
   permissions:
   - apiGroups:
