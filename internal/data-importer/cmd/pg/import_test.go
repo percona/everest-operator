@@ -182,7 +182,7 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	updatedPG := &pgv2.PerconaPGCluster{}
-	err = client.Get(context.Background(), types.NamespacedName{namespace, dbName}, updatedPG)
+	err = client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: dbName}, updatedPG)
 	require.NoError(t, err)
 
 	// Check if the global configuration was updated
