@@ -157,7 +157,6 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 	endpoint := "s3.amazonaws.com"
 	region := "us-east-1"
 
-	// Create a test PG cluster
 	pg := &pgv2.PerconaPGCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dbName,
@@ -173,23 +172,20 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 		},
 	}
 
-	// Create a fake client with the test PG cluster
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(pg).
 		Build()
 
-	// Test preparing the PGBackrest repo
 	err = preparePGBackrestRepo(context.Background(), client, repoName, secretName,
 		dbDirPath, uriStyle, bucket, endpoint, region, dbName, namespace)
 	require.NoError(t, err)
 
-	// Verify the PG cluster was updated correctly
 	updatedPG := &pgv2.PerconaPGCluster{}
 	err = client.Get(context.Background(), types.NamespacedName{namespace, dbName}, updatedPG)
 	require.NoError(t, err)
 
-	// Check if the configuration was properly set
+	// Check if the global configuration was updated
 	assert.Equal(t, dbDirPath, updatedPG.Spec.Backups.PGBackRest.Global[repoName+"-path"])
 	assert.Equal(t, uriStyle, updatedPG.Spec.Backups.PGBackRest.Global[repoName+"-s3-uri-style"])
 
