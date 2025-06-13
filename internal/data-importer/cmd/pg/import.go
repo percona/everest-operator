@@ -384,7 +384,7 @@ func resetUserSecrets(
 	c client.Client,
 	dbName, namespace string,
 ) error {
-	// We wrap this logic in a retry loop to reduce changes of conflicts or errors.
+	// We wrap this logic in a retry loop to reduce chances of conflicts or errors.
 	if err := backoff.Retry(func() error {
 		// This block simply empties the Secret so the PG operator will reconcile the DB
 		// with new Secrets.
