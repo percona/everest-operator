@@ -43,6 +43,8 @@ type pgReposReconciler struct {
 	reposToBeReconciled           *list.List
 }
 
+const maxStorages = 4
+
 func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedules []everestv1alpha1.BackupSchedule) (*pgReposReconciler, error) {
 	iniFile, err := ini.Load([]byte{})
 	if err != nil {
@@ -60,10 +62,7 @@ func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedu
 		backupSchedulesToBeReconciled.PushBack(backupSchedule)
 	}
 
-	const (
-		maxStorages                = 4
-		maxPGBackrestOptionsNumber = 150 // the full potential list https://pgbackrest.org/configuration.html
-	)
+	const maxPGBackrestOptionsNumber = 150 // the full potential list https://pgbackrest.org/configuration.html
 
 	pgBackRestGlobal := make(map[string]string, maxPGBackrestOptionsNumber*maxStorages)
 	pgBackRestGlobal["repo1-retention-full"] = "1"
@@ -408,7 +407,7 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	// cluster if the only repo in the list is changed.
 	newRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
-			Name: "repo1",
+			Name: repo1Name,
 			Volume: &crunchyv1beta1.RepoPVC{
 				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -435,6 +434,27 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	}
 	sortByName(newRepos)
 	return newRepos, nil
+}
+
+func (p *pgReposReconciler) addDataSourceRepo(
+	db *everestv1alpha1.DatabaseCluster,
+	bs *everestv1alpha1.BackupStorage,
+	bsSecret *corev1.Secret,
+) ([]crunchyv1beta1.PGBackRestRepo, error) {
+	repo := crunchyv1beta1.PGBackRestRepo{
+		Name: repo1Name,
+		S3: &crunchyv1beta1.RepoS3{
+			Bucket:   bs.Spec.Bucket,
+			Endpoint: bs.Spec.EndpointURL,
+			Region:   bs.Spec.Region,
+		},
+	}
+	p.addRepoToPGGlobal(bs.Spec.VerifyTLS, repo.Name, bs.Spec.ForcePathStyle, pointer.ToInt32(0), db)
+	err := updatePGIni(p.pgBackRestSecretIni, bsSecret, repo)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to add backup storage credentials to PGBackrest secret data"))
+	}
+	return []crunchyv1beta1.PGBackRestRepo{repo}, nil
 }
 
 func sortByName(repos []crunchyv1beta1.PGBackRestRepo) {
