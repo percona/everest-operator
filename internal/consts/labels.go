@@ -23,7 +23,7 @@ const (
 
 	// BackupStorageNameLabel is the label for backup storage name.
 	BackupStorageNameLabel = "percona.com/backup-storage-name"
-	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
+	// KubernetesManagedByLabel is a common label that indicates the resource is managed by a specific operator.
 	KubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// DatabaseClusterNameLabel indicates the name of the database cluster.
 	DatabaseClusterNameLabel = "clusterName"
