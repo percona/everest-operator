@@ -21,7 +21,7 @@ const (
 	// EverestLabelPrefix is the prefix for all Everest-related labels.
 	EverestLabelPrefix = "everest.percona.com/"
 
-	// LabelBackupStorageName is the label for backup storage name.
+	// BackupStorageNameLabel is the label for backup storage name.
 	BackupStorageNameLabel = "percona.com/backup-storage-name"
 	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
 	KubernetesManagedByLabel = "app.kubernetes.io/managed-by"
