@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -263,7 +264,7 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			expose.ServiceAnnotations = annotations
 		}
 	default:
@@ -282,7 +283,7 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			expose.ServiceAnnotations = annotations
 		}
 	default:
@@ -422,7 +423,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	ctx := p.ctx
 	c := p.C
 
-	image := common.DefaultPMMClientImage
+	image := consts.DefaultPMMClientImage
 	if monitoring.Spec.PMM.Image != "" {
 		image = monitoring.Spec.PMM.Image
 	}

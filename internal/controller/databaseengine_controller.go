@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/version"
 	"github.com/percona/everest-operator/internal/predicates"
@@ -57,9 +58,9 @@ const (
 var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
-	common.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
-	common.PSMDBDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
-	common.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
+	consts.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
+	consts.PSMDBDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
+	consts.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
 
 // DatabaseEngineReconciler reconciles a DatabaseEngine object.

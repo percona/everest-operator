@@ -38,6 +38,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 const (
@@ -47,21 +48,6 @@ const (
 
 	kindRole        = "Role"
 	kindClusterRole = "ClusterRole"
-
-	// cleanupRBACFinalizer is a finalizer that is used to clean up cluster-wide RBAC resources.
-	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
-	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
-	cleanupRBACFinalizer = "everest.percona.com/rbac-cleanup"
-	// dataImportJobNameLabel is a label used to identify the name of the DataImportJob that owns a cluster-wide resource.
-	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
-	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
-	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
-	dataImportJobNameLabel = "everest.percona.com/data-import-job-name"
-	// dataImportJobNamespaceLabel is a label used to identify the namespace of the DataImportJob that owns a cluster-wide resource.
-	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
-	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
-	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
-	dataImportJobNamespaceLabel = "everest.percona.com/data-import-job-namespace"
 )
 
 type DataImportJobReconciler struct {
@@ -89,11 +75,11 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func clusterWideResourceHandler() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []ctrl.Request {
 		labels := o.GetLabels()
-		name, ok := labels[dataImportJobNameLabel]
+		name, ok := labels[consts.DataImportJobRefNameLabel]
 		if !ok {
 			return nil
 		}
-		namespace, ok := labels[dataImportJobNamespaceLabel]
+		namespace, ok := labels[consts.DataImportJobRefNamespaceLabel]
 		if !ok {
 			return nil
 		}
@@ -540,7 +526,7 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 		if err := r.ensureClusterRoleBinding(ctx, diJob); err != nil {
 			return fmt.Errorf("failed to ensure cluster role binding: %w", err)
 		}
-		if controllerutil.AddFinalizer(diJob, cleanupRBACFinalizer) {
+		if controllerutil.AddFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 			if err := r.Client.Update(ctx, diJob); err != nil {
 				return fmt.Errorf("failed to add finalizer to data import job: %w", err)
 			}
@@ -556,7 +542,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 	finalizers := diJob.GetFinalizers()
 	for _, f := range finalizers {
 		switch f {
-		case cleanupRBACFinalizer:
+		case consts.DataImportJobRBACCleanupFinalizer:
 			if err := r.handleRBACCleanupFinalizer(ctx, diJob); err != nil {
 				return fmt.Errorf("failed to handle RBAC cleanup finalizer: %w", err)
 			}
@@ -583,7 +569,7 @@ func (r *DataImportJobReconciler) handleRBACCleanupFinalizer(ctx context.Context
 	if err := r.Client.Delete(ctx, crb); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete cluster role binding: %w", err)
 	}
-	if controllerutil.RemoveFinalizer(diJob, cleanupRBACFinalizer) {
+	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 		if err := r.Client.Update(ctx, diJob); err != nil {
 			return fmt.Errorf("failed to remove finalizer from data import job: %w", err)
 		}
@@ -618,8 +604,8 @@ func (r *DataImportJobReconciler) ensureClusterRoleBinding(
 			},
 		}
 		clusterRoleBinding.SetLabels(map[string]string{
-			dataImportJobNameLabel:      diJob.GetName(),
-			dataImportJobNamespaceLabel: diJob.GetNamespace(),
+			consts.DataImportJobRefNameLabel:      diJob.GetName(),
+			consts.DataImportJobRefNamespaceLabel: diJob.GetNamespace(),
 		})
 		return nil
 	}); err != nil {
@@ -644,8 +630,8 @@ func (r *DataImportJobReconciler) ensureClusterRole(
 	}
 	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, clusterRole, func() error {
 		clusterRole.SetLabels(map[string]string{
-			dataImportJobNameLabel:      diJob.GetName(),
-			dataImportJobNamespaceLabel: diJob.GetNamespace(),
+			consts.DataImportJobRefNameLabel:      diJob.GetName(),
+			consts.DataImportJobRefNamespaceLabel: diJob.GetNamespace(),
 		})
 		clusterRole.Rules = permissions
 		return nil

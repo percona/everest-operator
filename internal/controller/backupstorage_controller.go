@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -119,7 +120,7 @@ func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Contex
 	if !ok {
 		return nil
 	}
-	backupStorageName, ok := secret.Labels[common.LabelBackupStorageName]
+	backupStorageName, ok := secret.Labels[consts.BackupStorageNameLabel]
 	if !ok {
 		return nil
 	}

@@ -36,16 +36,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
-const (
-	vmAgentResourceName                    = "everest-monitoring"
-	monitoringConfigRefNameLabel           = "everest.percona.com/monitoring-config-ref-name"
-	monitoringConfigRefNamespaceLabel      = "everest.percona.com/monitoring-config-ref-namespace"
-	monitoringConfigSecretCleanupFinalizer = "everest.percona.com/cleanup-secrets"
-	vmAgentFinalizer                       = "everest.percona.com/vmagent"
-)
+const vmAgentResourceName = "everest-monitoring"
 
 // MonitoringConfigReconciler reconciles a MonitoringConfig object.
 type MonitoringConfigReconciler struct {
@@ -181,7 +176,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitor
 		// Skip the MonitoringConfig if it is being deleted.
 		// Remove the vmagent finalizer.
 		if !monitoringConfig.GetDeletionTimestamp().IsZero() {
-			if removed := controllerutil.RemoveFinalizer(&monitoringConfig, vmAgentFinalizer); removed {
+			if removed := controllerutil.RemoveFinalizer(&monitoringConfig, consts.MonitoringConfigVMAgentFinalizer); removed {
 				if err := r.Update(ctx, &monitoringConfig); err != nil {
 					return spec, errors.Join(err, errors.New("could not remove finalizer"))
 				}
@@ -191,7 +186,7 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitor
 
 		// This MonitoringConfig is a part of the vmagent.
 		// Add the finalizer so we can clean up the vmagent when the MonitoringConfig is deleted.
-		if updated := controllerutil.AddFinalizer(&monitoringConfig, vmAgentFinalizer); updated {
+		if updated := controllerutil.AddFinalizer(&monitoringConfig, consts.MonitoringConfigVMAgentFinalizer); updated {
 			if err := r.Update(ctx, &monitoringConfig); err != nil {
 				return spec, errors.Join(err, errors.New("could not add finalizer"))
 			}
@@ -305,8 +300,8 @@ func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *eve
 	err := r.List(ctx, secrets, &client.ListOptions{
 		Namespace: r.monitoringNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			monitoringConfigRefNameLabel:      mc.GetName(),
-			monitoringConfigRefNamespaceLabel: mc.GetNamespace(),
+			consts.MonitoringConfigRefNameLabel:      mc.GetName(),
+			consts.MonitoringConfigRefNamespaceLabel: mc.GetNamespace(),
 		}),
 	})
 	if err != nil {
@@ -318,7 +313,7 @@ func (r *MonitoringConfigReconciler) cleanupSecrets(ctx context.Context, mc *eve
 		}
 	}
 	// Remove the finalizer from the MonitoringConfig.
-	if controllerutil.RemoveFinalizer(mc, monitoringConfigSecretCleanupFinalizer) {
+	if controllerutil.RemoveFinalizer(mc, consts.MonitoringConfigSecretCleanupFinalizer) {
 		return r.Update(ctx, mc)
 	}
 	return nil
@@ -359,15 +354,15 @@ func (r *MonitoringConfigReconciler) reconcileSecret(ctx context.Context, mc *ev
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[monitoringConfigRefNameLabel] = mc.GetName()
-		labels[monitoringConfigRefNamespaceLabel] = mc.GetNamespace()
+		labels[consts.MonitoringConfigRefNameLabel] = mc.GetName()
+		labels[consts.MonitoringConfigRefNamespaceLabel] = mc.GetNamespace()
 		dst.SetLabels(labels)
 		return nil
 	}); err != nil {
 		return "", err
 	}
 	// Add a clean-up finalizer in the parent MonitoringConfig.
-	if controllerutil.AddFinalizer(mc, monitoringConfigSecretCleanupFinalizer) {
+	if controllerutil.AddFinalizer(mc, consts.MonitoringConfigSecretCleanupFinalizer) {
 		return dstSecretName, r.Update(ctx, mc)
 	}
 	return dstSecretName, nil
