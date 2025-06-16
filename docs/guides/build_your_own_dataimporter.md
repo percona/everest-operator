@@ -45,7 +45,7 @@ Your container will be run with **one command-line argument**: the path to a JSO
 
 * Source info (e.g., S3 URI, credentials)
 * Target DB info (host, port, user, password)
-* Optional `params` (importer-specific)
+* Optional `config` to tweak your import process (importer-specific)
 
 ### Example JSON Input
 
@@ -96,7 +96,7 @@ Use any language. Just make sure it:
 * Restores it into the target DB
 * Exits with status `0` on success, or non-zero on failure
 
-### Example: Python script for `pg_dump` restore
+### Example: Python script for importing backups taken with `pg_dump`
 
 ```python
 #!/usr/bin/env python3
