@@ -867,7 +867,8 @@ func backupStorageName(repoName string, pg *pgv2.PerconaPGCluster, storages *eve
 	for _, repo := range pg.Spec.Backups.PGBackRest.Repos {
 		if repo.Name == repoName {
 			for _, storage := range storages.Items {
-				if pg.Namespace == storage.Namespace &&
+				if repo.S3 != nil &&
+					pg.Namespace == storage.Namespace &&
 					repo.S3.Region == storage.Spec.Region &&
 					repo.S3.Bucket == storage.Spec.Bucket &&
 					repo.S3.Endpoint == storage.Spec.EndpointURL {
