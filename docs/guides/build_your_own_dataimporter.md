@@ -52,25 +52,35 @@ Your container will be run with **one command-line argument**: the path to a JSO
 ```json
 {
   "source": {
-    "path": "backups/pg.sql",
+    "path": "/backups/mydb.dump",
     "s3": {
-      "endpointURL": "https://s3.us-west-2.amazonaws.com",
-      "bucket": "my-bucket",
+      "bucket": "my-s3-bucket",
       "region": "us-west-2",
-      "credentials": {
-        "accessKeyID": "AKIA...",
-        "secretKey": "..."
-      }
+      "endpointURL": "https://s3.us-west-2.amazonaws.com",
+      "verifyTLS": true,
+      "forcePathStyle": false,
+      "accessKeyID": "AKIAEXAMPLE",
+      "secretKey": "mysecretkey"
     }
   },
   "target": {
-    "type": "postgres",
-    "host": "my-db-service",
-    "port": 5432,
-    "username": "postgres",
-    "password": "mypassword"
+    "databaseClusterRef": {
+      "name": "my-database-cluster",
+      "namespace": "everest-databases"
+    },
+    "type": "postgresql",
+    "host": "my-db-host.everest-databases.svc.cluster.local",
+    "port": "5432",
+    "user": "dbuser",
+    "password": "supersecret"
   },
+  "config": {
+    "dropIfExists": true,
+    "schemaOnly": false,
+    "additionalOption": "value"
+  }
 }
+
 ```
 
 The complete contract definition can be found [here](../../api/v1alpha1/dataimporterspec/schema.yaml).
@@ -173,7 +183,7 @@ spec:
 
 ---
 
-## 🥪 5. Use it to creat a new DatabaseCluster
+## 🥪 5. Use it to create a new DatabaseCluster
 
 In your `DatabaseCluster` spec:
 
