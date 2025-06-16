@@ -23,9 +23,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
-	"github.com/percona/everest-operator/internal/consts"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/rs/zerolog/log"
@@ -38,6 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 var Cmd = &cobra.Command{
@@ -209,7 +210,8 @@ func getRepoName(
 func pauseDBReconciliation(
 	ctx context.Context,
 	c client.Client,
-	name, namespace string) error {
+	name, namespace string,
+) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
@@ -229,7 +231,8 @@ func pauseDBReconciliation(
 func unpauseDBReconciliation(
 	ctx context.Context,
 	c client.Client,
-	name, namespace string) error {
+	name, namespace string,
+) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
@@ -414,7 +417,8 @@ func resetUserSecrets(
 		secret := &corev1.Secret{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: namespace,
-			Name:      secretName},
+			Name:      secretName,
+		},
 			secret); err != nil {
 			return fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
 		}

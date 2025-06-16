@@ -18,6 +18,8 @@ import (
 	"context"
 	"testing"
 
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
@@ -26,9 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
-	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 )
 
 func TestParseBackupPath(t *testing.T) {
@@ -170,7 +169,6 @@ func TestGetRepoName(t *testing.T) {
 }
 
 func TestPreparePGBackrestSecret(t *testing.T) {
-
 	scheme := runtime.NewScheme()
 	err := pgv2.AddToScheme(scheme)
 	err = corev1.AddToScheme(scheme)

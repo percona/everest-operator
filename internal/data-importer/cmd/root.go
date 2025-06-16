@@ -15,8 +15,9 @@
 package cmd
 
 import (
-	"github.com/percona/everest-operator/internal/data-importer/cmd/pg"
 	"github.com/spf13/cobra"
+
+	"github.com/percona/everest-operator/internal/data-importer/cmd/pg"
 )
 
 var Root = &cobra.Command{
