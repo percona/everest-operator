@@ -10,6 +10,9 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.crVersion}'=${PG_OPERATOR_VERSION} dbc/test-pg-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PG_OPERATOR_VERSION} perconapgcluster/test-pg-cluster -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
