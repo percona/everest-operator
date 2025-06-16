@@ -18,15 +18,16 @@ import (
 	"context"
 	"testing"
 
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/ini.v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
-	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 )
 
 func TestParseBackupPath(t *testing.T) {
@@ -121,6 +122,31 @@ func TestGetRepoName(t *testing.T) {
 			want:    "repo3",
 			wantErr: false,
 		},
+		{
+			name:      "new repo with existing repos",
+			dbName:    "testdb",
+			namespace: "default",
+			pg: &pgv2.PerconaPGCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testdb",
+					Namespace: "default",
+				},
+				Spec: pgv2.PerconaPGClusterSpec{
+					Backups: pgv2.Backups{
+						PGBackRest: pgv2.PGBackRestArchive{
+							Repos: []crunchyv1beta1.PGBackRestRepo{
+								{Name: "repo1"},
+								{Name: "repo2"},
+								{Name: "repo3"},
+								{Name: "repo4"},
+							},
+						},
+					},
+				},
+			},
+			want:    "repo3",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +166,63 @@ func TestGetRepoName(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestPreparePGBackrestSecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := pgv2.AddToScheme(scheme)
+	err = corev1.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	var (
+		repoName        = "repo1"
+		secretName      = "test-pgbackrest-secret"
+		accessKeyID     = "test-access-key-id"
+		secretAccessKey = "test-secret-access-key"
+		namespace       = "default"
+	)
+
+	initialSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"s3.conf": []byte(""),
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(initialSecret).
+		Build()
+
+	err = preparePGBackrestSecret(context.Background(), client, repoName, secretName,
+		accessKeyID, secretAccessKey, namespace)
+	require.NoError(t, err)
+
+	updatedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+
+	err = client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: secretName}, updatedSecret)
+	require.NoError(t, err)
+
+	// note: we assert on StringData because we are using fakeClient.
+	// In real scenario, Kubernetes will convert it to the Data field.
+	s3Conf := updatedSecret.StringData["s3.conf"]
+	assert.NotEmpty(t, s3Conf, "s3.conf should not be empty")
+
+	s3Cfg, err := ini.LoadSources(ini.LoadOptions{}, []byte(s3Conf))
+	require.NoError(t, err, "failed to parse s3.conf")
+	assert.NotNil(t, s3Cfg, "s3.conf should be parsed successfully")
+
+	global := s3Cfg.Section("global")
+	assert.Equal(t, accessKeyID, global.Key(repoName+"-s3-key").String(), "s3 key should match")
+	assert.Equal(t, secretAccessKey, global.Key(repoName+"-s3-key-secret").String(), "s3 secret key should match")
 }
 
 func TestPreparePGBackrestRepo(t *testing.T) {
@@ -195,8 +278,4 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 	assert.Equal(t, bucket, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Bucket)
 	assert.Equal(t, endpoint, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Endpoint)
 	assert.Equal(t, region, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Region)
-
-	// Check if the secret configuration was added
-	require.Len(t, updatedPG.Spec.Backups.PGBackRest.Configuration, 1)
-	assert.Equal(t, secretName, updatedPG.Spec.Backups.PGBackRest.Configuration[0].Secret.LocalObjectReference.Name)
 }

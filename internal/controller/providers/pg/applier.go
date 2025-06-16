@@ -513,6 +513,7 @@ func (p *applier) handlePGDataSourceAzure(
 
 	secretData := pgBackrestSecretBuf.Bytes()
 
+	// NOTE: The PG DataImporter depends on Everest creating this Secret.
 	pgBackrestSecret, err := p.createPGBackrestSecret(
 		"azure.conf",
 		secretData,
@@ -527,6 +528,7 @@ func (p *applier) handlePGDataSourceAzure(
 		{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
+					// NOTE: The PG DataImporter depends on Everest setting this field.
 					Name: pgBackrestSecret.Name,
 				},
 			},
@@ -763,6 +765,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
+// NOTE: The PG DataImporter depends on Everest creating this Secret.
 func (p *applier) createPGBackrestSecret(
 	pgbackrestKey string,
 	pgbackrestConf []byte,

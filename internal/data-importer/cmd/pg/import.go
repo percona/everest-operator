@@ -23,13 +23,11 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
-	"github.com/percona/everest-operator/internal/consts"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 var Cmd = &cobra.Command{
@@ -107,21 +109,24 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
-	var (
-		pgBackRestSecretName = "data-import-" + dbName
-		restoreName          = "data-import-" + dbName
-	)
-
 	// always clean up on exit even if we fail at some point.
+	restoreName := "data-import-" + dbName
 	defer func() {
-		if cleanupErr := cleanup(ctx, k8sClient, namespace, restoreName, pgBackRestSecretName); cleanupErr != nil {
+		if cleanupErr := cleanup(ctx, k8sClient, namespace, restoreName); cleanupErr != nil {
 			log.Error().Err(cleanupErr).Msg("Failed to clean up after PG import")
 			err = errors.Join(err, cleanupErr)
 		}
 	}()
 
+	// Get the name of the PGBackRest secret configured by Everest.
+	pgBackRestSecretName, err := getPGBackrestSecretName(ctx, k8sClient, dbName, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get PGBackRest secret name: %w", err)
+	}
+
+	// Populate the PGBackRest secret with the S3 credentials.
 	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyId,
-		secretAccessKey, dbName, namespace); err != nil {
+		secretAccessKey, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
 	}
 
@@ -150,6 +155,26 @@ func runPGImport(
 	return nil
 }
 
+func getPGBackrestSecretName(
+	ctx context.Context,
+	c client.Client,
+	dbName, namespace string,
+) (string, error) {
+	pg := &pgv2.PerconaPGCluster{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
+		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
+	}
+	if len(pg.Spec.Backups.PGBackRest.Configuration) == 0 {
+		return "", fmt.Errorf("no PGBackRest configuration found for %s/%s", namespace, dbName)
+	}
+	// This property is guaranteed to be set by Everest operator.
+	cfg := pg.Spec.Backups.PGBackRest.Configuration[0]
+	if cfg.Secret == nil || cfg.Secret.Name == "" {
+		return "", fmt.Errorf("PGBackRest secret name is not set for %s/%s", namespace, dbName)
+	}
+	return cfg.Secret.Name, nil
+}
+
 // returns: [baseBackupName, DBDirectory]
 func parseBackupPath(fullPath string) (string, string) {
 	// for consistency
@@ -171,6 +196,10 @@ func getRepoName(
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
 		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
 	}
+	l := len(pg.Spec.Backups.PGBackRest.Repos)
+	if l >= 4 {
+		return "", fmt.Errorf("too many PGBackRest repos configured for %s/%s: %d", namespace, dbName, l)
+	}
 	repoIdx := len(pg.Spec.Backups.PGBackRest.Repos) + 1
 	if repoIdx < 0 {
 		repoIdx = 0
@@ -181,7 +210,8 @@ func getRepoName(
 func pauseDBReconciliation(
 	ctx context.Context,
 	c client.Client,
-	name, namespace string) error {
+	name, namespace string,
+) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
@@ -201,7 +231,8 @@ func pauseDBReconciliation(
 func unpauseDBReconciliation(
 	ctx context.Context,
 	c client.Client,
-	name, namespace string) error {
+	name, namespace string,
+) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
@@ -218,21 +249,14 @@ func unpauseDBReconciliation(
 	return nil
 }
 
-const pgBackrestSecretContentTpl = `
-[global]
-%s-s3-key=%s
-%s-s3-key-secret=%s
-`
-
 func preparePGBackrestSecret(
 	ctx context.Context,
 	c client.Client,
 	repoName string,
 	secretName string,
 	accessKeyId, secretAccessKey string,
-	dbName, namespace string,
+	namespace string,
 ) error {
-	content := fmt.Sprintf(pgBackrestSecretContentTpl, repoName, accessKeyId, repoName, secretAccessKey)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -240,9 +264,26 @@ func preparePGBackrestSecret(
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
-		secret.StringData = map[string]string{
-			"s3.conf": content,
+		// parse the current conf
+		s3Conf := secret.Data["s3.conf"]
+		cfg, err := ini.LoadSources(ini.LoadOptions{}, []byte(s3Conf))
+		if err != nil {
+			return fmt.Errorf("failed to load PGBackRest S3 config: %w", err)
 		}
+
+		// update new keys
+		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key", repoName)).SetValue(accessKeyId)
+		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key-secret", repoName)).SetValue(secretAccessKey)
+
+		// write back to the secret
+		w := strings.Builder{}
+		if _, err := cfg.WriteTo(&w); err != nil {
+			return fmt.Errorf("failed to write PGBackRest S3 config: %w", err)
+		}
+		if secret.StringData == nil {
+			secret.StringData = make(map[string]string)
+		}
+		secret.StringData["s3.conf"] = w.String()
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to create or update PGBackrest secret: %w", err)
@@ -264,15 +305,6 @@ func preparePGBackrestRepo(
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
 		return fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
 	}
-
-	// configure PGBackRest secret
-	pg.Spec.Backups.PGBackRest.Configuration = append(pg.Spec.Backups.PGBackRest.Configuration, corev1.VolumeProjection{
-		Secret: &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: secretName,
-			},
-		},
-	})
 
 	if pg.Spec.Backups.PGBackRest.Global == nil {
 		pg.Spec.Backups.PGBackRest.Global = make(map[string]string)
@@ -348,8 +380,7 @@ func cleanup(
 	ctx context.Context,
 	c client.Client,
 	namespace,
-	pgRestoreName,
-	secretName string,
+	pgRestoreName string,
 ) error {
 	// delete PG restore
 	pgRestore := &pgv2.PerconaPGRestore{
@@ -360,16 +391,6 @@ func cleanup(
 	}
 	if err := c.Delete(ctx, pgRestore); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete PerconaPGRestore %s/%s: %w", namespace, pgRestoreName, err)
-	}
-	// delete PGBackrest secret
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-	}
-	if err := c.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete secret %s/%s: %w", namespace, secretName, err)
 	}
 	return nil
 }
@@ -384,7 +405,7 @@ func resetUserSecrets(
 	c client.Client,
 	dbName, namespace string,
 ) error {
-	// We wrap this logic in a retry loop to reduce changes of conflicts or errors.
+	// We wrap this logic in a retry loop to reduce chances of conflicts or errors.
 	if err := backoff.Retry(func() error {
 		// This block simply empties the Secret so the PG operator will reconcile the DB
 		// with new Secrets.
@@ -396,7 +417,8 @@ func resetUserSecrets(
 		secret := &corev1.Secret{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: namespace,
-			Name:      secretName},
+			Name:      secretName,
+		},
 			secret); err != nil {
 			return fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
 		}
