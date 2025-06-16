@@ -43,7 +43,7 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath := args[0]
 		if err := runPXCImport(cmd.Context(), configPath); err != nil {
-			log.Error().Err(err).Msg("Failed to run psmdb import")
+			log.Error().Err(err).Msg("Failed to run pxc import")
 			panic(err)
 		}
 	},
@@ -259,7 +259,7 @@ func cleanup(
 		return fmt.Errorf("failed to delete S3 credentials secret %s: %w", pxcRestoreName, err)
 	}
 
-	// delete PSMDB restore.
+	// delete PXC restore.
 	restore := &pxcv1.PerconaXtraDBClusterRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pxcRestoreName,
