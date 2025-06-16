@@ -1,4 +1,4 @@
-# 🔄 How to: Build Your Own Data Importer
+# 🔄 How to: Build/Bring Your Own Data Importer
 
 Everest supports restoring databases from external backups using a pluggable system called **data importers**. These allow you to bring your own restore logic — written in any language, using any tool — and plug it into Everest's cluster provisioning workflow.
 
@@ -26,7 +26,7 @@ When Everest provisions a new cluster using a DataImporter, it:
 
 Because every organization uses different backup tools — `pg_dump`, `mysqldump`, `mongodump`, physical snapshots, or vendor-specific tools — Everest does not try to enforce a one-size-fits-all restore mechanism.
 
-Instead, with `DataImporters`, **you write the logic** for your backup tools, and Everest just runs it for you.
+Instead, with `DataImporters`, you write custom restore logic specific to backup tools/formats of your choice, and Everest just runs them for you.
 
 ### 🔌 Key Benefits
 
@@ -38,6 +38,13 @@ Instead, with `DataImporters`, **you write the logic** for your backup tools, an
 | 🌟 Decoupled  | Everest handles infra; you handle data logic.           |
 
 ---
+
+### Which Data importers come installed with Everest?
+
+Everest ships with built-in `DataImporters` to simplify common use-cases:
+* DataImporter for PerconaPGBackups - enables importing backups created using the Percona PostgreSQL Operator
+
+These pre-installed importers are ready to use out-of-the-box, and many more shall be added in the future. You can also bring your own data importers as shown below.
 
 ## 📊 1. Understand the DataImporter Contract
 
