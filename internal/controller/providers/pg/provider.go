@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/providers"
 )
@@ -45,7 +46,7 @@ const (
 type Provider struct {
 	*pgv2.PerconaPGCluster
 	providers.ProviderOptions
-	clusterType common.ClusterType
+	clusterType consts.ClusterType
 	// currentPGSpec holds the current PXC spec.
 	currentPGSpec pgv2.PerconaPGClusterSpec
 }
@@ -62,7 +63,7 @@ func New(
 		return nil, err
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PGDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, consts.PGDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +189,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateUpgrading
 	}
 
-	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PGDeploymentName, p.DB)
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, consts.PGDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return status, err
 	}
@@ -248,9 +249,9 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
 	p.PerconaPGCluster.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   common.PGAPIGroup,
+		Group:   consts.PGAPIGroup,
 		Version: "v2",
-		Kind:    common.PerconaPGClusterKind,
+		Kind:    consts.PerconaPGClusterKind,
 	})
 	return p.PerconaPGCluster
 }

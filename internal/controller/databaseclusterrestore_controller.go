@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -105,12 +106,12 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 
 	if len(cr.ObjectMeta.Labels) == 0 {
 		cr.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: cr.Spec.DBClusterName,
+			consts.DatabaseClusterNameLabel: cr.Spec.DBClusterName,
 		}
 
 		if cr.Spec.DataSource.BackupSource != nil {
-			key := fmt.Sprintf(backupStorageNameLabelTmpl, cr.Spec.DataSource.BackupSource.BackupStorageName)
-			cr.ObjectMeta.Labels[key] = backupStorageLabelValue
+			key := fmt.Sprintf(consts.BackupStorageNameLabelTmpl, cr.Spec.DataSource.BackupSource.BackupStorageName)
+			cr.ObjectMeta.Labels[key] = consts.BackupStorageLabelValue
 		}
 
 		if err := r.Update(ctx, cr); err != nil {

@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -122,7 +123,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 
 	// DBBackups are always deleted in foreground.
 	if backup.GetDeletionTimestamp().IsZero() &&
-		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer) {
+		controllerutil.AddFinalizer(backup, consts.ForegroundDeletionFinalizer) {
 		if err := r.Update(ctx, backup); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -201,8 +202,8 @@ func (r *DatabaseClusterBackupReconciler) reconcileMeta(
 	var needUpdate bool
 	if len(backup.ObjectMeta.Labels) == 0 {
 		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: backup.Spec.DBClusterName,
-			fmt.Sprintf(backupStorageNameLabelTmpl, backup.Spec.BackupStorageName): backupStorageLabelValue,
+			consts.DatabaseClusterNameLabel:                                               backup.Spec.DBClusterName,
+			fmt.Sprintf(consts.BackupStorageNameLabelTmpl, backup.Spec.BackupStorageName): consts.BackupStorageLabelValue,
 		}
 		needUpdate = true
 	}
@@ -394,8 +395,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 
 	backup.Spec.BackupStorageName = name
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
-		fmt.Sprintf(backupStorageNameLabelTmpl, name): backupStorageLabelValue,
+		consts.DatabaseClusterNameLabel:                      pgBackup.Spec.PGCluster,
+		fmt.Sprintf(consts.BackupStorageNameLabelTmpl, name): consts.BackupStorageLabelValue,
 	}
 	if err = controllerutil.SetControllerReference(cluster, backup, r.Scheme); err != nil {
 		return err
@@ -439,8 +440,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 	backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
 
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
-		fmt.Sprintf(backupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): backupStorageLabelValue,
+		consts.DatabaseClusterNameLabel:                                            pxcBackup.Spec.PXCCluster,
+		fmt.Sprintf(consts.BackupStorageNameLabelTmpl, pxcBackup.Spec.StorageName): consts.BackupStorageLabelValue,
 	}
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
@@ -493,8 +494,8 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 	backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
 
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
-		fmt.Sprintf(backupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): backupStorageLabelValue,
+		consts.DatabaseClusterNameLabel:                                              psmdbBackup.Spec.ClusterName,
+		fmt.Sprintf(consts.BackupStorageNameLabelTmpl, psmdbBackup.Spec.StorageName): consts.BackupStorageLabelValue,
 	}
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.ClusterName, Namespace: psmdbBackup.Namespace}, cluster)
