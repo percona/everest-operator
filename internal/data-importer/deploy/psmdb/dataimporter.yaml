@@ -11,6 +11,9 @@ spec:
   jobSpec:
     image: "asia-south1-docker.pkg.dev/percona-everest/mayank-everest-test/everest-operator"
     command: ["/data-importer", "psmdb"]
+  databaseClusterConstraints:
+    requiredFields:
+    - .spec.engine.userSecretsName
   permissions:
   - apiGroups:
     - ""
