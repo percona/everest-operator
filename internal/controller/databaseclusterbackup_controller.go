@@ -272,7 +272,7 @@ func (r *DatabaseClusterBackupReconciler) initIndexers(ctx context.Context, mgr 
 	return err
 }
 
-func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs { //nolint:dupl
 	return handler.Funcs{
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryCreateDBBackups(ctx, e.Object, creationFunc)
