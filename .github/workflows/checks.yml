@@ -7,17 +7,11 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-  packages: write
-  checks: write
-  pull-requests: write
-
 jobs:
   check:
     name: Checks
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
 
@@ -34,15 +28,12 @@ jobs:
           cache: true
 
       # Enable Tmate debug ssh session on demand
-      - name: Setup tmate session
-        uses: percona/gh-action-action-tmate@v3
-        if: ${{ always() }}
+#      - name: Setup tmate session
+#        uses: percona/gh-action-action-tmate@v3
+#        if: ${{ always() }}
 
       - name: Install development tools
-        run: | 
-          pwd
-          ls -la
-          make init
+        run: make init
 
       - name: Check build
         run: make build

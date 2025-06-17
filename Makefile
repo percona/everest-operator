@@ -65,8 +65,8 @@ endif
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
-#SHELL = /usr/bin/env bash -o pipefail
-#.SHELLFLAGS = -ec
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
 .PHONY: all
 all: build
@@ -106,12 +106,18 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-init:                             ## Install development tools
+.PHONY: init
+init: ## Install development tools
+	rm -rfv $(LOCALBIN)
 	cd tools && go generate -x -tags=tools
+
+.PHONY: format
 format:
 	bin/gofumpt -l -w .
 	bin/goimports -local github.com/percona/everest-operator -l -w .
 	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+
+.PHONY: check
 check:
 	LOG_LEVEL=error bin/golangci-lint run
 	bin/go-sumtype ./...
@@ -120,25 +126,34 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
+.PHONY: test-integration-core
 test-integration-core: docker-build ## Run integration/core tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+
+.PHONY: test-integration-features
 test-integration-features: docker-build ## Run feature tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+
+.PHONY: test-integration-db-upgrade
 test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
+.PHONY: test-e2e-core
 test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
+.PHONY: test-e2e-db-upgrade
 test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
 
+.PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
 	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
 
 # Cleanup all resources created by the tests
 .ONESHELL:
 .SHELLFLAGS = -e
+.PHONY: cluster-cleanup
 cluster-cleanup:
 	# Remove all resources
 	namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}')
@@ -179,6 +194,7 @@ cluster-cleanup:
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
+.PHONY: build-debug
 build-debug: manifests generate fmt vet ## Build manager binary with debug symbols.
 	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o bin/manager cmd/main.go
 
@@ -362,7 +378,7 @@ local-env-up: ## Create a local minikube cluster
 ## Location to output deployment manifests
 DEPLOYDIR = ./deploy
 
-.PHONY: $(DEPLOYDIR)/bundle.yaml
+#.PHONY: $(DEPLOYDIR)/bundle.yaml
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml
 
