@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 env:
-  KUBECTL_VERSION: v1.29.5
+  KUBECTL_VERSION: 1.29.5
 jobs:
   golang-tests:
     name: Go unit tests
@@ -37,25 +37,20 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
-      - name: Install tools
+      - name: Install kubecltl
         run: |
             mkdir -p $TOOLS_PATH
             echo $TOOLS_PATH >> $GITHUB_PATH
             # Kubectl
-            curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-            curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-            echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-            chmod +x kubectl
-            cp kubectl "$TOOLS_PATH"
-            rm kubectl
+            curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+            chmod +x ${TOOLS_PATH}/kubectl
             # Kuttl
-            curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
-            chmod +x ./kubectl-kuttl
-            mv ./kubectl-kuttl "$TOOLS_PATH"
+            curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+            chmod +x ${TOOLS_PATH}/kubectl-kuttl
 
       - name: Kubectl version
         run: |
-          kubectl version
+          kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
 
       - name: Check out code into the Go module directory
@@ -120,25 +115,20 @@ jobs:
 
           aws eks update-kubeconfig --name everest-e2e-dev-eks-cluster
 
-      - name: Install tools
+      - name: Install kubecltl
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
           # Kubectl
-          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
-          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-          chmod +x kubectl
-          cp kubectl "$TOOLS_PATH"
-          rm kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
           # Kuttl
-          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
-          chmod +x ./kubectl-kuttl
-          mv ./kubectl-kuttl "$TOOLS_PATH"
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
 
       - name: Kubectl version
         run: |
-          kubectl version
+          kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
 
       - name: Install tools
@@ -219,8 +209,8 @@ jobs:
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
-          check-latest: true
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Install operator-sdk
         run: |
