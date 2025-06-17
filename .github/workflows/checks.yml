@@ -11,7 +11,7 @@ jobs:
   check:
     name: Checks
     continue-on-error: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
 
@@ -33,6 +33,7 @@ jobs:
 #        if: ${{ always() }}
 
       - name: Install development tools
+        shell: bash
         run: make init
 
       - name: Check build
