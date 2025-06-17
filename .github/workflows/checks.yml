@@ -9,6 +9,7 @@ on:
 jobs:
   check:
     name: Checks
+    continue-on-error: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

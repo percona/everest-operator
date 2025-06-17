@@ -107,7 +107,6 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 init:                             ## Install development tools
-	rm -rvf $(LOCALBIN)
 	cd tools && go generate -x -tags=tools
 format:
 	bin/gofumpt -l -w .
