@@ -21,6 +21,7 @@ spec:
       storageName: test-storage
     storages:
       test-storage:
+        main: true
         s3:
           bucket: test-backup-bucket
           credentialsSecret: test-psmdb-cluster-backup-s3

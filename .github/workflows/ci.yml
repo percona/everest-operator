@@ -115,7 +115,7 @@ jobs:
           PG_OPERATOR_VERSION: 2.6.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
           PREVIOUS_PXC_OPERATOR_VERSION: 1.16.1
-          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
+          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.19.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
   eks-e2e-tests:
@@ -195,7 +195,7 @@ jobs:
           PG_OPERATOR_VERSION: 2.6.0
           PREVIOUS_PG_OPERATOR_VERSION: 2.5.0
           PREVIOUS_PXC_OPERATOR_VERSION: 1.16.1
-          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.18.0
+          PREVIOUS_PSMDB_OPERATOR_VERSION: 1.19.1
           PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
 
       - name: Clean up custom resources

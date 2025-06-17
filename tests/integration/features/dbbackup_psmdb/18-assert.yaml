@@ -5,26 +5,26 @@ timeout: 100
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseClusterBackup
 metadata:
-  name: test-db-backup-azure
+  name: test-db-backup-prior-v1-20
   finalizers:
   - everest.percona.com/dbb-storage-protection
   - foregroundDeletion
 spec:
-  backupStorageName: test-storage-azure
+  backupStorageName: test-storage
   dbClusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
 metadata:
-  name: test-db-backup-azure
+  name: test-db-backup-prior-v1-20
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       kind: DatabaseClusterBackup
-      name: test-db-backup-azure
+      name: test-db-backup-prior-v1-20
   finalizers:
   - percona.com/delete-backup
 spec:
-  storageName: test-storage-azure
+  storageName: test-storage
   clusterName: test-psmdb-cluster
 ---
 apiVersion: psmdb.percona.com/v1
@@ -36,9 +36,21 @@ spec:
     enabled: false
   backup:
     storages:
-      test-storage-azure:
-        main: true
-        azure:
-          container: test-backup-bucket
-          credentialsSecret: test-psmdb-cluster-backup-azure
-        type: azure
+      test-storage:
+        s3:
+          bucket: test-backup-bucket
+          credentialsSecret: test-psmdb-cluster-backup-s3
+          endpointUrl: s3.amazonaws.com
+          region: us-east-2
+        type: s3
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  backup:
+    pitr:
+      enabled: false
+status:
+  activeStorage: test-storage
