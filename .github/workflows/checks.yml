@@ -33,6 +33,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      # Enable Tmate debug ssh session on demand
+      - name: Setup tmate session
+        uses: percona/gh-action-action-tmate@v3
+        if: ${{ always() }}
+
       - name: Install development tools
         run: | 
           pwd
