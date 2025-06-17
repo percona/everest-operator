@@ -348,7 +348,6 @@ func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitori
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringConfig").
 		For(&everestv1alpha1.MonitoringConfig{}).
-		Owns(&vmv1beta1.VMAgent{}).
 		Watches(&vmv1beta1.VMAgent{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueMonitoringConfigs),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).

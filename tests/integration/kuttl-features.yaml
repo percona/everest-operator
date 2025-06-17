@@ -5,6 +5,7 @@ startKIND: true
 kindContainers:
   - perconalab/everest-operator:0.0.0
 skipDelete: false
+skipClusterDelete: false
 commands:
   - command: kubectl create namespace everest-monitoring
   # Deploy Everest Operator into KIND cluster

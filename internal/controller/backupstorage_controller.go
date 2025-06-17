@@ -174,11 +174,6 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&everestv1alpha1.BackupStorage{}).
 		Owns(&corev1.Secret{}).
 		Watches(
-			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueBackupStorageForSecret),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
-		Watches(
 			&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.BackupStorageList{}),
 		).
@@ -294,24 +289,6 @@ func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Man
 	)
 
 	return err
-}
-
-func (r *BackupStorageReconciler) enqueueBackupStorageForSecret(_ context.Context, obj client.Object) []reconcile.Request {
-	secret, ok := obj.(*corev1.Secret)
-	if !ok {
-		return nil
-	}
-
-	if owners := secret.GetOwnerReferences(); len(owners) != 0 {
-		return []reconcile.Request{{
-			NamespacedName: types.NamespacedName{
-				Name:      owners[0].Name,
-				Namespace: secret.GetNamespace(),
-			},
-		}}
-	}
-
-	return nil
 }
 
 func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {

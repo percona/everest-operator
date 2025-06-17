@@ -5,6 +5,7 @@ startKIND: true
 kindContainers:
   - perconalab/everest-operator:0.0.0
 skipDelete: false
+skipClusterDelete: false
 commands:
   # Deploy Everest Operator into KIND cluster
   - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
