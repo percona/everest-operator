@@ -106,6 +106,11 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: init
+init: ## Install development tools
+	rm -rfv $(LOCALBIN)
+	cd tools && go generate -x -tags=tools
+
 .PHONY: format
 format:
 	bin/gofumpt -l -w .
@@ -258,11 +263,6 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
-
-.PHONY: init
-init: ## Install development tools
-	rm -rfv $(LOCALBIN)
-	cd tools && go generate -x -tags=tools
 
 ## Tool Binaries
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
