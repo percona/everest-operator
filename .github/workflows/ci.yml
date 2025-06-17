@@ -34,13 +34,24 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
     steps:
-      - name: Install kubectl
-        uses: marcofranssen/setup-kubectl@v1.0.0
-        with:
-          kubectlVersion: ${{ env.KUBECTL_VERSION }}
-          enablePlugins: true
-          plugins: kuttl
+      - name: Install tools
+        run: |
+            mkdir -p $TOOLS_PATH
+            echo $TOOLS_PATH >> $GITHUB_PATH
+            # Kubectl
+            curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+            curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+            echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+            chmod +x kubectl
+            cp kubectl "$TOOLS_PATH"
+            rm kubectl
+            # Kuttl
+            curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
+            chmod +x ./kubectl-kuttl
+            mv ./kubectl-kuttl "$TOOLS_PATH"
 
       - name: Kubectl version
         run: |
@@ -80,7 +91,7 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     env:
-      TOOLS_PATH: "${HOME}/tools"
+      TOOLS_PATH: "/opt/tools/bin"
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -109,12 +120,21 @@ jobs:
 
           aws eks update-kubeconfig --name everest-e2e-dev-eks-cluster
 
-      - name: Install kubectl
-        uses: marcofranssen/setup-kubectl@v1.0.0
-        with:
-          kubectlVersion: ${{ env.KUBECTL_VERSION }}
-          enablePlugins: true
-          plugins: kuttl
+      - name: Install tools
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -LO https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/v$KUBECTL_VERSION/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          cp kubectl "$TOOLS_PATH"
+          rm kubectl
+          # Kuttl
+          curl -Lo ./kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64
+          chmod +x ./kubectl-kuttl
+          mv ./kubectl-kuttl "$TOOLS_PATH"
 
       - name: Kubectl version
         run: |
