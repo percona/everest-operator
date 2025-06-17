@@ -27,6 +27,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: List
+        run: |
+          pwd
+          ls -la
+
       - name: Install development tools
         run: make init
 
