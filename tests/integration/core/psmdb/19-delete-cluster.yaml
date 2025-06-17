@@ -3,4 +3,4 @@ kind: TestStep
 commands:
   - script: kubectl -n $NAMESPACE delete db test-psmdb-cluster --wait=false && sleep 5
   - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
-  - command: kubectl wait --for=delete db/test-psmdb-cluster -n $NAMESPACE
+  - command: kubectl wait --for=delete db/test-psmdb-cluster -n $NAMESPACE --timeout=60s
