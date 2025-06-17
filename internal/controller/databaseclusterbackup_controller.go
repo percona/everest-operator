@@ -259,7 +259,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return nil
 }
 
-func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs { //nolint:dupl
 	return handler.Funcs{
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryCreateDBBackups(ctx, e.Object, creationFunc)
@@ -892,7 +892,8 @@ func backupStorageName(repoName string, pg *pgv2.PerconaPGCluster, storages *eve
 	for _, repo := range pg.Spec.Backups.PGBackRest.Repos {
 		if repo.Name == repoName {
 			for _, storage := range storages.Items {
-				if pg.Namespace == storage.Namespace &&
+				if repo.S3 != nil &&
+					pg.Namespace == storage.Namespace &&
 					repo.S3.Region == storage.Spec.Region &&
 					repo.S3.Bucket == storage.Spec.Bucket &&
 					repo.S3.Endpoint == storage.Spec.EndpointURL {
