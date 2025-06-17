@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Run tests
         run: |
@@ -60,7 +60,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Run core tests
         if: always()
@@ -95,7 +95,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Build operator
         run:
@@ -210,7 +210,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Install operator-sdk
         run: |
