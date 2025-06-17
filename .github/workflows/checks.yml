@@ -6,6 +6,13 @@ on:
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
+  packages: write
+  checks: write
+  pull-requests: write
+
 jobs:
   check:
     name: Checks
@@ -18,7 +25,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
         with:
-          lfs: true
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Go release
@@ -28,7 +34,6 @@ jobs:
           cache: true
 
       - name: Install development tools
-        working-directory: ./everest-operator
         run: | 
           pwd
           ls -la
