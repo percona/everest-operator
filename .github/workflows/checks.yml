@@ -27,13 +27,12 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: List
-        run: |
+      - name: Install development tools
+        working-directory: ./everest-operator
+        run: | 
           pwd
           ls -la
-
-      - name: Install development tools
-        run: make init
+          make init
 
       - name: Check build
         run: make build
