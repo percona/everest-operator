@@ -128,27 +128,27 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: test-integration-core
 test-integration-core: docker-build ## Run integration/core tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 
 .PHONY: test-integration-features
 test-integration-features: docker-build ## Run feature tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
 .PHONY: test-integration-db-upgrade
 test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
 test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
 test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
 
 .PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
-	source ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
