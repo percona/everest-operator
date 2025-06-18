@@ -1,0 +1,45 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get psp/psp-custom-pxc -o yaml
+  - command: kubectl -n $NAMESPACE get db/pxc-psp -o yaml
+  - command: kubectl -n $NAMESPACE get pxc/pxc-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete db/pxc-psp -n $NAMESPACE
+  - command: kubectl wait --for=delete pxc/pxc-psp -n $NAMESPACE
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: psp-custom-pxc
+    ref: psp
+assertAll:
+  - celExpr: "!has(psp.metadata.finalizers)"
+    message: "psp has unexpected finalizers"
+
+  - celExpr: "!has(psp.spec.affinityConfig.engine)"
+    message: "psp.spec.affinityConfig.engine is not empty"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: psp-custom-pxc
+spec:
+  engineType: pxc
+  affinityConfig:
+    pxc:
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/ram
+              weight: 2
+status:
+  inUse: false

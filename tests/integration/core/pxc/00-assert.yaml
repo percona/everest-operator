@@ -1,26 +1,28 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get databaseengines/percona-server-mongodb-operator -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.operatorVersion}'=${PXC_OPERATOR_VERSION} databaseengines/percona-xtradb-cluster-operator -n ${NAMESPACE}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-xtradb-cluster-operator
+spec:
+  replicas: 0
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: PodSchedulingPolicy
+kind: DatabaseEngine
 metadata:
-  name: everest-default-mysql
-  finalizers:
-    - everest.percona.com/readonly-protection
+  name: percona-xtradb-cluster-operator
 spec:
-  engineType: pxc
-  affinityConfig:
-    pxc:
-      engine:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-      proxy:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
+  type: pxc
+status:
+  status: installed

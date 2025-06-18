@@ -1,0 +1,28 @@
+# Remove all args from the container and add the new ones
+- op: remove
+  path: /spec/template/spec/containers/0/args/0
+- op: remove
+  path: /spec/template/spec/containers/0/args/0
+# Remove liveness probe
+- op: remove
+  path: /spec/template/spec/containers/0/livenessProbe
+# Remove readiness probe
+- op: remove
+  path: /spec/template/spec/containers/0/readinessProbe
+# Disable service metrics and health probes
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --metrics-bind-address=:0
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --health-probe-bind-address=:0
+# Add the monitoring namespace to the args
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --monitoring-namespace=everest-monitoring
+# Add Percona version service ENV variable
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: PERCONA_VERSION_SERVICE_URL
+    value: https://check-dev.percona.com/versions/v1

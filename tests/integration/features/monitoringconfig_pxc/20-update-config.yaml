@@ -1,11 +1,14 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
+timeout: 10
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
-  name: test-mc
+  name: mc-pxc
 spec:
+  type: pmm
+  credentialsSecretName: mc-pxc-secret
   pmm:
-    url: http://localhost2
-    image: percona/pmm-client:2
+    url: http://localhost-mc-pxc-updated
+    image: percona/pmm-client:updated

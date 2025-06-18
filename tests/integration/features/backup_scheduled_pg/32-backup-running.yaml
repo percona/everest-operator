@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl patch perconapgbackup/test-scheduled-backup-2  --subresource status -n $NAMESPACE -p '{"status":{"state":"Running"}}' --type=merge
+

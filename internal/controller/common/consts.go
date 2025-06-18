@@ -25,8 +25,11 @@ const (
 
 	// DBClusterRestoreDBClusterNameField is the field in the DatabaseClusterRestore CR.
 	DBClusterRestoreDBClusterNameField = ".spec.dbClusterName"
+
 	// DBClusterBackupDBClusterNameField is the field in the DatabaseClusterBackup CR.
 	DBClusterBackupDBClusterNameField = ".spec.dbClusterName"
+	// DBClusterBackupBackupStorageNameField is the field in the DatabaseClusterBackup CR.
+	DBClusterBackupBackupStorageNameField = ".spec.backupStorageName"
 
 	// TopologyKeyHostname is the topology key for hostname.
 	TopologyKeyHostname = "kubernetes.io/hostname"
@@ -59,8 +62,6 @@ const (
 	// ClusterTypeMinikube represents the Minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
 
-	// LabelBackupStorageName is the label for backup storage name.
-	LabelBackupStorageName = "percona.com/backup-storage-name"
 	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
 	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 

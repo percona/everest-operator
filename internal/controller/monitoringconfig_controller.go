@@ -18,9 +18,11 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"slices"
 
+	"github.com/AlekSi/pointer"
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -29,10 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
@@ -54,11 +59,11 @@ type MonitoringConfigReconciler struct {
 	monitoringNamespace string
 }
 
-//+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
+// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseclusters,verbs=get;list;watch
+// +kubebuilder:rbac:groups=operator.victoriametrics.com,resources=vmagents,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -69,16 +74,54 @@ type MonitoringConfigReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
+	logger.Info("Reconciling")
+	defer func() {
+		logger.Info("Reconciled")
+	}()
 
 	mc := &everestv1alpha1.MonitoringConfig{}
 	if err := r.Get(ctx, req.NamespacedName, mc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Check if the MonitoringConfig is in use.
+	mcName := mc.GetName()
+	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, monitoringConfigNameField, req.Namespace, req.Name)
+	if err != nil {
+		fetchErr := fmt.Errorf("failed to fetch DB clusters that use monitoring config='%s'", mcName)
+		logger.Error(err, fetchErr.Error())
+		return ctrl.Result{}, errors.Join(err, fetchErr)
+	}
+
+	// Update the status and finalizers of the MonitoringConfig object after the reconciliation.
+	defer func() {
+		// Nothing to process on delete events
+		if !mc.GetDeletionTimestamp().IsZero() {
+			return
+		}
+
+		mc.Status.InUse = len(dbList.Items) > 0
+		mc.Status.LastObservedGeneration = mc.GetGeneration()
+		if err = r.Client.Status().Update(ctx, mc); err != nil {
+			rr = ctrl.Result{}
+			logger.Error(err, fmt.Sprintf("failed to update status for monitoring config='%s'", mcName))
+			rerr = errors.Join(err, fmt.Errorf("failed to update status for monitoring config='%s': %w", mcName, err))
+		}
+	}()
+
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, mc); err != nil {
+		logger.Error(err, fmt.Sprintf("failed to update finalizers for monitoring config='%s'", mcName))
+		return ctrl.Result{}, errors.Join(err, fmt.Errorf("failed to update finalizers for monitoring config='%s': %w", mcName, err))
+	}
+
 	if !mc.GetDeletionTimestamp().IsZero() {
 		// reconcile VMAgent so that it can be cleaned-up.
+		logger.Info("Reconciling VMAgent")
+		defer func() {
+			logger.Info("Reconciled VMAgent")
+		}()
 		if err := r.reconcileVMAgent(ctx); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -104,7 +147,10 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	logger.Info("reconciling VMAgent")
+	logger.Info("Reconciling VMAgent")
+	defer func() {
+		logger.Info("Reconciled VMAgent")
+	}()
 	if err := r.reconcileVMAgent(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -127,12 +173,7 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmAgentResourceName,
 			Namespace: r.monitoringNamespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "everest",
-				"everest.percona.com/type":     "monitoring",
-			},
 		},
-		Spec: vmAgentSpec,
 	}
 
 	// No remote writes, delete the VMAgent.
@@ -144,6 +185,10 @@ func (r *MonitoringConfigReconciler) reconcileVMAgent(ctx context.Context) error
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, vmAgent, func() error {
+		vmAgent.SetLabels(map[string]string{
+			"app.kubernetes.io/managed-by": "everest",
+			"everest.percona.com/type":     "monitoring",
+		})
 		vmAgent.Spec = vmAgentSpec
 		return nil
 	})
@@ -257,45 +302,129 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(ctx context.Context, monitor
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringConfigReconciler) SetupWithManager(mgr ctrl.Manager, monitoringNamespace string) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return err
+	}
+
+	// Predicate to trigger reconciliation only on .spec.monitoring.monitoringConfigName changes in the DatabaseCluster resource.
+	dbClusterEventsPredicate := predicate.Funcs{
+		// Allow create events only if the .spec.monitoring.monitoringConfigName is set
+		CreateFunc: func(e event.CreateEvent) bool {
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return pointer.Get(db.Spec.Monitoring).MonitoringConfigName != ""
+		},
+
+		// Only allow updates when the .spec.monitoring.monitoringConfigName of the DatabaseCluster resource changes
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldDB, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
+			newDB, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
+			if !oldOk || !newOk {
+				return false
+			}
+
+			// Trigger reconciliation only if the .spec.monitoring.monitoringConfigName field has changed
+			return pointer.Get(oldDB.Spec.Monitoring).MonitoringConfigName !=
+				pointer.Get(newDB.Spec.Monitoring).MonitoringConfigName
+		},
+
+		// Allow delete events only if the .spec.monitoring.monitoringConfigName is set
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return pointer.Get(db.Spec.Monitoring).MonitoringConfigName != ""
+		},
+
+		// Nothing to process on generic events
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
 	r.monitoringNamespace = monitoringNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringConfig").
 		For(&everestv1alpha1.MonitoringConfig{}).
-		Watches(&vmv1beta1.VMAgent{}, r.enqueueMonitoringConfigs()).
+		Watches(&vmv1beta1.VMAgent{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueMonitoringConfigs),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Namespace{},
 			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.MonitoringConfigList{})).
+		// need to watch DBClusters that reference MonitoringConfig to update the status.
+		Watches(
+			&everestv1alpha1.DatabaseCluster{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+				if !ok {
+					return []reconcile.Request{}
+				}
+
+				if pointer.Get(db.Spec.Monitoring).MonitoringConfigName == "" {
+					// No monitoringConfigName specified, no need to enqueue
+					return []reconcile.Request{}
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      db.Spec.Monitoring.MonitoringConfigName,
+							Namespace: db.GetNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}, dbClusterEventsPredicate),
+		).
 		WithEventFilter(common.DefaultNamespaceFilter).
 		Complete(r)
 }
 
+func (r *MonitoringConfigReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the credentialsSecretName field in MonitoringConfig.
+	err := mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.MonitoringConfig{}, monitoringConfigSecretNameField,
+		func(o client.Object) []string {
+			var res []string
+			mc, ok := o.(*everestv1alpha1.MonitoringConfig)
+			if !ok {
+				return res
+			}
+			res = append(res, mc.Spec.CredentialsSecretName)
+			return res
+		},
+	)
+
+	return err
+}
+
 // enqueueMonitoringConfigs enqueues MonitoringConfig objects for reconciliation when a VMAgent is created/updated/deleted.
-//
-//nolint:ireturn
-func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		vmAgent, ok := o.(*vmv1beta1.VMAgent)
-		if !ok {
-			return nil
-		}
-		if vmAgent.GetNamespace() != r.monitoringNamespace {
-			return nil
-		}
-		list := &everestv1alpha1.MonitoringConfigList{}
-		err := r.List(ctx, list)
-		if err != nil {
-			return nil
-		}
-		requests := make([]reconcile.Request, 0, len(list.Items))
-		for _, mc := range list.Items {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      mc.GetName(),
-					Namespace: mc.GetNamespace(),
-				},
-			})
-		}
-		return requests
-	})
+func (r *MonitoringConfigReconciler) enqueueMonitoringConfigs(ctx context.Context, o client.Object) []reconcile.Request {
+	vmAgent, ok := o.(*vmv1beta1.VMAgent)
+	if !ok {
+		return nil
+	}
+	if vmAgent.GetNamespace() != r.monitoringNamespace {
+		return nil
+	}
+
+	list := &everestv1alpha1.MonitoringConfigList{}
+	err := r.List(ctx, list)
+	if err != nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(list.Items))
+	for _, mc := range list.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      mc.GetName(),
+				Namespace: mc.GetNamespace(),
+			},
+		})
+	}
+	return requests
 }
 
 // cleanupSecrets deletes all secrets in the monitoring namespace that belong to the given MonitoringConfig.

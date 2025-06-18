@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterRestore
+metadata:
+  name: test-db-restore-s3
+spec:
+  dataSource:
+    dbClusterBackupName: test-db-backup-s3
+  dbClusterName: test-pxc-cluster

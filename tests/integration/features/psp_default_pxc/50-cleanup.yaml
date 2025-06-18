@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - script: kubectl delete psp/everest-default-mysql --wait=false && sleep 3
+  - command: kubectl patch psp/everest-default-mysql -p '{"metadata":{"finalizers":null}}' --type merge

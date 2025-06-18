@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+delete:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: monitoringconfig
+    name: mc-1
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: monitoringconfig
+    name: mc-2

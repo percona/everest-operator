@@ -1,0 +1,94 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/psp-custom-psmdb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: psp-custom-psmdb
+    ref: psp
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-psp
+    ref: psmdb
+assertAll:
+  - celExpr: "has(psp.metadata.finalizers)"
+    message: "psp doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in psp.metadata.finalizers"
+
+  - celExpr: "!has(psp.spec.affinityConfig.proxy)"
+    message: "psp.spec.affinityConfig.proxy is not empty"
+
+  - celExpr: "!has(psp.spec.affinityConfig.configServer)"
+    message: "psp.spec.affinityConfig.configServer is not empty"
+
+  - celExpr: "!has(psmdb.spec.sharding.configsvrReplSet.affinity)"
+    message: "psmdb.spec.sharding.configsvrReplSet.affinity is not empty"
+
+  - celExpr: "!has(psmdb.spec.sharding.mongos.affinity)"
+    message: "psmdb.spec.sharding.mongos.affinity is not empty"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: psp-custom-psmdb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/disk
+              weight: 2
+status:
+  inUse: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-psp
+spec:
+  podSchedulingPolicyName: psp-custom-psmdb
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: psmdb-psp
+spec:
+  replsets:
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/disk
+                weight: 2
+      name: rs0
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/disk
+                weight: 2
+      name: rs1

@@ -77,7 +77,6 @@ rules:
   - databaseclusterrestores/finalizers
   - databaseclusters/finalizers
   - databaseengines/finalizers
-  - monitoringconfigs/finalizers
   verbs:
   - update
 - apiGroups:
