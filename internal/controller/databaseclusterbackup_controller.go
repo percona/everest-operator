@@ -610,11 +610,11 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	}
 
 	psmdbCluster := &psmdbv1.PerconaServerMongoDB{}
-	if err := r.Get(ctx, types.NamespacedName{
+	err := r.Get(ctx, types.NamespacedName{
 		Name:      backup.Spec.DBClusterName,
 		Namespace: backup.Namespace,
-	},
-		psmdbCluster); client.IgnoreNotFound(err) != nil {
+	}, psmdbCluster)
+	if client.IgnoreNotFound(err) != nil {
 		return false, err
 	}
 
