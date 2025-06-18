@@ -739,11 +739,12 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	// If there are no schedules, just return the storages used in
 	// DatabaseClusterBackup objects
 	if len(database.Spec.Backup.Schedules) == 0 {
-		if len(storages) > 1 {
-			return emptySpec, common.ErrPSMDBOneStorageRestriction
+		storages, err = withMarkedAsMain(storages)
+		if err != nil {
+			return emptySpec, err
 		}
-		psmdbBackupSpec.Storages = withMarkedAsMain(storages)
-		return psmdbBackupSpec, nil
+		psmdbBackupSpec.Storages = storages
+		return psmdbBackupSpec, err
 	}
 
 	tasks, err := p.getBackupTasks(storages)
@@ -760,23 +761,27 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		}
 	}
 
-	if len(storages) > 1 {
-		return emptySpec, common.ErrPSMDBOneStorageRestriction
+	storages, err = withMarkedAsMain(storages)
+	if err != nil {
+		return emptySpec, err
 	}
-	psmdbBackupSpec.Storages = withMarkedAsMain(storages)
+	psmdbBackupSpec.Storages = storages
 	psmdbBackupSpec.Tasks = tasks
 
 	return psmdbBackupSpec, nil
 }
 
-func withMarkedAsMain(storages map[string]psmdbv1.BackupStorageSpec) map[string]psmdbv1.BackupStorageSpec {
+func withMarkedAsMain(storages map[string]psmdbv1.BackupStorageSpec) (map[string]psmdbv1.BackupStorageSpec, error) {
+	if len(storages) > 1 {
+		return nil, common.ErrPSMDBOneStorageRestriction
+	}
 	for key, storage := range storages {
 		// mark the first and the single one as Main
 		storage.Main = true
 		storages[key] = storage
-		return storages
+		return storages, nil
 	}
-	return storages
+	return storages, nil
 }
 
 func (p *applier) getCurrentReplSet(name string) *psmdbv1.ReplsetSpec {
