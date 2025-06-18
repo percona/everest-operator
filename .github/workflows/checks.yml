@@ -28,7 +28,6 @@ jobs:
           cache: false
 
       - name: Install development tools
-        shell: bash
         run: make init
 
       - name: Check build
