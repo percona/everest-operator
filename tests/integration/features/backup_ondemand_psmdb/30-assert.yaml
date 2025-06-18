@@ -11,6 +11,9 @@ collectors:
   - command: kubectl get dbb/test-db-backup-s3 -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb-backup/test-db-backup-s3 -n ${NAMESPACE} -o yaml
 
+  - command: kubectl get dbb/test-db-backup-s3-prior-v1-20 -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb-backup/test-db-backup-s3-prior-v1-20 -n ${NAMESPACE} -o yaml
+
   - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
@@ -19,6 +22,8 @@ collectors:
 commands:
   - command: kubectl wait --for=delete psmdb-backup/test-db-backup-s3 -n ${NAMESPACE}
   - command: kubectl wait --for=delete dbb/test-db-backup-s3 -n ${NAMESPACE}
+  - command: kubectl wait --for=delete psmdb-backup/test-db-backup-s3-prior-v1-20 -n ${NAMESPACE}
+  - command: kubectl wait --for=delete dbb/test-db-backup-s3-prior-v1-20 -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
