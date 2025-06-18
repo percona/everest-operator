@@ -1,0 +1,73 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-postgresql -o yaml
+  - command: kubectl -n $NAMESPACE get db/pg-psp -o yaml
+  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: everest-default-postgresql
+    ref: psp
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: pg-psp
+    ref: db
+  - apiVersion: pgv2.percona.com/v2
+    kind: PerconaPGCluster
+    name: pg-psp
+    ref: pg
+assertAll:
+  - celExpr: "has(psp.metadata.finalizers)"
+    message: "psp doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
+
+  - celExpr: "!has(db.spec.podSchedulingPolicyName)"
+    message: "db.spec.podSchedulingPolicyName is not empty"
+
+  - celExpr: "pg.spec.instances.all(i, !has(i.affinity))"
+    message: "pg.spec.instances[*].affinity is not empty"
+
+  - celExpr: "!has(pg.spec.proxy.pgBouncer.affinity)"
+    message: "pg.spec.proxy.pgBouncer.affinity is not empty"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-postgresql
+spec:
+  engineType: postgresql
+  affinityConfig:
+    postgresql:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: false
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-psp
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: pg-psp
+

@@ -1,0 +1,9 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - command: kubectl patch psmdb-backup/test-scheduled-backup-2  --subresource status -n $NAMESPACE -p '{"status":{"state":"ready","completed":"2025-01-01T01:02:03.04Z"}}' --type=merge
+  # mock the retention policy with 1 backup
+  #  must be set on DatabaseClusterBackup to ensure that storage is NOT cleaned up.
+  - command: kubectl patch psmdb-backup/test-scheduled-backup-1 -n $NAMESPACE -p '{"metadata":{"finalizers":null}}' --type merge
+  - command: kubectl delete psmdb-backup/test-scheduled-backup-1 -n $NAMESPACE --wait=false

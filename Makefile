@@ -54,7 +54,7 @@ OPERATOR_SDK_VERSION ?= v1.38.0
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.0
+ENVTEST_K8S_VERSION = 1.29
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -65,8 +65,8 @@ endif
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
+#SHELL = /usr/bin/env bash -o pipefail
+#.SHELLFLAGS = -ec
 
 .PHONY: all
 all: build
@@ -106,13 +106,18 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-init:                             ## Install development tools
-	rm -rf ./bin
+.PHONY: init
+init: ## Install development tools
+	rm -rfv $(LOCALBIN)
 	cd tools && go generate -x -tags=tools
+
+.PHONY: format
 format:
 	bin/gofumpt -l -w .
 	bin/goimports -local github.com/percona/everest-operator -l -w .
 	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+
+.PHONY: check
 check:
 	LOG_LEVEL=error bin/golangci-lint run
 	bin/go-sumtype ./...
@@ -121,40 +126,72 @@ check:
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-PXC_OPERATOR_VERSION ?= 1.17.0
-PSMDB_OPERATOR_VERSION ?= 1.19.1
-PG_OPERATOR_VERSION ?= 2.6.0
-PERCONA_VERSION_SERVICE_URL ?= https://check-dev.percona.com/versions/v1
-PREVIOUS_PG_OPERATOR_VERSION ?= 2.5.0
-PREVIOUS_PXC_OPERATOR_VERSION ?= 1.16.1
-PREVIOUS_PSMDB_OPERATOR_VERSION ?= 1.18.0
-test-core: build ## Run core tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
-test-features: build ## Run feature tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
-	kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
-test-operator-upgrade: build ## Run operator upgrade tests against kind cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
- 	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
- 	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
- 	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
- 	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
- 	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
- 	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
-	kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+.PHONY: test-integration-core
+test-integration-core: docker-build ## Run integration/core tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+
+.PHONY: test-integration-features
+test-integration-features: docker-build ## Run feature tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+
+.PHONY: test-integration-db-upgrade
+test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+
+.PHONY: test-e2e-core
+test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+
+.PHONY: test-e2e-db-upgrade
+test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
+
+.PHONY: test-e2e-operator-upgrade
+test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+
+# Cleanup all resources created by the tests
+.PHONY: cluster-cleanup
+cluster-cleanup:
+	# Remove all resources
+	namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get pxc -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pxc -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get psmdb -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch psmdb -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get pg -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch pg -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for namespace in $${namespaces[@]}; do \
+		kubectl -n $$namespace get db -o name | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl patch db -n $$namespace -p '{"metadata":{"finalizers":null}}' --type merge ; \
+	done
+
+	kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true || true
+	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
+	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
+	kubectl get ns -o name | grep kuttl  | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete ns || true
+	kubectl delete ns operators olm --ignore-not-found=true --wait=false || true
+	sleep 10
+	kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true || true
+	kubectl get crd -o name | grep .coreos.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd || true
+	kubectl get crd -o name | grep .percona.com$ | awk -F '/' {'print $2'} | xargs --no-run-if-empty kubectl delete crd || true
+	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com --ignore-not-found=true || true
+
 ##@ Build
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
+.PHONY: build-debug
 build-debug: manifests generate fmt vet ## Build manager binary with debug symbols.
 	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o bin/manager cmd/main.go
 
@@ -166,7 +203,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
 .PHONY: docker-push
@@ -209,6 +246,10 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
+.PHONY: deploy-test
+deploy-test: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/test | kubectl apply -f -
+
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
@@ -216,7 +257,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
+LOCALBIN := $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
@@ -334,7 +375,7 @@ local-env-up: ## Create a local minikube cluster
 ## Location to output deployment manifests
 DEPLOYDIR = ./deploy
 
-.PHONY: $(DEPLOYDIR)/bundle.yaml
+#.PHONY: $(DEPLOYDIR)/bundle.yaml
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml
 

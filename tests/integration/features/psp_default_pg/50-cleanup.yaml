@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - script: kubectl delete psp/everest-default-postgresql --wait=false && sleep 3
+  - command: kubectl patch psp/everest-default-postgresql -p '{"metadata":{"finalizers":null}}' --type merge

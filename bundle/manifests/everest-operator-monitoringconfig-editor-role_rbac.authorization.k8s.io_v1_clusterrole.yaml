@@ -25,3 +25,5 @@ rules:
   - monitoringconfigs/status
   verbs:
   - get
+  - patch
+  - update

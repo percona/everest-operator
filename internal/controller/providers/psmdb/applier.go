@@ -74,7 +74,7 @@ func (p *applier) Paused(paused bool) {
 	p.PerconaServerMongoDB.Spec.Pause = paused
 }
 
-//nolint:staticcheck //using deprecated field for backward compatibility
+//nolint:staticcheck
 func (p *applier) AllowUnsafeConfig() {
 	p.PerconaServerMongoDB.Spec.UnsafeConf = false
 	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
@@ -85,6 +85,7 @@ func (p *applier) AllowUnsafeConfig() {
 		TerminationGracePeriod: p.DB.Spec.AllowUnsafeConfiguration,
 		BackupIfUnhealthy:      p.DB.Spec.AllowUnsafeConfiguration,
 	}
+	// using deprecated field for backward compatibility
 	if p.DB.Spec.AllowUnsafeConfiguration {
 		p.PerconaServerMongoDB.Spec.TLS = &psmdbv1.TLSSpec{
 			Mode: psmdbv1.TLSModeDisabled,
@@ -717,7 +718,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(ctx, c, database.GetName(), database.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return emptySpec, err
 	}
@@ -727,7 +728,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	}
 
 	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, database.GetName(), database.GetNamespace())
+	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, common.DBClusterRestoreDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return emptySpec, err
 	}

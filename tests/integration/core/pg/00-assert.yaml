@@ -1,26 +1,28 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get databaseengines/percona-postgresql-operator -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=jsonpath='{.status.operatorVersion}'=${PG_OPERATOR_VERSION} databaseengines/percona-postgresql-operator -n ${NAMESPACE}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-postgresql-operator
+spec:
+  replicas: 0
 ---
 apiVersion: everest.percona.com/v1alpha1
-kind: PodSchedulingPolicy
+kind: DatabaseEngine
 metadata:
-  name: everest-default-postgresql
-  finalizers:
-    - everest.percona.com/readonly-protection
+  name: percona-postgresql-operator
 spec:
-  engineType: postgresql
-  affinityConfig:
-    postgresql:
-      engine:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
-      proxy:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-              weight: 1
+  type: postgresql
+status:
+  status: installed

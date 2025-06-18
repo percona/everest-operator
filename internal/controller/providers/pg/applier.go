@@ -1093,7 +1093,7 @@ func getRelatedStorages(
 	backupStorages := map[string]everestv1alpha1.BackupStorage{}
 	backupStoragesSecrets := map[string]*corev1.Secret{}
 
-	backupList, err := common.ListDatabaseClusterBackups(ctx, c, db.GetName(), db.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, db.GetNamespace(), db.GetName())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1104,7 +1104,7 @@ func getRelatedStorages(
 	}
 
 	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.ListDatabaseClusterRestores(ctx, c, db.GetName(), db.GetNamespace())
+	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, common.DBClusterRestoreDBClusterNameField, db.GetNamespace(), db.GetName())
 	if err != nil {
 		return nil, nil, nil, err
 	}
