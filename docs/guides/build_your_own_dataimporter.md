@@ -223,6 +223,7 @@ spec:
 
 Everest will:
 
+* (Optional) Create a credentials secret
 * Create the cluster
 * Run your importer
 * Mark the cluster `Ready` when the import succeeds
