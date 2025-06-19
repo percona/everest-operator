@@ -240,10 +240,11 @@ Here's an example configuration:
 
 ```yaml
 apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
+kind: DataImporter
 metadata:
-  name: my-imported-db
+  name: pg-dump-importer
 spec:
+  # --- other fields hidden ---
   permissions:
   - apiGroups:
     - pgv2.percona.com
@@ -264,7 +265,7 @@ spec:
     - update
     - delete
   clusterPermissions:
-  # -- similar permissions but cluster-wide
+  # -- similar permissions but cluster-wide ---
 ```
 
 > 💡 Use `permissions` for namespace-scoped access and `clusterPermissions` for cluster-wide access.
