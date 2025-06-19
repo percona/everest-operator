@@ -109,14 +109,7 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
-	// always clean up on exit even if we fail at some point.
 	restoreName := "data-import-" + dbName
-	defer func() {
-		if cleanupErr := cleanup(ctx, k8sClient, namespace, restoreName); cleanupErr != nil {
-			log.Error().Err(cleanupErr).Msg("Failed to clean up after PG import")
-			err = errors.Join(err, cleanupErr)
-		}
-	}()
 
 	// Get the name of the PGBackRest secret configured by Everest.
 	pgBackRestSecretName, err := getPGBackrestSecretName(ctx, k8sClient, dbName, namespace)
@@ -207,25 +200,38 @@ func getRepoName(
 	return fmt.Sprintf("repo%d", repoIdx), nil
 }
 
-func pauseDBReconciliation(
+func setDBReconciliationPause(
 	ctx context.Context,
 	c client.Client,
 	name, namespace string,
+	paused bool,
 ) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
 	}
 	annots := db.GetAnnotations()
-	if annots == nil {
-		annots = make(map[string]string)
+	delete(annots, consts.PauseReconcileAnnotation)
+
+	if paused {
+		if annots == nil {
+			annots = make(map[string]string)
+		}
+		annots[consts.PauseReconcileAnnotation] = consts.PauseReconcileAnnotationValueTrue
 	}
-	annots[consts.PauseReconcileAnnotation] = consts.PauseReconcileAnnotationValueTrue
 	db.SetAnnotations(annots)
 	if err := c.Update(ctx, db); err != nil {
-		return fmt.Errorf("failed to pause reconciliation for database cluster %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("failed to set pause reconciliation for database cluster %s/%s: %w", namespace, name, err)
 	}
 	return nil
+}
+
+func pauseDBReconciliation(
+	ctx context.Context,
+	c client.Client,
+	name, namespace string,
+) error {
+	return setDBReconciliationPause(ctx, c, name, namespace, true)
 }
 
 func unpauseDBReconciliation(
@@ -233,20 +239,7 @@ func unpauseDBReconciliation(
 	c client.Client,
 	name, namespace string,
 ) error {
-	db := &everestv1alpha1.DatabaseCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
-		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
-	}
-	annots := db.GetAnnotations()
-	if annots == nil {
-		annots = make(map[string]string)
-	}
-	delete(annots, consts.PauseReconcileAnnotation)
-	db.SetAnnotations(annots)
-	if err := c.Update(ctx, db); err != nil {
-		return fmt.Errorf("failed to unpause reconciliation for database cluster %s/%s: %w", namespace, name, err)
-	}
-	return nil
+	return setDBReconciliationPause(ctx, c, name, namespace, false)
 }
 
 func preparePGBackrestSecret(
@@ -374,25 +367,6 @@ func runPGRestoreAndWait(
 			return pg.Status.State == pgv2.RestoreSucceeded, nil
 		},
 	)
-}
-
-func cleanup(
-	ctx context.Context,
-	c client.Client,
-	namespace,
-	pgRestoreName string,
-) error {
-	// delete PG restore
-	pgRestore := &pgv2.PerconaPGRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pgRestoreName,
-			Namespace: namespace,
-		},
-	}
-	if err := c.Delete(ctx, pgRestore); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete PerconaPGRestore %s/%s: %w", namespace, pgRestoreName, err)
-	}
-	return nil
 }
 
 // After restore is complete, the database users and passwords are reverted to those from the backup.
