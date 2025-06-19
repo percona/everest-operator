@@ -109,14 +109,7 @@ func runPGImport(
 		return fmt.Errorf("failed to get repo name: %w", err)
 	}
 
-	// always clean up on exit even if we fail at some point.
 	restoreName := "data-import-" + dbName
-	defer func() {
-		if cleanupErr := cleanup(ctx, k8sClient, namespace, restoreName); cleanupErr != nil {
-			log.Error().Err(cleanupErr).Msg("Failed to clean up after PG import")
-			err = errors.Join(err, cleanupErr)
-		}
-	}()
 
 	// Get the name of the PGBackRest secret configured by Everest.
 	pgBackRestSecretName, err := getPGBackrestSecretName(ctx, k8sClient, dbName, namespace)
@@ -374,25 +367,6 @@ func runPGRestoreAndWait(
 			return pg.Status.State == pgv2.RestoreSucceeded, nil
 		},
 	)
-}
-
-func cleanup(
-	ctx context.Context,
-	c client.Client,
-	namespace,
-	pgRestoreName string,
-) error {
-	// delete PG restore
-	pgRestore := &pgv2.PerconaPGRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pgRestoreName,
-			Namespace: namespace,
-		},
-	}
-	if err := c.Delete(ctx, pgRestore); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete PerconaPGRestore %s/%s: %w", namespace, pgRestoreName, err)
-	}
-	return nil
 }
 
 // After restore is complete, the database users and passwords are reverted to those from the backup.

@@ -258,16 +258,5 @@ func cleanup(
 	if err := c.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete S3 credentials secret %s: %w", pxcRestoreName, err)
 	}
-
-	// delete PXC restore.
-	restore := &pxcv1.PerconaXtraDBClusterRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pxcRestoreName,
-			Namespace: namespace,
-		},
-	}
-	if err := c.Delete(ctx, restore); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete PXC restore %s: %w", pxcRestoreName, err)
-	}
 	return nil
 }
