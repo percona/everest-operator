@@ -113,25 +113,38 @@ func runPXCImport(ctx context.Context, configPath string) error {
 	return nil
 }
 
-func pauseDBReconciliation(
+func setDBReconciliationPause(
 	ctx context.Context,
 	c client.Client,
 	name, namespace string,
+	paused bool,
 ) error {
 	db := &everestv1alpha1.DatabaseCluster{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
 		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
 	}
 	annots := db.GetAnnotations()
-	if annots == nil {
-		annots = make(map[string]string)
+	delete(annots, consts.PauseReconcileAnnotation)
+
+	if paused {
+		if annots == nil {
+			annots = make(map[string]string)
+		}
+		annots[consts.PauseReconcileAnnotation] = consts.PauseReconcileAnnotationValueTrue
 	}
-	annots[consts.PauseReconcileAnnotation] = consts.PauseReconcileAnnotationValueTrue
 	db.SetAnnotations(annots)
 	if err := c.Update(ctx, db); err != nil {
-		return fmt.Errorf("failed to pause reconciliation for database cluster %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("failed to set pause reconciliation for database cluster %s/%s: %w", namespace, name, err)
 	}
 	return nil
+}
+
+func pauseDBReconciliation(
+	ctx context.Context,
+	c client.Client,
+	name, namespace string,
+) error {
+	return setDBReconciliationPause(ctx, c, name, namespace, true)
 }
 
 func unpauseDBReconciliation(
@@ -139,20 +152,7 @@ func unpauseDBReconciliation(
 	c client.Client,
 	name, namespace string,
 ) error {
-	db := &everestv1alpha1.DatabaseCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, db); err != nil {
-		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, name, err)
-	}
-	annots := db.GetAnnotations()
-	if annots == nil {
-		annots = make(map[string]string)
-	}
-	delete(annots, consts.PauseReconcileAnnotation)
-	db.SetAnnotations(annots)
-	if err := c.Update(ctx, db); err != nil {
-		return fmt.Errorf("failed to unpause reconciliation for database cluster %s/%s: %w", namespace, name, err)
-	}
-	return nil
+	return setDBReconciliationPause(ctx, c, name, namespace, false)
 }
 
 func prepareS3CredentialSecret(
