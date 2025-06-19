@@ -9,7 +9,7 @@ spec:
   supportedEngines:
   - psmdb
   jobSpec:
-    image: "asia-south1-docker.pkg.dev/percona-everest/mayank-everest-test/everest-operator"
+    image: "percona/everest-operator"
     command: ["/data-importer", "psmdb"]
   databaseClusterConstraints:
     requiredFields:
