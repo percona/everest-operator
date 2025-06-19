@@ -87,7 +87,7 @@ var haProxyEnvVars = map[string][]byte{
 	"HA_CONNECTION_TIMEOUT": []byte(strconv.Itoa(haConnectionTimeout)),
 }
 
-var ( //nolint:dupl
+var (
 	// A haProxyResourceRequirementsSmall is the resource requirements for HAProxy for small clusters.
 	haProxyResourceRequirementsSmall = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{

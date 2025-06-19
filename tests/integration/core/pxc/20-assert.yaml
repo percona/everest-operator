@@ -39,6 +39,18 @@ assertAll:
 
   - celExpr: "'delete-ssl' in pxc.metadata.finalizers"
     message: "delete-ssl' is absent in pxc.metadata.finalizers"
+
+  - celExpr: "!has(pxc.spec.pmm.serverHost)"
+    message: "pxc.spec.pmm.serverHost is not empty"
+
+  - celExpr: "!has(pxc.spec.pmm.image)"
+    message: "pxc.spec.pmm.image is not empty"
+
+  - celExpr: "!has(pxc.spec.pmm.resources.limits)"
+    message: "pxc.spec.pmm.resources.limits is not empty"
+
+  - celExpr: "!has(pxc.spec.pmm.resources.requests)"
+    message: "pxc.spec.pmm.resources.requests is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -150,11 +162,6 @@ spec:
     sidecarResources: {}
     size: 2
   initContainer: {}
-  pmm:
-    resources:
-      limits:
-        cpu: 500m
-        memory: 300M
   proxysql:
     expose: {}
     lifecycle: {}
