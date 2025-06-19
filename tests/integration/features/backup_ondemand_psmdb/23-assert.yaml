@@ -116,24 +116,6 @@ spec:
 status:
   state: Succeeded
 ---
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseClusterBackup
-metadata:
-  name: test-db-backup-s3-prior-v1-20
-  labels:
-    clusterName: test-psmdb-cluster
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseCluster
-      blockOwnerDeletion: true
-      controller: true
-      name: test-psmdb-cluster
-spec:
-  backupStorageName: test-storage-s3
-  dbClusterName: test-psmdb-cluster
-status:
-  state: Succeeded
----
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBBackup
 metadata:
@@ -143,21 +125,6 @@ metadata:
       blockOwnerDeletion: true
       kind: DatabaseClusterBackup
       name: test-db-backup-s3
-spec:
-  storageName: test-storage-s3
-  clusterName: test-psmdb-cluster
-status:
-  state: ready
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDBBackup
-metadata:
-  name: test-db-backup-s3-prior-v1-20
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      blockOwnerDeletion: true
-      kind: DatabaseClusterBackup
-      name: test-db-backup-s3-prior-v1-20
 spec:
   storageName: test-storage-s3
   clusterName: test-psmdb-cluster
