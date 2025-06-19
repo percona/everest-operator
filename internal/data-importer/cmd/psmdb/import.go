@@ -192,16 +192,5 @@ func cleanup(
 	if err := c.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete S3 credentials secret %s: %w", psmdbRestoreName, err)
 	}
-
-	// delete PSMDB restore.
-	restore := &psmdbv1.PerconaServerMongoDBRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      psmdbRestoreName,
-			Namespace: namespace,
-		},
-	}
-	if err := c.Delete(ctx, restore); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete PSMDB restore %s: %w", psmdbRestoreName, err)
-	}
 	return nil
 }
