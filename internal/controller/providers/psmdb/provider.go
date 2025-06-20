@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -275,15 +274,7 @@ func defaultSpec() psmdbv1.PerconaServerMongoDBSpec {
 			Schedule: "0 4 * * *",
 			SetFCV:   true,
 		},
-		PMM: psmdbv1.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		},
+		PMM: psmdbv1.PMMSpec{},
 		Replsets: []*psmdbv1.ReplsetSpec{
 			{
 				Name: "rs0",

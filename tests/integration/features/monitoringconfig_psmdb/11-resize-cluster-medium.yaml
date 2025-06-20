@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-mc
+spec:
+  engine:
+    resources:
+      memory: 8G

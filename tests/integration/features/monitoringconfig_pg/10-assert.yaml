@@ -5,8 +5,10 @@ collectors:
   - command: kubectl get monitoringconfig/mc-pg -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-pg-secret -n ${NAMESPACE} -o yaml
   - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
+
   - command: kubectl get dbc/pg-mc -n ${NAMESPACE} -o yaml
   - command: kubectl get perconapgcluster/pg-mc -n ${NAMESPACE} -o yaml
+
   - command: kubectl get secret/everest-secrets-pg-mc-pmm -n ${NAMESPACE} -o yaml
   - type: pod
     namespace: everest-system
@@ -22,6 +24,10 @@ resourceRefs:
     name: everest-monitoring
     namespace: everest-monitoring
     ref: vmagent
+  - apiVersion: pgv2.percona.com/v2
+    kind: PerconaPGCluster
+    name: pg-mc
+    ref: pg
 assertAll:
   - celExpr: "has(mc.metadata.finalizers)"
     message: "mc doesn't have finalizers"
@@ -40,6 +46,9 @@ assertAll:
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pg/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pg/victoriametrics/api/v1/write'"
+
+  - celExpr: "!has(pg.spec.pmm.resources.limits)"
+    message: "pg.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -48,10 +57,6 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pg
-    resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -91,10 +96,11 @@ spec:
     serverHost: localhost-mc-pg
     secret: everest-secrets-pg-mc-pmm
     image: percona/pmm-client:latest
+    querySource: pgstatmonitor
     resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
+      requests:
+        memory: 101994987520m
+        cpu: 95m
 ---
 apiVersion: v1
 kind: Secret

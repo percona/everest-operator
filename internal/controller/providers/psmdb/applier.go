@@ -423,19 +423,21 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	ctx := p.ctx
 	c := p.C
 
-	image := common.DefaultPMMClientImage
-	if monitoring.Spec.PMM.Image != "" {
-		image = monitoring.Spec.PMM.Image
+	psmdb.Spec.PMM = psmdbv1.PMMSpec{
+		Enabled:   true,
+		Image:     common.DefaultPMMClientImage,
+		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
 	}
 
-	psmdb.Spec.PMM.Enabled = true
+	if monitoring.Spec.PMM.Image != "" {
+		psmdb.Spec.PMM.Image = monitoring.Spec.PMM.Image
+	}
+
 	pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 	if err != nil {
 		return errors.Join(err, errors.New("invalid monitoring URL"))
 	}
 	psmdb.Spec.PMM.ServerHost = pmmURL.Hostname()
-	psmdb.Spec.PMM.Image = image
-	psmdb.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring)
 	if err != nil {

@@ -5,9 +5,12 @@ collectors:
   - command: kubectl get monitoringconfig/mc-psmdb -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/mc-psmdb-secret -n ${NAMESPACE} -o yaml
   - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
-  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+
+  - command: kubectl get db/psmdb-mc -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/psmdb-mc -n ${NAMESPACE} -o yaml
   - command: kubectl get secret/everest-secrets-psmdb-mc -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -49,6 +52,12 @@ assertAll:
   - celExpr: "!has(psmdb.spec.pmm.serverHost)"
     message: "psmdb.spec.pmm.serverHost is not empty"
 
+  - celExpr: "!has(psmdb.spec.pmm.resources.limits)"
+    message: "psmdb.spec.pmm.resources.limits is not empty"
+
+  - celExpr: "!has(psmdb.spec.pmm.resources.requests)"
+    message: "psmdb.spec.pmm.resources.requests is not empty"
+
   - celExpr: "has(vmagent.spec.remoteWrite)"
     message: "vmagent doesn't have .spec.remoteWrite"
 
@@ -62,6 +71,9 @@ metadata:
 spec:
   monitoring:
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
@@ -99,11 +111,6 @@ kind: PerconaServerMongoDB
 metadata:
   name: psmdb-mc
 spec:
-  pmm:
-    resources:
-      limits:
-        memory: "300M"
-        cpu: "500m"
   secrets:
     users: everest-secrets-psmdb-mc
 ---

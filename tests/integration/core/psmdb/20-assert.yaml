@@ -37,6 +37,18 @@ assertAll:
 
   - celExpr: "'percona.com/delete-psmdb-pvc' in psmdb.metadata.finalizers"
     message: "percona.com/delete-psmdb-pvc' is absent in psmdb.metadata.finalizers"
+
+  - celExpr: "!has(psmdb.spec.pmm.enabled)"
+    message: "psmdb.spec.pmm.enabled is not empty"
+
+  - celExpr: "!has(psmdb.spec.pmm.serverHost)"
+    message: "psmdb.spec.pmm.serverHost is not empty"
+
+  - celExpr: "!has(psmdb.spec.pmm.resources.limits)"
+    message: "psmdb.spec.pmm.resources.limits is not empty"
+
+  - celExpr: "!has(psmdb.spec.pmm.resources.requests)"
+    message: "psmdb.spec.pmm.resources.requests is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -77,12 +89,6 @@ spec:
         memory: 1G
   multiCluster:
     enabled: false
-  pmm:
-    image: ""
-    resources:
-      limits:
-        cpu: 500m
-        memory: 300M
   replsets:
     - arbiter:
         enabled: false

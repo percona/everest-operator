@@ -10,17 +10,9 @@ spec:
   monitoring:
     monitoringConfigName: mc-pg
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
-  engine:
-    type: postgresql
-    replicas: 1
-    storage:
-      size: 4G
-    resources:
-      cpu: "1"
-      memory: 1G
-  proxy:
-    type: pgbouncer
-    replicas: 1
