@@ -10,6 +10,10 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+commands:
+  - command: kubectl wait --for=jsonpath='{.spec.engine.crVersion}'=${PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.status.backupConfigHash}'=some_hash_string psmdb/test-psmdb-cluster -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
@@ -19,23 +23,3 @@ resourceRefs:
     kind: PerconaServerMongoDB
     name: test-psmdb-cluster
     ref: psmdb
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: test-psmdb-cluster
-spec:
-  engine:
-    crVersion: 1.20.1
-status:
-  status: ready
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDB
-metadata:
-  name: test-psmdb-cluster
-spec:
-  crVersion: 1.20.1
-status:
-  state: ready
-  backupConfigHash: some_hash_string

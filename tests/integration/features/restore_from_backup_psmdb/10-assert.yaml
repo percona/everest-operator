@@ -41,7 +41,6 @@ metadata:
   name: test-psmdb-cluster
 spec:
   engine:
-    crVersion: 1.20.1
     type: psmdb
     replicas: 1
     storage:
@@ -56,8 +55,6 @@ apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
 metadata:
   name: test-psmdb-cluster
-spec:
-  crVersion: 1.20.1
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: BackupStorage

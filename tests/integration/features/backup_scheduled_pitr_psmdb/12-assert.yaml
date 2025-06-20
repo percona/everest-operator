@@ -11,9 +11,8 @@ collectors:
     selector: control-plane=controller-manager
     tail: 100
 commands:
-  - command: kubectl wait --for=jsonpath='{.spec.engine.crVersion}'=${PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
-  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n ${NAMESPACE}
-  - command: kubectl wait --for=jsonpath='{.status.backupConfigHash}'=some_hash_string psmdb/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.engine.crVersion}'=${PREVIOUS_PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PREVIOUS_PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
@@ -23,4 +22,3 @@ resourceRefs:
     kind: PerconaServerMongoDB
     name: test-psmdb-cluster
     ref: psmdb
-
