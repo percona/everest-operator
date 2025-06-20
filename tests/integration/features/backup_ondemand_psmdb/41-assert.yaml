@@ -86,6 +86,7 @@ spec:
   backup:
     storages:
       test-storage-s3:
+        main: true
         type: s3
         s3:
           bucket: test-backup-bucket
