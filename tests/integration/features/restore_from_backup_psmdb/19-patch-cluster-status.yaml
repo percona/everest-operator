@@ -5,4 +5,3 @@ commands:
   # the psmdb-backup object will be created once the pbm is initialized which is indicated by non-empty .status.backupConfigHash,
   # so let's add the field
   - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"status":{"backupConfigHash":"some_hash_string"}}' --subresource=status --type merge
-  - command: kubectl patch psmdb test-psmdb-cluster -n $NAMESPACE -p '{"spec":{"crVersion":"1.20.1"}}' --type merge
