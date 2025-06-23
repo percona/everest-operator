@@ -1206,6 +1206,9 @@ func reconcilePGBackRestRepos(
 	[]byte,
 	error,
 ) {
+	// exclude repo1 from the list of the repos to reconcile since it's going to be reconciled separately
+	oldRepos = separateRepo1(oldRepos)
+
 	reposReconciler, err := newPGReposReconciler(oldRepos, backupSchedules)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
@@ -1246,6 +1249,17 @@ func reconcilePGBackRestRepos(
 	}
 
 	return newRepos, reposReconciler.pgBackRestGlobal, pgBackrestIniBytes, nil
+}
+
+// this function excludes repo1 from the list of repos to reconcile since repo1 is reconciled separately.
+func separateRepo1(repos []crunchyv1beta1.PGBackRestRepo) []crunchyv1beta1.PGBackRestRepo {
+	var newRepos []crunchyv1beta1.PGBackRestRepo
+	for _, repo := range repos {
+		if repo.Name != repo1Name {
+			newRepos = append(newRepos, repo)
+		}
+	}
+	return newRepos
 }
 
 func backupStorageNameFromRepo(backupStorages map[string]everestv1alpha1.BackupStorage, repo crunchyv1beta1.PGBackRestRepo, dbNamespace string) string {
