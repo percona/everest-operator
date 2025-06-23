@@ -1,0 +1,34 @@
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImporter
+metadata:
+  name: everest-percona-psmdb-operator-data-importer
+spec:
+  displayName: "Percona PSMDB Operator Data Importer"
+  description: |
+    Data importer for importing logical backups taken using the Percona PSMDB Operator.
+  supportedEngines:
+  - psmdb
+  jobSpec:
+    image: "percona/everest-operator"
+    command: ["/data-importer", "psmdb"]
+  databaseClusterConstraints:
+    requiredFields:
+    - .spec.engine.userSecretsName
+  permissions:
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    verbs:
+    - get
+    - create
+    - update
+    - delete
+  - apiGroups:
+    - "psmdb.percona.com"
+    resources:
+    - perconaservermongodbrestores
+    verbs:
+    - get
+    - create
+    - update

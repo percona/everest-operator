@@ -15,10 +15,10 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-
 	"github.com/percona/everest-operator/internal/data-importer/cmd/pg"
+	"github.com/percona/everest-operator/internal/data-importer/cmd/psmdb"
 	"github.com/percona/everest-operator/internal/data-importer/cmd/pxc"
+	"github.com/spf13/cobra"
 )
 
 var Root = &cobra.Command{
@@ -27,5 +27,6 @@ var Root = &cobra.Command{
 
 func init() {
 	Root.AddCommand(pg.Cmd)
+	Root.AddCommand(psmdb.Cmd)
 	Root.AddCommand(pxc.Cmd)
 }
