@@ -105,6 +105,7 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, dbEngine, func() error {
 		dbEngine.Spec.Type = engineType
+		dbEngine.Spec.SecretKeys.User = userSecretKeys[engineType]
 		return nil
 	}); err != nil {
 		return ctrl.Result{}, err
