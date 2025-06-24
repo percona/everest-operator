@@ -355,7 +355,9 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	)
 
 	// If the reconcile is paused, we return immediately.
-	if val, ok := database.GetAnnotations()[consts.PauseReconcileAnnotation]; ok && val == consts.PauseReconcileAnnotationValueTrue {
+	if val, ok := database.GetAnnotations()[consts.PauseReconcileAnnotation]; ok &&
+		val == consts.PauseReconcileAnnotationValueTrue &&
+		database.GetDeletionTimestamp().IsZero() { // pause only if not deleting
 		logger.Info("Reconciliation is paused")
 		return reconcile.Result{}, nil
 	}
