@@ -47,6 +47,8 @@ const (
 		"!#$%&()+,-.<=>?@[]^_{}~"
 )
 
+var errInvalidDataSourceConfiguration = errors.New("invalid dataSource configuration")
+
 type applier struct {
 	*Provider
 	ctx context.Context //nolint:containedctx
@@ -743,7 +745,7 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	}
 
 	// Add the storages used by the DatabaseClusterBackup objects
-	if err := p.addBackupStorages(backupList, storages); err != nil {
+	if err = addBackupStorages(backupList.Items, database.Spec.DataSource, storages, p.DB, p.getStoragesSpec, p.C.Get); err != nil {
 		return nil, err
 	}
 
@@ -768,52 +770,105 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	return pxcBackupSpec, nil
 }
 
-func (p *applier) addBackupStorages(
-	backupList *everestv1alpha1.DatabaseClusterBackupList,
+func addBackupStorages(
+	backups []everestv1alpha1.DatabaseClusterBackup,
+	dataSource *everestv1alpha1.DataSource,
 	storages map[string]*pxcv1.BackupStorageSpec,
+	database *everestv1alpha1.DatabaseCluster,
+	getStoragesSpec func(string, string, *everestv1alpha1.DatabaseCluster) (*pxcv1.BackupStorageSpec, error),
+	cGet func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error,
 ) error {
-	database := p.DB
-	for _, backup := range backupList.Items {
+	for _, backup := range backups {
 		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
 			continue
 		}
 
-		spec, backupStorage, err := p.genPXCStorageSpec(
-			backup.Spec.BackupStorageName,
-			database.GetNamespace(),
-		)
+		spec, err := getStoragesSpec(backup.Spec.BackupStorageName, database.GetNamespace(), database)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to get backup storage for backup %s", backup.Name))
+			return err
 		}
-
 		storages[backup.Spec.BackupStorageName] = spec
-
-		switch backupStorage.Spec.Type {
-		case everestv1alpha1.BackupStorageTypeS3:
-			storages[backup.Spec.BackupStorageName].S3 = &pxcv1.BackupStorageS3Spec{
-				Bucket: fmt.Sprintf(
-					"%s/%s",
-					backupStorage.Spec.Bucket,
-					common.BackupStoragePrefix(database),
-				),
-				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-				Region:            backupStorage.Spec.Region,
-				EndpointURL:       backupStorage.Spec.EndpointURL,
-			}
-		case everestv1alpha1.BackupStorageTypeAzure:
-			storages[backup.Spec.BackupStorageName].Azure = &pxcv1.BackupStorageAzureSpec{
-				ContainerPath: fmt.Sprintf(
-					"%s/%s",
-					backupStorage.Spec.Bucket,
-					common.BackupStoragePrefix(database),
-				),
-				CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
-			}
-		default:
-			return fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+	}
+	// add the storage from datasource. The restore works without listing the related storage in the pxc config,
+	// however if the storage is insecure, we need to specify it explicitly to set the insecureTLS flag
+	if dataSource != nil {
+		storageName, err := getStorageNameFromDataSource(*dataSource, cGet, database.Namespace)
+		if err != nil {
+			return err
 		}
+		if _, ok := storages[storageName]; ok {
+			return nil
+		}
+
+		spec, err := getStoragesSpec(storageName, database.GetNamespace(), database)
+		if err != nil {
+			return err
+		}
+
+		storages[storageName] = spec
 	}
 	return nil
+}
+
+func getStorageNameFromDataSource(
+	dataSource everestv1alpha1.DataSource,
+	cGet func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error,
+	namespace string,
+) (string, error) {
+	backup := &everestv1alpha1.DatabaseClusterBackup{}
+	var storageName string
+	if dataSource.DBClusterBackupName != "" {
+		err := cGet(context.Background(), types.NamespacedName{
+			Namespace: namespace,
+			Name:      dataSource.DBClusterBackupName,
+		}, backup)
+		if err != nil {
+			return "", err
+		}
+		storageName = backup.Spec.BackupStorageName
+	} else if dataSource.BackupSource != nil {
+		storageName = dataSource.BackupSource.BackupStorageName
+	}
+	if storageName == "" {
+		return "", errInvalidDataSourceConfiguration
+	}
+	return storageName, nil
+}
+
+func (p *applier) getStoragesSpec(backupStorageName, namespace string, database *everestv1alpha1.DatabaseCluster) (*pxcv1.BackupStorageSpec, error) {
+	spec, backupStorage, err := p.genPXCStorageSpec(
+		backupStorageName,
+		namespace,
+	)
+	if err != nil {
+		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
+	}
+
+	switch backupStorage.Spec.Type {
+	case everestv1alpha1.BackupStorageTypeS3:
+		spec.S3 = &pxcv1.BackupStorageS3Spec{
+			Bucket: fmt.Sprintf(
+				"%s/%s",
+				backupStorage.Spec.Bucket,
+				common.BackupStoragePrefix(database),
+			),
+			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+			Region:            backupStorage.Spec.Region,
+			EndpointURL:       backupStorage.Spec.EndpointURL,
+		}
+	case everestv1alpha1.BackupStorageTypeAzure:
+		spec.Azure = &pxcv1.BackupStorageAzureSpec{
+			ContainerPath: fmt.Sprintf(
+				"%s/%s",
+				backupStorage.Spec.Bucket,
+				common.BackupStoragePrefix(database),
+			),
+			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
+		}
+	default:
+		return nil, fmt.Errorf("unsupported backup storage type %s for %s", backupStorage.Spec.Type, backupStorage.Name)
+	}
+	return spec, nil
 }
 
 func (p *applier) addPITRConfiguration(storages map[string]*pxcv1.BackupStorageSpec, pxcBackupSpec *pxcv1.PXCScheduledBackup) error {
