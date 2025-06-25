@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	pbmdefs "github.com/percona/percona-backup-mongodb/pbm/defs"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"github.com/rs/zerolog/log"
@@ -33,6 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 )
 
 var Cmd = &cobra.Command{
@@ -74,9 +75,7 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	var (
-		psmdbRestoreName = "data-import-" + dbName
-	)
+	psmdbRestoreName := "data-import-" + dbName
 	defer cleanup(ctx, k8sClient, namespace, psmdbRestoreName)
 
 	log.Info().Msgf("Starting PSMDB import for database %s in namespace %s", dbName, namespace)

@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-06-16T07:33:35Z"
+    createdAt: "2025-06-25T09:18:10Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -225,7 +225,6 @@ spec:
           - databaseclusters/finalizers
           - databaseengines/finalizers
           - dataimportjobs/finalizers
-          - monitoringconfigs/finalizers
           verbs:
           - update
         - apiGroups:

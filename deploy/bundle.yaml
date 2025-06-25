@@ -8258,7 +8258,6 @@ rules:
   - databaseclusters/finalizers
   - databaseengines/finalizers
   - dataimportjobs/finalizers
-  - monitoringconfigs/finalizers
   verbs:
   - update
 - apiGroups:

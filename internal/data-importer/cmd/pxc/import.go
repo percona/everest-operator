@@ -21,9 +21,6 @@ import (
 	"strings"
 	"time"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
-	"github.com/percona/everest-operator/internal/consts"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -35,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 var Cmd = &cobra.Command{
@@ -91,9 +92,7 @@ func runPXCImport(ctx context.Context, configPath string) error {
 		}
 	}()
 
-	var (
-		pxcRestoreName = "data-import-" + dbName
-	)
+	pxcRestoreName := "data-import-" + dbName
 	defer cleanup(ctx, k8sClient, namespace, pxcRestoreName)
 
 	log.Info().Msgf("Starting PXC import for database %s in namespace %s", dbName, namespace)
