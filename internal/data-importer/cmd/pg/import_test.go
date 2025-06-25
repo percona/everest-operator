@@ -15,7 +15,6 @@
 package pg
 
 import (
-	"context"
 	"testing"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -31,6 +30,7 @@ import (
 )
 
 func TestParseBackupPath(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		backupPath      string
@@ -59,6 +59,7 @@ func TestParseBackupPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			backupName, dbDir := parseBackupPath(tt.backupPath)
 			assert.Equal(t, tt.wantBackupName, backupName)
 			assert.Equal(t, tt.wantDBDirectory, dbDir)
@@ -67,6 +68,7 @@ func TestParseBackupPath(t *testing.T) {
 }
 
 func TestGetRepoName(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	err := pgv2.AddToScheme(scheme)
 	require.NoError(t, err)
@@ -151,13 +153,14 @@ func TestGetRepoName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Create a fake client with the test PG cluster
 			client := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(tt.pg).
 				Build()
 
-			got, err := getRepoName(context.Background(), client, tt.dbName, tt.namespace)
+			got, err := getRepoName(t.Context(), client, tt.dbName, tt.namespace)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -169,8 +172,10 @@ func TestGetRepoName(t *testing.T) {
 }
 
 func TestPreparePGBackrestSecret(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	err := pgv2.AddToScheme(scheme)
+	require.NoError(t, err)
 	err = corev1.AddToScheme(scheme)
 	require.NoError(t, err)
 
@@ -197,7 +202,7 @@ func TestPreparePGBackrestSecret(t *testing.T) {
 		WithObjects(initialSecret).
 		Build()
 
-	err = preparePGBackrestSecret(context.Background(), client, repoName, secretName,
+	err = preparePGBackrestSecret(t.Context(), client, repoName, secretName,
 		accessKeyID, secretAccessKey, namespace)
 	require.NoError(t, err)
 
@@ -208,7 +213,7 @@ func TestPreparePGBackrestSecret(t *testing.T) {
 		},
 	}
 
-	err = client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: secretName}, updatedSecret)
+	err = client.Get(t.Context(), types.NamespacedName{Namespace: namespace, Name: secretName}, updatedSecret)
 	require.NoError(t, err)
 
 	// note: we assert on StringData because we are using fakeClient.
@@ -226,6 +231,7 @@ func TestPreparePGBackrestSecret(t *testing.T) {
 }
 
 func TestPreparePGBackrestRepo(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	err := pgv2.AddToScheme(scheme)
 	require.NoError(t, err)
@@ -233,7 +239,6 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 	dbName := "testdb"
 	namespace := "default"
 	repoName := "repo1"
-	secretName := "data-import-testdb"
 	dbDirPath := "/my-database"
 	uriStyle := "host"
 	bucket := "test-bucket"
@@ -260,12 +265,12 @@ func TestPreparePGBackrestRepo(t *testing.T) {
 		WithObjects(pg).
 		Build()
 
-	err = preparePGBackrestRepo(context.Background(), client, repoName, secretName,
+	err = preparePGBackrestRepo(t.Context(), client, repoName,
 		dbDirPath, uriStyle, bucket, endpoint, region, dbName, namespace)
 	require.NoError(t, err)
 
 	updatedPG := &pgv2.PerconaPGCluster{}
-	err = client.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: dbName}, updatedPG)
+	err = client.Get(t.Context(), types.NamespacedName{Namespace: namespace, Name: dbName}, updatedPG)
 	require.NoError(t, err)
 
 	// Check if the global configuration was updated

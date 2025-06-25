@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package controllers contains the DataImportJobReconciler which manages DataImportJob resources.
 package controllers
 
 import (
@@ -42,7 +44,7 @@ import (
 )
 
 const (
-	dataImporterRequestSecretNameSuffix = "-data-import-request"
+	dataImporterRequestSecretNameSuffix = "-data-import-request" //nolint:gosec
 	dataImportJSONSecretKey             = "request.json"
 	payloadMountPath                    = "/payload"
 
@@ -50,11 +52,13 @@ const (
 	kindClusterRole = "ClusterRole"
 )
 
+// DataImportJobReconciler reconciles DataImportJob resources.
 type DataImportJobReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("DataImportJob").
@@ -72,7 +76,7 @@ func (r *DataImportJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // clusterWideResourceHandler returns an event handler that enqueues requests for DataImportJob
 // when cluster-wide resources like ClusterRole or ClusterRoleBinding are created, updated, or deleted.
 // It uses the `dataImportJobOwnerLabel` to find the owner DataImportJob and enqueue a request for it.
-func clusterWideResourceHandler() handler.EventHandler {
+func clusterWideResourceHandler() handler.EventHandler { //nolint:ireturn
 	return handler.EnqueueRequestsFromMapFunc(func(_ context.Context, o client.Object) []ctrl.Request {
 		labels := o.GetLabels()
 		name, ok := labels[consts.DataImportJobRefNameLabel]
@@ -110,7 +114,7 @@ func clusterWideResourceHandler() handler.EventHandler {
 // move the current state of the cluster closer to the desired state.
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *DataImportJobReconciler) Reconcile(
+func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 	ctx context.Context,
 	req ctrl.Request,
 ) (rr ctrl.Result, rerr error) {
@@ -333,11 +337,11 @@ func (r *DataImportJobReconciler) getS3Info(
 	}
 	info := dataimporterspec.S3{}
 
-	keyId, keySecret, err := r.getS3Credentials(ctx, dij)
+	keyID, keySecret, err := r.getS3Credentials(ctx, dij)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get S3 credentials: %w", err)
 	}
-	info.AccessKeyID = keyId
+	info.AccessKeyID = keyID
 	info.SecretKey = keySecret
 	info.Bucket = dij.Spec.Source.S3.Bucket
 	info.Region = dij.Spec.Source.S3.Region
@@ -392,24 +396,24 @@ func (r *DataImportJobReconciler) getDBRootUserCredentials(
 		username := "postgres"
 		pwd, ok := secret.Data["password"]
 		if !ok {
-			return "", "", fmt.Errorf("postgres password not found in secret")
+			return "", "", errors.New("postgres password not found in secret")
 		}
 		return username, string(pwd), nil
 	case everestv1alpha1.DatabaseEnginePXC:
 		username := "root"
 		pwd, ok := secret.Data["root"]
 		if !ok {
-			return "", "", fmt.Errorf("root password not found in secret")
+			return "", "", errors.New("root password not found in secret")
 		}
 		return username, string(pwd), nil
 	case everestv1alpha1.DatabaseEnginePSMDB:
 		username, ok := secret.Data["MONGODB_DATABASE_ADMIN_USER"]
 		if !ok {
-			return "", "", fmt.Errorf("mongodb admin user not found in secret")
+			return "", "", errors.New("mongodb admin user not found in secret")
 		}
 		pwd, ok := secret.Data["MONGODB_DATABASE_ADMIN_PASSWORD"]
 		if !ok {
-			return "", "", fmt.Errorf("mongodb admin password not found in secret")
+			return "", "", errors.New("mongodb admin password not found in secret")
 		}
 		return string(username), string(pwd), nil
 	default:
@@ -519,7 +523,7 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 			return fmt.Errorf("failed to ensure role binding: %w", err)
 		}
 	}
-	if len(clusterPermissions) > 0 {
+	if len(clusterPermissions) > 0 { //nolint:nestif
 		if err := r.ensureClusterRole(ctx, clusterPermissions, diJob); err != nil {
 			return fmt.Errorf("failed to ensure cluster role: %w", err)
 		}
@@ -541,7 +545,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 ) error {
 	finalizers := diJob.GetFinalizers()
 	for _, f := range finalizers {
-		switch f {
+		switch f { //nolint:gocritic
 		case consts.DataImportJobRBACCleanupFinalizer:
 			if err := r.handleRBACCleanupFinalizer(ctx, diJob); err != nil {
 				return fmt.Errorf("failed to handle RBAC cleanup finalizer: %w", err)

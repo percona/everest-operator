@@ -21,6 +21,7 @@ import (
 )
 
 func TestGetDestinationAndBucket(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		backupPath          string
 		bucketName          string

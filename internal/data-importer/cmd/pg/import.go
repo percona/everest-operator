@@ -133,7 +133,7 @@ func runPGImport(
 	}
 
 	if err := preparePGBackrestRepo(ctx,
-		k8sClient, repoName, pgBackRestSecretName,
+		k8sClient, repoName,
 		dbDir, uriStyle, cfg.Source.S3.Bucket, endpoint, region,
 		dbName, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest repo: %w", err)
@@ -199,7 +199,7 @@ func getRepoName(
 		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
 	}
 	l := len(pg.Spec.Backups.PGBackRest.Repos)
-	if l >= 4 {
+	if l >= 4 { //nolint:mnd
 		return "", fmt.Errorf("too many PGBackRest repos configured for %s/%s: %d", namespace, dbName, l)
 	}
 	repoIdx := len(pg.Spec.Backups.PGBackRest.Repos) + 1
@@ -268,14 +268,14 @@ func preparePGBackrestSecret(
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
 		// parse the current conf
 		s3Conf := secret.Data["s3.conf"]
-		cfg, err := ini.LoadSources(ini.LoadOptions{}, []byte(s3Conf))
+		cfg, err := ini.LoadSources(ini.LoadOptions{}, s3Conf)
 		if err != nil {
 			return fmt.Errorf("failed to load PGBackRest S3 config: %w", err)
 		}
 
 		// update new keys
-		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key", repoName)).SetValue(accessKeyID)
-		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key-secret", repoName)).SetValue(secretAccessKey)
+		cfg.Section("global").Key(repoName + "-s3-key").SetValue(accessKeyID)
+		cfg.Section("global").Key(repoName + "-s3-key-secret").SetValue(secretAccessKey)
 
 		// write back to the secret
 		w := strings.Builder{}
@@ -297,7 +297,6 @@ func preparePGBackrestRepo(
 	ctx context.Context,
 	c client.Client,
 	repoName string,
-	secretName string,
 	dbDirPath string,
 	uriStyle string,
 	bucket, endpoint, region string,
@@ -313,8 +312,8 @@ func preparePGBackrestRepo(
 	}
 
 	// configure global settings
-	pg.Spec.Backups.PGBackRest.Global[fmt.Sprintf("%s-path", repoName)] = dbDirPath
-	pg.Spec.Backups.PGBackRest.Global[fmt.Sprintf("%s-s3-uri-style", repoName)] = uriStyle
+	pg.Spec.Backups.PGBackRest.Global[repoName+"-path"] = dbDirPath
+	pg.Spec.Backups.PGBackRest.Global[repoName+"-s3-uri-style"] = uriStyle
 
 	// configure PG repo
 	pg.Spec.Backups.PGBackRest.Repos = append(pg.Spec.Backups.PGBackRest.Repos, crunchyv1beta1.PGBackRestRepo{
@@ -368,7 +367,7 @@ func runPGRestoreAndWait(
 		ctx,
 		defaultRetryInterval,
 		false,
-		func(ctx context.Context) (done bool, err error) {
+		func(ctx context.Context) (bool, error) {
 			pg := &pgv2.PerconaPGRestore{}
 			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: pgRestore.Name}, pg); err != nil {
 				return false, fmt.Errorf("failed to get PerconaPGRestore %s/%s: %w", namespace, pgRestore.Name, err)
@@ -396,7 +395,7 @@ func resetUserSecrets(
 		if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
 			return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
 		}
-		secretName := db.Spec.Engine.UserSecretsName // everest-operator guarentees that this is set
+		secretName := db.Spec.Engine.UserSecretsName // everest-operator guarantees that this is set
 		secret := &corev1.Secret{}
 		if err := c.Get(ctx, client.ObjectKey{
 			Namespace: namespace,
@@ -419,7 +418,7 @@ func resetUserSecrets(
 		ctx,
 		defaultRetryInterval,
 		false,
-		func(ctx context.Context) (done bool, err error) {
+		func(ctx context.Context) (done bool, err error) { //nolint:nonamedreturns
 			db := everestv1alpha1.DatabaseCluster{}
 			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
 				return false, fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)

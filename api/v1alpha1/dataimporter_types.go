@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package v1alpha1 ...
 package v1alpha1
 
 import (
@@ -92,7 +94,7 @@ type DataImporterConfig struct {
 	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
 }
 
-// ErrSchemaValidationFailure is returned when the parameters do not conform to the DataImporter schema defined in .spec.config
+// ErrSchemaValidationFailure is returned when the parameters do not conform to the DataImporter schema defined in .spec.config.
 var ErrSchemaValidationFailure = errors.New("schema validation failed")
 
 // Validate the config for the data importer.
@@ -141,6 +143,7 @@ func (cfg *DataImporterConfig) Validate(params *runtime.RawExtension) error {
 	return nil
 }
 
+// DataImporterJobSpec defines the specification for the Kubernetes job.
 type DataImporterJobSpec struct {
 	// Image is the image of the data importer.
 	Image string `json:"image,omitempty"`
@@ -149,6 +152,8 @@ type DataImporterJobSpec struct {
 	Command []string `json:"command,omitempty"`
 }
 
+// DataImporterDatabaseClusterConstraints defines compatibility requirements and prerequisites
+// that must be satisfied by a DatabaseCluster before this data importer can be used with it.
 type DataImporterDatabaseClusterConstraints struct {
 	// RequiredFields contains a list of fields that must be set in the DatabaseCluster spec.
 	// Each key is a JSON path expressions that points to a field in the DatabaseCluster spec.
@@ -157,14 +162,15 @@ type DataImporterDatabaseClusterConstraints struct {
 	RequiredFields []string `json:"requiredFields,omitempty"`
 }
 
-// +kubebuilder:object:root=true
 // DataImporterList contains a list of DataImporter.
+// +kubebuilder:object:root=true
 type DataImporterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []DataImporter `json:"items"`
 }
 
+// DataImporterStatus defines the status of the DataImporter.
 type DataImporterStatus struct{}
 
 func init() {

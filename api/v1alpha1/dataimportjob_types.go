@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package v1alpha1 ...
 package v1alpha1
 
 import (
@@ -34,6 +36,7 @@ type DataImportJob struct {
 	Status DataImportJobStatus `json:"status,omitempty"`
 }
 
+// DataImportJobSpec defines the desired state of DataImportJob.
 type DataImportJobSpec struct {
 	// TargetClusterName is the reference to the target cluster.
 	// +kubebuilder:validation:Required
@@ -57,6 +60,7 @@ type DataImportJobTemplate struct {
 	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
+// DataImportJobSource defines the source of the data to import.
 type DataImportJobSource struct {
 	// S3 contains the S3 information for the data import.
 	// +optional
@@ -67,6 +71,7 @@ type DataImportJobSource struct {
 	Path string `json:"path,omitempty"`
 }
 
+// DataImportJobS3Source defines the S3 source for the data import job.
 type DataImportJobS3Source struct {
 	// Bucket is the name of the S3 bucket.
 	Bucket string `json:"bucket,omitempty"`
@@ -105,6 +110,7 @@ type DataImportJobS3Source struct {
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
+// DataImportJobList contains a list of DataImportJob.
 // +kubebuilder:object:root=true
 type DataImportJobList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -112,6 +118,7 @@ type DataImportJobList struct {
 	Items           []DataImportJob `json:"items"`
 }
 
+// DataImportJobState is a type representing the state of a data import job.
 type DataImportJobState string
 
 const (
@@ -129,6 +136,7 @@ const (
 	DataImportJobStateError DataImportJobState = "Error"
 )
 
+// DataImportJobStatus defines the observed state of DataImportJob.
 type DataImportJobStatus struct {
 	// StartedAt is the time when the data import job started.
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`

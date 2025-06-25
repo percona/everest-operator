@@ -251,12 +251,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	return ctrl.Result{}, nil
 }
 
-func (re *DatabaseClusterReconciler) observeDataImportState(
+func (r *DatabaseClusterReconciler) observeDataImportState(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	diJob := &everestv1alpha1.DataImportJob{}
-	if err := re.Get(ctx, types.NamespacedName{
+	if err := r.Get(ctx, types.NamespacedName{
 		Name:      common.GetDataImportJobName(db),
 		Namespace: db.GetNamespace(),
 	}, diJob); err != nil {
@@ -276,7 +276,7 @@ func (re *DatabaseClusterReconciler) observeDataImportState(
 	return nil
 }
 
-func (re *DatabaseClusterReconciler) ensureDataImportJob(
+func (r *DatabaseClusterReconciler) ensureDataImportJob(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
@@ -288,7 +288,7 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 			Namespace: namespace,
 		},
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, re.Client, diJob, func() error {
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, diJob, func() error {
 		diJob.ObjectMeta.Labels = map[string]string{
 			consts.DatabaseClusterNameLabel: db.GetName(),
 		}
@@ -296,7 +296,7 @@ func (re *DatabaseClusterReconciler) ensureDataImportJob(
 			TargetClusterName:     db.GetName(),
 			DataImportJobTemplate: dataImportSpec,
 		}
-		if err := controllerutil.SetControllerReference(db, diJob, re.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(db, diJob, r.Scheme); err != nil {
 			return err
 		}
 		return nil

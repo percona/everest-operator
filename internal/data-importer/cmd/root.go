@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package cmd ...
 package cmd
 
 import (
@@ -22,6 +24,7 @@ import (
 	"github.com/percona/everest-operator/internal/data-importer/cmd/pxc"
 )
 
+// Root command for running data importer commands.
 var Root = &cobra.Command{
 	Use: "data-importer",
 }

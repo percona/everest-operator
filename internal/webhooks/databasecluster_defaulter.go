@@ -12,6 +12,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package webhooks ...
+//
+//nolint:lll
 package webhooks
 
 import (
@@ -36,6 +40,7 @@ type DatabaseClusterDefaulter struct {
 	Client client.Client
 }
 
+// Default implements a mutating webhook for DatabaseCluster resources.
 func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {

@@ -19,11 +19,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestValidateSchema(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		schemaJSON string
@@ -147,11 +149,12 @@ func TestValidateSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var schema apiextensionsv1.JSONSchemaProps
 			var config runtime.RawExtension
 
 			// Unmarshal inputs
-			assert.NoError(t, json.Unmarshal([]byte(tt.schemaJSON), &schema))
+			require.NoError(t, json.Unmarshal([]byte(tt.schemaJSON), &schema))
 			config.Raw = []byte(tt.configJSON)
 
 			cfg := DataImporterConfig{

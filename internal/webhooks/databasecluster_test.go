@@ -15,7 +15,6 @@
 package webhooks
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -28,29 +27,29 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/percona/everest-operator/api/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 )
 
 func TestCheckJSONKeyExists(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		obj      any
 		key      string
 		expected bool
 	}{
 		{
-			obj: v1alpha1.DatabaseCluster{
-				Spec: v1alpha1.DatabaseClusterSpec{
-					Engine: v1alpha1.Engine{},
+			obj: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{},
 				},
 			},
 			key: ".spec.engine.type",
 		},
 		{
-			obj: v1alpha1.DatabaseCluster{
-				Spec: v1alpha1.DatabaseClusterSpec{
-					Engine: v1alpha1.Engine{
-						Type: v1alpha1.DatabaseEnginePSMDB,
+			obj: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
+						Type: everestv1alpha1.DatabaseEnginePSMDB,
 					},
 				},
 			},
@@ -58,9 +57,9 @@ func TestCheckJSONKeyExists(t *testing.T) {
 			expected: true,
 		},
 		{
-			obj: v1alpha1.DatabaseCluster{
-				Spec: v1alpha1.DatabaseClusterSpec{
-					Engine: v1alpha1.Engine{
+			obj: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{
 						UserSecretsName: "my-user-secrets",
 					},
 				},
@@ -69,9 +68,9 @@ func TestCheckJSONKeyExists(t *testing.T) {
 			expected: true,
 		},
 		{
-			obj: v1alpha1.DatabaseCluster{
-				Spec: v1alpha1.DatabaseClusterSpec{
-					Engine: v1alpha1.Engine{},
+			obj: everestv1alpha1.DatabaseCluster{
+				Spec: everestv1alpha1.DatabaseClusterSpec{
+					Engine: everestv1alpha1.Engine{},
 				},
 			},
 			key: ".spec.engine.userSecretsName",
@@ -80,20 +79,21 @@ func TestCheckJSONKeyExists(t *testing.T) {
 	for _, tc := range testCases {
 		exists, err := checkJSONKeyExists(tc.key, tc.obj)
 		require.NoError(t, err)
-		assert.Equal(t, exists, tc.expected, "Key existence check failed for key: %s", tc.key)
+		assert.Equal(t, tc.expected, exists, "Key existence check failed for key: %s", tc.key)
 	}
 }
 
 func TestDatabaseClusterDefaulter(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = everestv1alpha1.AddToScheme(scheme)
 
 	const (
-		ns         = "test-ns"
-		secretName = "s3-creds"
-		accessKey  = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey" //nolint:gosec
-		secretKey  = "ZmFrZVNlY3JldEtleQ==" // base64 for "fakeSecretKey" //nolint:gosec
+		ns            = "test-ns"
+		secretName    = "s3-creds"
+		testAccessKey = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey"
+		testSecretKey = "ZmFrZVNlY3JldEtleQ==" //nolint:gosec // base64 for "fakeSecretKey"
 	)
 
 	db := &everestv1alpha1.DatabaseCluster{
@@ -111,8 +111,8 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 							Region:                "region",
 							EndpointURL:           "https://s3.example.com",
 							CredentialsSecretName: secretName,
-							AccessKeyID:           accessKey,
-							SecretAccessKey:       secretKey,
+							AccessKeyID:           testAccessKey,
+							SecretAccessKey:       testSecretKey,
 						},
 					},
 				},
@@ -123,8 +123,8 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	defaulter := &DatabaseClusterDefaulter{Client: client}
 
-	err := defaulter.Default(context.TODO(), db)
-	assert.NoError(t, err)
+	err := defaulter.Default(t.Context(), db)
+	require.NoError(t, err)
 
 	// Check that the credentials are removed from the spec
 	assert.Empty(t, db.Spec.DataSource.DataImport.Source.S3.AccessKeyID)
@@ -132,19 +132,21 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 
 	// Check that the secret was created and contains the expected data
 	secret := &corev1.Secret{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: secretName}, secret)
-	assert.NoError(t, err)
-	assert.Equal(t, accessKey, string(secret.Data[AccessKeyIDSecretKey]))
-	assert.Equal(t, secretKey, string(secret.Data[SecretAccessKeySecretKey]))
+	err = client.Get(t.Context(), types.NamespacedName{Namespace: ns, Name: secretName}, secret)
+	require.NoError(t, err)
+	assert.Equal(t, testAccessKey, string(secret.Data[accessKeyIDSecretKey]))
+	assert.Equal(t, testSecretKey, string(secret.Data[secretAccessKeySecretKey]))
 }
 
 func TestDatabaseClusterValidator(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = everestv1alpha1.AddToScheme(scheme)
 
 	const userSecretName = "user-secret"
 	t.Run("ValidateCreate", func(t *testing.T) {
+		t.Parallel()
 		ns := "test-ns"
 		userSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -263,6 +265,7 @@ func TestDatabaseClusterValidator(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
 				db := &everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-db",
@@ -281,7 +284,7 @@ func TestDatabaseClusterValidator(t *testing.T) {
 				objs = append(objs, tc.objects...)
 				client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 				validator := &DatabaseClusterValidator{Client: client}
-				_, err := validator.ValidateCreate(context.TODO(), db)
+				_, err := validator.ValidateCreate(t.Context(), db)
 				if tc.wantError == "" {
 					assert.NoError(t, err)
 				} else {

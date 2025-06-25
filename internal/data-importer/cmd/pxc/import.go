@@ -171,7 +171,7 @@ func prepareS3CredentialSecret(
 	ctx context.Context,
 	c client.Client,
 	pxcRestoreName, namespace string,
-	accessKeyId, secretAccessKey string,
+	accessKeyID, secretAccessKey string,
 ) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -182,7 +182,7 @@ func prepareS3CredentialSecret(
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
 		secret.Type = corev1.SecretTypeOpaque
 		secret.StringData = map[string]string{
-			"AWS_ACCESS_KEY_ID":     accessKeyId,
+			"AWS_ACCESS_KEY_ID":     accessKeyID,
 			"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 		}
 		return nil
@@ -241,8 +241,9 @@ func runPXCRestoreAndWait(
 		return fmt.Errorf("failed to create or update PXC restore: %w", err)
 	}
 
+	retryInterval := 5 * time.Second //nolint:mnd
 	// wait for it to be completed.
-	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, retryInterval, true, func(ctx context.Context) (bool, error) {
 		pxcRestore := &pxcv1.PerconaXtraDBClusterRestore{}
 		if err := c.Get(ctx, types.NamespacedName{
 			Name:      pxcRestoreName,

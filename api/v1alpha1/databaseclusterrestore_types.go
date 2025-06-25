@@ -62,6 +62,7 @@ type DatabaseClusterRestoreSpec struct {
 	DataSource DatabaseClusterRestoreDataSource `json:"dataSource"`
 }
 
+// DatabaseClusterRestoreDataSource defines a data source for restoration.
 type DatabaseClusterRestoreDataSource struct {
 	// DBClusterBackupName is the name of the DB cluster backup to restore from
 	DBClusterBackupName string `json:"dbClusterBackupName,omitempty"`

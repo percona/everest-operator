@@ -174,8 +174,9 @@ func runPSMDBRestoreAndWait(
 		return fmt.Errorf("failed to create or update PSMDB restore: %w", err)
 	}
 
+	retryInterval := 5 * time.Second //nolint:mnd
 	// wait for it to be completed.
-	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, retryInterval, true, func(ctx context.Context) (bool, error) {
 		psmdbRestore := &psmdbv1.PerconaServerMongoDBRestore{}
 		if err := c.Get(ctx, types.NamespacedName{
 			Name:      psmdbRestoreName,

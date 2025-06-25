@@ -12,6 +12,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package webhooks ...
+//
+//nolint:lll
 package webhooks
 
 import (
@@ -89,12 +93,12 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
-func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
+func (v *DatabaseClusterValidator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete validates the deletion of a DatabaseCluster.
-func (v *DatabaseClusterValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *DatabaseClusterValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 

@@ -15,10 +15,10 @@
 package webhooks
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +29,7 @@ import (
 )
 
 func TestIsBase64Encoded(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		input    string
 		expected bool
@@ -46,6 +47,7 @@ func TestIsBase64Encoded(t *testing.T) {
 }
 
 func TestDataImportJobDefaulter(t *testing.T) {
+	t.Parallel()
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = everestv1alpha1.AddToScheme(scheme)
@@ -54,7 +56,7 @@ func TestDataImportJobDefaulter(t *testing.T) {
 		ns         = "test-ns"
 		secretName = "s3-creds"
 		accessKey  = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey"
-		secretKey  = "ZmFrZVNlY3JldEtleQ==" // base64 for "fakeSecretKey"
+		secretKey  = "ZmFrZVNlY3JldEtleQ==" //nolint:gosec // base64 for "fakeSecretKey"
 	)
 
 	dij := &everestv1alpha1.DataImportJob{
@@ -83,8 +85,8 @@ func TestDataImportJobDefaulter(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	defaulter := &DataImportJobDefaulter{Client: client}
 
-	err := defaulter.Default(context.TODO(), dij)
-	assert.NoError(t, err)
+	err := defaulter.Default(t.Context(), dij)
+	require.NoError(t, err)
 
 	// Check that the credentials are removed from the spec
 	assert.Empty(t, dij.Spec.DataImportJobTemplate.Source.S3.AccessKeyID)
@@ -92,8 +94,8 @@ func TestDataImportJobDefaulter(t *testing.T) {
 
 	// Check that the secret was created and contains the expected data
 	secret := &corev1.Secret{}
-	err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: secretName}, secret)
-	assert.NoError(t, err)
-	assert.Equal(t, accessKey, string(secret.Data[AccessKeyIDSecretKey]))
-	assert.Equal(t, secretKey, string(secret.Data[SecretAccessKeySecretKey]))
+	err = client.Get(t.Context(), types.NamespacedName{Namespace: ns, Name: secretName}, secret)
+	require.NoError(t, err)
+	assert.Equal(t, accessKey, string(secret.Data[accessKeyIDSecretKey]))
+	assert.Equal(t, secretKey, string(secret.Data[secretAccessKeySecretKey]))
 }

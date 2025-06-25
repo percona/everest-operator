@@ -12,11 +12,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package webhooks ...
+//
+//nolint:lll
 package webhooks
 
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +54,7 @@ type DataImportJobDefaulter struct {
 	Client client.Client
 }
 
+// Default implements a mutating webhook for DataImportJob resources.
 func (d *DataImportJobDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	dij, ok := obj.(*everestv1alpha1.DataImportJob)
 	if !ok {
@@ -80,9 +86,9 @@ func handleS3CredentialsSecret(
 
 	switch {
 	case accessKeyID != "" && secretAccessKey == "":
-		return fmt.Errorf("secretAccessKey is not provided")
+		return errors.New("secretAccessKey is not provided")
 	case accessKeyID == "" && secretAccessKey != "":
-		return fmt.Errorf("accessKeyID is not provided")
+		return errors.New("accessKeyID is not provided")
 	case accessKeyID == "" && secretAccessKey == "":
 		return nil // nothing to do for us
 	}
@@ -107,8 +113,8 @@ func handleS3CredentialsSecret(
 
 //nolint:gosec
 const (
-	AccessKeyIDSecretKey     = "AWS_ACCESS_KEY_ID"
-	SecretAccessKeySecretKey = "AWS_SECRET_ACCESS_KEY"
+	accessKeyIDSecretKey     = "AWS_ACCESS_KEY_ID"
+	secretAccessKeySecretKey = "AWS_SECRET_ACCESS_KEY"
 )
 
 func mutateS3CredentialsSecret(
@@ -118,16 +124,16 @@ func mutateS3CredentialsSecret(
 	switch {
 	case isBase64Encoded(accessKeyID) && isBase64Encoded(secretAccessKey):
 		secret.Data = map[string][]byte{
-			AccessKeyIDSecretKey:     []byte(accessKeyID),
-			SecretAccessKeySecretKey: []byte(secretAccessKey),
+			accessKeyIDSecretKey:     []byte(accessKeyID),
+			secretAccessKeySecretKey: []byte(secretAccessKey),
 		}
 	case !isBase64Encoded(accessKeyID) && !isBase64Encoded(secretAccessKey):
 		secret.StringData = map[string]string{
-			AccessKeyIDSecretKey:     accessKeyID,
-			SecretAccessKeySecretKey: secretAccessKey,
+			accessKeyIDSecretKey:     accessKeyID,
+			secretAccessKeySecretKey: secretAccessKey,
 		}
 	default:
-		return fmt.Errorf("both accessKeyID and secretAccessKey must be either base64 encoded or not")
+		return errors.New("both accessKeyID and secretAccessKey must be either base64 encoded or not")
 	}
 	return nil
 }
