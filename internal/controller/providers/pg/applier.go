@@ -1050,7 +1050,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 }
 
 func getDataSourceStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.BackupStorage, *corev1.Secret, error) {
-	if db.Spec.DataSource == nil {
+	if db.Spec.DataSource == nil || db.Spec.DataSource.DataImport != nil {
 		return nil, nil, errDataSourceNotFound
 	}
 	var dataSourceStorageName string
