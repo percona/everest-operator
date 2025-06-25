@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package psmdb ...
 package psmdb
 
 import (
@@ -36,6 +38,7 @@ import (
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 )
 
+// Cmd is the command for running psmdb import.
 var Cmd = &cobra.Command{
 	Use:  "psmdb",
 	Args: cobra.ExactArgs(1),
@@ -56,13 +59,17 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	psmdbv1.SchemeBuilder.AddToScheme(scheme)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add corev1 to scheme: %w", err)
+	}
+	if err := psmdbv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add psmdbv1 to scheme: %w", err)
+	}
 
 	var (
 		dbName          = cfg.Target.DatabaseClusterRef.Name
 		namespace       = cfg.Target.DatabaseClusterRef.Namespace
-		accessKeyId     = cfg.Source.S3.AccessKeyID
+		accessKeyID     = cfg.Source.S3.AccessKeyID
 		secretAccessKey = cfg.Source.S3.SecretKey
 		endpoint        = cfg.Source.S3.EndpointURL
 		region          = cfg.Source.S3.Region
@@ -76,12 +83,17 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 		return err
 	}
 	psmdbRestoreName := "data-import-" + dbName
-	defer cleanup(ctx, k8sClient, namespace, psmdbRestoreName)
+
+	defer func() {
+		if err := cleanup(ctx, k8sClient, namespace, psmdbRestoreName); err != nil {
+			log.Error().Err(err).Msgf("Failed to clean up after PSMDB import for database %s", dbName)
+		}
+	}()
 
 	log.Info().Msgf("Starting PSMDB import for database %s in namespace %s", dbName, namespace)
 
 	// Prepare S3 credentials secret.
-	if err := prepareS3CredentialSecret(k8sClient, ctx, psmdbRestoreName, namespace, accessKeyId, secretAccessKey); err != nil {
+	if err := prepareS3CredentialSecret(ctx, k8sClient, psmdbRestoreName, namespace, accessKeyID, secretAccessKey); err != nil {
 		return err
 	}
 	log.Info().Msgf("S3 credentials secret %s created in namespace %s", psmdbRestoreName, namespace)
@@ -96,10 +108,10 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 }
 
 func prepareS3CredentialSecret(
-	c client.Client,
 	ctx context.Context,
+	c client.Client,
 	psmdbRestoreName, namespace string,
-	accessKeyId, secretAccessKey string,
+	accessKeyID, secretAccessKey string,
 ) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -110,7 +122,7 @@ func prepareS3CredentialSecret(
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
 		secret.Type = corev1.SecretTypeOpaque
 		secret.StringData = map[string]string{
-			"AWS_ACCESS_KEY_ID":     accessKeyId,
+			"AWS_ACCESS_KEY_ID":     accessKeyID,
 			"AWS_SECRET_ACCESS_KEY": secretAccessKey,
 		}
 		return nil

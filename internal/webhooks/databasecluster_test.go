@@ -92,8 +92,8 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 	const (
 		ns         = "test-ns"
 		secretName = "s3-creds"
-		accessKey  = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey"
-		secretKey  = "ZmFrZVNlY3JldEtleQ==" // base64 for "fakeSecretKey"
+		accessKey  = "ZmFrZUFjY2Vzc0tleQ==" // base64 for "fakeAccessKey" //nolint:gosec
+		secretKey  = "ZmFrZVNlY3JldEtleQ==" // base64 for "fakeSecretKey" //nolint:gosec
 	)
 
 	db := &everestv1alpha1.DatabaseCluster{
@@ -143,11 +143,12 @@ func TestDatabaseClusterValidator(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 	_ = everestv1alpha1.AddToScheme(scheme)
 
+	const userSecretName = "user-secret"
 	t.Run("ValidateCreate", func(t *testing.T) {
 		ns := "test-ns"
 		userSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "user-secret",
+				Name:      userSecretName,
 				Namespace: ns,
 			},
 		}
@@ -186,7 +187,7 @@ func TestDatabaseClusterValidator(t *testing.T) {
 				name:    "missing user secret",
 				objects: nil,
 				modify: func(db *everestv1alpha1.DatabaseCluster) {
-					db.Spec.Engine.UserSecretsName = "user-secret"
+					db.Spec.Engine.UserSecretsName = userSecretName
 				},
 				wantError: "failed to get user secrets",
 			},
@@ -194,7 +195,7 @@ func TestDatabaseClusterValidator(t *testing.T) {
 				name:    "present user secret",
 				objects: []runtime.Object{userSecret},
 				modify: func(db *everestv1alpha1.DatabaseCluster) {
-					db.Spec.Engine.UserSecretsName = "user-secret"
+					db.Spec.Engine.UserSecretsName = userSecretName
 				},
 				wantError: "",
 			},
@@ -254,7 +255,7 @@ func TestDatabaseClusterValidator(t *testing.T) {
 						},
 					}
 					db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePSMDB
-					db.Spec.Engine.UserSecretsName = "user-secret"
+					db.Spec.Engine.UserSecretsName = userSecretName
 				},
 				wantError: "",
 			},

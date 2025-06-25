@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package pg ...
 package pg
 
 import (
@@ -41,6 +43,7 @@ import (
 	"github.com/percona/everest-operator/internal/consts"
 )
 
+// Cmd is the command for running PG import.
 var Cmd = &cobra.Command{
 	Use:  "pg",
 	Args: cobra.ExactArgs(1),
@@ -65,7 +68,7 @@ func runPGImport(
 	var (
 		dbName          = cfg.Target.DatabaseClusterRef.Name
 		namespace       = cfg.Target.DatabaseClusterRef.Namespace
-		accessKeyId     = cfg.Source.S3.AccessKeyID
+		accessKeyID     = cfg.Source.S3.AccessKeyID
 		secretAccessKey = cfg.Source.S3.SecretKey
 		endpoint        = cfg.Source.S3.EndpointURL
 		region          = cfg.Source.S3.Region
@@ -82,9 +85,15 @@ func runPGImport(
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
-	everestv1alpha1.AddToScheme(scheme)
-	pgv2.AddToScheme(scheme)
-	corev1.AddToScheme(scheme)
+	if err := everestv1alpha1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add everestv1alpha1 to scheme: %w", err)
+	}
+	if err := pgv2.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add pgv2 to scheme: %w", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add corev1 to scheme: %w", err)
+	}
 
 	// prepare k8s client.
 	k8sClient, err := client.New(config.GetConfigOrDie(), client.Options{Scheme: scheme})
@@ -118,7 +127,7 @@ func runPGImport(
 	}
 
 	// Populate the PGBackRest secret with the S3 credentials.
-	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyId,
+	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyID,
 		secretAccessKey, namespace); err != nil {
 		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
 	}
@@ -247,7 +256,7 @@ func preparePGBackrestSecret(
 	c client.Client,
 	repoName string,
 	secretName string,
-	accessKeyId, secretAccessKey string,
+	accessKeyID, secretAccessKey string,
 	namespace string,
 ) error {
 	secret := &corev1.Secret{
@@ -265,7 +274,7 @@ func preparePGBackrestSecret(
 		}
 
 		// update new keys
-		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key", repoName)).SetValue(accessKeyId)
+		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key", repoName)).SetValue(accessKeyID)
 		cfg.Section("global").Key(fmt.Sprintf("%s-s3-key-secret", repoName)).SetValue(secretAccessKey)
 
 		// write back to the secret

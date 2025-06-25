@@ -105,6 +105,7 @@ func handleS3CredentialsSecret(
 	return nil
 }
 
+//nolint:gosec
 const (
 	AccessKeyIDSecretKey     = "AWS_ACCESS_KEY_ID"
 	SecretAccessKeySecretKey = "AWS_SECRET_ACCESS_KEY"

@@ -130,7 +130,7 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
-//nolint:nonamedreturns
+//nolint:nonamedreturns,gocognit
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,

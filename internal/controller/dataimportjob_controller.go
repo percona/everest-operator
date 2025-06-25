@@ -16,7 +16,7 @@ package controllers
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -458,7 +458,7 @@ func (r *DataImportJobReconciler) ensureImportJob(
 
 func dataImporterJobName(diJob *everestv1alpha1.DataImportJob) string {
 	uuid := diJob.GetUID()
-	hash := md5.Sum([]byte(uuid))
+	hash := md5.Sum([]byte(uuid)) //nolint:gosec
 	hashStr := hex.EncodeToString(hash[:])
 	return fmt.Sprintf("%s-%s", diJob.GetName(), hashStr[:6])
 }

@@ -120,6 +120,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+//nolint:gocognit
 func main() {
 	var tlsOpts []func(*tls.Config)
 	err := parseConfig()

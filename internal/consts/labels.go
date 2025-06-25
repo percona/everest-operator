@@ -36,18 +36,18 @@ const (
 	// BackupStorageLabelValue is the value for the backup storage label indicating it is used.
 	BackupStorageLabelValue = "used"
 
-	// DataImportJobNameLabel is a label used to identify the name of the DataImportJob that owns a cluster-wide resource.
+	// DataImportJobRefNameLabel is a label used to identify the name of the DataImportJob that owns a cluster-wide resource.
 	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
 	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
 	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
 	DataImportJobRefNameLabel = EverestLabelPrefix + "data-import-job-ref-name"
-	// DataImportJobNamespaceLabel is a label used to identify the namespace of the DataImportJob that owns a cluster-wide resource.
+	// DataImportJobRefNamespaceLabel is a label used to identify the namespace of the DataImportJob that owns a cluster-wide resource.
 	// This label is used to mark ownership on cluster-wide resources by the DataImportJob.
 	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
 	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
 	DataImportJobRefNamespaceLabel = EverestLabelPrefix + "data-import-job-ref-namespace"
-	// MonitoringConfigNameLabel is a label used to identify the name of the monitoring configuration that owns a resource.
+	// MonitoringConfigRefNameLabel is a label used to identify the name of the monitoring configuration that owns a resource.
 	MonitoringConfigRefNameLabel = EverestLabelPrefix + "monitoring-config-ref-name"
-	// MonitoringConfigNamespaceLabel is a label used to identify the namespace of the monitoring configuration that owns a resource.
+	// MonitoringConfigRefNamespaceLabel is a label used to identify the namespace of the monitoring configuration that owns a resource.
 	MonitoringConfigRefNamespaceLabel = EverestLabelPrefix + "monitoring-config-ref-namespace"
 )

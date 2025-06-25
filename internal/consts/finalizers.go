@@ -17,6 +17,7 @@
 package consts
 
 const (
+	// EverestFinalizerPrefix is the prefix for all Everest operator finalizers.
 	EverestFinalizerPrefix = "everest.percona.com/"
 
 	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.

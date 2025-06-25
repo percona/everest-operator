@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package pxc ...
 package pxc
 
 import (
@@ -38,6 +40,7 @@ import (
 	"github.com/percona/everest-operator/internal/consts"
 )
 
+// Cmd is the command for running PXC import.
 var Cmd = &cobra.Command{
 	Use:  "pxc",
 	Args: cobra.ExactArgs(1),
@@ -58,14 +61,20 @@ func runPXCImport(ctx context.Context, configPath string) error {
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	everestv1alpha1.AddToScheme(scheme)
-	pxcv1.SchemeBuilder.AddToScheme(scheme)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add corev1 to scheme: %w", err)
+	}
+	if err := everestv1alpha1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add everestv1alpha1 to scheme: %w", err)
+	}
+	if err := pxcv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add pxcv1 to scheme: %w", err)
+	}
 
 	var (
 		dbName          = cfg.Target.DatabaseClusterRef.Name
 		namespace       = cfg.Target.DatabaseClusterRef.Namespace
-		accessKeyId     = cfg.Source.S3.AccessKeyID
+		accessKeyID     = cfg.Source.S3.AccessKeyID
 		secretAccessKey = cfg.Source.S3.SecretKey
 		endpoint        = cfg.Source.S3.EndpointURL
 		region          = cfg.Source.S3.Region
@@ -93,12 +102,16 @@ func runPXCImport(ctx context.Context, configPath string) error {
 	}()
 
 	pxcRestoreName := "data-import-" + dbName
-	defer cleanup(ctx, k8sClient, namespace, pxcRestoreName)
+	defer func() {
+		if err := cleanup(ctx, k8sClient, namespace, pxcRestoreName); err != nil {
+			log.Error().Err(err).Msgf("Failed to clean up after PXC import for database %s", dbName)
+		}
+	}()
 
 	log.Info().Msgf("Starting PXC import for database %s in namespace %s", dbName, namespace)
 
 	// Prepare S3 credentials secret.
-	if err := prepareS3CredentialSecret(k8sClient, ctx, pxcRestoreName, namespace, accessKeyId, secretAccessKey); err != nil {
+	if err := prepareS3CredentialSecret(ctx, k8sClient, pxcRestoreName, namespace, accessKeyID, secretAccessKey); err != nil {
 		return err
 	}
 	log.Info().Msgf("S3 credentials secret %s created in namespace %s", pxcRestoreName, namespace)
@@ -155,8 +168,8 @@ func unpauseDBReconciliation(
 }
 
 func prepareS3CredentialSecret(
-	c client.Client,
 	ctx context.Context,
+	c client.Client,
 	pxcRestoreName, namespace string,
 	accessKeyId, secretAccessKey string,
 ) error {

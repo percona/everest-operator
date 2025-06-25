@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package dataimporterspec ...
 package dataimporterspec
 
 import (
@@ -22,7 +24,7 @@ import (
 
 // ReadFromFilepath reads the configuration from a JSON file at the specified filepath.
 func (in *Spec) ReadFromFilepath(filepath string) error {
-	data, err := os.ReadFile(filepath)
+	data, err := os.ReadFile(filepath) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
