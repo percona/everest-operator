@@ -187,16 +187,6 @@ cluster-cleanup:
 
 ##@ Build
 
-test-e2e-%: build ## Run e2e tests in a live cluster
-	PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION) \
-	PSMDB_OPERATOR_VERSION=$(PSMDB_OPERATOR_VERSION) \
-	PG_OPERATOR_VERSION=$(PG_OPERATOR_VERSION) \
-	PERCONA_VERSION_SERVICE_URL=$(PERCONA_VERSION_SERVICE_URL) \
-	PREVIOUS_PG_OPERATOR_VERSION=$(PREVIOUS_PG_OPERATOR_VERSION) \
-	PREVIOUS_PXC_OPERATOR_VERSION=$(PREVIOUS_PXC_OPERATOR_VERSION) \
-	PREVIOUS_PSMDB_OPERATOR_VERSION=$(PREVIOUS_PSMDB_OPERATOR_VERSION) \
-	kubectl kuttl test --config ./tests/e2e/kuttl-$*.yaml
-
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
