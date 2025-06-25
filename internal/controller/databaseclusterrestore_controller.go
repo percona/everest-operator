@@ -845,15 +845,26 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	if err != nil {
 		return err
 	}
-	name, nErr := backupStorageName(pgRestore.Spec.RepoName, pg, storages)
-	if nErr != nil {
-		return nErr
+	// The restore that we try to create when pg-restore CR appears is always a bootstrap restore
+	// so we take the DataSource details from the dbCluster.DataSource.
+	if cluster.Spec.DataSource != nil {
+		if cluster.Spec.DataSource.DBClusterBackupName != "" {
+			restore.Spec.DataSource.DBClusterBackupName = cluster.Spec.DataSource.DBClusterBackupName
+		}
+		if cluster.Spec.DataSource.BackupSource != nil {
+			restore.Spec.DataSource.BackupSource = &everestv1alpha1.BackupSource{
+				Path:              "",
+				BackupStorageName: cluster.Spec.DataSource.BackupSource.BackupStorageName,
+			}
+		}
+		if cluster.Spec.DataSource.PITR != nil {
+			restore.Spec.DataSource.PITR = &everestv1alpha1.PITR{
+				Type: cluster.Spec.DataSource.PITR.Type,
+				Date: cluster.Spec.DataSource.PITR.Date,
+			}
+		}
 	}
 
-	restore.Spec.DataSource.BackupSource = &everestv1alpha1.BackupSource{
-		Path:              "",
-		BackupStorageName: name,
-	}
 	restore.ObjectMeta.Labels = map[string]string{
 		databaseClusterNameLabel: pgRestore.Spec.PGCluster,
 	}
