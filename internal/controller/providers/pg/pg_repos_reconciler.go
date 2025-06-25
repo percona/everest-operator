@@ -408,7 +408,7 @@ func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage
 	// cluster if the only repo in the list is changed.
 	newRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
-			Name: "repo1",
+			Name: repo1Name,
 			Volume: &crunchyv1beta1.RepoPVC{
 				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{

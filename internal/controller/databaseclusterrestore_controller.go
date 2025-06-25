@@ -668,6 +668,10 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 }
 
 func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName string) ([]string, error) {
+	// it happens for bootstraped restores, they only appear with the repoName and clusterName, no details about the particular backup
+	if backupBaseName == "." {
+		return []string{}, nil
+	}
 	options := []string{
 		"--set=" + backupBaseName,
 	}
