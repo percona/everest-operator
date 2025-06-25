@@ -1,0 +1,21 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+spec:
+  engine:
+    replicas: 2
+    resources:
+      cpu: "1"
+      memory: 4G
+    storage:
+      size: 25Gi
+    type: psmdb
+    userSecretsName: everest-secrets-test-psmdb-cluster
+  proxy:
+    expose:
+      type: internal

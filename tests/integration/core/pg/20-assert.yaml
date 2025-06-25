@@ -1,24 +1,53 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 10
+timeout: 30
+collectors:
+  - command: kubectl get dbc/test-pg-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get perconapgcluster/test-pg-cluster -n ${NAMESPACE} -o yaml
+
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: test-pg-cluster
+    ref: db
+  - apiVersion: pgv2.percona.com/v2
+    kind: PerconaPGCluster
+    name: test-pg-cluster
+    ref: pg
+assertAll:
+  - celExpr: "has(db.metadata.finalizers)"
+    message: "db doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/upstream-cluster-cleanup' in db.metadata.finalizers"
+    message: "'everest.percona.com/upstream-cluster-cleanup' is absent in db.metadata.finalizers"
+
+  - celExpr: "'foregroundDeletion' in db.metadata.finalizers"
+    message: "foregroundDeletion' is absent in db.metadata.finalizers"
+
+  - celExpr: "has(pg.metadata.finalizers)"
+    message: "pg doesn't have finalizers"
+
+  - celExpr: "'percona.com/delete-pvc' in pg.metadata.finalizers"
+    message: "'percona.com/delete-pvc' is absent in pg.metadata.finalizers"
+
+  - celExpr: "'percona.com/delete-ssl' in pg.metadata.finalizers"
+    message: "percona.com/delete-ssl' is absent in pg.metadata.finalizers"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
   name: test-pg-cluster
-  finalizers:
-  - everest.percona.com/upstream-cluster-cleanup
-  - foregroundDeletion
-  labels:
-    clusterName: test-pg-cluster
-    podSchedulingPolicyName: everest-default-postgresql
 spec:
-  podSchedulingPolicyName: everest-default-postgresql
   backup:
     pitr:
       enabled: false
   engine:
-    replicas: 1
+    replicas: 3
     resources:
       cpu: "1"
       memory: 2G
@@ -29,60 +58,53 @@ spec:
   proxy:
     expose:
       type: internal
-    replicas: 1
+    replicas: 3
     resources:
       cpu: "1"
       memory: 30M
     type: pgbouncer
+status:
+  status: ready
 ---
 apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: test-pg-cluster
-  finalizers:
-    - percona.com/delete-pvc
-    - percona.com/delete-ssl
 spec:
   backups:
     pgbackrest:
       configuration:
-      - secret:
-          name: test-pg-cluster-pgbackrest-secrets
+        - secret:
+            name: test-pg-cluster-pgbackrest-secrets
       global:
         repo1-retention-full: "1"
       manual:
         repoName: repo1
       repos:
-      - name: repo1
-        volume:
-          volumeClaimSpec:
-            accessModes:
-            - ReadWriteOnce
-            resources:
-              requests:
-                storage: 25Gi
+        - name: repo1
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 25Gi
   extensions:
     builtin: {}
     storage: {}
   instances:
-  - affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-        - podAffinityTerm:
-            topologyKey: kubernetes.io/hostname
-          weight: 1
-    dataVolumeClaimSpec:
-      accessModes:
-      - ReadWriteOnce
+    - dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 25Gi
+      name: instance1
+      replicas: 3
       resources:
-        requests:
-          storage: 25Gi
-    name: instance1
-    replicas: 1
-    resources:
-      limits:
-        cpu: "1"
-        memory: 2G
+        limits:
+          cpu: "1"
+          memory: 2G
   patroni:
     dynamicConfiguration:
       postgresql:
@@ -95,23 +117,17 @@ spec:
   port: 5432
   proxy:
     pgBouncer:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-            weight: 1
       config: {}
       expose:
         type: ClusterIP
       exposeSuperusers: true
       port: 5432
-      replicas: 1
+      replicas: 3
       resources:
         limits:
           cpu: "1"
           memory: 30M
   secrets: {}
   users:
-  - name: postgres
-    secretName: everest-secrets-test-pg-cluster
+    - name: postgres
+      secretName: everest-secrets-test-pg-cluster

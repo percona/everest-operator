@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestAssert
-timeout: 60
-commands:
-  - script: >
-      test "$(kubectl get psmdb-backup test-db-backup -n $NAMESPACE -o jsonpath='{.metadata.finalizers}')" = ""

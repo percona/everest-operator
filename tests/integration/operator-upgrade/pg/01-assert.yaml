@@ -1,0 +1,59 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 2
+collectors:
+    - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+    - command: kubectl get databaseengines/percona-postgresql-operator -n ${NAMESPACE} -o yaml
+    - type: pod
+      namespace: everest-system
+      selector: control-plane=controller-manager
+      tail: 100
+commands:
+  # After the operator is installed, we can check the available versions match the expected versions from Version Service
+  - script: >
+      bash -c "
+        diff                                                                                               \
+        <(                                                                                                 \
+          kubectl get dbengine/percona-postgresql-operator -n ${NAMESPACE} -o yaml |                         \
+          yq -P '.status | sort_keys(..)'                                                                  \
+        )                                                                                                  \
+        <(                                                                                                 \
+          curl -fsSL https://check-dev.percona.com/versions/v1/pg-operator/${PREVIOUS_PG_OPERATOR_VERSION} | \
+          yq -P '
+            .versions[] |
+            {
+                \"status\": \"installed\",
+                \"operatorVersion\": .operator,
+                \"availableVersions\": {
+                    \"engine\":
+                        .matrix.postgresql | to_entries.[] as \$item ireduce({};
+                            .[\$item.key] = {
+                                \"imageHash\": \$item.value.imageHash,
+                                \"imagePath\": \$item.value.imagePath,
+                                \"status\": \$item.value.status
+                            }
+                        ),
+                    \"backup\":
+                        .matrix.pgbackrest | to_entries.[] as \$item ireduce({};
+                            .[\$item.key] = {
+                                \"imageHash\": \$item.value.imageHash,
+                                \"imagePath\": \$item.value.imagePath,
+                                \"status\": \$item.value.status
+                            }
+                        ),
+                    \"proxy\": {
+                        \"pgbouncer\":
+                            .matrix.pgbouncer | to_entries.[] as \$item ireduce({};
+                               .[\$item.key] = {
+                                   \"imageHash\": \$item.value.imageHash,
+                                   \"imagePath\": \$item.value.imagePath,
+                                   \"status\": \$item.value.status
+                               }
+                            )
+                    }
+                }
+            } |
+            sort_keys(..)
+          '                                                                                                \
+        )                                                                                                  \
+      "

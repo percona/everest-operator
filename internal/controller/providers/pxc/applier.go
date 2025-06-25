@@ -70,11 +70,12 @@ func (p *applier) Paused(paused bool) {
 	p.Provider.PerconaXtraDBCluster.Spec.Pause = paused
 }
 
-//nolint:staticcheck //using deprecated field for backward compatibility
+//nolint:staticcheck
 func (p *applier) AllowUnsafeConfig() {
 	p.PerconaXtraDBCluster.Spec.AllowUnsafeConfig = false
 	useInsecureSize := p.DB.Spec.Engine.Replicas == 1 || p.DB.Spec.AllowUnsafeConfiguration
 	p.PerconaXtraDBCluster.Spec.Unsafe = pxcv1.UnsafeFlags{
+		// using deprecated field for backward compatibility
 		TLS:               p.DB.Spec.AllowUnsafeConfiguration,
 		PXCSize:           useInsecureSize,
 		ProxySize:         useInsecureSize,
@@ -737,7 +738,7 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	storages := make(map[string]*pxcv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.ListDatabaseClusterBackups(p.ctx, p.C, database.GetName(), database.GetNamespace())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(p.ctx, p.C, consts.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return nil, err
 	}

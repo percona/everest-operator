@@ -1,0 +1,109 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get psp/everest-default-mongodb -o yaml
+  - command: kubectl -n $NAMESPACE get db/psmdb-psp -o yaml
+  - command: kubectl -n $NAMESPACE get psmdb/psmdb-psp -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: everest-default-mongodb
+    ref: psp
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: psmdb-psp
+    ref: db
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-psp
+    ref: psmdb
+assertAll:
+  - celExpr: "has(psp.metadata.finalizers)"
+    message: "psp doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/readonly-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/readonly-protection' is absent in psp.metadata.finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in psp.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in psp.metadata.finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: PodSchedulingPolicy
+metadata:
+  name: everest-default-mongodb
+spec:
+  engineType: psmdb
+  affinityConfig:
+    psmdb:
+      engine:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      proxy:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+      configServer:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+status:
+  inUse: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-psp
+spec:
+  podSchedulingPolicyName: everest-default-mongodb
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: psmdb-psp
+spec:
+  replsets:
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+      name: rs0
+    - affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+      name: rs1
+  sharding:
+    configsvrReplSet:
+      affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1
+    mongos:
+      affinity:
+        advanced:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - podAffinityTerm:
+                  topologyKey: kubernetes.io/hostname
+                weight: 1

@@ -201,6 +201,9 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
 	pg := &crunchyv1beta1.PostgresCluster{}
 	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to get PostgreSQL cluster: %w", err)
 	}
 

@@ -29,8 +29,13 @@ const (
 
 	// DBClusterRestoreDBClusterNameField is the field in the DatabaseClusterRestore CR.
 	DBClusterRestoreDBClusterNameField = ".spec.dbClusterName"
+
 	// DBClusterBackupDBClusterNameField is the field in the DatabaseClusterBackup CR.
 	DBClusterBackupDBClusterNameField = ".spec.dbClusterName"
+	// DBClusterBackupBackupStorageNameField is the field in the DatabaseClusterBackup CR.
+	DBClusterBackupBackupStorageNameField = ".spec.backupStorageName"
+	// DBClusterBackupDataSourceNameField is the field in the DatabaseClusterBackup CR.
+	DataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
 
 	// TopologyKeyHostname is the topology key for hostname.
 	TopologyKeyHostname = "kubernetes.io/hostname"
@@ -62,6 +67,9 @@ const (
 	ClusterTypeEKS ClusterType = "eks"
 	// ClusterTypeMinikube represents the Minikube cluster type.
 	ClusterTypeMinikube ClusterType = "minikube"
+
+	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
+	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"

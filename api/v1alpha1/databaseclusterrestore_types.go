@@ -135,7 +135,6 @@ func (t *RestoreDate) UnmarshalJSON(b []byte) error {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=dbrestore;dbr
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.dbClusterName",description="Cluster name"
 // +kubebuilder:printcolumn:name="Backup",type="string",JSONPath=".spec.dataSource.dbClusterBackupName",description="DBClusterBackup name"
@@ -154,7 +153,7 @@ type DatabaseClusterRestore struct {
 	Status DatabaseClusterRestoreStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DatabaseClusterRestoreList contains a list of DatabaseClusterRestore.
 type DatabaseClusterRestoreList struct {

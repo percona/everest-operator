@@ -3,6 +3,7 @@ kind: TestAssert
 timeout: 300
 commands:
   - command: kubectl wait --for=jsonpath='{.status.crVersion}'=${PSMDB_OPERATOR_VERSION} db/test-psmdb-cluster -n "${NAMESPACE}"
+  - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PSMDB_DB_ENGINE_VERSION} db/test-psmdb-cluster -n "${NAMESPACE}"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -11,7 +12,6 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 7.0.12-7
     config: |
      operationProfiling:
         mode: slowOp
@@ -38,7 +38,6 @@ metadata:
     - percona.com/delete-psmdb-pods-in-order
     - percona.com/delete-psmdb-pvc
 spec:
-  image: percona/percona-server-mongodb:7.0.12-7
   multiCluster:
     enabled: false
   replsets:
@@ -51,15 +50,15 @@ spec:
       resources:
         limits:
           cpu: 300m
-          memory:  500M
-      size:        3
+          memory: 500M
+      size: 3
       volumeSpec:
         persistentVolumeClaim:
           resources:
             requests:
               storage: 15G
   secrets:
-    users:  psmdb-sample-secrets
+    users: psmdb-sample-secrets
   sharding:
     enabled: false
 status:

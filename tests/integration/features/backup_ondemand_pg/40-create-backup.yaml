@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseClusterBackup
+metadata:
+  name: test-db-backup-s3-2
+spec:
+  backupStorageName: test-storage-s3
+  dbClusterName: test-pg-cluster
