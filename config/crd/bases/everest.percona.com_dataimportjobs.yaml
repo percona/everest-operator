@@ -46,6 +46,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: DataImportJobSpec defines the desired state of DataImportJob.
             properties:
               config:
                 description: |-
@@ -124,6 +125,7 @@ spec:
             - targetClusterName
             type: object
           status:
+            description: DataImportJobStatus defines the observed state of DataImportJob.
             properties:
               completedAt:
                 description: CompletedAt is the time when the data import job completed

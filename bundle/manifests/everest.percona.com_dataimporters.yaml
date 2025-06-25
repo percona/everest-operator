@@ -210,6 +210,7 @@ spec:
                 type: array
             type: object
           status:
+            description: DataImporterStatus defines the status of the DataImporter.
             type: object
         type: object
     served: true
