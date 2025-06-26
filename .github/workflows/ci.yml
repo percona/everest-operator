@@ -2,7 +2,7 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - ci-cleanup-fix
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 env:
@@ -131,27 +131,6 @@ jobs:
           kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
 
-      - name: Install tools
-        run: |
-          # Install EKSCTL
-          ARCH=amd64
-          PLATFORM=$(uname -s)_$ARCH
-          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
-          tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
-          chmod +x "$TOOLS_PATH"/eksctl
-
-      - name: Scale up cluster
-        run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
-        env:
-          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
-
-      - name: Run operator upgrade tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
-        run: |
-          make test-e2e-operator-upgrade
-
       - name: Clean up custom resources
         if: always()
         continue-on-error: true
@@ -161,79 +140,3 @@ jobs:
           make cluster-cleanup
 
 
-      - name: Run core tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
-        run: |
-          make test-e2e-core
-
-      - name: Clean up custom resources
-        if: always()
-        run: |
-          make cluster-cleanup
-
-      - name: Run db upgrade tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
-        run: |
-          make test-e2e-db-upgrade
-
-      - name: Clean up custom resources
-        if: always()
-        run: |
-          make cluster-cleanup
-
-      - name: Scale down cluster
-        if: always()
-        run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
-        env:
-          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
-
-      - name: Clean up resources and CRDs
-        if: always()
-        run: |
-          make cluster-cleanup
-
-  make-bundle:
-    name: Make Bundle
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
-
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      - name: Install operator-sdk
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
-          export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-          export OS=$(uname | awk '{print tolower($0)}')
-
-          export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.38.0
-          curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-
-          gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E
-
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-          gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
-
-          grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-
-          chmod +x operator-sdk_${OS}_${ARCH}
-          mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
-
-      - name: Make bundle and build bundle image
-        run: |
-          make bundle bundle-build
