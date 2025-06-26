@@ -287,7 +287,7 @@ type DataSource struct {
 	// DataImport allows importing data from an external backup source.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec.dataSource.dataImport is immutable"
-	DataImport *DataImportJobTemplate `json:"dataImport"`
+	DataImport *DataImportJobTemplate `json:"dataImport,omitempty"`
 }
 
 // BackupSchedule is the backup schedule configuration.
