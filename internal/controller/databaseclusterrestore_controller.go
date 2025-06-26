@@ -805,6 +805,11 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		return err
 	}
 
+	if val, ok := pgRestore.GetAnnotations()[consts.ManagedByDataImportAnnotation]; ok && val == consts.ManagedByDataImportAnnotationValueTrue {
+		// part of data import, do not create a DBR.
+		return nil
+	}
+
 	pg := &pgv2.PerconaPGCluster{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: pgRestore.Spec.PGCluster}, pg); err != nil {
 		// if such upstream cluster is not found - do nothing

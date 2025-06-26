@@ -35,7 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 // Cmd is the command for running psmdb import.
@@ -59,6 +61,9 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
+	if err := everestv1alpha1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("failed to add everestv1alpha1 to scheme: %w", err)
+	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("failed to add corev1 to scheme: %w", err)
 	}
@@ -154,7 +159,20 @@ func runPSMDBRestoreAndWait(
 		},
 	}
 
+	db := &everestv1alpha1.DatabaseCluster{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, db); err != nil {
+		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+	}
+
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, psmdbRestore, func() error {
+		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
+		psmdbRestore.SetAnnotations(map[string]string{
+			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
+		if err := controllerutil.SetOwnerReference(db, psmdbRestore, c.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference for PerconaPGRestore %s/%s: %w", namespace, psmdbRestoreName, err)
+		}
 		psmdbRestore.Spec = psmdbv1.PerconaServerMongoDBRestoreSpec{
 			ClusterName: dbName,
 			BackupSource: &psmdbv1.PerconaServerMongoDBBackupStatus{
