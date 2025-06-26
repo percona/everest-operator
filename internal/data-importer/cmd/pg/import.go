@@ -343,6 +343,11 @@ func runPGRestoreAndWait(
 	repoName string,
 	dbName, namespace string,
 ) error {
+	db := &everestv1alpha1.DatabaseCluster{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, db); err != nil {
+		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+	}
+
 	pgRestore := &pgv2.PerconaPGRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      restoreName,
@@ -350,6 +355,14 @@ func runPGRestoreAndWait(
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, pgRestore, func() error {
+		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
+		pgRestore.SetAnnotations(map[string]string{
+			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
+		if err := controllerutil.SetOwnerReference(db, pgRestore, c.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference for PerconaPGRestore %s/%s: %w", namespace, restoreName, err)
+		}
 		pgRestore.Spec = pgv2.PerconaPGRestoreSpec{
 			PGCluster: dbName,
 			RepoName:  repoName,

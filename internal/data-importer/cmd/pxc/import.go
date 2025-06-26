@@ -223,7 +223,20 @@ func runPXCRestoreAndWait(
 		},
 	}
 
+	db := &everestv1alpha1.DatabaseCluster{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, db); err != nil {
+		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+	}
+
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, pxcRestore, func() error {
+		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
+		pxcRestore.SetAnnotations(map[string]string{
+			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
+		if err := controllerutil.SetOwnerReference(db, pxcRestore, c.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference for PerconaXtraDBClusterRestore %s/%s: %w", namespace, pxcRestoreName, err)
+		}
 		pxcRestore.Spec = pxcv1.PerconaXtraDBClusterRestoreSpec{
 			PXCCluster: dbName,
 			BackupSource: &pxcv1.PXCBackupStatus{

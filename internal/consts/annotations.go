@@ -26,4 +26,8 @@ const (
 	PauseReconcileAnnotationValueTrue = "true"
 	// RestartAnnotation is the annotation used to trigger a restart of a database cluster.
 	RestartAnnotation = EverestAnnotationPrefix + "restart"
+	// ManagedByDataImportAnnotation is the annotation used to indicate that a resource is managed by a data import process.
+	ManagedByDataImportAnnotation = EverestAnnotationPrefix + "managed-by-data-import"
+	// ManagedByDataImportAnnotationValueTrue is the value for the ManagedByDataImportAnnotation to indicate that the resource is managed by data import.
+	ManagedByDataImportAnnotationValueTrue = "true"
 )
