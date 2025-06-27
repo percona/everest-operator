@@ -122,7 +122,7 @@ func runPGImport(
 	}()
 
 	repoName := "repo1"
-	pgBackRestSecretName, err := createPGBackrestSecret(ctx, k8sClient, repoName, namespace,
+	pgBackRestSecretName, err := createPGBackrestSecret(ctx, k8sClient, dbName, repoName, namespace,
 		accessKeyID, secretAccessKey)
 	if err != nil {
 		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
@@ -203,53 +203,12 @@ func unpauseDBReconciliation(
 	return setDBReconciliationPause(ctx, c, name, namespace, false)
 }
 
-func preparePGBackrestSecret(
-	ctx context.Context,
-	c client.Client,
-	repoName string,
-	secretName string,
-	accessKeyID, secretAccessKey string,
-	namespace string,
-) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
-		// parse the current conf
-		s3Conf := secret.Data["s3.conf"]
-		cfg, err := ini.LoadSources(ini.LoadOptions{}, s3Conf)
-		if err != nil {
-			return fmt.Errorf("failed to load PGBackRest S3 config: %w", err)
-		}
-
-		// update new keys
-		cfg.Section("global").Key(repoName + "-s3-key").SetValue(accessKeyID)
-		cfg.Section("global").Key(repoName + "-s3-key-secret").SetValue(secretAccessKey)
-
-		// write back to the secret
-		w := strings.Builder{}
-		if _, err := cfg.WriteTo(&w); err != nil {
-			return fmt.Errorf("failed to write PGBackRest S3 config: %w", err)
-		}
-		if secret.StringData == nil {
-			secret.StringData = make(map[string]string)
-		}
-		secret.StringData["s3.conf"] = w.String()
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to create or update PGBackrest secret: %w", err)
-	}
-	return nil
-}
-
 // createPGBackrestSecret creates a Secret for PGBackRest.
 // Returns the name of the created secret or an error if it fails.
 func createPGBackrestSecret(
 	ctx context.Context,
 	c client.Client,
+	dbName string,
 	repoName,
 	namespace,
 	accessKeyID,
@@ -258,7 +217,7 @@ func createPGBackrestSecret(
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      fmt.Sprintf("%s-s3-dataimport-pgbackrest", repoName),
+			Name:      dbName + "-s3-data-import-pgbackrest",
 		},
 	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
@@ -369,16 +328,17 @@ func restorePGCluster(
 	if err := k8sClient.Delete(ctx, pg); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
 	}
-	if err := wait.PollUntilContextTimeout(ctx, defaultRetryInterval, time.Minute*5, false, func(ctx context.Context) (bool, error) {
-		pgCheck := &pgv2.PerconaPGCluster{}
-		if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: pg.GetNamespace(), Name: pg.GetName()}, pgCheck); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return true, nil // successfully deleted
+	if err := wait.PollUntilContextTimeout(ctx, defaultRetryInterval, time.Minute*5, //nolint:mnd
+		false, func(ctx context.Context) (bool, error) {
+			pgCheck := &pgv2.PerconaPGCluster{}
+			if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: pg.GetNamespace(), Name: pg.GetName()}, pgCheck); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return true, nil // successfully deleted
+				}
+				return false, fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
 			}
-			return false, fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
-		}
-		return false, nil // still exists, keep waiting
-	}); err != nil {
+			return false, nil // still exists, keep waiting
+		}); err != nil {
 		return fmt.Errorf("failed to wait for PerconaPGCluster %s/%s deletion: %w", pg.GetNamespace(), pg.GetName(), err)
 	}
 
