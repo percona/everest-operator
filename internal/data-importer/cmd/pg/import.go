@@ -24,13 +24,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -56,6 +57,14 @@ var Cmd = &cobra.Command{
 	},
 }
 
+// Unlike PXC and PSMDB operators, which allow you to restore external data on a running cluster,
+// the PG operator works somewhat differently. It requires the .spec.dataSource field to be set on the PGCluster resource
+// at creation time for a restore operation. If .spec.dataSource is added or modified after the cluster is running,
+// the bootstrap (restore) process will not re-execute, and the restore will not occur.
+// However, by the time the Data importer runs, the PGCluster has already been bootstraped and is running.
+// To ensure a successful restore, we delete and re-create the PGCluster with the correct dataSource configuration.
+// This guarantees the bootstrap process is triggered and the restore is applied as intended.
+// Although this approach involves re-creating the cluster, it ensures the data import workflow is consistent.
 func runPGImport(
 	ctx context.Context,
 	configPath string,
@@ -73,6 +82,7 @@ func runPGImport(
 		endpoint        = cfg.Source.S3.EndpointURL
 		region          = cfg.Source.S3.Region
 		backupPath      = cfg.Source.Path
+		bucket          = cfg.Source.S3.Bucket
 		uriStyle        = "host"
 	)
 	if cfg.Source.S3.ForcePathStyle {
@@ -80,8 +90,6 @@ func runPGImport(
 	}
 
 	log.Info().Msgf("Importing PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)
-
-	baseBackupName, dbDir := parseBackupPath(backupPath)
 
 	// prepare API scheme.
 	scheme := runtime.NewScheme()
@@ -113,68 +121,27 @@ func runPGImport(
 		}
 	}()
 
-	repoName, err := getRepoName(ctx, k8sClient, dbName, namespace)
+	repoName := "repo1"
+	pgBackRestSecretName, err := createPGBackrestSecret(ctx, k8sClient, repoName, namespace,
+		accessKeyID, secretAccessKey)
 	if err != nil {
-		return fmt.Errorf("failed to get repo name: %w", err)
+		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
 	}
 
-	restoreName := "data-import-" + dbName
-
-	// Get the name of the PGBackRest secret configured by Everest.
-	pgBackRestSecretName, err := getPGBackrestSecretName(ctx, k8sClient, dbName, namespace)
+	pgCopy, err := copyPGCluster(ctx, k8sClient, dbName, namespace)
 	if err != nil {
-		return fmt.Errorf("failed to get PGBackRest secret name: %w", err)
+		return fmt.Errorf("failed to copy PGCluster %s/%s: %w", namespace, dbName, err)
 	}
 
-	// Populate the PGBackRest secret with the S3 credentials.
-	if err := preparePGBackrestSecret(ctx, k8sClient, repoName, pgBackRestSecretName, accessKeyID,
-		secretAccessKey, namespace); err != nil {
-		return fmt.Errorf("failed to prepare PGBackrest secret: %w", err)
-	}
+	backupName, repoPath := parseBackupPath(backupPath)
+	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint, region, uriStyle, pgCopy)
 
-	if err := preparePGBackrestRepo(ctx,
-		k8sClient, repoName,
-		dbDir, uriStyle, cfg.Source.S3.Bucket, endpoint, region,
-		dbName, namespace); err != nil {
-		return fmt.Errorf("failed to prepare PGBackrest repo: %w", err)
-	}
-
-	if err := runPGRestoreAndWait(ctx, k8sClient, baseBackupName, restoreName, repoName, dbName, namespace); err != nil {
-		return fmt.Errorf("failed to run PG restore: %w", err)
+	if err := restorePGCluster(ctx, k8sClient, pgCopy); err != nil {
+		return fmt.Errorf("failed to restore PGCluster %s/%s: %w", namespace, dbName, err)
 	}
 
 	log.Info().Msgf("Successfully imported PostgreSQL data from %s to %s/%s", backupPath, namespace, dbName)
-
-	// After restore is complete, the database users and passwords are reverted to those from the backup.
-	// This causes a mismatch between the actual database credentials and the Kubernetes User Secret.
-	// The PG operator does not automatically detect this drift, so it will not update the database passwords.
-	// To resolve this, we clear the User Secret, prompting the PG operator to regenerate new credentials
-	// and synchronize with the DB.
-	if err := resetUserSecrets(ctx, k8sClient, dbName, namespace); err != nil {
-		return fmt.Errorf("failed to reset user secrets: %w", err)
-	}
-	log.Info().Msg("User credentials have been reset")
 	return nil
-}
-
-func getPGBackrestSecretName(
-	ctx context.Context,
-	c client.Client,
-	dbName, namespace string,
-) (string, error) {
-	pg := &pgv2.PerconaPGCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
-		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
-	}
-	if len(pg.Spec.Backups.PGBackRest.Configuration) == 0 {
-		return "", fmt.Errorf("no PGBackRest configuration found for %s/%s", namespace, dbName)
-	}
-	// This property is guaranteed to be set by Everest operator.
-	cfg := pg.Spec.Backups.PGBackRest.Configuration[0]
-	if cfg.Secret == nil || cfg.Secret.Name == "" {
-		return "", fmt.Errorf("PGBackRest secret name is not set for %s/%s", namespace, dbName)
-	}
-	return cfg.Secret.Name, nil
 }
 
 // returns: [baseBackupName, DBDirectory]
@@ -187,26 +154,6 @@ func parseBackupPath(fullPath string) (string, string) {
 	base := filepath.Base(fullPath)
 	fullPath = strings.TrimSuffix(fullPath, "backup/db/"+base)
 	return base, fullPath
-}
-
-func getRepoName(
-	ctx context.Context,
-	c client.Client,
-	dbName, namespace string,
-) (string, error) {
-	pg := &pgv2.PerconaPGCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
-		return "", fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
-	}
-	l := len(pg.Spec.Backups.PGBackRest.Repos)
-	if l >= 4 { //nolint:mnd
-		return "", fmt.Errorf("too many PGBackRest repos configured for %s/%s: %d", namespace, dbName, l)
-	}
-	repoIdx := len(pg.Spec.Backups.PGBackRest.Repos) + 1
-	if repoIdx < 0 {
-		repoIdx = 0
-	}
-	return fmt.Sprintf("repo%d", repoIdx), nil
 }
 
 func setDBReconciliationPause(
@@ -293,154 +240,153 @@ func preparePGBackrestSecret(
 	return nil
 }
 
-func preparePGBackrestRepo(
+// createPGBackrestSecret creates a Secret for PGBackRest.
+// Returns the name of the created secret or an error if it fails.
+func createPGBackrestSecret(
 	ctx context.Context,
 	c client.Client,
-	repoName string,
-	dbDirPath string,
-	uriStyle string,
-	bucket, endpoint, region string,
-	dbName, namespace string,
-) error {
-	pg := &pgv2.PerconaPGCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
-		return fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
-	}
-
-	if pg.Spec.Backups.PGBackRest.Global == nil {
-		pg.Spec.Backups.PGBackRest.Global = make(map[string]string)
-	}
-
-	// configure global settings
-	pg.Spec.Backups.PGBackRest.Global[repoName+"-path"] = dbDirPath
-	pg.Spec.Backups.PGBackRest.Global[repoName+"-s3-uri-style"] = uriStyle
-
-	// configure PG repo
-	pg.Spec.Backups.PGBackRest.Repos = append(pg.Spec.Backups.PGBackRest.Repos, crunchyv1beta1.PGBackRestRepo{
-		Name: repoName,
-		S3: &crunchyv1beta1.RepoS3{
-			Bucket:   bucket,
-			Endpoint: endpoint,
-			Region:   region,
+	repoName,
+	namespace,
+	accessKeyID,
+	secretAccessKey string,
+) (string, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      fmt.Sprintf("%s-s3-dataimport-pgbackrest", repoName),
 		},
-	})
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
+		cfg, err := ini.LoadSources(ini.LoadOptions{}, []byte{})
+		if err != nil {
+			return fmt.Errorf("failed to load PGBackRest S3 config: %w", err)
+		}
 
-	// retry update operation to reduce chances of conflicts
-	bo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
-	err := backoff.Retry(func() error {
-		return c.Update(ctx, pg)
-	}, bo)
-	return err
+		// update new keys
+		cfg.Section("global").Key(repoName + "-s3-key").SetValue(accessKeyID)
+		cfg.Section("global").Key(repoName + "-s3-key-secret").SetValue(secretAccessKey)
+
+		// write back to the secret
+		w := strings.Builder{}
+		if _, err := cfg.WriteTo(&w); err != nil {
+			return fmt.Errorf("failed to write PGBackRest S3 config: %w", err)
+		}
+		secret.StringData = map[string]string{
+			"s3.conf": w.String(),
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to create or update PGBackrest secret: %w", err)
+	}
+	return secret.GetName(), nil
 }
 
-const defaultRetryInterval = time.Second * 30
-
-func runPGRestoreAndWait(
+func copyPGCluster(
 	ctx context.Context,
-	c client.Client,
-	backupName string,
-	restoreName string,
-	repoName string,
+	k8sClient client.Client,
 	dbName, namespace string,
-) error {
-	db := &everestv1alpha1.DatabaseCluster{}
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, db); err != nil {
-		return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+) (*pgv2.PerconaPGCluster, error) {
+	pg := &pgv2.PerconaPGCluster{}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, pg); err != nil {
+		return nil, fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", namespace, dbName, err)
 	}
 
-	pgRestore := &pgv2.PerconaPGRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      restoreName,
-			Namespace: namespace,
-		},
+	copied := pg.DeepCopy()
+	copied.ObjectMeta = metav1.ObjectMeta{
+		Name:      pg.GetName(),
+		Namespace: pg.GetNamespace(),
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, c, pgRestore, func() error {
-		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
-		pgRestore.SetAnnotations(map[string]string{
-			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
-		})
-		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
-		if err := controllerutil.SetOwnerReference(db, pgRestore, c.Scheme()); err != nil {
-			return fmt.Errorf("failed to set owner reference for PerconaPGRestore %s/%s: %w", namespace, restoreName, err)
-		}
-		pgRestore.Spec = pgv2.PerconaPGRestoreSpec{
-			PGCluster: dbName,
-			RepoName:  repoName,
+	copied.Status = pgv2.PerconaPGClusterStatus{}
+	return copied, nil
+}
+
+func addPGDataSource(
+	secretName,
+	repoPath,
+	repoName,
+	backupName,
+	bucket,
+	endpoint,
+	region,
+	uriStyle string,
+	pg *pgv2.PerconaPGCluster,
+) {
+	dataSource := &crunchyv1beta1.DataSource{
+		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
+			Configuration: []corev1.VolumeProjection{
+				{
+					Secret: &corev1.SecretProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secretName,
+						},
+					},
+				},
+			},
+			Global: map[string]string{
+				repoName + "-path":         repoPath,
+				repoName + "-s3-uri-style": uriStyle,
+			},
 			Options: []string{
 				"--type=immediate", // TODO: support PITR
 				"--set=" + backupName,
 			},
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	// wait for the restore to complete
-	return wait.PollUntilContextCancel(
-		ctx,
-		defaultRetryInterval,
-		false,
-		func(ctx context.Context) (bool, error) {
-			pg := &pgv2.PerconaPGRestore{}
-			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: pgRestore.Name}, pg); err != nil {
-				return false, fmt.Errorf("failed to get PerconaPGRestore %s/%s: %w", namespace, pgRestore.Name, err)
-			}
-			return pg.Status.State == pgv2.RestoreSucceeded, nil
+			Repo: crunchyv1beta1.PGBackRestRepo{
+				Name: repoName,
+				S3: &crunchyv1beta1.RepoS3{
+					Bucket:   bucket,
+					Endpoint: endpoint,
+					Region:   region,
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("200m"),
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+			},
+			Stanza: "db",
 		},
-	)
+	}
+	pg.Spec.DataSource = dataSource
 }
 
-// After restore is complete, the database users and passwords are reverted to those from the backup.
-// This causes a mismatch between the actual database credentials and the Kubernetes User Secret.
-// The PG operator does not automatically detect this drift, so it will not update the database passwords.
-// To resolve this, we clear the User Secret, prompting the PG operator to regenerate new credentials
-// and synchronize with the DB.
-func resetUserSecrets(
+const defaultRetryInterval = time.Second * 30
+
+func restorePGCluster(
 	ctx context.Context,
-	c client.Client,
-	dbName, namespace string,
+	k8sClient client.Client,
+	pg *pgv2.PerconaPGCluster,
 ) error {
-	// We wrap this logic in a retry loop to reduce chances of conflicts or errors.
-	if err := backoff.Retry(func() error {
-		// This block simply empties the Secret so the PG operator will reconcile the DB
-		// with new Secrets.
-		db := everestv1alpha1.DatabaseCluster{}
-		if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
-			return fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
+	// Delete the existing PerconaPGCluster.
+	if err := k8sClient.Delete(ctx, pg); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
+	}
+	if err := wait.PollUntilContextTimeout(ctx, defaultRetryInterval, time.Minute*5, false, func(ctx context.Context) (bool, error) {
+		pgCheck := &pgv2.PerconaPGCluster{}
+		if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: pg.GetNamespace(), Name: pg.GetName()}, pgCheck); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return true, nil // successfully deleted
+			}
+			return false, fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
 		}
-		secretName := db.Spec.Engine.UserSecretsName // everest-operator guarantees that this is set
-		secret := &corev1.Secret{}
-		if err := c.Get(ctx, client.ObjectKey{
-			Namespace: namespace,
-			Name:      secretName,
-		},
-			secret); err != nil {
-			return fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
-		}
-		secret.Data = map[string][]byte{}
-		if err := c.Update(ctx, secret); err != nil {
-			return fmt.Errorf("failed to update user secret %s/%s: %w", namespace, secretName, err)
-		}
-		return nil
-	}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
-		return fmt.Errorf("failed to reset user secrets %s/%s: %w", namespace, dbName, err)
+		return false, nil // still exists, keep waiting
+	}); err != nil {
+		return fmt.Errorf("failed to wait for PerconaPGCluster %s/%s deletion: %w", pg.GetNamespace(), pg.GetName(), err)
 	}
 
-	// Now wait until PG operator populates the user secrets again.
-	return wait.PollUntilContextCancel(
-		ctx,
-		defaultRetryInterval,
-		false,
-		func(ctx context.Context) (done bool, err error) { //nolint:nonamedreturns
-			db := everestv1alpha1.DatabaseCluster{}
-			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: dbName}, &db); err != nil {
-				return false, fmt.Errorf("failed to get database cluster %s/%s: %w", namespace, dbName, err)
-			}
-			secretName := db.Spec.Engine.UserSecretsName
-			secret := &corev1.Secret{}
-			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: secretName}, secret); err != nil {
-				return false, fmt.Errorf("failed to get user secret %s/%s: %w", namespace, secretName, err)
-			}
-			return len(secret.Data) > 0, nil
-		})
+	if err := k8sClient.Create(ctx, pg); err != nil {
+		return fmt.Errorf("failed to create PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
+	}
+
+	// Wait for the PGCluster to be ready.
+	if err := wait.PollUntilContextCancel(ctx, defaultRetryInterval, false, func(ctx context.Context) (bool, error) {
+		pgCheck := &pgv2.PerconaPGCluster{}
+		if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: pg.GetNamespace(), Name: pg.GetName()}, pgCheck); err != nil {
+			return false, fmt.Errorf("failed to get PerconaPGCluster %s/%s: %w", pg.GetNamespace(), pg.GetName(), err)
+		}
+		return pgCheck.Status.State == pgv2.AppStateReady, nil
+	}); err != nil {
+		return fmt.Errorf("failed to wait for PerconaPGCluster %s/%s to be ready: %w", pg.GetNamespace(), pg.GetName(), err)
+	}
+	return nil
 }
