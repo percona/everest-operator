@@ -17,7 +17,11 @@ package pg
 import (
 	"testing"
 
+	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestParseBackupPath(t *testing.T) {
@@ -54,6 +58,98 @@ func TestParseBackupPath(t *testing.T) {
 			backupName, dbDir := parseBackupPath(tt.backupPath)
 			assert.Equal(t, tt.wantBackupName, backupName)
 			assert.Equal(t, tt.wantDBDirectory, dbDir)
+		})
+	}
+}
+
+func TestAddPGDataSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		secretName string
+		repoPath   string
+		repoName   string
+		backupName string
+		bucket     string
+		endpoint   string
+		region     string
+		uriStyle   string
+	}{
+		{
+			name:       "basic configuration",
+			secretName: "test-secret",
+			repoPath:   "/my-database/",
+			repoName:   "repo1",
+			backupName: "backup-20231201",
+			bucket:     "my-bucket",
+			endpoint:   "s3.amazonaws.com",
+			region:     "us-east-1",
+			uriStyle:   "host",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a basic PerconaPGCluster
+			pg := &pgv2.PerconaPGCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: pgv2.PerconaPGClusterSpec{},
+			}
+
+			// Call the function under test
+			addPGDataSource(
+				tt.secretName,
+				tt.repoPath,
+				tt.repoName,
+				tt.backupName,
+				tt.bucket,
+				tt.endpoint,
+				tt.region,
+				tt.uriStyle,
+				pg,
+			)
+
+			// Verify that DataSource was set
+			assert.NotNil(t, pg.Spec.DataSource, "DataSource should be set")
+			assert.NotNil(t, pg.Spec.DataSource.PGBackRest, "PGBackRest should be set")
+
+			pgBackRest := pg.Spec.DataSource.PGBackRest
+
+			// Verify Configuration
+			assert.Len(t, pgBackRest.Configuration, 1, "Should have one configuration entry")
+			assert.NotNil(t, pgBackRest.Configuration[0].Secret, "Secret configuration should be set")
+			assert.Equal(t, tt.secretName, pgBackRest.Configuration[0].Secret.LocalObjectReference.Name, "Secret name should match")
+
+			// Verify Global settings
+			expectedPathKey := tt.repoName + "-path"
+			expectedStyleKey := tt.repoName + "-s3-uri-style"
+			assert.Equal(t, tt.repoPath, pgBackRest.Global[expectedPathKey], "Repo path should match")
+			assert.Equal(t, tt.uriStyle, pgBackRest.Global[expectedStyleKey], "URI style should match")
+
+			// Verify Options
+			expectedSetOption := "--set=" + tt.backupName
+			assert.Contains(t, pgBackRest.Options, "--type=immediate", "Should contain immediate type option")
+			assert.Contains(t, pgBackRest.Options, expectedSetOption, "Should contain backup set option")
+
+			// Verify Repo configuration
+			assert.Equal(t, tt.repoName, pgBackRest.Repo.Name, "Repo name should match")
+			assert.NotNil(t, pgBackRest.Repo.S3, "S3 configuration should be set")
+			assert.Equal(t, tt.bucket, pgBackRest.Repo.S3.Bucket, "Bucket should match")
+			assert.Equal(t, tt.endpoint, pgBackRest.Repo.S3.Endpoint, "Endpoint should match")
+			assert.Equal(t, tt.region, pgBackRest.Repo.S3.Region, "Region should match")
+
+			// Verify Resources
+			assert.NotNil(t, pgBackRest.Resources, "Resources should be set")
+			expectedCPU := resource.MustParse("200m")
+			expectedMemory := resource.MustParse("128Mi")
+			assert.Equal(t, expectedCPU, pgBackRest.Resources.Limits[corev1.ResourceCPU], "CPU limit should match")
+			assert.Equal(t, expectedMemory, pgBackRest.Resources.Limits[corev1.ResourceMemory], "Memory limit should match")
 		})
 	}
 }
