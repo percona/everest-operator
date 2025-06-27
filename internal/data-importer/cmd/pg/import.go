@@ -58,13 +58,13 @@ var Cmd = &cobra.Command{
 }
 
 // Unlike PXC and PSMDB operators, which allow you to restore external data on a running cluster,
-// the PG operator works somewhat differently. It requires the .spec.dataSource field to be set on the PGCluster resource
-// at creation time for a restore operation. If .spec.dataSource is added or modified after the cluster is running,
-// the bootstrap (restore) process will not re-execute, and the restore will not occur.
+// the PG operator works differently. It requires the .spec.dataSource field to be set on the PGCluster resource
+// at creation time for a restore operation. If .spec.dataSource is added after the cluster is running,
+// the bootstrap process will not re-execute which later causes the instances to not come up (even though the restore succeeds).
 // However, by the time the Data importer runs, the PGCluster has already been bootstraped and is running.
-// To ensure a successful restore, we delete and re-create the PGCluster with the correct dataSource configuration.
-// This guarantees the bootstrap process is triggered and the restore is applied as intended.
-// Although this approach involves re-creating the cluster, it ensures the data import workflow is consistent.
+// To ensure a successful restore, we need to 're-create' the PGCluster with dataSource configuration.
+// This guarantees the bootstrap process is triggered and the restore happens correctly.
+// Using PerconaPGRestore to restore on running cluster results in the same issue (instances not coming up).
 func runPGImport(
 	ctx context.Context,
 	configPath string,
@@ -127,6 +127,11 @@ func runPGImport(
 	if err != nil {
 		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
 	}
+	defer func() {
+		if err := cleanup(ctx, k8sClient, namespace, pgBackRestSecretName); err != nil {
+			log.Error().Err(err).Msgf("Failed to clean up PGBackrest secret %s/%s", namespace, pgBackRestSecretName)
+		}
+	}()
 
 	pgCopy, err := copyPGCluster(ctx, k8sClient, dbName, namespace)
 	if err != nil {
@@ -352,6 +357,9 @@ func addPGDataSource(
 
 const defaultRetryInterval = time.Second * 30
 
+// We need to re-create the upstream PGCluster with the newly added dataSource config.
+// The reason for re-creating rather than updating is that the DB needs to be bootstrapped again
+// otherwise the PG instances will not come up successfully.
 func restorePGCluster(
 	ctx context.Context,
 	k8sClient client.Client,
@@ -387,6 +395,19 @@ func restorePGCluster(
 		return pgCheck.Status.State == pgv2.AppStateReady, nil
 	}); err != nil {
 		return fmt.Errorf("failed to wait for PerconaPGCluster %s/%s to be ready: %w", pg.GetNamespace(), pg.GetName(), err)
+	}
+	return nil
+}
+
+func cleanup(ctx context.Context, k8sClient client.Client, namespace, secretName string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+	if err := k8sClient.Delete(ctx, secret); client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete secret %s/%s: %w", namespace, secretName, err)
 	}
 	return nil
 }
