@@ -20,8 +20,6 @@ import "k8s.io/apimachinery/pkg/runtime/schema"
 const (
 	// Everest ...
 	Everest = "everest"
-	// DefaultPMMClientImage is the default image for PMM client.
-	DefaultPMMClientImage = "percona/pmm-client:2"
 
 	// DBClusterRestoreDBClusterNameField is the field in the DatabaseClusterRestore CR.
 	DBClusterRestoreDBClusterNameField = ".spec.dbClusterName"

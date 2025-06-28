@@ -49,6 +49,9 @@ spec:
   monitoring:
     monitoringConfigName: mc-pg
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
@@ -91,7 +94,11 @@ spec:
     serverHost: localhost-mc-pg-updated
     secret: everest-secrets-pg-mc-pmm
     image: percona/pmm-client:updated
+    querySource: pgstatmonitor
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
