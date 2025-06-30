@@ -25,10 +25,6 @@ resourceRefs:
     name: everest-monitoring
     namespace: everest-monitoring
     ref: vmagent
-  - apiVersion: psmdb.percona.com/v1
-    kind: PerconaServerMongoDB
-    name: psmdb-mc
-    ref: psmdb
 assertAll:
   - celExpr: "has(mc.metadata.finalizers)"
     message: "mc doesn't have finalizers"
@@ -47,9 +43,6 @@ assertAll:
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-psmdb/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-psmdb/victoriametrics/api/v1/write'"
-
-  - celExpr: "!has(psmdb.spec.pmm.resources.limits)"
-    message: "psmdb.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -86,6 +79,13 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-psmdb
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -98,8 +98,11 @@ spec:
     image: percona/pmm-client:latest
     resources:
       requests:
-        memory: 101994987520m
-        cpu: 95m
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
   secrets:
     users: everest-secrets-psmdb-mc
 ---
