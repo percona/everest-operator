@@ -25,7 +25,8 @@ spec:
     - perconapgclusters
     verbs:
     - get
-    - update
+    - create
+    - delete
   - apiGroups:
     - pgv2.percona.com
     resources:

@@ -18,15 +18,10 @@ import (
 	"testing"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
-	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestParseBackupPath(t *testing.T) {
@@ -67,220 +62,94 @@ func TestParseBackupPath(t *testing.T) {
 	}
 }
 
-func TestGetRepoName(t *testing.T) {
+func TestAddPGDataSource(t *testing.T) {
 	t.Parallel()
-	scheme := runtime.NewScheme()
-	err := pgv2.AddToScheme(scheme)
-	require.NoError(t, err)
 
 	tests := []struct {
-		name      string
-		dbName    string
-		namespace string
-		pg        *pgv2.PerconaPGCluster
-		want      string
-		wantErr   bool
+		name       string
+		secretName string
+		repoPath   string
+		repoName   string
+		backupName string
+		bucket     string
+		endpoint   string
+		region     string
+		uriStyle   string
 	}{
 		{
-			name:      "new repo with no existing repos",
-			dbName:    "testdb",
-			namespace: "default",
-			pg: &pgv2.PerconaPGCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testdb",
-					Namespace: "default",
-				},
-				Spec: pgv2.PerconaPGClusterSpec{
-					Backups: pgv2.Backups{
-						PGBackRest: pgv2.PGBackRestArchive{
-							Repos: []crunchyv1beta1.PGBackRestRepo{},
-						},
-					},
-				},
-			},
-			want:    "repo1",
-			wantErr: false,
-		},
-		{
-			name:      "new repo with existing repos",
-			dbName:    "testdb",
-			namespace: "default",
-			pg: &pgv2.PerconaPGCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testdb",
-					Namespace: "default",
-				},
-				Spec: pgv2.PerconaPGClusterSpec{
-					Backups: pgv2.Backups{
-						PGBackRest: pgv2.PGBackRestArchive{
-							Repos: []crunchyv1beta1.PGBackRestRepo{
-								{Name: "repo1"},
-								{Name: "repo2"},
-							},
-						},
-					},
-				},
-			},
-			want:    "repo3",
-			wantErr: false,
-		},
-		{
-			name:      "new repo with existing repos",
-			dbName:    "testdb",
-			namespace: "default",
-			pg: &pgv2.PerconaPGCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testdb",
-					Namespace: "default",
-				},
-				Spec: pgv2.PerconaPGClusterSpec{
-					Backups: pgv2.Backups{
-						PGBackRest: pgv2.PGBackRestArchive{
-							Repos: []crunchyv1beta1.PGBackRestRepo{
-								{Name: "repo1"},
-								{Name: "repo2"},
-								{Name: "repo3"},
-								{Name: "repo4"},
-							},
-						},
-					},
-				},
-			},
-			want:    "repo3",
-			wantErr: true,
+			name:       "basic configuration",
+			secretName: "test-secret",
+			repoPath:   "/my-database/",
+			repoName:   "repo1",
+			backupName: "backup-20231201",
+			bucket:     "my-bucket",
+			endpoint:   "s3.amazonaws.com",
+			region:     "us-east-1",
+			uriStyle:   "host",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Create a fake client with the test PG cluster
-			client := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(tt.pg).
-				Build()
 
-			got, err := getRepoName(t.Context(), client, tt.dbName, tt.namespace)
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
+			// Create a basic PerconaPGCluster
+			pg := &pgv2.PerconaPGCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: pgv2.PerconaPGClusterSpec{},
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+
+			// Call the function under test
+			addPGDataSource(
+				tt.secretName,
+				tt.repoPath,
+				tt.repoName,
+				tt.backupName,
+				tt.bucket,
+				tt.endpoint,
+				tt.region,
+				tt.uriStyle,
+				pg,
+			)
+
+			// Verify that DataSource was set
+			assert.NotNil(t, pg.Spec.DataSource, "DataSource should be set")
+			assert.NotNil(t, pg.Spec.DataSource.PGBackRest, "PGBackRest should be set")
+
+			pgBackRest := pg.Spec.DataSource.PGBackRest
+
+			// Verify Configuration
+			assert.Len(t, pgBackRest.Configuration, 1, "Should have one configuration entry")
+			assert.NotNil(t, pgBackRest.Configuration[0].Secret, "Secret configuration should be set")
+			assert.Equal(t, tt.secretName, pgBackRest.Configuration[0].Secret.LocalObjectReference.Name, "Secret name should match")
+
+			// Verify Global settings
+			expectedPathKey := tt.repoName + "-path"
+			expectedStyleKey := tt.repoName + "-s3-uri-style"
+			assert.Equal(t, tt.repoPath, pgBackRest.Global[expectedPathKey], "Repo path should match")
+			assert.Equal(t, tt.uriStyle, pgBackRest.Global[expectedStyleKey], "URI style should match")
+
+			// Verify Options
+			expectedSetOption := "--set=" + tt.backupName
+			assert.Contains(t, pgBackRest.Options, "--type=immediate", "Should contain immediate type option")
+			assert.Contains(t, pgBackRest.Options, expectedSetOption, "Should contain backup set option")
+
+			// Verify Repo configuration
+			assert.Equal(t, tt.repoName, pgBackRest.Repo.Name, "Repo name should match")
+			assert.NotNil(t, pgBackRest.Repo.S3, "S3 configuration should be set")
+			assert.Equal(t, tt.bucket, pgBackRest.Repo.S3.Bucket, "Bucket should match")
+			assert.Equal(t, tt.endpoint, pgBackRest.Repo.S3.Endpoint, "Endpoint should match")
+			assert.Equal(t, tt.region, pgBackRest.Repo.S3.Region, "Region should match")
+
+			// Verify Resources
+			assert.NotNil(t, pgBackRest.Resources, "Resources should be set")
+			expectedCPU := resource.MustParse("200m")
+			expectedMemory := resource.MustParse("128Mi")
+			assert.Equal(t, expectedCPU, pgBackRest.Resources.Limits[corev1.ResourceCPU], "CPU limit should match")
+			assert.Equal(t, expectedMemory, pgBackRest.Resources.Limits[corev1.ResourceMemory], "Memory limit should match")
 		})
 	}
-}
-
-func TestPreparePGBackrestSecret(t *testing.T) {
-	t.Parallel()
-	scheme := runtime.NewScheme()
-	err := pgv2.AddToScheme(scheme)
-	require.NoError(t, err)
-	err = corev1.AddToScheme(scheme)
-	require.NoError(t, err)
-
-	var (
-		repoName        = "repo1"
-		secretName      = "test-pgbackrest-secret"
-		accessKeyID     = "test-access-key-id"
-		secretAccessKey = "test-secret-access-key"
-		namespace       = "default"
-	)
-
-	initialSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-		Data: map[string][]byte{
-			"s3.conf": []byte(""),
-		},
-	}
-
-	client := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(initialSecret).
-		Build()
-
-	err = preparePGBackrestSecret(t.Context(), client, repoName, secretName,
-		accessKeyID, secretAccessKey, namespace)
-	require.NoError(t, err)
-
-	updatedSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-	}
-
-	err = client.Get(t.Context(), types.NamespacedName{Namespace: namespace, Name: secretName}, updatedSecret)
-	require.NoError(t, err)
-
-	// note: we assert on StringData because we are using fakeClient.
-	// In real scenario, Kubernetes will convert it to the Data field.
-	s3Conf := updatedSecret.StringData["s3.conf"]
-	assert.NotEmpty(t, s3Conf, "s3.conf should not be empty")
-
-	s3Cfg, err := ini.LoadSources(ini.LoadOptions{}, []byte(s3Conf))
-	require.NoError(t, err, "failed to parse s3.conf")
-	assert.NotNil(t, s3Cfg, "s3.conf should be parsed successfully")
-
-	global := s3Cfg.Section("global")
-	assert.Equal(t, accessKeyID, global.Key(repoName+"-s3-key").String(), "s3 key should match")
-	assert.Equal(t, secretAccessKey, global.Key(repoName+"-s3-key-secret").String(), "s3 secret key should match")
-}
-
-func TestPreparePGBackrestRepo(t *testing.T) {
-	t.Parallel()
-	scheme := runtime.NewScheme()
-	err := pgv2.AddToScheme(scheme)
-	require.NoError(t, err)
-
-	dbName := "testdb"
-	namespace := "default"
-	repoName := "repo1"
-	dbDirPath := "/my-database"
-	uriStyle := "host"
-	bucket := "test-bucket"
-	endpoint := "s3.amazonaws.com"
-	region := "us-east-1"
-
-	pg := &pgv2.PerconaPGCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbName,
-			Namespace: namespace,
-		},
-		Spec: pgv2.PerconaPGClusterSpec{
-			Backups: pgv2.Backups{
-				PGBackRest: pgv2.PGBackRestArchive{
-					Global: map[string]string{},
-					Repos:  []crunchyv1beta1.PGBackRestRepo{},
-				},
-			},
-		},
-	}
-
-	client := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(pg).
-		Build()
-
-	err = preparePGBackrestRepo(t.Context(), client, repoName,
-		dbDirPath, uriStyle, bucket, endpoint, region, dbName, namespace)
-	require.NoError(t, err)
-
-	updatedPG := &pgv2.PerconaPGCluster{}
-	err = client.Get(t.Context(), types.NamespacedName{Namespace: namespace, Name: dbName}, updatedPG)
-	require.NoError(t, err)
-
-	// Check if the global configuration was updated
-	assert.Equal(t, dbDirPath, updatedPG.Spec.Backups.PGBackRest.Global[repoName+"-path"])
-	assert.Equal(t, uriStyle, updatedPG.Spec.Backups.PGBackRest.Global[repoName+"-s3-uri-style"])
-
-	// Check if the repo was added
-	require.Len(t, updatedPG.Spec.Backups.PGBackRest.Repos, 1)
-	assert.Equal(t, repoName, updatedPG.Spec.Backups.PGBackRest.Repos[0].Name)
-	assert.Equal(t, bucket, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Bucket)
-	assert.Equal(t, endpoint, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Endpoint)
-	assert.Equal(t, region, updatedPG.Spec.Backups.PGBackRest.Repos[0].S3.Region)
 }
