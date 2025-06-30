@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -99,7 +100,7 @@ func (p *applier) Engine() error {
 		// During the initial installation, a CRVersion may not be provided.
 		// So we will use the operator version.
 		v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
-			Name:      common.PGDeploymentName,
+			Name:      consts.PGDeploymentName,
 			Namespace: p.DB.GetNamespace(),
 		})
 		if err != nil {
@@ -147,7 +148,7 @@ func (p *applier) Engine() error {
 	}
 
 	image, err := common.GetOperatorImage(p.ctx, p.C, types.NamespacedName{
-		Name:      common.PGDeploymentName,
+		Name:      consts.PGDeploymentName,
 		Namespace: p.DB.GetNamespace(),
 	})
 	if err != nil {
@@ -190,7 +191,7 @@ func (p *applier) Proxy() error {
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = annotations
 		}
 	default:
@@ -335,7 +336,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	pg.Spec.PMM = &pgv2.PMMSpec{
 		Enabled:   true,
 		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:    fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, database.GetName()),
+		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
 		Image:     common.DefaultPMMClientImage,
 	}
 
@@ -512,6 +513,7 @@ func (p *applier) handlePGDataSourceAzure(
 
 	secretData := pgBackrestSecretBuf.Bytes()
 
+	// NOTE: The PG DataImporter depends on Everest creating this Secret.
 	pgBackrestSecret, err := p.createPGBackrestSecret(
 		"azure.conf",
 		secretData,
@@ -526,6 +528,7 @@ func (p *applier) handlePGDataSourceAzure(
 		{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
+					// NOTE: The PG DataImporter depends on Everest setting this field.
 					Name: pgBackrestSecret.Name,
 				},
 			},
@@ -761,6 +764,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
+// NOTE: The PG DataImporter depends on Everest creating this Secret.
 func (p *applier) createPGBackrestSecret(
 	pgbackrestKey string,
 	pgbackrestConf []byte,
@@ -1040,7 +1044,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 }
 
 func getDataSourceStorage(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster) (*everestv1alpha1.BackupStorage, *corev1.Secret, error) {
-	if db.Spec.DataSource == nil {
+	if db.Spec.DataSource == nil || db.Spec.DataSource.DataImport != nil {
 		return nil, nil, errDataSourceNotFound
 	}
 	var dataSourceStorageName string
@@ -1087,7 +1091,7 @@ func getRelatedStorages(
 	backupStorages := map[string]everestv1alpha1.BackupStorage{}
 	backupStoragesSecrets := map[string]*corev1.Secret{}
 
-	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, db.GetNamespace(), db.GetName())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, consts.DBClusterBackupDBClusterNameField, db.GetNamespace(), db.GetName())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1098,7 +1102,7 @@ func getRelatedStorages(
 	}
 
 	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, common.DBClusterRestoreDBClusterNameField, db.GetNamespace(), db.GetName())
+	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, consts.DBClusterRestoreDBClusterNameField, db.GetNamespace(), db.GetName())
 	if err != nil {
 		return nil, nil, nil, err
 	}

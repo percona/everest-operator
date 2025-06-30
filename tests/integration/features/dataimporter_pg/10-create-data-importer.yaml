@@ -1,0 +1,36 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImporter
+metadata:
+  name: test-pg-data-importer
+spec:
+  displayName: "Test data importer"
+  description: "Data importer for integration tests"
+  supportedEngines:
+  - postgresql
+  jobSpec:
+    image: "busybox"
+    command: ["/bin/sh", "-c", "sleep 20 && cat \"$0\""]
+
+  # dummy permissions to test the creation of RBAC resources
+  permissions:
+  - apiGroups:
+    - everest.percona.com
+    resources:
+    - databaseclusters
+    verbs:
+    - get
+    - list
+    - watch
+  clusterPermissions:
+  - apiGroups:
+    - everest.percona.com
+    resources:
+    - databaseclusters
+    verbs:
+    - get
+    - list
+    - watch
+  

@@ -1,0 +1,5 @@
+package: dataimporterspec
+output: spec.gen.go
+generate:
+  models: true
+  embedded-spec: false

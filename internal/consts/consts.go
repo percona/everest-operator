@@ -13,9 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+// Package consts provides constants used across the operator.
+package consts
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
+
+// ClusterType represents the type of the cluster.
+type ClusterType string
 
 const (
 	// Everest ...
@@ -28,6 +32,8 @@ const (
 	DBClusterBackupDBClusterNameField = ".spec.dbClusterName"
 	// DBClusterBackupBackupStorageNameField is the field in the DatabaseClusterBackup CR.
 	DBClusterBackupBackupStorageNameField = ".spec.backupStorageName"
+	// DataSourceBackupStorageNameField is the field in the DatabaseClusterBackup CR.
+	DataSourceBackupStorageNameField = ".spec.dataSource.backupSource.backupStorageName"
 
 	// TopologyKeyHostname is the topology key for hostname.
 	TopologyKeyHostname = "kubernetes.io/hostname"
@@ -65,16 +71,6 @@ const (
 
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
-
-	// DBBackupCleanupFinalizer is the finalizer for cleaning up DatabaseClusterBackup.
-	// Deprecated: We keep this for backward compatibility.
-	DBBackupCleanupFinalizer = "everest.percona.com/dbb-cleanup"
-
-	// UpstreamClusterCleanupFinalizer is the finalizer for cleaning up the upstream cluster.
-	UpstreamClusterCleanupFinalizer = "everest.percona.com/upstream-cluster-cleanup"
-
-	// ForegroundDeletionFinalizer is the finalizer that ensures foreground deletion for the resource.
-	ForegroundDeletionFinalizer = "foregroundDeletion"
 )
 
 // ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
