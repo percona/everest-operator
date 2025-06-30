@@ -24,6 +24,12 @@ import (
 
 // ReadFromFilepath reads the configuration from a JSON file at the specified filepath.
 func (in *Spec) ReadFromFilepath(filepath string) error {
+	// Read from stdin if filepath is "-".
+	// Handy for testing when you need to pass files inline.
+	// Works similar to `kubectl apply -f -`
+	if filepath == "-" {
+		filepath = "/dev/stdin"
+	}
 	data, err := os.ReadFile(filepath) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)

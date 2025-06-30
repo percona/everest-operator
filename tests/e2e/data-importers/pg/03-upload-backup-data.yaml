@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  # First we will copy the data to our minio container.
+  # NOTE: it is not enough to simply copy the data to the data dir, it needs to be uploaded via the API.
+  - command: kubectl cp ${OPERATOR_ROOT_PATH}/tests/testdata/backups/pg minio:/shared -n "${NAMESPACE}" -c cp-helper
+  # Now we will upload to s3 using the `mc` tool present in the minio container.
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc alias set s3 https://minio.${NAMESPACE}.svc ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --insecure
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc cp --recursive /shared/pg s3/everest-operator --insecure
