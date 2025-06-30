@@ -84,6 +84,7 @@ func runPGImport(
 		backupPath      = cfg.Source.Path
 		bucket          = cfg.Source.S3.Bucket
 		uriStyle        = "host"
+		verifyTLS       = cfg.Source.S3.VerifyTLS
 	)
 	if cfg.Source.S3.ForcePathStyle {
 		uriStyle = "path"
@@ -139,7 +140,7 @@ func runPGImport(
 	}
 
 	backupName, repoPath := parseBackupPath(backupPath)
-	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint, region, uriStyle, pgCopy)
+	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint, region, uriStyle, verifyTLS, pgCopy)
 
 	if err := restorePGCluster(ctx, k8sClient, pgCopy); err != nil {
 		return fmt.Errorf("failed to restore PGCluster %s/%s: %w", namespace, dbName, err)
@@ -273,8 +274,17 @@ func addPGDataSource(
 	endpoint,
 	region,
 	uriStyle string,
+	verifyTLS bool,
 	pg *pgv2.PerconaPGCluster,
 ) {
+	options := []string{
+		"--type=immediate", // TODO: support PITR
+		"--set=" + backupName,
+	}
+
+	if !verifyTLS {
+		options = append(options, fmt.Sprintf("--no-%s-storage-verify-tls", repoName))
+	}
 	dataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Configuration: []corev1.VolumeProjection{
@@ -290,10 +300,7 @@ func addPGDataSource(
 				repoName + "-path":         repoPath,
 				repoName + "-s3-uri-style": uriStyle,
 			},
-			Options: []string{
-				"--type=immediate", // TODO: support PITR
-				"--set=" + backupName,
-			},
+			Options: options,
 			Repo: crunchyv1beta1.PGBackRestRepo{
 				Name: repoName,
 				S3: &crunchyv1beta1.RepoS3{
@@ -308,6 +315,7 @@ func addPGDataSource(
 					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			},
+
 			Stanza: "db",
 		},
 	}

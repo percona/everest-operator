@@ -190,6 +190,7 @@ cluster-cleanup:
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
+	go build -o bin/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
 build-debug: manifests generate fmt vet ## Build manager binary with debug symbols.

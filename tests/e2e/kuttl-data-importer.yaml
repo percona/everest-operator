@@ -6,6 +6,6 @@ parallel: 1
 timeout: 180
 skipDelete: true
 testDirs:
-- tests/e2e/data-importer
+- tests/e2e/data-importers
 manifestDirs:
 - tests/manifests

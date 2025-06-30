@@ -112,6 +112,7 @@ func TestAddPGDataSource(t *testing.T) {
 				tt.endpoint,
 				tt.region,
 				tt.uriStyle,
+				true,
 				pg,
 			)
 
