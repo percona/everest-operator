@@ -400,15 +400,7 @@ func defaultSpec() pxcv1.PerconaXtraDBClusterSpec {
 				},
 			},
 		},
-		PMM: &pxcv1.PMMSpec{
-			Enabled: false,
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("300M"),
-					corev1.ResourceCPU:    resource.MustParse("500m"),
-				},
-			},
-		},
+		PMM: &pxcv1.PMMSpec{},
 		HAProxy: &pxcv1.HAProxySpec{
 			PodSpec: pxcv1.PodSpec{
 				Enabled: false,
@@ -629,11 +621,16 @@ func (p *applier) applyProxySQLCfg() error {
 
 func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pxc := p.PerconaXtraDBCluster
-	pxc.Spec.PMM.Enabled = true
-	image := consts.DefaultPMMClientImage
-	if monitoring.Spec.PMM.Image != "" {
-		image = monitoring.Spec.PMM.Image
+	pxc.Spec.PMM = &pxcv1.PMMSpec{
+		Enabled:   true,
+		Image:     common.DefaultPMMClientImage,
+		Resources: common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
 	}
+
+	if monitoring.Spec.PMM.Image != "" {
+		pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
+	}
+
 	//nolint:godox
 	// TODO (K8SPXC-1367): Set PMM container LivenessProbes timeouts once possible.
 	pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
@@ -641,22 +638,6 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return errors.Join(err, errors.New("invalid monitoring URL"))
 	}
 	pxc.Spec.PMM.ServerHost = pmmURL.Hostname()
-	pxc.Spec.PMM.Image = image
-	// Set resources based on cluster size.
-	switch p.DB.Spec.Engine.Size() {
-	case everestv1alpha1.EngineSizeSmall:
-		pxc.Spec.PMM.Resources = pmmResourceRequirementsSmall
-	case everestv1alpha1.EngineSizeMedium:
-		pxc.Spec.PMM.Resources = pmmResourceRequirementsMedium
-	case everestv1alpha1.EngineSizeLarge:
-		pxc.Spec.PMM.Resources = pmmResourceRequirementsLarge
-	}
-	if p.DB.Spec.Monitoring.Resources.Requests != nil {
-		pxc.Spec.PMM.Resources.Requests = p.DB.Spec.Monitoring.Resources.Requests
-	}
-	if p.DB.Spec.Monitoring.Resources.Limits != nil {
-		pxc.Spec.PMM.Resources.Limits = p.DB.Spec.Monitoring.Resources.Limits
-	}
 
 	apiKey, err := common.GetSecretFromMonitoringConfig(p.ctx, p.C, monitoring)
 	if err != nil {
