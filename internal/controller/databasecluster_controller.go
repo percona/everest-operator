@@ -267,11 +267,11 @@ func (r *DatabaseClusterReconciler) observeDataImportState(
 	sts := diJob.Status
 
 	switch {
-	case sts.State != everestv1alpha1.DataImportJobStateSucceeded:
-		db.Status.Status = everestv1alpha1.AppStateImporting
 	case sts.State == everestv1alpha1.DataImportJobStateFailed:
 		db.Status.Status = everestv1alpha1.AppStateError
 		db.Status.Message = "Data import job failed"
+	case sts.State != everestv1alpha1.DataImportJobStateSucceeded:
+		db.Status.Status = everestv1alpha1.AppStateImporting
 	}
 	return nil
 }
