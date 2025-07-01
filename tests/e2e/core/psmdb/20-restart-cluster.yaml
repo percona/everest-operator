@@ -11,6 +11,7 @@ metadata:
 spec:
   engine:
     type: psmdb
+    crVersion: 1.20.1
     version: 7.0.18-11
     config: |
      operationProfiling:
