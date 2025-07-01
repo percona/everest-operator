@@ -13,8 +13,7 @@ collectors:
 commands:
   - command: kubectl wait --for=jsonpath='{.status.crVersion}'=${PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
   - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PSMDB_DB_ENGINE_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
-
-  - command: kubectl wait --for=jsonpath='{.spec.image}'="percona/percona-server-mongodb:${PSMDB_DB_ENGINE_VERSION}-multi" psmdb/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.spec.image}'="percona/percona-server-mongodb:${PSMDB_DB_ENGINE_VERSION}" psmdb/test-psmdb-cluster -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
