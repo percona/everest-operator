@@ -11,7 +11,7 @@ collectors:
     selector: control-plane=controller-manager
     tail: 100
 commands:
-  - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=${PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=jsonpath='{.status.crVersion}'=${PSMDB_OPERATOR_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
   - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PSMDB_DB_ENGINE_VERSION} dbc/test-psmdb-cluster -n ${NAMESPACE}
 
   - command: kubectl wait --for=jsonpath='{.spec.image}'="percona/percona-server-mongodb:${PSMDB_DB_ENGINE_VERSION}-multi" psmdb/test-psmdb-cluster -n ${NAMESPACE}
