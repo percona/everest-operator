@@ -477,6 +477,11 @@ func (r *DataImportJobReconciler) getJobSpec(
 	serviceAccountName string,
 ) batchv1.JobSpec {
 	spec := batchv1.JobSpec{
+		// Setting it to 0 means we will not retry on failure.
+		// TODO: In EVEREST-2108, we will implement failurePolicy, and that's where we shall
+		// implement retries. For now we disable retries so it can fail fast.
+		// See: https://perconadev.atlassian.net/browse/EVEREST-2108
+		BackoffLimit: pointer.ToInt32(0),
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				ServiceAccountName: serviceAccountName,
