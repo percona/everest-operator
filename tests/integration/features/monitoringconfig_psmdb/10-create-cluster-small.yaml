@@ -8,14 +8,9 @@ metadata:
   name: psmdb-mc
 spec:
   monitoring:
-    resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
     monitoringConfigName: mc-psmdb
   engine:
     type: psmdb
-    version: 7.0.12-7
     config: |
      operationProfiling:
         mode: slowOp

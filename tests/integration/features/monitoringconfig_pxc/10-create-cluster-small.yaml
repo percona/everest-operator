@@ -8,12 +8,7 @@ metadata:
   name: pxc-mc
 spec:
   monitoring:
-    resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
     monitoringConfigName: mc-pxc
-    image: percona/pmm-client:latest
   engine:
     type: pxc
     config: |
