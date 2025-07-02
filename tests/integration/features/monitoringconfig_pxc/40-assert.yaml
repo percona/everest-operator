@@ -52,6 +52,12 @@ assertAll:
   - celExpr: "!has(pxc.spec.pmm.image)"
     message: "pxc.spec.pmm.image is not empty"
 
+  - celExpr: "!has(pxc.spec.pmm.resources.limits)"
+    message: "pxc.spec.pmm.resources.limits is not empty"
+
+  - celExpr: "!has(pxc.spec.pmm.resources.requests)"
+    message: "pxc.spec.pmm.resources.requests is not empty"
+
   - celExpr: "has(vmagent.spec.remoteWrite)"
     message: "vmagent doesn't have .spec.remoteWrite"
 
@@ -65,6 +71,9 @@ metadata:
 spec:
   monitoring:
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
@@ -102,11 +111,6 @@ kind: PerconaXtraDBCluster
 metadata:
   name: pxc-mc
 spec:
-  pmm:
-    resources:
-      limits:
-        memory: "300M"
-        cpu: "500m"
   secretsName: everest-secrets-pxc-mc
 ---
 apiVersion: v1

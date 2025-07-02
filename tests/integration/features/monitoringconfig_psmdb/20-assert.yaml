@@ -49,6 +49,9 @@ spec:
   monitoring:
     monitoringConfigName: mc-psmdb
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"
@@ -91,6 +94,9 @@ spec:
     serverHost: localhost-mc-psmdb-updated
     image: percona/pmm-client:updated
     resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
       limits:
         memory: "128Mi"
         cpu: "500m"

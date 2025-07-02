@@ -22,6 +22,10 @@ resourceRefs:
     name: everest-monitoring
     namespace: everest-monitoring
     ref: vmagent
+  - apiVersion: pxc.percona.com/v1
+    kind: PerconaXtraDBCluster
+    name: pxc-mc
+    ref: pxc
 assertAll:
   - celExpr: "has(mc.metadata.finalizers)"
     message: "mc doesn't have finalizers"
@@ -40,6 +44,9 @@ assertAll:
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pxc/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pxc/victoriametrics/api/v1/write'"
+
+  - celExpr: "!has(pxc.spec.pmm.resources.limits)"
+    message: "pxc.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -48,10 +55,6 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pxc
-    resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -91,9 +94,9 @@ spec:
     serverHost: localhost-mc-pxc
     image: percona/pmm-client:latest
     resources:
-      limits:
-        memory: "128Mi"
-        cpu: "500m"
+      requests:
+        memory: 101994987520m
+        cpu: 95m
   secretsName: everest-secrets-pxc-mc
 ---
 apiVersion: v1
