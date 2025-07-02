@@ -50,6 +50,7 @@ const (
 	pgBackRestStorageVerifyTmpl    = "%s-storage-verify-tls"
 	pgBackRestStorageForcePathTmpl = "%s-s3-uri-style"
 	pgBackRestStoragePathStyle     = "path"
+	repo1Name                      = "repo1"
 )
 
 type applier struct {
