@@ -328,26 +328,20 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	ctx := p.ctx
 
 	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled: true,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300M"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-			},
-		},
-		Secret: fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, database.GetName()),
+		Enabled:   true,
+		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Secret:    fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, database.GetName()),
+		Image:     common.DefaultPMMClientImage,
 	}
-	image := common.DefaultPMMClientImage
+
 	if monitoring.Spec.PMM.Image != "" {
-		image = monitoring.Spec.PMM.Image
+		pg.Spec.PMM.Image = monitoring.Spec.PMM.Image
 	}
 	pmmURL, err := url.Parse(monitoring.Spec.PMM.URL)
 	if err != nil {
 		return errors.Join(err, errors.New("invalid monitoring URL"))
 	}
 	pg.Spec.PMM.ServerHost = pmmURL.Hostname()
-	pg.Spec.PMM.Image = image
-	pg.Spec.PMM.Resources = database.Spec.Monitoring.Resources
 
 	apiKey, err := common.GetSecretFromMonitoringConfig(ctx, c, monitoring)
 	if err != nil {
@@ -624,7 +618,8 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 		return nil, err
 	}
 
-	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupStorage, backupBaseName, repo1Name)
+	repoName := "repo1"
+	options, err := getPGRestoreOptions(*database.Spec.DataSource, backupStorage, backupBaseName, repoName)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +628,7 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	pgDataSource := &crunchyv1beta1.DataSource{
 		PGBackRest: &crunchyv1beta1.PGBackRestDataSource{
 			Global: map[string]string{
-				fmt.Sprintf(pgBackRestPathTmpl, repo1Name): globalDatasourceDestination(dest, database, backupStorage),
+				fmt.Sprintf(pgBackRestPathTmpl, repoName): globalDatasourceDestination(dest, database, backupStorage),
 			},
 			Stanza:  "db",
 			Options: options,
@@ -650,11 +645,11 @@ func (p *applier) genPGDataSourceSpec() (*crunchyv1beta1.DataSource, error) {
 	// Handle PG Datasource based on the backup storage type.
 	switch backupStorage.Spec.Type {
 	case everestv1alpha1.BackupStorageTypeS3:
-		if err := p.handlePGDataSourceS3(repo1Name, pgDataSource, backupStorage, database); err != nil {
+		if err := p.handlePGDataSourceS3(repoName, pgDataSource, backupStorage, database); err != nil {
 			return nil, err
 		}
 	case everestv1alpha1.BackupStorageTypeAzure:
-		if err := p.handlePGDataSourceAzure(repo1Name, pgDataSource, backupStorage, database); err != nil {
+		if err := p.handlePGDataSourceAzure(repoName, pgDataSource, backupStorage, database); err != nil {
 			return nil, err
 		}
 	default:
