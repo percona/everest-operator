@@ -1,10 +1,10 @@
 module github.com/percona/everest-operator
 
-go 1.24.3
+go 1.24.4
 
 require (
 	github.com/AlekSi/pointer v1.2.0
-	github.com/VictoriaMetrics/operator/api v0.51.4-0.20250312192715-4ec928bb0f99
+	github.com/VictoriaMetrics/operator/api v0.60.2
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
@@ -31,9 +31,9 @@ require (
 require (
 	cel.dev/expr v0.24.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/VictoriaMetrics/VictoriaMetrics v1.112.0 // indirect
+	github.com/VictoriaMetrics/VictoriaMetrics v1.116.0 // indirect
 	github.com/VictoriaMetrics/metrics v1.35.2 // indirect
-	github.com/VictoriaMetrics/metricsql v0.84.0 // indirect
+	github.com/VictoriaMetrics/metricsql v0.84.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aws/aws-sdk-go v1.55.6 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.11 // indirect
@@ -71,7 +71,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.25.0 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
