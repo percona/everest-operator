@@ -268,6 +268,10 @@ func runPXCRestoreAndWait(
 		}, pxcRestore); err != nil {
 			return false, fmt.Errorf("failed to get PXC restore %s: %w", pxcRestoreName, err)
 		}
+		// we cannot recover from this state, so no point waiting.
+		if pxcRestore.Status.State == pxcv1.RestoreFailed {
+			return false, fmt.Errorf("PXC restore failed with message: %s", pxcRestore.Status.Comments)
+		}
 		return pxcRestore.Status.State == pxcv1.RestoreSucceeded, nil
 	})
 }

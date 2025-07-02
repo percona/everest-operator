@@ -208,6 +208,10 @@ func runPSMDBRestoreAndWait(
 		}, psmdbRestore); err != nil {
 			return false, fmt.Errorf("failed to get PSMDB restore %s: %w", psmdbRestoreName, err)
 		}
+		// we cannot recover from this state, so no point waiting.
+		if psmdbRestore.Status.State == psmdbv1.RestoreStateError {
+			return false, fmt.Errorf("PSMDB restore failed with message: %s", psmdbRestore.Status.Error)
+		}
 		return psmdbRestore.Status.State == psmdbv1.RestoreStateReady, nil
 	})
 }
