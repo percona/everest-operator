@@ -140,7 +140,8 @@ func runPGImport(
 	}
 
 	backupName, repoPath := parseBackupPath(backupPath)
-	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint, region, uriStyle, verifyTLS, pgCopy)
+	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint,
+		region, uriStyle, verifyTLS, pgCopy)
 
 	if err := restorePGCluster(ctx, k8sClient, pgCopy); err != nil {
 		return fmt.Errorf("failed to restore PGCluster %s/%s: %w", namespace, dbName, err)
@@ -281,7 +282,6 @@ func addPGDataSource(
 		"--type=immediate", // TODO: support PITR
 		"--set=" + backupName,
 	}
-
 	if !verifyTLS {
 		options = append(options, fmt.Sprintf("--no-%s-storage-verify-tls", repoName))
 	}

@@ -80,6 +80,7 @@ func runPXCImport(ctx context.Context, configPath string) error {
 		region          = cfg.Source.S3.Region
 		bucket          = cfg.Source.S3.Bucket
 		backupPath      = cfg.Source.Path
+		verifyTLS       = cfg.Source.S3.VerifyTLS
 	)
 
 	// prepare k8s client.
@@ -118,7 +119,8 @@ func runPXCImport(ctx context.Context, configPath string) error {
 
 	// Run PXC restore and wait for it to complete.
 	log.Info().Msgf("Starting PXC restore for database %s from backup path %s", dbName, backupPath)
-	if err := runPXCRestoreAndWait(ctx, k8sClient, namespace, dbName, pxcRestoreName, backupPath, bucket, endpoint, region); err != nil {
+	if err := runPXCRestoreAndWait(ctx, k8sClient, namespace, dbName, pxcRestoreName, backupPath,
+		bucket, endpoint, region, verifyTLS); err != nil {
 		return fmt.Errorf("failed to run PXC restore: %w", err)
 	}
 	log.Info().Msgf("PXC restore %s completed successfully for database %s", pxcRestoreName, dbName)
@@ -213,6 +215,7 @@ func runPXCRestoreAndWait(
 	pxcRestoreName string,
 	backupPath string,
 	bucket, endpoint, region string,
+	verifyTLS bool,
 ) error {
 	destination, bucket := getDestinationAndBucket(backupPath, bucket)
 
@@ -241,6 +244,7 @@ func runPXCRestoreAndWait(
 			PXCCluster: dbName,
 			BackupSource: &pxcv1.PXCBackupStatus{
 				Destination: pxcv1.PXCBackupDestination(destination),
+				VerifyTLS:   &verifyTLS,
 				S3: &pxcv1.BackupStorageS3Spec{
 					Bucket:            bucket,
 					Region:            region,
@@ -263,6 +267,10 @@ func runPXCRestoreAndWait(
 			Namespace: namespace,
 		}, pxcRestore); err != nil {
 			return false, fmt.Errorf("failed to get PXC restore %s: %w", pxcRestoreName, err)
+		}
+		// we cannot recover from this state, so no point waiting.
+		if pxcRestore.Status.State == pxcv1.RestoreFailed {
+			return false, fmt.Errorf("PXC restore failed with message: %s", pxcRestore.Status.Comments)
 		}
 		return pxcRestore.Status.State == pxcv1.RestoreSucceeded, nil
 	})

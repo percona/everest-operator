@@ -15,6 +15,7 @@
 package pg
 
 import (
+	"fmt"
 	"testing"
 
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
@@ -112,7 +113,7 @@ func TestAddPGDataSource(t *testing.T) {
 				tt.endpoint,
 				tt.region,
 				tt.uriStyle,
-				true,
+				false,
 				pg,
 			)
 
@@ -137,6 +138,7 @@ func TestAddPGDataSource(t *testing.T) {
 			expectedSetOption := "--set=" + tt.backupName
 			assert.Contains(t, pgBackRest.Options, "--type=immediate", "Should contain immediate type option")
 			assert.Contains(t, pgBackRest.Options, expectedSetOption, "Should contain backup set option")
+			assert.Contains(t, pgBackRest.Options, fmt.Sprintf("--no-%s-storage-verify-tls", tt.repoName), "Should contain no verify TLS option")
 
 			// Verify Repo configuration
 			assert.Equal(t, tt.repoName, pgBackRest.Repo.Name, "Repo name should match")
