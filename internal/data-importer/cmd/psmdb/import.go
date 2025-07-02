@@ -80,6 +80,8 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 		region          = cfg.Source.S3.Region
 		bucket          = cfg.Source.S3.Bucket
 		backupPath      = cfg.Source.Path
+		verifyTLS       = cfg.Source.S3.VerifyTLS
+		forcePathStyle  = cfg.Source.S3.ForcePathStyle
 	)
 
 	// prepare k8s client.
@@ -105,7 +107,8 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 
 	// Run PSMDB restore and wait for it to complete.
 	log.Info().Msgf("Starting PSMDB restore for database %s from backup path %s", dbName, backupPath)
-	if err := runPSMDBRestoreAndWait(ctx, k8sClient, namespace, dbName, psmdbRestoreName, backupPath, bucket, endpoint, region); err != nil {
+	if err := runPSMDBRestoreAndWait(ctx, k8sClient, namespace, dbName, psmdbRestoreName, backupPath, bucket,
+		endpoint, region, forcePathStyle, verifyTLS); err != nil {
 		return fmt.Errorf("failed to run PSMDB restore: %w", err)
 	}
 	log.Info().Msgf("PSMDB restore %s completed successfully for database %s", psmdbRestoreName, dbName)
@@ -145,6 +148,7 @@ func runPSMDBRestoreAndWait(
 	psmdbRestoreName string,
 	backupPath string,
 	bucket, endpoint, region string,
+	forcePathstyle, verifyTLS bool,
 ) error {
 	// parse the backup path to extract prefix and destination.
 	backupPath = strings.Trim(backupPath, "/")
@@ -179,11 +183,13 @@ func runPSMDBRestoreAndWait(
 				Type:        pbmdefs.LogicalBackup,
 				Destination: destination,
 				S3: &psmdbv1.BackupStorageS3Spec{
-					Bucket:            bucket,
-					Region:            region,
-					EndpointURL:       endpoint,
-					CredentialsSecret: psmdbRestoreName,
-					Prefix:            prefix,
+					Bucket:                bucket,
+					Region:                region,
+					EndpointURL:           endpoint,
+					CredentialsSecret:     psmdbRestoreName,
+					Prefix:                prefix,
+					InsecureSkipTLSVerify: !verifyTLS,
+					ForcePathStyle:        &forcePathstyle,
 				},
 			},
 		}
