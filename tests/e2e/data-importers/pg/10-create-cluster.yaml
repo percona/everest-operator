@@ -19,8 +19,6 @@ commands:
                 region: us-east-1
                 endpointURL: https://minio.${NAMESPACE}.svc
                 credentialsSecretName: test-s3-secret
-                accessKeyId: minioadmin
-                secretAccessKey: minioadmin
                 verifyTLS: false
                 forcePathStyle: true
         engine:
@@ -36,3 +34,11 @@ commands:
           type: pgbouncer
           replicas: 3
       EOF
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-s3-secret
+stringData:
+  AWS_ACCESS_KEY_ID: minioadmin
+  AWS_SECRET_ACCESS_KEY: minioadmin
