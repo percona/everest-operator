@@ -2,5 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 120
 commands:
-  - script: >
-      test "$(kubectl exec pg-client -n ${NAMESPACE} -- psql -t -A -c "select * from test;")" = $'1\n2\n3\n4\n5\n6\n7\n8\n9\n10'
+  - script: |
+      expected=$(printf '1\n2\n3\n4\n5\n6\n7\n8\n9\n10')
+      actual=$(kubectl exec pg-client -n ${NAMESPACE} -- psql -t -A -c "select * from test;")
+      test "$actual" = "$expected"
