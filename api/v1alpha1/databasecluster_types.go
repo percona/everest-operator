@@ -408,6 +408,8 @@ const (
 	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
 	// ConditionTypeVolumeResizeFailed is a condition type that indicates that the volume resize failed.
 	ConditionTypeVolumeResizeFailed = "VolumeResizeFailed"
+	// ConditionTypeImportFailed is a condition type that indicates that the data import failed.
+	ConditionTypeImportFailed = "ImportFailed"
 )
 
 const (
@@ -420,6 +422,8 @@ const (
 	// ReasonVolumeResizeFailed is a reason for condition ConditionTypeVolumeResizeFailed
 	// when the volume resize failed.
 	ReasonVolumeResizeFailed = "VolumeResizeFailed"
+	// ReasonDataImportJobFailed is a reason for condition ConditionTypeImportFailed
+	ReasonDataImportJobFailed = "DataImportJobFailed"
 )
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
