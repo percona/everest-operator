@@ -270,6 +270,12 @@ func (r *DatabaseClusterReconciler) observeDataImportState(
 	case sts.State == everestv1alpha1.DataImportJobStateFailed:
 		db.Status.Status = everestv1alpha1.AppStateError
 		db.Status.Message = "Data import job failed"
+		meta.SetStatusCondition(&db.Status.Conditions, metav1.Condition{
+			Type:               everestv1alpha1.ConditionTypeImportFailed,
+			Reason:             everestv1alpha1.ReasonDataImportJobFailed,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: db.GetGeneration(),
+		})
 	case sts.State != everestv1alpha1.DataImportJobStateSucceeded:
 		db.Status.Status = everestv1alpha1.AppStateImporting
 	}
