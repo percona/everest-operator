@@ -9,7 +9,7 @@ spec:
   supportedEngines:
   - psmdb
   jobSpec:
-    image: "percona/everest-operator"
+    image: "perconalab/everest-operator:0.0.0"
     command: ["/data-importer", "psmdb"]
   databaseClusterConstraints:
     requiredFields:
