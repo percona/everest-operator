@@ -174,6 +174,10 @@ cluster-cleanup:
 	for ns in $$namespaces; do \
 		kubectl -n $$ns get db -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
 	done
+	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for ns in $$namespaces; do \
+		kubectl -n $$ns delete -f ./tests/testdata/minio --ignore-not-found || true; \
+	done
 	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
 	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
 	kubectl get ns -o name | grep kuttl | xargs --no-run-if-empty kubectl delete || true
