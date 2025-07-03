@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+commands:
+  - script: |
+     PGPASSWORD="$(kubectl get secret -n ${NAMESPACE} test-pg-cluster-user-secret -o jsonpath='{.data.password}' | base64 --decode)"
+     PGUSER=postgres
+     PGHOST="$(kubectl get db -n ${NAMESPACE} test-pg-cluster -o jsonpath='{.status.hostname}')"
+     
+     kubectl run -n "${NAMESPACE}" pg-client --image=perconalab/percona-distribution-postgresql:16 --env="PGPASSWORD=${PGPASSWORD}" --env="PGUSER=${PGUSER}" --env="PGHOST=${PGHOST}" --restart=Never -- sleep infinity

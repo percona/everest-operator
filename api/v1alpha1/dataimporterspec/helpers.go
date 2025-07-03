@@ -19,12 +19,27 @@ package dataimporterspec
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 )
 
 // ReadFromFilepath reads the configuration from a JSON file at the specified filepath.
+// Implements the dash convention (hyphen convention) to read from stdin if the filepath is "-".
 func (in *Spec) ReadFromFilepath(filepath string) error {
-	data, err := os.ReadFile(filepath) //nolint:gosec
+	var reader io.Reader
+	if filepath == "-" {
+		// Use the dash convention (hyphen convention) to read from stdin
+		reader = os.Stdin
+	} else {
+		file, err := os.Open(filepath) //nolint:gosec
+		if err != nil {
+			return fmt.Errorf("error opening config file: %w", err)
+		}
+		defer file.Close() //nolint:errcheck
+		reader = file
+	}
+
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
