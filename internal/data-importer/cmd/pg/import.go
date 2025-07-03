@@ -315,7 +315,6 @@ func addPGDataSource(
 					corev1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			},
-
 			Stanza: "db",
 		},
 	}
