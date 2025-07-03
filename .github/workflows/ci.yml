@@ -141,6 +141,13 @@ jobs:
           chmod +x "$TOOLS_PATH"/eksctl
 
       - name: Scale up cluster
+        # Only the following E2E tests require EKS:
+        # - test/e2e
+        # - test/e2e-core
+        # - test/e2e-db-upgrade
+        # - test/e2e-operator-upgrade
+        # TODO: Review this condition once we have more tests running on KinD.
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
