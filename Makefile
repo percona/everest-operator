@@ -139,7 +139,7 @@ test-integration-operator-upgrade: docker-build ## Run operator upgrade tests ag
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
-test-e2e-core: docker-build ## Run e2e/core tests against
+test-e2e-core: docker-build ## Run e2e/core tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
