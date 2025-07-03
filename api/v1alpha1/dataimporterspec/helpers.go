@@ -35,7 +35,7 @@ func (in *Spec) ReadFromFilepath(filepath string) error {
 		if err != nil {
 			return fmt.Errorf("error opening config file: %w", err)
 		}
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 		reader = file
 	}
 
