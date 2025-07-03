@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+commands:
+  - script: |
+      # wait for a minute for the upstream operator to reconcile any errors post import.
+      sleep 60
+      
+      test $(kubectl get db -n ${NAMESPACE} test-pg-cluster -o jsonpath='{.status.status}') = "ready"
+      

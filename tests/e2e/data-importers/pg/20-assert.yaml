@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+commands:
+  - command: kubectl wait --for=condition=Ready pod/pg-client -n ${NAMESPACE} --timeout=120s
+
