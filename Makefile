@@ -139,16 +139,20 @@ test-integration-operator-upgrade: docker-build ## Run operator upgrade tests ag
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
-test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
+test-e2e-core: docker-build ## Run e2e/core tests against
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
-test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
+test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
 
 .PHONY: test-e2e-operator-upgrade
-test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
+test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+
+.PHONY: test-e2e-data-importer
+test-e2e-data-importer: docker-build ## Run e2e/data-importer tests
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup

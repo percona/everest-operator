@@ -180,6 +180,16 @@ jobs:
         if: always()
         run: |
           make cluster-cleanup
+  
+      - name: Run data importer tests
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+        run: |
+          make test-e2e-data-importer
+
+      - name: Clean up custom resources
+        if: always()
+        run: |
+          make cluster-cleanup
 
       - name: Scale down cluster
         if: always()
