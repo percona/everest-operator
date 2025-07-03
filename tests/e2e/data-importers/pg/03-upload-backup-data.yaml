@@ -9,5 +9,5 @@ commands:
   # Upload the copied data to the bucket via the s3 API.
   # Note: it is not enough to directly copy the data to the bucket directory, it needs to go through the API.
   - command: sleep 5 # The next command can be flaky, waiting a few seconds usually helps.
-  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc alias set s3 https://minio.${NAMESPACE}.svc ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --insecure
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc alias set s3 https://minio.${NAMESPACE}.svc minioadmin minioadmin --insecure
   - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc cp --quiet --recursive /shared/pg s3/everest-operator --insecure
