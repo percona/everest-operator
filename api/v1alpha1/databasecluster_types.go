@@ -422,7 +422,7 @@ const (
 	// ReasonVolumeResizeFailed is a reason for condition ConditionTypeVolumeResizeFailed
 	// when the volume resize failed.
 	ReasonVolumeResizeFailed = "VolumeResizeFailed"
-	// ReasonDataImportJobFailed is a reason for condition ConditionTypeImportFailed
+	// ReasonDataImportJobFailed is a reason for condition ConditionTypeImportFailed.
 	ReasonDataImportJobFailed = "DataImportJobFailed"
 )
 
