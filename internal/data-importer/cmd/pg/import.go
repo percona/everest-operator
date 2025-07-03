@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,7 +53,7 @@ var Cmd = &cobra.Command{
 		configPath := args[0]
 		if err := runPGImport(cmd.Context(), configPath); err != nil {
 			log.Error().Err(err).Msg("Failed to run pg import")
-			panic(err)
+			os.Exit(1)
 		}
 	},
 }

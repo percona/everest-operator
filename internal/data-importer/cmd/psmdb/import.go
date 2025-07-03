@@ -19,6 +19,7 @@ package psmdb
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ var Cmd = &cobra.Command{
 		configPath := args[0]
 		if err := runPSMDBImport(cmd.Context(), configPath); err != nil {
 			log.Error().Err(err).Msg("Failed to run psmdb import")
-			panic(err)
+			os.Exit(1)
 		}
 	},
 }

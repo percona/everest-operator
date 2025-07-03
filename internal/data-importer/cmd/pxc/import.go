@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ var Cmd = &cobra.Command{
 		configPath := args[0]
 		if err := runPXCImport(cmd.Context(), configPath); err != nil {
 			log.Error().Err(err).Msg("Failed to run pxc import")
-			panic(err)
+			os.Exit(1)
 		}
 	},
 }
