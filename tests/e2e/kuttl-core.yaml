@@ -5,7 +5,16 @@ artifactsDir: /tmp/
 parallel: 1
 timeout: 180
 skipDelete: true
+startKIND: true
+kindConfig: tests/e2e/kind/config.yaml
+kindContainers:
+  - perconalab/everest-operator:0.0.0
 testDirs:
 - tests/e2e/core
 manifestDirs:
 - tests/manifests
+commands:
+  # Deploy Everest Operator into KIND cluster
+  - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
+  # Wait for Everest Operator to be ready.
+  - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system

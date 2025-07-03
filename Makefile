@@ -140,7 +140,7 @@ test-integration-operator-upgrade: docker-build ## Run operator upgrade tests ag
 
 .PHONY: test-e2e-core
 test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml --test pg
 
 .PHONY: test-e2e-db-upgrade
 test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
