@@ -79,7 +79,7 @@ jobs:
 
   eks-e2e-tests:
     name: E2E tests (EKS)
-    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
