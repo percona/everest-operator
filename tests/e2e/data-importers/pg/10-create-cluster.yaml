@@ -15,3 +15,6 @@ spec:
       cpu: "1"
       memory: 1G
     userSecretsName: test-pg-cluster-user-secret
+  proxy:
+    type: pgbouncer
+    replicas: 3
