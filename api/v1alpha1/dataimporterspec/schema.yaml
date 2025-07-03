@@ -1,0 +1,134 @@
+openapi: 3.0.2
+components:
+  schemas:
+    Spec:
+      type: object
+      description: |
+        defines the structure of the JSON payload that is passed to the container running the importer process.
+  
+        The importer is expected to read a path to this JSON as the first command-line argument. For example:
+
+        ./my-importer.sh /payload/request.json
+        
+        This serves as a contract between Everest and external importers.
+      properties:
+        source:
+          type: object
+          description: specifies the location and method for the data to be imported.
+          "$ref": '#/components/schemas/Source'
+        target:
+          type: object
+          description: specifies the database cluster and connection details for the import operation.
+          "$ref": '#/components/schemas/Target'
+        config:
+          type: object
+          description: Contains configuration for customizing the import process, specific to the DataImporter used.
+          additionalProperties: true
+          x-go-type-skip-optional-pointer: true
+      required:
+        - source
+        - target 
+    S3:
+      type: object
+      description: "contains storage configuration for importing data from an S3 bucket."
+      properties:
+        bucket:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: contains the name of the S3 bucket containing the data to import.
+        region:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: contains the AWS region of the S3 bucket.
+        endpointURL:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: contains the endpoint URL for the S3-compatible storage service.
+        verifyTLS:
+          type: boolean
+          x-go-type-skip-optional-pointer: true
+          description: specifies whether to verify TLS/SSL certificates when connecting to S3.
+        forcePathStyle:
+          type: boolean
+          x-go-type-skip-optional-pointer: true
+          description: specifies whether to use path-style URLs for S3 access (instead of virtual-hosted style).
+        accessKeyID:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the AWS access key ID for S3 authentication.
+        secretKey:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies AWS secret access key for S3 authentication.
+      required: []
+    Source:
+      type: object
+      description: contains the location and method for the data to be imported.
+      properties:
+        path:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the path to the data to be imported in the given source.
+        s3:
+          type: object
+          "$ref": '#/components/schemas/S3'
+          description: contains storage configuration for importing data from an S3 bucket.
+      required: []
+    Target:
+      type: object
+      description: |
+        defines the database cluster and connection details for the import operation.
+
+        The importer is expected to use this information to connect to the target database and perform the import.
+      properties:
+        databaseClusterRef:
+          type: object
+          "$ref": '#/components/schemas/ObjectReference'
+          description: contains a reference to the target DatabaseCluster resource in Kubernetes.
+        type:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the type of the target database (e.g., MySQL, PostgreSQL, MongoDB).
+        host:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the hostname or IP address of the target database server.
+        port:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the port number for connecting to the target database server.
+        user:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the username for authenticating to the target database.
+        password:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the password for authenticating to the target database.
+      required: []
+    ObjectReference:
+      type: object
+      description: contains a reference to a Kubernetes resource.
+      properties:
+        name:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the name of the referenced Kubernetes resource.
+        namespace:
+          type: string
+          x-go-type-skip-optional-pointer: true
+          description: specifies the namespace of the referenced Kubernetes resource.
+      required: []
+
+################################################################
+## This path is here only so that the Spec model is generated ##
+################################################################
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Spec'

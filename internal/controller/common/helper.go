@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/version"
 	"github.com/percona/everest-operator/internal/predicates"
 )
@@ -118,8 +119,8 @@ func GetOperatorVersion(
 }
 
 // GetClusterType returns the type of the cluster on which this operator is running.
-func GetClusterType(ctx context.Context, c client.Client) (ClusterType, error) {
-	clusterType := ClusterTypeMinikube
+func GetClusterType(ctx context.Context, c client.Client) (consts.ClusterType, error) {
+	clusterType := consts.ClusterTypeMinikube
 	unstructuredResource := &unstructured.Unstructured{}
 	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "storage.k8s.io",
@@ -139,7 +140,7 @@ func GetClusterType(ctx context.Context, c client.Client) (ClusterType, error) {
 	}
 	for _, storage := range storageList.Items {
 		if strings.Contains(storage.Provisioner, "aws") {
-			clusterType = ClusterTypeEKS
+			clusterType = consts.ClusterTypeEKS
 		}
 	}
 	return clusterType, nil
@@ -345,9 +346,9 @@ func getRestoreDataSource(
 	ctx context.Context,
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
-) everestv1alpha1.DataSource {
+) everestv1alpha1.DatabaseClusterRestoreDataSource {
 	if database.Spec.Engine.Type != everestv1alpha1.DatabaseEnginePSMDB || database.Spec.DataSource.DBClusterBackupName == "" {
-		return *database.Spec.DataSource
+		return database.Spec.DataSource.IntoDBRestoreDataSource()
 	}
 
 	// Use the full backup source instead of just the backupName to be able to
@@ -357,10 +358,10 @@ func getRestoreDataSource(
 	backup := &psmdbv1.PerconaServerMongoDBBackup{}
 	err := c.Get(ctx, types.NamespacedName{Name: backupName, Namespace: database.Namespace}, backup)
 	if err != nil {
-		return everestv1alpha1.DataSource{}
+		return everestv1alpha1.DatabaseClusterRestoreDataSource{}
 	}
 
-	return everestv1alpha1.DataSource{
+	return everestv1alpha1.DatabaseClusterRestoreDataSource{
 		BackupSource: &everestv1alpha1.BackupSource{
 			Path:              backup.Status.Destination,
 			BackupStorageName: backup.Spec.StorageName,
@@ -627,7 +628,7 @@ func IsDatabaseClusterRestoreRunning(
 	dbName, dbNs string,
 ) (bool, error) {
 	// List restores for this database.
-	restoreList, err := DatabaseClusterRestoresThatReferenceObject(ctx, c, DBClusterRestoreDBClusterNameField, dbNs, dbName)
+	restoreList, err := DatabaseClusterRestoresThatReferenceObject(ctx, c, consts.DBClusterRestoreDBClusterNameField, dbNs, dbName)
 	if err != nil {
 		return false, err
 	}
@@ -664,13 +665,13 @@ func HandleDBBackupsCleanup(
 	c client.Client,
 	database *everestv1alpha1.DatabaseCluster,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, DBBackupCleanupFinalizer) {
+	if controllerutil.ContainsFinalizer(database, consts.DBBackupCleanupFinalizer) {
 		if done, err := deleteBackupsForDatabase(ctx, c, database.GetName(), database.GetNamespace()); err != nil {
 			return false, err
 		} else if !done {
 			return false, nil
 		}
-		controllerutil.RemoveFinalizer(database, DBBackupCleanupFinalizer)
+		controllerutil.RemoveFinalizer(database, consts.DBBackupCleanupFinalizer)
 		return true, c.Update(ctx, database)
 	}
 	return true, nil
@@ -683,7 +684,7 @@ func deleteBackupsForDatabase(
 	c client.Client,
 	dbName, dbNs string,
 ) (bool, error) {
-	backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, DBClusterBackupDBClusterNameField, dbNs, dbName)
+	backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, consts.DBClusterBackupDBClusterNameField, dbNs, dbName)
 	if err != nil {
 		return false, err
 	}
@@ -710,9 +711,9 @@ func HandleUpstreamClusterCleanup(
 	database *everestv1alpha1.DatabaseCluster,
 	upstream client.Object,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(database, UpstreamClusterCleanupFinalizer) { //nolint:nestif
+	if controllerutil.ContainsFinalizer(database, consts.UpstreamClusterCleanupFinalizer) { //nolint:nestif
 		// first check that all dbb are deleted since the upstream backups may need the upstream cluster to be present.
-		backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
+		backupList, err := DatabaseClusterBackupsThatReferenceObject(ctx, c, consts.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 		if err != nil {
 			return false, err
 		}
@@ -726,7 +727,7 @@ func HandleUpstreamClusterCleanup(
 		}, upstream)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				controllerutil.RemoveFinalizer(database, UpstreamClusterCleanupFinalizer)
+				controllerutil.RemoveFinalizer(database, consts.UpstreamClusterCleanupFinalizer)
 				return true, c.Update(ctx, database)
 			}
 			return false, err
@@ -927,6 +928,12 @@ func VerifyPVCResizeFailure(ctx context.Context, c client.Client, name, namespac
 		}
 	}
 	return false, "", nil
+}
+
+// GetDataImportJobName returns the name of the DataImport job for the given database cluster.
+func GetDataImportJobName(db *everestv1alpha1.DatabaseCluster) string {
+	prefix := "data-import-"
+	return prefix + db.GetName()
 }
 
 // EnsureInUseFinalizer ensures that the InUseResourceFinalizer is present or absent.

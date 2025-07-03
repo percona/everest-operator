@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/providers"
 	"github.com/percona/everest-operator/internal/controller/version"
@@ -53,7 +54,7 @@ type Provider struct {
 	// currentPerconaXtraDBClusterSpec holds the current PXC spec.
 	currentPerconaXtraDBClusterSpec pxcv1.PerconaXtraDBClusterSpec
 
-	clusterType     common.ClusterType
+	clusterType     consts.ClusterType
 	operatorVersion *version.Version
 }
 
@@ -72,7 +73,7 @@ func New(
 		return nil, err
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PXCDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, consts.PXCDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func New(
 
 	// Get operator version.
 	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
-		Name:      common.PXCDeploymentName,
+		Name:      consts.PXCDeploymentName,
 		Namespace: opts.DB.GetNamespace(),
 	})
 	if err != nil {
@@ -222,7 +223,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateUpgrading
 	}
 
-	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PXCDeploymentName, p.DB)
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, consts.PXCDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return status, err
 	}
@@ -280,9 +281,9 @@ func (p *Provider) Cleanup(ctx context.Context, database *everestv1alpha1.Databa
 //nolint:ireturn
 func (p *Provider) DBObject() client.Object {
 	p.PerconaXtraDBCluster.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   common.PXCAPIGroup,
+		Group:   consts.PXCAPIGroup,
 		Version: p.operatorVersion.ToK8sVersion(),
-		Kind:    common.PerconaXtraDBClusterKind,
+		Kind:    consts.PerconaXtraDBClusterKind,
 	})
 	return p.PerconaXtraDBCluster
 }

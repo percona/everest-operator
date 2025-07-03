@@ -17,9 +17,6 @@ package common
 
 import "errors"
 
-// ClusterType represents the type of the cluster.
-type ClusterType string
-
 var (
 	// ErrPitrTypeIsNotSupported is an error for unsupported PITR type.
 	ErrPitrTypeIsNotSupported = errors.New("unknown PITR type")

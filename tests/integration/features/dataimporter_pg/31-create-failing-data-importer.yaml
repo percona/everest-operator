@@ -1,0 +1,15 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImporter
+metadata:
+  name: test-pg-data-importer-failure
+spec:
+  displayName: "Test data importer failure"
+  description: "Data importer for integration tests (failure case)"
+  supportedEngines:
+  - postgresql
+  jobSpec:
+    image: "busybox"
+    command: ["/bin/sh", "-c", "sleep 20 && cat \"$0\" && exit 1"]

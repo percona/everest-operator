@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 180
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+status:
+  status: error
+  conditions:
+  - type: ImportFailed
+    reason: DataImportJobFailed
+    status: "True"

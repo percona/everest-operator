@@ -75,6 +75,27 @@ type (
 type DatabaseEngineSpec struct {
 	Type            EngineType `json:"type"`
 	AllowedVersions []string   `json:"allowedVersions,omitempty"`
+	// SecretKeys contains the definition of the various Secrets that
+	// the given DBEngine supports.
+	// This information acts like metadata for the Everest UI to guide the users
+	// in filling out the correct Secret keys for their clusters.
+	// +optional
+	SecretKeys SecretKeys `json:"secretKeys,omitempty"`
+}
+
+// SecretKeys contains the definition of the various Secrets that
+// the given DBEngine supports.
+type SecretKeys struct {
+	// User secret keys are used to store the details of the users.
+	User []SecretKey `json:"user,omitempty"`
+}
+
+// SecretKey defines a single Secret key.
+type SecretKey struct {
+	// Name is the name of the Secret key.
+	Name string `json:"name,omitempty"`
+	// Description is a human-readable description of the Secret key.
+	Description string `json:"description,omitempty"`
 }
 
 // DatabaseEngineStatus defines the observed state of DatabaseEngine.

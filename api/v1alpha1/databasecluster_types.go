@@ -55,6 +55,8 @@ const (
 	AppStateUpgrading AppState = "upgrading"
 	// AppStateResizingVolumes is the state when PVCs are being resized.
 	AppStateResizingVolumes = "resizingVolumes"
+	// AppStateImporting is the state when a data import job is being executed for the cluster.
+	AppStateImporting AppState = "importing"
 	// AppStateNew represents a newly created cluster that has not yet been reconciled.
 	AppStateNew AppState = ""
 
@@ -282,6 +284,10 @@ type DataSource struct {
 	BackupSource *BackupSource `json:"backupSource,omitempty"`
 	// PITR is the point-in-time recovery configuration
 	PITR *PITR `json:"pitr,omitempty"`
+	// DataImport allows importing data from an external backup source.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec.dataSource.dataImport is immutable"
+	DataImport *DataImportJobTemplate `json:"dataImport,omitempty"`
 }
 
 // BackupSchedule is the backup schedule configuration.
@@ -376,11 +382,34 @@ type DatabaseClusterSpec struct {
 	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
 }
 
+// IntoDBRestoreDataSource converts the DataSource into a DatabaseClusterRestoreDataSource.
+func (in *DataSource) IntoDBRestoreDataSource() DatabaseClusterRestoreDataSource {
+	return DatabaseClusterRestoreDataSource{
+		DBClusterBackupName: in.DBClusterBackupName,
+		BackupSource:        in.BackupSource,
+		PITR:                in.PITR,
+	}
+}
+
+// IntoDataSource converts the DatabaseClusterRestoreDataSource into a DataSource.
+func (in *DatabaseClusterRestoreDataSource) IntoDataSource() *DataSource {
+	if in == nil {
+		return nil
+	}
+	return &DataSource{
+		DBClusterBackupName: in.DBClusterBackupName,
+		BackupSource:        in.BackupSource,
+		PITR:                in.PITR,
+	}
+}
+
 const (
 	// ConditionTypeCannotResizeVolume is a condition type that indicates that the volume cannot be resized.
 	ConditionTypeCannotResizeVolume = "CannotResizeVolume"
 	// ConditionTypeVolumeResizeFailed is a condition type that indicates that the volume resize failed.
 	ConditionTypeVolumeResizeFailed = "VolumeResizeFailed"
+	// ConditionTypeImportFailed is a condition type that indicates that the data import failed.
+	ConditionTypeImportFailed = "ImportFailed"
 )
 
 const (
@@ -393,6 +422,8 @@ const (
 	// ReasonVolumeResizeFailed is a reason for condition ConditionTypeVolumeResizeFailed
 	// when the volume resize failed.
 	ReasonVolumeResizeFailed = "VolumeResizeFailed"
+	// ReasonDataImportJobFailed is a reason for condition ConditionTypeImportFailed.
+	ReasonDataImportJobFailed = "DataImportJobFailed"
 )
 
 // DatabaseClusterStatus defines the observed state of DatabaseCluster.
@@ -421,6 +452,10 @@ type DatabaseClusterStatus struct {
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
+	// DataImportJobName refers to the DataImportJob that is used to import data into the cluster.
+	// This is set only when .spec.dataSource.dataImport is set.
+	// +optional
+	DataImportJobName *string `json:"dataImportJobName,omitempty"`
 	// Conditions contains the observed conditions of the DatabaseCluster.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

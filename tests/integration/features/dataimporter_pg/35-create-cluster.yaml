@@ -1,0 +1,49 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-s3-secret
+stringData:
+  AWS_ACCESS_KEY_ID: test-key
+  AWS_SECRET_ACCESS_KEY: test-key
+---
+# We need cluster credentials for the DataImportJobController to work.
+# Since we are not running the DB operator, we need to create this Secret manually.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-user-secret
+stringData:
+  host: test-password
+  password: test-password
+  pgbouncer-host: test-password
+  pgbouncer-port: "8080"
+  port: "8080"
+  user: user
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  engine:
+    userSecretsName: test-user-secret
+    type: postgresql
+    replicas: 1
+    storage:
+      size: 1G
+  dataSource:
+    dataImport:
+      dataImporterName: test-pg-data-importer-failure
+      source:
+        path: test.sql
+        s3:
+          bucket: my-test-bucket
+          region: us-west-2
+          endpointURL: https://s3.us-west-2.amazonaws.com
+          credentialsSecretName: test-s3-secret
+  proxy:
+    type: pgbouncer
+    replicas: 1
