@@ -1,10 +1,7 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 180
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: minio
-status:
-  phase: Running
+collectors:
+  - command: kubectl get pod/minio -n ${NAMESPACE} -o yaml
+commands:
+  - command: kubectl wait --for=condition=Ready pod/minio -n ${NAMESPACE}

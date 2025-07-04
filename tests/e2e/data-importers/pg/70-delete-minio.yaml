@@ -1,5 +1,0 @@
-apiVersion: kuttl.dev/v1
-kind: TestStep
-timeout: 30
-commands:
-  - command: kubectl delete -n "${NAMESPACE}" -f "${OPERATOR_ROOT_PATH}/tests/testdata/minio"

@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 30
+commands:
+  - command: kubectl -n ${NAMESPACE} delete db/test-pg-cluster --wait=false
+  - command: kubectl delete -n ${NAMESPACE} pod/pg-client --wait=false
+  - command: kubectl delete -n ${NAMESPACE} -f ${OPERATOR_ROOT_PATH}/tests/testdata/minio --wait=false
+  - command: kubectl delete -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/pg --wait=false
