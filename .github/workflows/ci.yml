@@ -79,7 +79,7 @@ jobs:
 
   eks-e2e-tests:
     name: E2E tests (EKS)
-    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
     timeout-minutes: 80
     concurrency: eks-e2e-tests
     strategy:
@@ -187,16 +187,6 @@ jobs:
         if: always()
         run: |
           make cluster-cleanup
-  
-      - name: Run data importer tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
-        run: |
-          make test-e2e-data-importer
-
-      - name: Clean up custom resources
-        if: always()
-        run: |
-          make cluster-cleanup
 
       - name: Scale down cluster
         if: always()
@@ -210,6 +200,55 @@ jobs:
         if: always()
         run: |
           make cluster-cleanup
+
+  data-importer-e2e-tests:
+    name: Data Importer E2E tests
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+    timeout-minutes: 80
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Build operator
+        run:
+          make build
+
+      - name: Configure env
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Run data importer tests
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+        run: |
+          make test-e2e-data-importer
 
   make-bundle:
     name: Make Bundle
