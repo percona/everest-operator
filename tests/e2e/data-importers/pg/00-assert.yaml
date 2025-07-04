@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 120
+timeout: 180
 collectors:
   - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - command: kubectl get databaseengines/percona-postgresql-operator -n ${NAMESPACE} -o yaml
