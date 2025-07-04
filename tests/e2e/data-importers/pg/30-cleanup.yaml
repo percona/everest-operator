@@ -5,3 +5,4 @@ commands:
   - command: kubectl -n ${NAMESPACE} delete db/test-pg-cluster --wait=false
   - command: kubectl delete pod/pg-client -n ${NAMESPACE} --wait=false
   - command: kubectl delete -n ${NAMESPACE} -f ${OPERATOR_ROOT_PATH}/tests/testdata/minio --wait=false
+  - command: kubectl delete -f -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/pg --wait=false
