@@ -25,10 +25,10 @@ commands:
           type: postgresql
           replicas: 3
           storage:
-            size: 15G
+            size: 2G
           resources:
             cpu: "1"
-            memory: 1G
+            memory: 512Mi
           userSecretsName: test-pg-cluster-user-secret
         proxy:
           type: pgbouncer
