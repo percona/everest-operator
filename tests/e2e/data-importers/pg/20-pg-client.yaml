@@ -5,6 +5,7 @@ commands:
   - script: |
      PGPASSWORD="$(kubectl get secret -n ${NAMESPACE} test-pg-cluster-user-secret -o jsonpath='{.data.password}' | base64 --decode)"
      PGUSER=postgres
-     PGHOST="$(kubectl get db -n ${NAMESPACE} test-pg-cluster -o jsonpath='{.status.hostname}')"
-     
-     kubectl run -n "${NAMESPACE}" pg-client --image=perconalab/percona-distribution-postgresql:16 --env="PGPASSWORD=${PGPASSWORD}" --env="PGUSER=${PGUSER}" --env="PGHOST=${PGHOST}" --restart=Never -- sleep infinity
+     PGHOST="$(kubectl get -n ${NAMESPACE} db/test-pg-cluster -o jsonpath='{.status.hostname}')"
+     IMAGE="$(kubectl get -n ${NAMESPACE} pg/test-pg-cluster -o jsonpath='{.spec.image}')"
+
+     kubectl run -n "${NAMESPACE}" pg-client --image=${IMAGE} --env="PGPASSWORD=${PGPASSWORD}" --env="PGUSER=${PGUSER}" --env="PGHOST=${PGHOST}" --restart=Never -- sleep infinity
