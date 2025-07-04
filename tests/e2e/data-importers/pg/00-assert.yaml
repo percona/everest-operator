@@ -4,23 +4,11 @@ timeout: 120
 collectors:
   - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - command: kubectl get databaseengines/percona-postgresql-operator -n ${NAMESPACE} -o yaml
+  - command: kubectl get deploy/percona-postgresql-operator -n ${NAMESPACE} -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: perconapgclusters.pgv2.percona.com
-spec:
-  group: pgv2.percona.com
-  names:
-    kind: PerconaPGCluster
-    listKind: PerconaPGClusterList
-    plural: perconapgclusters
-    singular: perconapgcluster
-  scope: Namespaced
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -32,4 +20,13 @@ status:
   readyReplicas: 1
   replicas: 1
   updatedReplicas: 1
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-postgresql-operator
+spec:
+  type: postgresql
+status:
+  status: installed
 ---

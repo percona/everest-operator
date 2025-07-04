@@ -1,21 +1,27 @@
 apiVersion: kuttl.dev/v1
 kind: TestSuite
-crdDir: config/crd/bases
 artifactsDir: /tmp/
-parallel: 1
-timeout: 180
-skipDelete: true
-testDirs:
-- tests/e2e/data-importers
-manifestDirs:
-- tests/manifests
-- internal/data-importer/deploy/pg/dataimporter.yaml
 startKIND: true
 kindConfig: tests/e2e/data-importers/kind.conf.yaml
 kindContainers:
   - perconalab/everest-operator:0.0.0
+skipDelete: false
+skipClusterDelete: false
+suppress:
+  - events
+parallel: 1
 commands:
   # Deploy Everest Operator into KIND cluster
   - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
+  # Check that DataImporters are installed.
+  - command: kubectl wait --for condition=established --timeout=10s crd dataimporters.everest.percona.com
+  - command: kubectl apply -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/pg
+  - command: kubectl wait --for=create --timeout=10s dataimporter/everest-percona-pg-operator
+  # Install upstream DB operators CRDs.
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/crd.yaml
+  # Check that upstream DB operators CRDs are installed.
+  - command: kubectl wait --for condition=established --timeout=10s crd perconapgclusters.pgv2.percona.com
   # Wait for Everest Operator to be ready.
   - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
+testDirs:
+  - tests/e2e/data-importers
