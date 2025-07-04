@@ -220,10 +220,6 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      - name: Build operator
-        run:
-          make build
-
       - name: Configure env
         run: |
           mkdir -p $TOOLS_PATH
