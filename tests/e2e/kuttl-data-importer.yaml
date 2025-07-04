@@ -11,7 +11,7 @@ manifestDirs:
 - tests/manifests
 - internal/data-importer/deploy/pg/dataimporter.yaml
 startKIND: true
-kindConfig: tests/e2e/kind/config.yaml
+kindConfig: tests/e2e/data-importers/kind.conf.yaml
 kindContainers:
   - perconalab/everest-operator:0.0.0
 commands:
