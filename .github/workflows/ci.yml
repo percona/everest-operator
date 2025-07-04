@@ -28,8 +28,8 @@ jobs:
         run: |
           make test
 
-  integration-tests:
-    name: Integration tests
+  integration-core-tests:
+    name: Integration core tests
     timeout-minutes: 30
     strategy:
       fail-fast: true
@@ -67,15 +67,83 @@ jobs:
         run: |
             make test-integration-core
 
+  integration-features-tests:
+    name: Integration features tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
       - name: Run features tests
         if: always()
         run: |
-            make test-integration-features
+          make test-integration-features
+
+  integration-operator-upgrade-tests:
+    name: Integration operator upgrade tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
 
       - name: Run operator upgrade tests
         if: always()
         run: |
-            make test-integration-operator-upgrade
+          make test-integration-operator-upgrade
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -167,7 +235,6 @@ jobs:
         run: |
           make cluster-cleanup
 
-
       - name: Run core tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
         run: |
@@ -202,7 +269,7 @@ jobs:
           make cluster-cleanup
 
   data-importer-e2e-tests:
-    name: Data Importer E2E tests
+    name: Data Importer tests
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     timeout-minutes: 80
     strategy:
