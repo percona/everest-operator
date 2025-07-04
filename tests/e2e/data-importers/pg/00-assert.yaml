@@ -30,3 +30,7 @@ spec:
 status:
   status: installed
 ---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImporter
+metadata:
+  name: everest-percona-pg-operator

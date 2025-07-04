@@ -16,7 +16,6 @@ commands:
   # Check that DataImporters are installed.
   - command: kubectl wait --for condition=established --timeout=10s crd dataimporters.everest.percona.com
   - command: kubectl apply -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/pg
-  - command: kubectl wait --for=create --timeout=10s dataimporter/everest-percona-pg-operator
   # Install upstream DB operators CRDs.
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/crd.yaml
   # Check that upstream DB operators CRDs are installed.
