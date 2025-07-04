@@ -8,4 +8,4 @@ commands:
      PGHOST="$(kubectl get -n ${NAMESPACE} db/test-pg-cluster -o jsonpath='{.status.hostname}')"
      IMAGE="$(kubectl get -n ${NAMESPACE} pg/test-pg-cluster -o jsonpath='{.spec.image}')"
 
-     kubectl run -n "${NAMESPACE}" pg-client --image=${IMAGE} --entrypoint=/bin/sh --env="PGPASSWORD=${PGPASSWORD}" --env="PGUSER=${PGUSER}" --env="PGHOST=${PGHOST}" --restart=Never -- sleep infinity
+     kubectl run -n "${NAMESPACE}" pg-client --image=${IMAGE} --env="PGPASSWORD=${PGPASSWORD}" --env="PGUSER=${PGUSER}" --env="PGHOST=${PGHOST}" --restart=Never --command -- bash sleep infinity
