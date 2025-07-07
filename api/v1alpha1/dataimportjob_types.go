@@ -67,17 +67,23 @@ type DataImportJobSource struct {
 	S3 *DataImportJobS3Source `json:"s3,omitempty"`
 	// Path is the path to the directory to import the data from.
 	// This may be a path to a file or a directory, depending on the data importer.
-	// +optional
+	// Only absolute file paths are allowed. Leading and trailing '/' are optional.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self.matches('^/?([^/]+(/[^/]+)*)/?$')",message="path must be an absolute file or directory path"
 	Path string `json:"path,omitempty"`
 }
 
 // DataImportJobS3Source defines the S3 source for the data import job.
 type DataImportJobS3Source struct {
 	// Bucket is the name of the S3 bucket.
+	// +kubebuilder:validation:Required
 	Bucket string `json:"bucket,omitempty"`
 	// Region is the region of the S3 bucket.
+	// +kubebuilder:validation:Required
 	Region string `json:"region,omitempty"`
 	// EndpointURL is an endpoint URL of backup storage.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="isURL(self)",message="endpointURL must be a valid URL"
 	EndpointURL string `json:"endpointURL,omitempty"`
 	// VerifyTLS is set to ensure TLS/SSL verification.
 	// If unspecified, the default value is true.

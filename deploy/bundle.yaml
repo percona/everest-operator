@@ -520,7 +520,11 @@ spec:
                             description: |-
                               Path is the path to the directory to import the data from.
                               This may be a path to a file or a directory, depending on the data importer.
+                              Only absolute file paths are allowed. Leading and trailing '/' are optional.
                             type: string
+                            x-kubernetes-validations:
+                            - message: path must be an absolute file or directory path
+                              rule: self.matches('^/?([^/]+(/[^/]+)*)/?$')
                           s3:
                             description: S3 contains the S3 information for the data import.
                             properties:
@@ -543,6 +547,9 @@ spec:
                               endpointURL:
                                 description: EndpointURL is an endpoint URL of backup storage.
                                 type: string
+                                x-kubernetes-validations:
+                                - message: endpointURL must be a valid URL
+                                  rule: isURL(self)
                               forcePathStyle:
                                 default: false
                                 description: |-
@@ -567,8 +574,13 @@ spec:
                                   If unspecified, the default value is true.
                                 type: boolean
                             required:
+                            - bucket
                             - credentialsSecretName
+                            - endpointURL
+                            - region
                             type: object
+                        required:
+                        - path
                         type: object
                     required:
                     - dataImporterName
@@ -1466,7 +1478,11 @@ spec:
                     description: |-
                       Path is the path to the directory to import the data from.
                       This may be a path to a file or a directory, depending on the data importer.
+                      Only absolute file paths are allowed. Leading and trailing '/' are optional.
                     type: string
+                    x-kubernetes-validations:
+                    - message: path must be an absolute file or directory path
+                      rule: self.matches('^/?([^/]+(/[^/]+)*)/?$')
                   s3:
                     description: S3 contains the S3 information for the data import.
                     properties:
@@ -1489,6 +1505,9 @@ spec:
                       endpointURL:
                         description: EndpointURL is an endpoint URL of backup storage.
                         type: string
+                        x-kubernetes-validations:
+                        - message: endpointURL must be a valid URL
+                          rule: isURL(self)
                       forcePathStyle:
                         default: false
                         description: |-
@@ -1513,8 +1532,13 @@ spec:
                           If unspecified, the default value is true.
                         type: boolean
                     required:
+                    - bucket
                     - credentialsSecretName
+                    - endpointURL
+                    - region
                     type: object
+                required:
+                - path
                 type: object
               targetClusterName:
                 description: TargetClusterName is the reference to the target cluster.
