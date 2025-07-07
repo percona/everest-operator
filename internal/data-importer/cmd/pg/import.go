@@ -141,7 +141,8 @@ func runPGImport(
 	}
 
 	backupName, repoPath := parseBackupPath(backupPath)
-	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint, region, uriStyle, verifyTLS, pgCopy)
+	addPGDataSource(pgBackRestSecretName, repoPath, repoName, backupName, bucket, endpoint,
+		region, uriStyle, verifyTLS, pgCopy)
 
 	if err := restorePGCluster(ctx, k8sClient, pgCopy); err != nil {
 		return fmt.Errorf("failed to restore PGCluster %s/%s: %w", namespace, dbName, err)
