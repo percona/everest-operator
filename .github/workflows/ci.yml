@@ -268,8 +268,8 @@ jobs:
         run: |
           make cluster-cleanup
 
-  data-importer-e2e-tests:
-    name: Data Importer tests
+  kind-e2e-tests:
+    name: E2E tests (KinD)
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     timeout-minutes: 80
     strategy:
