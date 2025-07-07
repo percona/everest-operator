@@ -300,11 +300,6 @@ ifeq (,$(wildcard $(OPERATOR_SDK)))
 	set -e ;\
 	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH} ;\
 	chmod +x $(OPERATOR_SDK) ;\
-	gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E ;\
-	curl -sSLo $(LOCALBIN)/operator-sdk-checksums.txt ${OPERATOR_SDK_DL_URL}/checksums.txt ;\
-	curl -sSLo $(LOCALBIN)/operator-sdk-checksums.txt.asc ${OPERATOR_SDK_DL_URL}/checksums.txt.asc ;\
-	gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify $(LOCALBIN)/operator-sdk-checksums.txt.asc ;\
-	grep $(OPERATOR_SDK) $(LOCALBIN)/operator-sdk-checksums.txt | sha256sum -c - ; \
 	}
 endif
 
@@ -317,9 +312,6 @@ ifeq (,$(wildcard $(OPM)))
 	set -e ;\
 	curl -sSLo $(OPM) $(OPM_DL_URL)/$(OS)-$(ARCH)-opm ;\
 	chmod +x $(OPM) ;\
-	gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E ;\
-	curl -sSLo $(LOCALBIN)/opm-checksums.txt $(OPM_DL_URL)/checksums.txt ;\
-	grep $(OPM) $(LOCALBIN)/opm-checksums.txt | sha256sum -c - ; \
 	}
 endif
 
