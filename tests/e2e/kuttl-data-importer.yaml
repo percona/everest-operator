@@ -23,3 +23,5 @@ commands:
   - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
 testDirs:
   - tests/e2e/data-importers
+manifestDirs:
+  - tests/manifests
