@@ -1,7 +1,7 @@
 apiVersion: everest.percona.com/v1alpha1
 kind: DataImporter
 metadata:
-  name: everest-percona-pg-operator-data-importer
+  name: everest-percona-pg-operator
 spec:
   displayName: "Percona PG Operator Data Importer"
   description: |
@@ -9,7 +9,7 @@ spec:
   supportedEngines:
   - postgresql
   jobSpec:
-    image: "percona/everest-operator"
+    image: "perconalab/everest-operator:0.0.0"
     command: ["/data-importer", "pg"]
   permissions:
   - apiGroups:
