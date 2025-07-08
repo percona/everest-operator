@@ -29,7 +29,7 @@ spec:
           forcePathStyle: true
   engine:
     replicas: 3
-    type: postgresql
+    type: pxc
   proxy:
     replicas: 3
 status:
