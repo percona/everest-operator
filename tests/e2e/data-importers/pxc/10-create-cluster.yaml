@@ -42,10 +42,6 @@ commands:
         engine:
           type: pxc
           userSecretsName: everest-secrets-test-pxc-cluster
-          userSecretsName: pxc-sample-secrets
-          config: |
-            [mysqld]
-            wsrep_provider_options="debug=1;gcache.size=1G"
           replicas: 3
           storage:
             size: 1G
