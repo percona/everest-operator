@@ -309,7 +309,6 @@ jobs:
           echo $(kubectl kuttl --version) installed
 
       - name: Run data importer tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
         run: |
           make test-e2e-data-importer
 
