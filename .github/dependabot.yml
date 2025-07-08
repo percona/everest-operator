@@ -2,14 +2,38 @@
 # package ecosystems to update and where the package manifests are located.
 # Please see the documentation for all configuration options:
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
-
+---
 version: 2
 updates:
   - package-ecosystem: "gomod" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    labels:
+      - "auto-update-base"
+      - "dependencies"
+      - "go"
   - package-ecosystem: "gomod" # See documentation for possible values
     directory: "/tools" # Location of package manifests
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    labels:
+      - "auto-update-base"
+      - "dependencies"
+      - "go"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "auto-update-base"
+      - "dependencies"
+      - "docker"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "auto-update-base"
+      - "dependencies"
+      - "github_actions"
