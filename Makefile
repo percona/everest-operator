@@ -140,16 +140,20 @@ test-integration-operator-upgrade: docker-build ## Run operator upgrade tests ag
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
-test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
+test-e2e-core: docker-build ## Run e2e/core tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
-test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
+test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
 
 .PHONY: test-e2e-operator-upgrade
-test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
+test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+
+.PHONY: test-e2e-data-importer
+test-e2e-data-importer: docker-build ## Run e2e/data-importer tests
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
@@ -171,6 +175,10 @@ cluster-cleanup:
 	for ns in $$namespaces; do \
 		kubectl -n $$ns get db -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
 	done
+	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
+	for ns in $$namespaces; do \
+		kubectl -n $$ns delete -f ./tests/testdata/minio --ignore-not-found || true; \
+	done
 	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
 	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
 	kubectl get ns -o name | grep kuttl | xargs --no-run-if-empty kubectl delete || true
@@ -186,6 +194,7 @@ cluster-cleanup:
 .PHONY: build
 build: $(LOCALBIN) manifests generate fmt vet ## Build manager binary.
 	go build -o $(LOCALBIN)/manager cmd/main.go
+	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
 build-debug: $(LOCALBIN) manifests generate fmt vet ## Build manager binary with debug symbols.

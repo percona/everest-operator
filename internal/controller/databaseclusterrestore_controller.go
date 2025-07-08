@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -103,7 +104,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 
 	if len(cr.ObjectMeta.Labels) == 0 {
 		cr.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: cr.Spec.DBClusterName,
+			consts.DatabaseClusterNameLabel: cr.Spec.DBClusterName,
 		}
 
 		if err := r.Update(ctx, cr); err != nil {
@@ -574,7 +575,7 @@ func parsePrefixFromDestination(url string) string {
 
 func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	ctx context.Context,
-	dataSource everestv1alpha1.DataSource,
+	dataSource everestv1alpha1.DatabaseClusterRestoreDataSource,
 	db everestv1alpha1.DatabaseCluster,
 ) (*pxcv1.PITR, error) {
 	// use 'date' as default
@@ -634,7 +635,7 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 	return spec, nil
 }
 
-func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName string) ([]string, error) {
+func getPGRestoreOptions(dataSource everestv1alpha1.DatabaseClusterRestoreDataSource, backupBaseName string) ([]string, error) {
 	options := []string{
 		"--set=" + backupBaseName,
 	}
@@ -653,7 +654,7 @@ func getPGRestoreOptions(dataSource everestv1alpha1.DataSource, backupBaseName s
 	return options, nil
 }
 
-func validatePitrRestoreSpec(dataSource everestv1alpha1.DataSource) error {
+func validatePitrRestoreSpec(dataSource everestv1alpha1.DatabaseClusterRestoreDataSource) error {
 	if dataSource.PITR == nil {
 		return nil
 	}

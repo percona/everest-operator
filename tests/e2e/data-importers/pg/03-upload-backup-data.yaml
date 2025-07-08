@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 30
+commands:
+  # Copy the backup data to the minio pod.
+  # The backup data contains a table 'test' with 10 rows (1..10).
+  - script: >
+      cat ${OPERATOR_ROOT_PATH}/tests/testdata/backups/pg.tar | kubectl exec -i minio -n "${NAMESPACE}" -c cp-helper -- tar xf - -C /shared
+  # Upload the copied data to the bucket via the s3 API.
+  # Note: it is not enough to directly copy the data to the bucket directory, it needs to go through the API.
+  - command: sleep 3 # The next command can be flaky, waiting a few seconds usually helps.
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc alias set s3 https://minio.${NAMESPACE}.svc minioadmin minioadmin --insecure
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc cp --quiet --recursive /shared/pg s3/everest-operator --insecure

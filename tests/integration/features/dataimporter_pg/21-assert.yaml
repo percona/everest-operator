@@ -1,0 +1,93 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 400
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+status:
+  status: importing
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+status:
+  state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImportJob
+metadata:
+  name: data-import-test-pg-cluster
+  finalizers:
+  - everest.percona.com/rbac-cleanup
+spec:
+  targetClusterName: test-pg-cluster
+  dataImporterName: test-pg-data-importer
+  source:
+    path: test.sql
+    s3:
+      bucket: my-test-bucket
+      region: us-west-2
+      endpointURL: https://s3.us-west-2.amazonaws.com
+      credentialsSecretName: test-s3-secret
+status:
+  state: Running
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: data-import-test-pg-cluster-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: data-import-test-pg-cluster-role
+rules:
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - databaseclusters
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: data-import-test-pg-cluster-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: data-import-test-pg-cluster-sa
+roleRef:
+  kind: Role
+  name: data-import-test-pg-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: data-import-test-pg-cluster-clusterrole
+rules:
+- apiGroups:
+  - everest.percona.com
+  resources:
+  - databaseclusters
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: data-import-test-pg-cluster-clusterrolebinding
+subjects:
+- kind: ServiceAccount
+  name: data-import-test-pg-cluster-sa
+roleRef:
+  kind: ClusterRole
+  name: data-import-test-pg-cluster-clusterrole
+  apiGroup: rbac.authorization.k8s.io
