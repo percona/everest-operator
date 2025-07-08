@@ -50,7 +50,7 @@ jobs:
 
       - name: Docker operator meta
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             perconalab/everest-operator
@@ -60,7 +60,7 @@ jobs:
 
       - name: Docker bundle meta
         id: bundle_meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             perconalab/everest-operator-bundle
