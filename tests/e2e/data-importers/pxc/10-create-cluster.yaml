@@ -51,7 +51,7 @@ commands:
             size: 1G
           resources:
             cpu: 1
-            memory: 500G
+            memory: 500M
         proxy:
           type: haproxy
           replicas: 3
