@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+commands:
+  - script: |
+      expected=$(printf '1\n2\n3\n4\n5\n6\n7\n8\n9\n10')
+      actual=$(kubectl exec pxc-client -n ${NAMESPACE} -- mysql -uroot --batch --skip-column-names -D testdb -e "select num from test;")
+      test "$actual" = "$expected"
