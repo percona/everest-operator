@@ -46,14 +46,11 @@ commands:
           storage:
             size: 1G
           resources:
-            cpu: 1
+            cpu: 600m
             memory: 500M
         proxy:
           type: haproxy
           replicas: 3
-          resources:
-            cpu: "1"
-            memory: 30M
       EOF
 ---
 apiVersion: v1
