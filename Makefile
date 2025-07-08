@@ -152,7 +152,7 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 
 .PHONY: test-e2e-data-importer
 test-e2e-data-importer: docker-build ## Run e2e/data-importer tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup

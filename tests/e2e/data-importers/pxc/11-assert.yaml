@@ -1,0 +1,25 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  status: importing
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  state: initializing
+---
