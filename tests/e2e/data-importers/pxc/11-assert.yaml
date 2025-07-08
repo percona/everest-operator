@@ -5,6 +5,7 @@ collectors:
   - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get pods -n ${NAMESPACE}
+  - command: kubectl describe pods -n ${NAMESPACE}
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
