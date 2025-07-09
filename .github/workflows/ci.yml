@@ -28,8 +28,8 @@ jobs:
         run: |
           make test
 
-  integration-tests:
-    name: Integration tests
+  integration-core-tests:
+    name: Integration core tests
     timeout-minutes: 30
     strategy:
       fail-fast: true
@@ -67,15 +67,83 @@ jobs:
         run: |
             make test-integration-core
 
+  integration-features-tests:
+    name: Integration features tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
       - name: Run features tests
         if: always()
         run: |
-            make test-integration-features
+          make test-integration-features
+
+  integration-operator-upgrade-tests:
+    name: Integration operator upgrade tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
 
       - name: Run operator upgrade tests
         if: always()
         run: |
-            make test-integration-operator-upgrade
+          make test-integration-operator-upgrade
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -141,6 +209,13 @@ jobs:
           chmod +x "$TOOLS_PATH"/eksctl
 
       - name: Scale up cluster
+        # Only the following E2E tests require EKS:
+        # - test/e2e
+        # - test/e2e-core
+        # - test/e2e-db-upgrade
+        # - test/e2e-operator-upgrade
+        # TODO: Review this condition once we have more tests running on KinD.
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
@@ -159,7 +234,6 @@ jobs:
         timeout-minutes: 10
         run: |
           make cluster-cleanup
-
 
       - name: Run core tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
@@ -194,6 +268,50 @@ jobs:
         run: |
           make cluster-cleanup
 
+  kind-e2e-tests:
+    name: E2E tests (KinD)
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+    timeout-minutes: 80
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: "/opt/tools/bin"
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Configure env
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+
+      - name: Install kubecltl
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+
+      - name: Kubectl version
+        run: |
+          kubectl version --client --output=yaml
+          echo $(kubectl kuttl --version) installed
+
+      - name: Run data importer tests
+        run: |
+          make test-e2e-data-importer
+
   make-bundle:
     name: Make Bundle
     strategy:
@@ -214,25 +332,7 @@ jobs:
 
       - name: Install operator-sdk
         run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
-          export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-          export OS=$(uname | awk '{print tolower($0)}')
-
-          export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.38.0
-          curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-
-          gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E
-
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-          gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
-
-          grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-
-          chmod +x operator-sdk_${OS}_${ARCH}
-          mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
+          make operator-sdk
 
       - name: Make bundle and build bundle image
         run: |

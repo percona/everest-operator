@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -453,7 +454,7 @@ func (p *applier) applyHAProxyCfg() error {
 	case everestv1alpha1.ExposeTypeInternal:
 		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations := common.ExposeAnnotationsMap[p.clusterType]
+		annotations := consts.ExposeAnnotationsMap[p.clusterType]
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
@@ -720,7 +721,7 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	storages := make(map[string]*pxcv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(p.ctx, p.C, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(p.ctx, p.C, consts.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return nil, err
 	}

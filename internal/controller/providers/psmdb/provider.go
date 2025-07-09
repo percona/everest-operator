@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/providers"
 	"github.com/percona/everest-operator/internal/controller/version"
@@ -50,7 +51,7 @@ type Provider struct {
 	// currentPSMDB holds the current PXC spec.
 	currentPSMDBSpec psmdbv1.PerconaServerMongoDBSpec
 
-	clusterType     common.ClusterType
+	clusterType     consts.ClusterType
 	operatorVersion *version.Version
 }
 
@@ -72,7 +73,7 @@ func New(
 		return nil, err
 	}
 
-	dbEngine, err := common.GetDatabaseEngine(ctx, client, common.PSMDBDeploymentName, opts.DB.GetNamespace())
+	dbEngine, err := common.GetDatabaseEngine(ctx, client, consts.PSMDBDeploymentName, opts.DB.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func New(
 
 	// Get operator version.
 	v, err := common.GetOperatorVersion(ctx, opts.C, types.NamespacedName{
-		Name:      common.PSMDBDeploymentName,
+		Name:      consts.PSMDBDeploymentName,
 		Namespace: opts.DB.GetNamespace(),
 	})
 	if err != nil {
@@ -181,7 +182,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		status.Status = everestv1alpha1.AppStateUpgrading
 	}
 
-	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, common.PSMDBDeploymentName, p.DB)
+	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, consts.PSMDBDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return status, err
 	}
@@ -259,8 +260,8 @@ func ensurePSMDBPitrDisabled(ctx context.Context,
 func (p *Provider) DBObject() client.Object {
 	p.PerconaServerMongoDB.SetGroupVersionKind(schema.GroupVersionKind{
 		Version: p.operatorVersion.ToK8sVersion(),
-		Group:   common.PSMDBAPIGroup,
-		Kind:    common.PerconaServerMongoDBKind,
+		Group:   consts.PSMDBAPIGroup,
+		Kind:    consts.PerconaServerMongoDBKind,
 	})
 	return p.PerconaServerMongoDB
 }
