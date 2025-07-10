@@ -74,7 +74,9 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 	if !ok {
 		return fmt.Errorf("expected a MonitoringConfig, got %T", obj)
 	}
-
+	if !m.DeletionTimestamp.IsZero() {
+		return nil
+	}
 	secretName := m.Spec.CredentialsSecretName
 	if secretName == "" {
 		return errors.New("missing secret name")
