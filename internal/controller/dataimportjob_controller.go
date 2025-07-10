@@ -541,7 +541,7 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 			return fmt.Errorf("failed to ensure role binding: %w", err)
 		}
 	}
-	if len(clusterPermissions) > 0 { //nolint:nestif
+	if len(clusterPermissions) > 0 {
 		if err := r.ensureClusterRole(ctx, clusterPermissions, diJob); err != nil {
 			return fmt.Errorf("failed to ensure cluster role: %w", err)
 		}
