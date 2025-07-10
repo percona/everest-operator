@@ -97,7 +97,7 @@ func runPXCImport(ctx context.Context, configPath string) error {
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use new context here because the parent may be cancelled.
 		if unpauseErr := unpauseDBReconciliation(context.Background(), k8sClient, dbName, namespace); unpauseErr != nil {
 			log.Error().Err(unpauseErr).Msg("Failed to unpause DB reconciliation")
@@ -106,7 +106,7 @@ func runPXCImport(ctx context.Context, configPath string) error {
 	}()
 
 	pxcRestoreName := "data-import-" + dbName
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use new context here because the parent may be cancelled.
 		if err := cleanup(context.Background(), k8sClient, namespace, pxcRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PXC import for database %s", dbName)

@@ -26,7 +26,7 @@ func main() {
 	// We must notify our context for SIGINT and SIGTERM signals.
 	// This is required so that the importer can shutdown gracefully
 	// and clean up any resources it has created.
-	// Note that this works only because the Job starts the importes as PID 1.
+	// Note that this works only because the Job starts the importer process as PID 1.
 	pCtx := context.Background()
 	ctx, stop := signal.NotifyContext(pCtx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

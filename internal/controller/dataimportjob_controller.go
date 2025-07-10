@@ -143,7 +143,7 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 		}
 		result := ctrl.Result{}
 		if !ok {
-			result.RequeueAfter = 5 * time.Second
+			result.RequeueAfter = 5 * time.Second //nolint:mnd
 		}
 		return result, nil
 	}
@@ -200,7 +200,7 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 
 	// Create RBAC resources.
 	requiresRbac := len(di.Spec.Permissions) > 0 || len(di.Spec.ClusterPermissions) > 0
-	if requiresRbac {
+	if requiresRbac { //nolint:nestif
 		if err := r.ensureServiceAccount(ctx, diJob); err != nil {
 			diJob.Status.State = everestv1alpha1.DataImportJobStateError
 			diJob.Status.Message = fmt.Errorf("failed to ensure service account: %w", err).Error()
@@ -496,7 +496,7 @@ func (r *DataImportJobReconciler) getJobSpec(
 		BackoffLimit: pointer.ToInt32(0),
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
-				TerminationGracePeriodSeconds: pointer.ToInt64(30), // TODO: make this configurable?
+				TerminationGracePeriodSeconds: pointer.ToInt64(30), //nolint:mnd  // TODO: make this configurable?
 				ServiceAccountName:            serviceAccountName,
 				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
@@ -552,19 +552,20 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 	return nil
 }
 
-// Returns: [done(bool), error]
+// Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) handleFinalizers(
 	ctx context.Context,
 	diJob *everestv1alpha1.DataImportJob,
 ) (bool, error) {
 	if controllerutil.ContainsFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
-		controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { // deprecated finalizer handled for backward compatibility
+		// deprecated finalizer handled for backward compatibility
+		controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
 		return r.deleteResourcesInOrder(ctx, diJob)
 	}
 	return true, nil
 }
 
-// Returns: [done(bool), error]
+// Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
 	jobName := diJob.Status.JobName
 	if jobName == "" {
@@ -586,7 +587,7 @@ func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv
 	return false, err
 }
 
-// Returns: [done(bool), error]
+// Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
 	// List of RBAC resources.
 	resources := []client.Object{
@@ -632,7 +633,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 	return allGone, nil
 }
 
-// Returns: [done(bool), error]
+// Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
 	ok, err := r.deleteJob(ctx, diJob)
 	if err != nil {
@@ -650,7 +651,8 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 		return false, nil
 	}
 	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
-		controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
+		// deprecated finalizer handled for backward compatibility
+		controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
 		if err := r.Client.Update(ctx, diJob); err != nil {
 			return false, fmt.Errorf("failed to remove ordered cleanup finalizer: %w", err)
 		}
