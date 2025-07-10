@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	batchv1 "k8s.io/api/batch/v1"
@@ -135,10 +136,16 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 	}
 
 	if !diJob.GetDeletionTimestamp().IsZero() {
-		if err := r.handleFinalizers(ctx, diJob); err != nil {
+		ok, err := r.handleFinalizers(ctx, diJob)
+		if err != nil {
 			logger.Error(err, "Failed to handle finalizers")
 			return ctrl.Result{}, err
 		}
+		result := ctrl.Result{}
+		if !ok {
+			result.RequeueAfter = 5 * time.Second
+		}
+		return result, nil
 	}
 
 	if diJob.Status.State == everestv1alpha1.DataImportJobStateSucceeded ||
@@ -203,6 +210,11 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 			diJob.Status.State = everestv1alpha1.DataImportJobStateError
 			diJob.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
+		}
+		if controllerutil.AddFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) {
+			if err := r.Client.Update(ctx, diJob); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to data import job: %w", err)
+			}
 		}
 	}
 
@@ -484,8 +496,9 @@ func (r *DataImportJobReconciler) getJobSpec(
 		BackoffLimit: pointer.ToInt32(0),
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
-				ServiceAccountName: serviceAccountName,
-				RestartPolicy:      corev1.RestartPolicyNever,
+				TerminationGracePeriodSeconds: pointer.ToInt64(30), // TODO: make this configurable?
+				ServiceAccountName:            serviceAccountName,
+				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:    "importer",
 					Image:   di.Spec.JobSpec.Image,
@@ -535,55 +548,114 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 		if err := r.ensureClusterRoleBinding(ctx, diJob); err != nil {
 			return fmt.Errorf("failed to ensure cluster role binding: %w", err)
 		}
-		if controllerutil.AddFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
-			if err := r.Client.Update(ctx, diJob); err != nil {
-				return fmt.Errorf("failed to add finalizer to data import job: %w", err)
-			}
-		}
 	}
 	return nil
 }
 
+// Returns: [done(bool), error]
 func (r *DataImportJobReconciler) handleFinalizers(
 	ctx context.Context,
 	diJob *everestv1alpha1.DataImportJob,
-) error {
-	finalizers := diJob.GetFinalizers()
-	for _, f := range finalizers {
-		switch f { //nolint:gocritic
-		case consts.DataImportJobRBACCleanupFinalizer:
-			if err := r.handleRBACCleanupFinalizer(ctx, diJob); err != nil {
-				return fmt.Errorf("failed to handle RBAC cleanup finalizer: %w", err)
-			}
-		}
+) (bool, error) {
+	if controllerutil.ContainsFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
+		controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { // deprecated finalizer handled for backward compatibility
+		return r.deleteResourcesInOrder(ctx, diJob)
 	}
-	return nil
+	return true, nil
 }
 
-func (r *DataImportJobReconciler) handleRBACCleanupFinalizer(ctx context.Context, diJob *everestv1alpha1.DataImportJob) error {
-	cr := &rbacv1.ClusterRole{
+// Returns: [done(bool), error]
+func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
+	jobName := diJob.Status.JobName
+	if jobName == "" {
+		return true, nil
+	}
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.getClusterRoleName(diJob),
+			Name:      jobName,
+			Namespace: diJob.GetNamespace(),
 		},
 	}
-	if err := r.Client.Delete(ctx, cr); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete cluster role: %w", err)
+	err := r.Client.Delete(ctx, job, &client.DeleteOptions{
+		// Use foreground deletion to ensure that the Pods are terminated before the Job is removed.
+		PropagationPolicy: pointer.To(metav1.DeletePropagationForeground),
+	})
+	if apierrors.IsNotFound(err) {
+		return true, nil
 	}
+	return false, err
+}
 
-	crb := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: r.getClusterRoleBindingName(diJob),
+// Returns: [done(bool), error]
+func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
+	// List of RBAC resources.
+	resources := []client.Object{
+		&rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getRoleBindingName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		},
+		&rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getRoleName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		},
+		&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: r.getClusterRoleBindingName(diJob),
+			},
+		},
+		&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getClusterRoleName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
+		},
+		&corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      r.getServiceAccountName(diJob),
+				Namespace: diJob.GetNamespace(),
+			},
 		},
 	}
-	if err := r.Client.Delete(ctx, crb); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to delete cluster role binding: %w", err)
-	}
-	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
-		if err := r.Client.Update(ctx, diJob); err != nil {
-			return fmt.Errorf("failed to remove finalizer from data import job: %w", err)
+	allGone := true
+	for _, res := range resources {
+		err := r.Client.Delete(ctx, res)
+		if err == nil {
+			allGone = false
+		} else if client.IgnoreNotFound(err) != nil {
+			return false, fmt.Errorf("failed to delete resource %s: %w", res.GetName(), err)
 		}
 	}
-	return nil
+	return allGone, nil
+}
+
+// Returns: [done(bool), error]
+func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
+	ok, err := r.deleteJob(ctx, diJob)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete job: %w", err)
+	}
+	if !ok {
+		return false, nil // do not proceed with RBAC cleanup if job deletion is not done
+	}
+
+	ok, err = r.deleteRBAC(ctx, diJob)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete RBAC resources: %w", err)
+	}
+	if !ok {
+		return false, nil
+	}
+	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
+		controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
+		if err := r.Client.Update(ctx, diJob); err != nil {
+			return false, fmt.Errorf("failed to remove ordered cleanup finalizer: %w", err)
+		}
+	}
+	return true, nil
 }
 
 func (r *DataImportJobReconciler) getClusterRoleBindingName(diJob *everestv1alpha1.DataImportJob) string {
@@ -677,9 +749,6 @@ func (r *DataImportJobReconciler) ensureRoleBinding(
 				Namespace: diJob.GetNamespace(),
 			},
 		}
-		if err := controllerutil.SetControllerReference(diJob, roleBinding, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference for rolebinding: %w", err)
-		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to ensure role binding: %w", err)
@@ -704,9 +773,6 @@ func (r *DataImportJobReconciler) ensureRole(
 	}
 	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, role, func() error {
 		role.Rules = permissions
-		if err := controllerutil.SetControllerReference(diJob, role, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference for role: %w", err)
-		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to ensure role: %w", err)
@@ -729,9 +795,6 @@ func (r *DataImportJobReconciler) ensureServiceAccount(
 		},
 	}
 	if _, err := ctrl.CreateOrUpdate(ctx, r.Client, serviceAccount, func() error {
-		if err := controllerutil.SetControllerReference(diJob, serviceAccount, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference for service account: %w", err)
-		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to ensure service account: %w", err)
