@@ -823,7 +823,7 @@ func (p *applier) getStoragesSpec(backupStorageName, namespace string, database 
 		namespace,
 	)
 	if err != nil {
-		return nil, errors.Join(err, fmt.Errorf("failed to get backup storage %s", backupStorageName))
+		return nil, errors.Join(err, fmt.Errorf("failed to generate PXC storage spec for %s", backupStorageName))
 	}
 
 	switch backupStorage.Spec.Type {
