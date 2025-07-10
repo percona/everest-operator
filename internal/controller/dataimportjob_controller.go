@@ -276,7 +276,7 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 	}
 
 	// If the Secret already exists with the desired key, we will not attempt create it again.
-	// Typically we should actively reconcile the controlled objects actively, but in this case
+	// Typically we should actively reconcile the controlled objects, but in this case
 	// we do not expect the contents of the Secret to change at all so its okay to skip it, unless
 	// the Secret or its data are missing altogether.
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
