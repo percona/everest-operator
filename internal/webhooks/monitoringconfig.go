@@ -101,14 +101,14 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 		insecure = !*m.Spec.VerifyTLS
 	}
 
-	return CheckAccess(m.Spec.PMM.URL, string(apiKey), insecure, ctx)
+	return checkAccess(ctx, m.Spec.PMM.URL, string(apiKey), insecure)
 }
 
-func CheckAccess(url, apiKey string, insecure bool, ctx context.Context) error {
+func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/v1/version", url),
+		"%s/v1/version"+url,
 		nil,
 	)
 	if err != nil {
