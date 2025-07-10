@@ -566,7 +566,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 }
 
 // Returns: [done(bool), error] .
-func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
+func (r *DataImportJobReconciler) ensureJobDeleted(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
 	jobName := diJob.Status.JobName
 	if jobName == "" {
 		return true, nil
@@ -577,12 +577,24 @@ func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv
 			Namespace: diJob.GetNamespace(),
 		},
 	}
-	err := r.Client.Delete(ctx, job, &client.DeleteOptions{
-		// Use foreground deletion to ensure that the Pods are terminated before the Job is removed.
-		PropagationPolicy: pointer.To(metav1.DeletePropagationForeground),
-	})
+
+	// The actual deletion of the Job is handled by the garbage collector since we set a controller reference.
+	// We will first check if the associated pods are gone, because the deletion of the child resources (pods) happens in background.
+	// This means the pods may be gone before the Job itself. So in order to allow proper cleanup, we need to allow the pods to be deleted first.
+	pods := &corev1.PodList{}
+	if err := r.Client.List(ctx, pods, client.InNamespace(diJob.GetNamespace()), client.MatchingLabels{
+		"job-name": jobName,
+	}); err != nil {
+		return false, fmt.Errorf("failed to list pods for job %s: %w", jobName, err)
+	}
+	if len(pods.Items) > 0 {
+		return false, nil // pods are still running, so wait.
+	}
+	err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job)
 	if apierrors.IsNotFound(err) {
 		return true, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get job %s: %w", jobName, err)
 	}
 	return false, err
 }
@@ -625,7 +637,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 	for _, res := range resources {
 		err := r.Client.Delete(ctx, res)
 		if err == nil {
-			allGone = false
+			allGone = false // Even one successful deletion indicates that not all resources are gone yet.
 		} else if client.IgnoreNotFound(err) != nil {
 			return false, fmt.Errorf("failed to delete resource %s: %w", res.GetName(), err)
 		}
@@ -635,7 +647,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 
 // Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
-	ok, err := r.deleteJob(ctx, diJob)
+	ok, err := r.ensureJobDeleted(ctx, diJob)
 	if err != nil {
 		return false, fmt.Errorf("failed to delete job: %w", err)
 	}
