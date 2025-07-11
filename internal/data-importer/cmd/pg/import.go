@@ -116,8 +116,9 @@ func runPGImport(
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() {
-		if unpauseErr := unpauseDBReconciliation(ctx, k8sClient, dbName, namespace); unpauseErr != nil {
+	defer func() { //nolint:contextcheck
+		// We use new context here because the parent may be cancelled.
+		if unpauseErr := unpauseDBReconciliation(context.Background(), k8sClient, dbName, namespace); unpauseErr != nil {
 			log.Error().Err(err).Msg("Failed to unpause DB reconciliation")
 			err = errors.Join(err, unpauseErr)
 		}
@@ -129,8 +130,9 @@ func runPGImport(
 	if err != nil {
 		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
 	}
-	defer func() {
-		if err := cleanup(ctx, k8sClient, namespace, pgBackRestSecretName); err != nil {
+	defer func() { //nolint:contextcheck
+		// We use new context here because the parent may be cancelled.
+		if err := cleanup(context.Background(), k8sClient, namespace, pgBackRestSecretName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up PGBackrest secret %s/%s", namespace, pgBackRestSecretName)
 		}
 	}()

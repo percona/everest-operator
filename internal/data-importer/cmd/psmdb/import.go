@@ -92,8 +92,9 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	}
 	psmdbRestoreName := "data-import-" + dbName
 
-	defer func() {
-		if err := cleanup(ctx, k8sClient, namespace, psmdbRestoreName); err != nil {
+	defer func() { //nolint:contextcheck
+		// We use new context here because the parent may be cancelled.
+		if err := cleanup(context.Background(), k8sClient, namespace, psmdbRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PSMDB import for database %s", dbName)
 		}
 	}()

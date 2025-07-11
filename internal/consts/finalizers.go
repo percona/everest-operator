@@ -33,7 +33,13 @@ const (
 	// DataImportJobRBACCleanupFinalizer is a finalizer that is used to clean up cluster-wide RBAC resources.
 	// This is needed because DataImportJob cannot own cluster-wide resources like ClusterRole and ClusterRoleBinding,
 	// as Kubernetes does not allow cluster-scoped resources to be owned by namespace-scoped resources.
+	//
+	// Deprecated: Use ordered-cleanup finalizer instead. This finalizer is kept for backward compatibility.
 	DataImportJobRBACCleanupFinalizer = EverestFinalizerPrefix + "rbac-cleanup"
+	// DataImportJobOrderedCleanupFinalizer is a finalizer that is used to clean up DataImportJob resources in a specific order.
+	// This finalizer ensures that the Kubernetes Job is deleted before the RBAC resources.
+	// This is necessary so that during termination, the Job possesses the necessary permissions to delete its own resources.
+	DataImportJobOrderedCleanupFinalizer = EverestFinalizerPrefix + "ordered-cleanup"
 
 	// MonitoringConfigSecretCleanupFinalizer is a finalizer that is used to clean up secrets created by the monitoring configuration.
 	MonitoringConfigSecretCleanupFinalizer = EverestFinalizerPrefix + "cleanup-secrets"
