@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+commands:
+  - script: |
+      expected=$(printf '1\n2\n3\n4\n5\n6\n7\n8\n9\n10')
+      actual=$(kubectl exec psmdb-client -n ${NAMESPACE} -- mongosh "$CONN_URI" --quiet --eval "db.test.find({}, { _id: 0, num: 1 }).forEach(doc => print(doc.num));")
+      test "$actual" = "$expected"
