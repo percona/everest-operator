@@ -28,7 +28,7 @@ metadata:
 spec:
   dataImporterName: everest-percona-psmdb-operator
   source:
-    path: "/psmdb/2025-07-10T14:05:57Z"
+    path: "/psmdb/2025-07-14T10:52:52Z"
     s3:
       bucket: everest-operator
       credentialsSecretName: test-s3-secret

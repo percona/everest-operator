@@ -10,4 +10,4 @@ commands:
   # Note: it is not enough to directly copy the data to the bucket directory, it needs to go through the API.
   - command: sleep 3 # The next command can be flaky, waiting a few seconds usually helps.
   - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc alias set s3 https://minio.${NAMESPACE}.svc minioadmin minioadmin --insecure
-  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc put --quiet /shared/psmdb s3/everest-operator --insecure
+  - command: kubectl exec minio -n "${NAMESPACE}" -c minio -- mc cp --quiet --recursive /shared/psmdb s3/everest-operator --insecure

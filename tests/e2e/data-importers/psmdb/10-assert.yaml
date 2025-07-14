@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 100
+timeout: 30
 collectors:
   - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
@@ -20,7 +20,7 @@ spec:
     dataImport:
       dataImporterName: everest-percona-psmdb-operator
       source:
-        path: "/psmdb/2025-07-10T14:05:57Z"
+        path: "/psmdb/2025-07-14T10:52:52Z"
         s3:
           bucket: everest-operator
           region: us-east-1

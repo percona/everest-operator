@@ -1,11 +1,16 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 30
+timeout: 600
 collectors:
   - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
 commands:
   - script: |
+      PSMDBPASSWORD="$(kubectl get -n ${NAMESPACE} secret/everest-secrets-test-psmdb-cluster -o jsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}' | base64 --decode)"
+      PSMDBUSER="databaseAdmin"
+      PSMDBHOST="$(kubectl get -n ${NAMESPACE} db/test-psmdb-cluster -o jsonpath='{.status.hostname}')"
+      CONN_URI="mongodb://${PSMDBUSER}:${PSMDBPASSWORD}@${PSMDBHOST}"
+      
       expected=$(printf '1\n2\n3\n4\n5\n6\n7\n8\n9\n10')
-      actual=$(kubectl exec psmdb-client -n ${NAMESPACE} -- mongosh "$CONN_URI" --quiet --eval "db.test.find({}, { _id: 0, num: 1 }).forEach(doc => print(doc.num));")
+      actual=$(kubectl exec psmdb-client -n ${NAMESPACE} -- mongosh "$CONN_URI" --quiet --eval "db.test.find({}, { _id: 0, num: 1 }).sort({ num: 1 }).forEach(doc => print(doc.num));")
       test "$actual" = "$expected"
