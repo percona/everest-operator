@@ -358,6 +358,11 @@ jobs:
         run: |
           make test-e2e-data-importer
 
+      # Enable Tmate debug ssh session on demand
+      - name: Setup tmate session
+        uses: percona/gh-action-action-tmate@v3
+        if: always()
+
   make-bundle:
     name: Make Bundle
     strategy:
