@@ -108,7 +108,7 @@ func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		"%s/v1/version"+url,
+		url+"/v1/version",
 		nil,
 	)
 	if err != nil {
