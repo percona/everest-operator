@@ -727,7 +727,7 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	}
 
 	// Add the storages used by the DatabaseClusterBackup objects
-	if err = addBackupStorages(backupList.Items, database.Spec.DataSource, storages, p.DB, p.getStoragesSpec, p.C.Get); err != nil {
+	if err = p.addBackupStorages(backupList.Items, database.Spec.DataSource, storages); err != nil {
 		return nil, err
 	}
 
@@ -752,20 +752,17 @@ func (p *applier) genPXCBackupSpec() (*pxcv1.PXCScheduledBackup, error) {
 	return pxcBackupSpec, nil
 }
 
-func addBackupStorages(
+func (p *applier) addBackupStorages(
 	backups []everestv1alpha1.DatabaseClusterBackup,
 	dataSource *everestv1alpha1.DataSource,
 	storages map[string]*pxcv1.BackupStorageSpec,
-	database *everestv1alpha1.DatabaseCluster,
-	getStoragesSpec func(string, string, *everestv1alpha1.DatabaseCluster) (*pxcv1.BackupStorageSpec, error),
-	cGet func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error,
 ) error {
 	for _, backup := range backups {
 		if _, ok := storages[backup.Spec.BackupStorageName]; ok {
 			continue
 		}
 
-		spec, err := getStoragesSpec(backup.Spec.BackupStorageName, database.GetNamespace(), database)
+		spec, err := p.getStoragesSpec(backup.Spec.BackupStorageName)
 		if err != nil {
 			return err
 		}
@@ -774,7 +771,7 @@ func addBackupStorages(
 	// add the storage from datasource. The restore works without listing the related storage in the pxc config,
 	// however if the storage is insecure, we need to specify it explicitly to set the insecureTLS flag
 	if dataSource != nil {
-		storageName, err := getStorageNameFromDataSource(*dataSource, cGet, database.Namespace)
+		storageName, err := p.getStorageNameFromDataSource(*dataSource)
 		if err != nil {
 			return err
 		}
@@ -782,7 +779,7 @@ func addBackupStorages(
 			return nil
 		}
 
-		spec, err := getStoragesSpec(storageName, database.GetNamespace(), database)
+		spec, err := p.getStoragesSpec(storageName)
 		if err != nil {
 			return err
 		}
@@ -792,16 +789,14 @@ func addBackupStorages(
 	return nil
 }
 
-func getStorageNameFromDataSource(
+func (p *applier) getStorageNameFromDataSource(
 	dataSource everestv1alpha1.DataSource,
-	cGet func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error,
-	namespace string,
 ) (string, error) {
 	backup := &everestv1alpha1.DatabaseClusterBackup{}
 	var storageName string
 	if dataSource.DBClusterBackupName != "" {
-		err := cGet(context.Background(), types.NamespacedName{
-			Namespace: namespace,
+		err := p.C.Get(context.Background(), types.NamespacedName{
+			Namespace: p.DB.GetNamespace(),
 			Name:      dataSource.DBClusterBackupName,
 		}, backup)
 		if err != nil {
@@ -817,10 +812,10 @@ func getStorageNameFromDataSource(
 	return storageName, nil
 }
 
-func (p *applier) getStoragesSpec(backupStorageName, namespace string, database *everestv1alpha1.DatabaseCluster) (*pxcv1.BackupStorageSpec, error) {
+func (p *applier) getStoragesSpec(backupStorageName string) (*pxcv1.BackupStorageSpec, error) {
 	spec, backupStorage, err := p.genPXCStorageSpec(
 		backupStorageName,
-		namespace,
+		p.DB.GetNamespace(),
 	)
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to generate PXC storage spec for %s", backupStorageName))
@@ -832,7 +827,7 @@ func (p *applier) getStoragesSpec(backupStorageName, namespace string, database 
 			Bucket: fmt.Sprintf(
 				"%s/%s",
 				backupStorage.Spec.Bucket,
-				common.BackupStoragePrefix(database),
+				common.BackupStoragePrefix(p.DB),
 			),
 			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 			Region:            backupStorage.Spec.Region,
@@ -843,7 +838,7 @@ func (p *applier) getStoragesSpec(backupStorageName, namespace string, database 
 			ContainerPath: fmt.Sprintf(
 				"%s/%s",
 				backupStorage.Spec.Bucket,
-				common.BackupStoragePrefix(database),
+				common.BackupStoragePrefix(p.DB),
 			),
 			CredentialsSecret: backupStorage.Spec.CredentialsSecretName,
 		}
