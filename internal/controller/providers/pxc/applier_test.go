@@ -230,7 +230,7 @@ func mockApplier(t *testing.T, dbMeta metav1.ObjectMeta, objs ...client.Object) 
 	}
 }
 
-// fake client that can work with StorageClassList as UnstructuredList
+// fake client that can work with StorageClassList as UnstructuredList.
 type unstructuredClient struct {
 	client.Client
 }
