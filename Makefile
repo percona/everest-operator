@@ -153,7 +153,7 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 
 .PHONY: test-e2e-data-importer
 test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing
