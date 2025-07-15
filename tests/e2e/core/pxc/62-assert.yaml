@@ -7,18 +7,21 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 status:
-  status: resizingVolumes
+  status: ready
 ---
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
-spec:
-  enableVolumeExpansion: true
-  pxc:
+status:
+  haproxy:
+    ready: 1
     size: 1
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 20G
+    status: ready
+  pxc:
+    ready: 1
+    size: 1
+    status: ready
+  ready: 2
+  size: 2
+  state: ready
