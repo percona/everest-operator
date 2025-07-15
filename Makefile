@@ -164,7 +164,7 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 
 .PHONY: test-e2e-data-importer
 test-e2e-data-importer: docker-build minikube-start minikube-load ## Run e2e/data-importer tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
