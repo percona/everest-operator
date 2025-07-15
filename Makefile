@@ -387,7 +387,6 @@ minikube-start: minikube minikube-stop
 	$(LOCALBIN)/minikube start --nodes=4 --cpus=2 --memory=4G --kubernetes-version=$(MINIKUBE_K8S_VERSION) --driver=docker --apiserver-names host.docker.internal
 	$(LOCALBIN)/minikube addons disable storage-provisioner
 	$(LOCALBIN)/minikube addons disable default-storageclass
-	$(LOCALBIN)/minikube addons enable volumesnapshots
 	$(LOCALBIN)/minikube addons enable csi-hostpath-driver
 	kubectl patch storageclass csi-hostpath-sc -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 	kubectl delete storageclass standard --ignore-not-found=true
