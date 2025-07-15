@@ -4,6 +4,7 @@ timeout: 300
 collectors:
   - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl describe pod -n ${NAMESPACE} -l app.kubernetes.io/component=mongod
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
