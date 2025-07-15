@@ -1,0 +1,37 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 300
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get dataimportjob/data-import-test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get job -n ${NAMESPACE} -o yaml
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-psmdb-cluster
+status:
+  status: ready
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: test-psmdb-cluster
+status:
+  state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImportJob
+metadata:
+  labels:
+    clusterName: test-psmdb-cluster
+  name: data-import-test-psmdb-cluster
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DatabaseCluster
+      name: test-psmdb-cluster
+status:
+  state: Succeeded
