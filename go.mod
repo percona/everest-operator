@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.37.0
 	github.com/operator-framework/api v0.32.0
 	github.com/percona/percona-postgresql-operator v0.0.0-20250313094841-676233c83e26
-	github.com/percona/percona-server-mongodb-operator v1.20.1
+	github.com/percona/percona-server-mongodb-operator v1.19.1
 	github.com/percona/percona-xtradb-cluster-operator v1.17.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
@@ -59,7 +59,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.8.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
-	github.com/cert-manager/cert-manager v1.17.2 // indirect
+	github.com/cert-manager/cert-manager v1.17.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
@@ -126,7 +126,7 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
-	go.mongodb.org/mongo-driver v1.17.3 // indirect
+	go.mongodb.org/mongo-driver v1.17.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.36.0 // indirect
