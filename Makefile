@@ -157,8 +157,6 @@ test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer t
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing
-	# https://github.com/k3d-io/k3d/issues/209
-	#K3D_FIX_DNS=1 k3d cluster create --config ./tests/k3d_config.yaml
 	k3d cluster create --config ./tests/k3d_config.yaml
 	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
 

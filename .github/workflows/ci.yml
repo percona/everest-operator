@@ -355,13 +355,17 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-#      - name: Create K3D cluster
-#        run: |
-#          make k3d-cluster-up
-#
-#      - name: Run data importer tests
-#        run: |
-#          make test-e2e-data-importer
+      - name: Adjust OS for K3D
+        run: |
+          sudo modprobe br_netfilter
+
+      - name: Create K3D cluster
+        run: |
+          make k3d-cluster-up
+
+      - name: Run data importer tests
+        run: |
+          make test-e2e-data-importer
 
       # Enable Tmate debug ssh session on demand
       - name: Setup tmate session
