@@ -115,8 +115,7 @@ cleanup-localbin:
 minikube:
 	if [ ! -f $(LOCALBIN)/minikube ]; then \
 		curl -L https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-${OS}-${ARCH} -o $(LOCALBIN)/minikube-installer; \
-		chmod +x $(LOCALBIN)/minikube-installer; \
-		mv $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube; \
+		install $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube;
 	fi
 
 
