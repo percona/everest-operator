@@ -72,6 +72,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
+      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
+      - name: Adjust OS for K3D
+        run: |
+          sudo modprobe br_netfilter
+
       - name: Create K3D cluster
         run: |
           make k3d-cluster-up
@@ -124,6 +129,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
+      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
+      - name: Adjust OS for K3D
+        run: |
+          sudo modprobe br_netfilter
+
       - name: Create K3D cluster
         run: |
           make k3d-cluster-up
@@ -175,6 +185,11 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: false
+
+      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
+      - name: Adjust OS for K3D
+        run: |
+          sudo modprobe br_netfilter
 
       - name: Create K3D cluster
         run: |
@@ -355,6 +370,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
+      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
       - name: Adjust OS for K3D
         run: |
           sudo modprobe br_netfilter
@@ -366,11 +382,6 @@ jobs:
       - name: Run data importer tests
         run: |
           make test-e2e-data-importer
-
-      # Enable Tmate debug ssh session on demand
-      - name: Setup tmate session
-        uses: percona/gh-action-action-tmate@v3
-        if: always()
 
   make-bundle:
     name: Make Bundle
