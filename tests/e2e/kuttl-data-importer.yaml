@@ -2,7 +2,8 @@ apiVersion: kuttl.dev/v1
 kind: TestSuite
 artifactsDir: /tmp/
 startKIND: false
-skipDelete: true
+skipDelete: false
+# test uses external cluster, so skip cluster deletion
 skipClusterDelete: true
 suppress:
   - events

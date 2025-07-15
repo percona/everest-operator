@@ -366,12 +366,9 @@ jobs:
           cache: false
 
       # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Adjust OS for K3D
-        run: |
-          sudo modprobe br_netfilter
-
       - name: Create K3D cluster
         run: |
+          sudo modprobe br_netfilter
           make k3d-cluster-up
 
       - name: Run data importer tests
