@@ -311,6 +311,10 @@ jobs:
       - name: Run data importer tests
         run: |
           make test-e2e-data-importer
+      
+      - name: Setup tmate session
+        uses: percona/gh-action-action-tmate@v3
+        if: always()
 
   make-bundle:
     name: Make Bundle
