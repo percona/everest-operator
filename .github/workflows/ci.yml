@@ -37,7 +37,7 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
-      - name: Install kubecltl
+      - name: Install kubectl
         run: |
             mkdir -p $TOOLS_PATH
             echo $TOOLS_PATH >> $GITHUB_PATH
@@ -115,7 +115,7 @@ jobs:
     env:
       TOOLS_PATH: "/opt/tools/bin"
     steps:
-      - name: Install kubecltl
+      - name: Install kubectl
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
@@ -268,8 +268,8 @@ jobs:
         run: |
           make cluster-cleanup
 
-  kind-e2e-tests:
-    name: E2E tests (KinD)
+  minikube-e2e-tests:
+    name: E2E tests (Minikube)
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     timeout-minutes: 80
     strategy:
@@ -291,8 +291,8 @@ jobs:
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
-
-      - name: Install kubecltl
+      
+      - name: Install tools
         run: |
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
@@ -302,6 +302,8 @@ jobs:
           # Kuttl
           curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
           chmod +x ${TOOLS_PATH}/kubectl-kuttl
+          
+          make init
 
       - name: Kubectl version
         run: |

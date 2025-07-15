@@ -60,6 +60,9 @@ endif
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
 
+MINIKUBE_VERSION ?= v1.36.0
+MINIKUBE_K8S_VERSION ?= v1.32.0
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 #SHELL = /usr/bin/env bash -o pipefail
@@ -108,8 +111,17 @@ cleanup-localbin:
 	@echo "Cleaning up local bin directory..."
 	rm -rf $(LOCALBIN)
 
+.PHONY: minikube
+minikube:
+	if [ ! -f $(LOCALBIN)/minikube ]; then \
+		curl -L https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-${OS}-${ARCH} -o $(LOCALBIN)/minikube-installer; \
+		chmod +x $(LOCALBIN)/minikube-installer; \
+		mv $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube; \
+	fi
+
+
 .PHONY: init
-init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm  ## Install development tools
+init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm minikube  ## Install development tools
 	cd tools && go generate -x -tags=tools
 
 .PHONY: format
@@ -152,7 +164,7 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-data-importer
-test-e2e-data-importer: docker-build ## Run e2e/data-importer tests
+test-e2e-data-importer: docker-build minikube-start minikube-load ## Run e2e/data-importer tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
 # Cleanup all resources created by the tests
@@ -378,3 +390,26 @@ $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 
 .PHONY: release
 release:  generate manifests bundle format $(DEPLOYDIR)/bundle.yaml ## Prepare release
+
+.PHONY: minikube-start
+minikube-start: minikube minikube-stop
+	$(LOCALBIN)/minikube start --nodes=3 --cpus=2 --memory=4G --kubernetes-version=$(MINIKUBE_K8S_VERSION) --driver=docker --apiserver-names host.docker.internal
+	$(LOCALBIN)/minikube addons disable storage-provisioner
+	$(LOCALBIN)/minikube addons disable default-storageclass
+	$(LOCALBIN)/minikube addons enable volumesnapshots
+	$(LOCALBIN)/minikube addons enable csi-hostpath-driver
+	kubectl patch storageclass csi-hostpath-sc -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+	kubectl delete storageclass standard --ignore-not-found=true
+
+.PHONY: minikube-stop
+minikube-stop:
+	$(LOCALBIN)/minikube stop || true
+	$(MAKE) minikube-delete
+
+.PHONY: minikube-delete
+minikube-delete:
+	$(LOCALBIN)/minikube delete || true
+
+.PHONY: minikube-load
+minikube-load: minikube
+	$(LOCALBIN)/minikube image load $(IMG)

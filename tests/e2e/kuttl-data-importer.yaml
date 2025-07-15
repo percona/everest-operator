@@ -1,17 +1,13 @@
 apiVersion: kuttl.dev/v1
 kind: TestSuite
 artifactsDir: /tmp/
-startKIND: true
-kindConfig: tests/e2e/data-importers/kind.conf.yaml
-kindContainers:
-  - perconalab/everest-operator:0.0.0
 skipDelete: false
 skipClusterDelete: false
 suppress:
   - events
 parallel: 1
 commands:
-  # Deploy Everest Operator into KIND cluster
+  # Deploy Everest Operator into Minikube cluster
   - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
   # Check that DataImporters are installed.
   - command: kubectl wait --for condition=established --timeout=10s crd dataimporters.everest.percona.com
