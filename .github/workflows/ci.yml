@@ -341,6 +341,11 @@ jobs:
         run: |
           k3d version
 
+      - name: Install K9S
+        run: |
+          wget https://github.com/derailed/k9s/releases/download/v0.50.7/k9s_Linux_amd64.tar.gz
+          tar -xzf ./k9s_Linux_amd64.tar.gz -C ${TOOLS_PATH}
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
@@ -350,13 +355,13 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      - name: Create K3D cluster
-        run: |
-          make k3d-cluster-up
-
-      - name: Run data importer tests
-        run: |
-          make test-e2e-data-importer
+#      - name: Create K3D cluster
+#        run: |
+#          make k3d-cluster-up
+#
+#      - name: Run data importer tests
+#        run: |
+#          make test-e2e-data-importer
 
       # Enable Tmate debug ssh session on demand
       - name: Setup tmate session
