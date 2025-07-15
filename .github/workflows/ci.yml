@@ -97,7 +97,7 @@ jobs:
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
 
-      - name: Install kubecltl && kuttl
+      - name: Install kubectl && kuttl
         run: |
           # Kubectl
           curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
