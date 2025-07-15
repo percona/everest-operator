@@ -287,6 +287,20 @@ func (r *DataImportJobReconciler) ensureDataImportPayloadSecret(
 		},
 	}
 
+	// If the Secret already exists with the desired key, we will not attempt create it again.
+	// Typically we should actively reconcile the controlled objects, but in this case
+	// we do not expect the contents of the Secret to change at all so its okay to skip it, unless
+	// the Secret or its data are missing altogether.
+	// Moreover, even if the Secret does change, there's nothing that the DataImporter can do
+	// because it has already started with the initially provided details.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
+		if val, ok := secret.Data[dataImportJSONSecretKey]; ok && len(val) > 0 {
+			return nil
+		}
+	} else if client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to get data import request secret: %w", err)
+	}
+
 	req := dataimporterspec.Spec{}
 
 	dbUser, dbPassword, err := r.getDBRootUserCredentials(ctx, db)
