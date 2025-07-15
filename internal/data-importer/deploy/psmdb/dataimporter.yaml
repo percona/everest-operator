@@ -1,7 +1,7 @@
 apiVersion: everest.percona.com/v1alpha1
 kind: DataImporter
 metadata:
-  name: everest-percona-psmdb-operator-data-importer
+  name: everest-percona-psmdb-operator
 spec:
   displayName: "Percona PSMDB Operator Data Importer"
   description: |
