@@ -356,11 +356,6 @@ jobs:
         run: |
           k3d version
 
-      - name: Install K9S
-        run: |
-          wget https://github.com/derailed/k9s/releases/download/v0.50.7/k9s_Linux_amd64.tar.gz
-          tar -xzf ./k9s_Linux_amd64.tar.gz -C ${TOOLS_PATH}
-
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
