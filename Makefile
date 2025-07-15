@@ -115,9 +115,8 @@ cleanup-localbin:
 minikube:
 	if [ ! -f $(LOCALBIN)/minikube ]; then \
 		curl -L https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-${OS}-${ARCH} -o $(LOCALBIN)/minikube-installer; \
-		install $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube;
+		install $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube; \
 	fi
-
 
 .PHONY: init
 init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm minikube  ## Install development tools
