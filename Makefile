@@ -113,6 +113,7 @@ cleanup-localbin:
 
 .PHONY: minikube
 minikube:
+	mkdir -p $(LOCALBIN)
 	if [ ! -f $(LOCALBIN)/minikube ]; then \
 		curl -L https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-${OS}-${ARCH} -o $(LOCALBIN)/minikube-installer; \
 		install $(LOCALBIN)/minikube-installer $(LOCALBIN)/minikube; \
@@ -373,14 +374,6 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-# Create a local minikube cluster
-.PHONY: local-env-up
-local-env-up: ## Create a local minikube cluster
-	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal
-	minikube addons disable storage-provisioner
-	kubectl delete storageclass standard
-	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
-
 ## Location to output deployment manifests
 DEPLOYDIR = ./deploy
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
@@ -391,7 +384,7 @@ release:  generate manifests bundle format $(DEPLOYDIR)/bundle.yaml ## Prepare r
 
 .PHONY: minikube-start
 minikube-start: minikube minikube-stop
-	$(LOCALBIN)/minikube start --nodes=3 --cpus=2 --memory=4G --kubernetes-version=$(MINIKUBE_K8S_VERSION) --driver=docker --apiserver-names host.docker.internal
+	$(LOCALBIN)/minikube start --nodes=4 --cpus=2 --memory=4G --kubernetes-version=$(MINIKUBE_K8S_VERSION) --driver=docker --apiserver-names host.docker.internal
 	$(LOCALBIN)/minikube addons disable storage-provisioner
 	$(LOCALBIN)/minikube addons disable default-storageclass
 	$(LOCALBIN)/minikube addons enable volumesnapshots
