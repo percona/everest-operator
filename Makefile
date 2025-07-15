@@ -140,15 +140,15 @@ test: $(LOCALBIN) manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
-test-integration-core: docker-build ## Run integration/core tests against kind cluster
+test-integration-core: docker-build minikube-start minikube-load ## Run integration/core tests against minikube cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 
 .PHONY: test-integration-features
-test-integration-features: docker-build ## Run feature tests against kind cluster
+test-integration-features: docker-build minikube-start minikube-load ## Run feature tests against minikube cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
 .PHONY: test-integration-db-upgrade
-test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
+test-integration-operator-upgrade: docker-build minikube-start minikube-load ## Run operator upgrade tests against minikube cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
