@@ -46,7 +46,7 @@ runs:
 
     - if: ${{ inputs.install-kuttl == 'true' }}
       run: |
-        curl -s -L -o ${{ inputs.tools-path }}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${{ inputs.kuttl-version }}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
+        curl -s -L -o ${{ inputs.tools-path }}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${{ inputs.kuttl-version }}/kubectl-kuttl_${{ inputs.kuttl-version }}_linux_x86_64  
         chmod +x ${{ inputs.tools-path }}/kubectl-kuttl
         echo $(kubectl kuttl --version) installed
       shell: bash
