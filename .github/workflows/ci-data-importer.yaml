@@ -1,5 +1,5 @@
 ---
-name: E2E data importer tests
+name: E2E data importer test
 on:
   workflow_call:
     inputs:
@@ -15,7 +15,7 @@ env:
   MAKE_TARGET: ${{ inputs.make_target }}
 jobs:
   e2e-data-import-test:
-    name: K3D E2E data import (${{inputs.make_target}})
+    name: ${{inputs.make_target}}
     timeout-minutes: 80
     strategy:
       fail-fast: true
