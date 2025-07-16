@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 120
+commands:
+  - script: |-
+     
+     IMAGE="$(kubectl get -n ${NAMESPACE} psmdb/test-psmdb-cluster -o jsonpath='{.spec.image}')"
+     kubectl run -n "${NAMESPACE}" psmdb-client --env="NO_COLOR=1" --image=${IMAGE} --restart=Never --command -- sleep infinity
