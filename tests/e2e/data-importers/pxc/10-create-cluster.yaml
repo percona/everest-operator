@@ -44,7 +44,7 @@ commands:
           userSecretsName: everest-secrets-test-pxc-cluster
           replicas: 3
           storage:
-            size: 1G
+            size: 1Gi
           resources:
             cpu: 600m
             memory: 1G
