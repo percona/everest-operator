@@ -1,14 +1,12 @@
 apiVersion: kuttl.dev/v1
 kind: TestSuite
 artifactsDir: /tmp/
-startKIND: true
-kindContainers:
-  - perconalab/everest-operator:0.0.0
+startKIND: false
 skipDelete: false
-skipClusterDelete: false
+skipClusterDelete: true
 commands:
   - command: kubectl create namespace everest-monitoring
-  # Deploy Everest Operator into KIND cluster
+  # Deploy Everest Operator into K8S cluster
   - command: make -f ${OPERATOR_ROOT_PATH}/Makefile deploy-test
   # Install upstream DB operators CRDs.
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml

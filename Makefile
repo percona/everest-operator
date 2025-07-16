@@ -128,15 +128,15 @@ test: $(LOCALBIN) manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
-test-integration-core: docker-build ## Run integration/core tests against kind cluster
+test-integration-core: docker-build k3d-upload-image ## Run integration/core tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 
 .PHONY: test-integration-features
-test-integration-features: docker-build ## Run feature tests against kind cluster
+test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
 .PHONY: test-integration-db-upgrade
-test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
+test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
@@ -152,8 +152,22 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-data-importer
-test-e2e-data-importer: docker-build ## Run e2e/data-importer tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+
+.PHONY: k3d-cluster-up
+k3d-cluster-up: ## Create a K8S cluster for testing
+	k3d cluster create --config ./tests/k3d_config.yaml
+	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
+
+.PHONY: k3d-cluster-up
+k3d-cluster-down: ## Create a K8S cluster for testing
+	k3d cluster delete --config ./tests/k3d_config.yaml
+	rm -f ./tests/kubeconfig || true
+
+.PHONY: k3d-upload-image
+k3d-upload-image:
+	k3d image import -c everest-operator-test -m direct $(IMG)
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup

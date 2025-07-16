@@ -383,9 +383,6 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if database.Spec.Engine.Replicas == 0 {
 		database.Spec.Engine.Replicas = 3
 	}
-	if database.Spec.Proxy.Expose.Type == "" {
-		database.Spec.Proxy.Expose.Type = everestv1alpha1.ExposeTypeInternal
-	}
 
 	if database.Spec.DataSource != nil &&
 		database.Spec.DataSource.DBClusterBackupName != "" {
