@@ -15,6 +15,7 @@ env:
   MAKE_TARGET: ${{ inputs.make_target }}
 jobs:
   e2e-data-import-test:
+    name: test
     timeout-minutes: 80
     strategy:
       fail-fast: true
