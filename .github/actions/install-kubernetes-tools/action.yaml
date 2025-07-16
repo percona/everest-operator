@@ -32,26 +32,30 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: |
+    - name: Install TOOLS_PATH
+      run: |
         mkdir -p ${{ inputs.tools-path }}
         echo ${{ inputs.tools-path }} >> $GITHUB_PATH
       shell: bash
 
-    - if: ${{ inputs.install-kubectl == 'true' }}
+    - name: Install Kubectl
+      if: ${{ inputs.install-kubectl == 'true' }}
       run: |
         curl -s -L -o ${{ inputs.tools-path }}/kubectl https://dl.k8s.io/release/v${{ inputs.kubectl-version }}/bin/linux/amd64/kubectl 
         chmod +x ${{ inputs.tools-path }}/kubectl
         kubectl version --client --output=yaml
       shell: bash
 
-    - if: ${{ inputs.install-kuttl == 'true' }}
+    - name: Install Kuttl
+      if: ${{ inputs.install-kuttl == 'true' }}
       run: |
         curl -s -L -o ${{ inputs.tools-path }}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${{ inputs.kuttl-version }}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
         chmod +x ${{ inputs.tools-path }}/kubectl-kuttl
         echo $(kubectl kuttl --version) installed
       shell: bash
 
-    - if: ${{ inputs.install-k3d == 'true' }}
+    - name: Install K3D
+      if: ${{ inputs.install-k3d == 'true' }}
       run: |
         curl -s -L -o ${{ inputs.tools-path }}/k3d https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}/k3d-linux-amd64
         chmod +x ${{ inputs.tools-path }}/k3d
