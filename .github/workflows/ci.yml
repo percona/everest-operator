@@ -41,27 +41,19 @@ jobs:
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
 
-      - name: Install kubecltl && kuttl
+      - name: Install Kubernetes tools
         run: |
-            # Kubectl
-            curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
-            chmod +x ${TOOLS_PATH}/kubectl
-            # Kuttl
-            curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
-            chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
           kubectl version --client --output=yaml
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
           echo $(kubectl kuttl --version) installed
-
-      - name: Install K3D
-        run: |
+          # K3D
           curl -s -L -o ${TOOLS_PATH}/k3d https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-amd64
           chmod +x ${TOOLS_PATH}/k3d
-
-      - name: K3D version
-        run: |
           k3d version
 
       - name: Check out code into the Go module directory
@@ -73,13 +65,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Adjust OS for K3D
-        run: |
-          sudo modprobe br_netfilter
-
       - name: Create K3D cluster
         run: |
+          sudo modprobe br_netfilter
           make k3d-cluster-up
 
       - name: Run core tests
@@ -98,27 +86,19 @@ jobs:
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
 
-      - name: Install kubectl && kuttl
+      - name: Install Kubernetes tools
         run: |
           # Kubectl
           curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
           chmod +x ${TOOLS_PATH}/kubectl
+          kubectl version --client --output=yaml
           # Kuttl
           curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
           chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
-
-      - name: Install K3D
-        run: |
+          # K3D
           curl -s -L -o ${TOOLS_PATH}/k3d https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-amd64
           chmod +x ${TOOLS_PATH}/k3d
-
-      - name: K3D version
-        run: |
           k3d version
 
       - name: Check out code into the Go module directory
@@ -130,13 +110,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Adjust OS for K3D
-        run: |
-          sudo modprobe br_netfilter
-
       - name: Create K3D cluster
         run: |
+          sudo modprobe br_netfilter
           make k3d-cluster-up
 
       - name: Run features tests
@@ -155,27 +131,19 @@ jobs:
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
 
-      - name: Install kubecltl && kuttl
+      - name: Install Kubernetes tools
         run: |
           # Kubectl
           curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
           chmod +x ${TOOLS_PATH}/kubectl
+          kubectl version --client --output=yaml
           # Kuttl
           curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
           chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
-
-      - name: Install K3D
-        run: |
+          # K3D
           curl -s -L -o ${TOOLS_PATH}/k3d https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-amd64
           chmod +x ${TOOLS_PATH}/k3d
-
-      - name: K3D version
-        run: |
           k3d version
 
       - name: Check out code into the Go module directory
@@ -187,13 +155,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Adjust OS for K3D
-        run: |
-          sudo modprobe br_netfilter
-
       - name: Create K3D cluster
         run: |
+          sudo modprobe br_netfilter
           make k3d-cluster-up
 
       - name: Run operator upgrade tests
@@ -214,18 +178,15 @@ jobs:
           mkdir -p $TOOLS_PATH
           echo $TOOLS_PATH >> $GITHUB_PATH
 
-      - name: Install kubecltl && kuttl
+      - name: Install Kubernetes tools
         run: |
           # Kubectl
           curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
           chmod +x ${TOOLS_PATH}/kubectl
+          kubectl version --client --output=yaml
           # Kuttl
           curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
           chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
           echo $(kubectl kuttl --version) installed
 
       - name: Install EKS tools
@@ -325,7 +286,7 @@ jobs:
     name: E2E data importer tests
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         make_target: [
           'test-e2e-data-importer-pg',

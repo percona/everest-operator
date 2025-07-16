@@ -95,36 +95,32 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: cleanup-localbin
 cleanup-localbin:
 	@echo "Cleaning up local bin directory..."
 	rm -rf $(LOCALBIN)
 
 .PHONY: init
-init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm  ## Install development tools
-	cd tools && go generate -x -tags=tools
+init: cleanup-localbin  ## Install development tools
+	$(MAKE) kustomize
+	$(MAKE) controller-gen
+	$(MAKE) envtest
+	$(MAKE) operator-sdk
+	$(MAKE) opm
 
 .PHONY: format
 format:
-	bin/gofumpt -l -w .
-	bin/goimports -local github.com/percona/everest-operator -l -w .
-	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+	go tool gofumpt -l -w .
+	go tool goimports -local github.com/percona/everest-operator -l -w .
+	go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: check
 check:
-	LOG_LEVEL=error bin/golangci-lint run
-	bin/go-sumtype ./...
+	LOG_LEVEL=error go tool golangci-lint run
+	go tool go-sumtype ./...
 
 .PHONY: test
-test: $(LOCALBIN) manifests generate fmt vet envtest ## Run tests.
+test: $(LOCALBIN) manifests generate format envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
@@ -218,16 +214,16 @@ cluster-cleanup:
 ##@ Build
 
 .PHONY: build
-build: $(LOCALBIN) manifests generate fmt vet ## Build manager binary.
+build: $(LOCALBIN) manifests generate format ## Build manager binary.
 	go build -o $(LOCALBIN)/manager cmd/main.go
 	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
-build-debug: $(LOCALBIN) manifests generate fmt vet ## Build manager binary with debug symbols.
+build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
 	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate format ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
