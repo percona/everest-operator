@@ -4,7 +4,7 @@ timeout: 300
 collectors:
   - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
-  - command: kubectl describe pods -n ${NAMESPACE}
+  - command: kubectl get pods -n ${NAMESPACE}
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -15,6 +15,12 @@ kind: DatabaseCluster
 metadata:
   name: test-pxc-cluster
 status:
-  ready: 6
-  size: 6
-  
+  status: importing
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: data-import-test-pxc-cluster
+status:
+  state: Restoring
+---

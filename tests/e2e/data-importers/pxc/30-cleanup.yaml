@@ -6,3 +6,4 @@ commands:
   - command: kubectl delete -n ${NAMESPACE} pod/pxc-client --wait=false
   - command: kubectl delete -n ${NAMESPACE} -f ${OPERATOR_ROOT_PATH}/tests/testdata/minio --wait=false
   - command: kubectl delete -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/pxc --wait=false
+  - command: kubectl delete -n ${NAMESPACE} job --all --wait=false

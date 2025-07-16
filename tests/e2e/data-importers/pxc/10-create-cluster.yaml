@@ -53,7 +53,7 @@ commands:
           replicas: 3
           resources:
             cpu: 600m
-            memory: 0.6Gi
+            memory: 0.6G
       EOF
 ---
 apiVersion: v1
