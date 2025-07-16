@@ -1,3 +1,4 @@
+---
 name: CI
 on:
   pull_request:
@@ -320,8 +321,8 @@ jobs:
         run: |
           make cluster-cleanup
 
-  k3d-e2e-tests:
-    name: E2E tests (K3D)
+  e2e-data-importer-tests-flows:
+    name: E2E data importer tests
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
     strategy:
       fail-fast: true
@@ -331,7 +332,6 @@ jobs:
           'test-e2e-data-importer-psmdb',
           'test-e2e-data-importer-pxc'
         ]
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/ci-data-importer.yaml
     secrets: inherit
     with:

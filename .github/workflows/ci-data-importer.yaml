@@ -12,6 +12,7 @@ env:
   KUTTL_VERSION: 0.22.0
   K3D_VERSION: 5.8.3
   TOOLS_PATH: "/opt/tools/bin"
+  MAKE_TARGET: ${{ inputs.make_target }}
 jobs:
   e2e-data-import-test:
     name: K3D E2E data import (${{inputs.make_target}})
@@ -19,8 +20,6 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    env:
-      MAKE_TARGET: ${{ inputs.make_target }}
     steps:
       - name: Install TOOLS_PATH
         run: |
