@@ -155,6 +155,18 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
+.PHONY: test-e2e-data-importer-pg
+test-e2e-data-importer-pg: docker-build k3d-upload-image ## Run e2e/data-importer PG test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
+
+.PHONY: test-e2e-data-importer-psmdb
+test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-importer PSMDB test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
+
+.PHONY: test-e2e-data-importer-pxc
+test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing
 	k3d cluster create --config ./tests/k3d_config.yaml

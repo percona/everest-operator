@@ -323,62 +323,19 @@ jobs:
   k3d-e2e-tests:
     name: E2E tests (K3D)
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
-    timeout-minutes: 80
     strategy:
       fail-fast: true
+      matrix:
+        make_target: [
+          'test-e2e-data-importer-pg',
+          'test-e2e-data-importer-psmdb',
+          'test-e2e-data-importer-pxc'
+        ]
     runs-on: ubuntu-latest
-    steps:
-      - name: Install TOOLS_PATH
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
-      - name: Install kubecltl && kuttl
-        run: |
-          # Kubectl
-          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
-          chmod +x ${TOOLS_PATH}/kubectl
-          # Kuttl
-          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
-          chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
-          echo $(kubectl kuttl --version) installed
-
-      - name: Install K3D
-        run: |
-          curl -s -L -o ${TOOLS_PATH}/k3d https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-amd64
-          chmod +x ${TOOLS_PATH}/k3d
-          k3d version
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
-      - name: Switch docker-daemon data directory to /mnt
-        run: |
-          sudo systemctl stop docker
-          echo '{ "exec-opts": ["native.cgroupdriver=cgroupfs"], "cgroup-parent": "/actions_job", "data-root": "/mnt/docker-data" }' | sudo tee /etc/docker/daemon.json
-          sudo mkdir /mnt/docker-data
-          sudo systemctl start docker
-
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run data importer tests
-        run: |
-          make test-e2e-data-importer
+    uses: ./.github/workflows/ci-data-importer.yaml
+    secrets: inherit
+    with:
+      make_target: ${{ matrix.make_target }}
 
   make-bundle:
     name: Make Bundle
