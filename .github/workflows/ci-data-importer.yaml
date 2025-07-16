@@ -18,7 +18,8 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/install-kubernetes-tools
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
           install-kuttl: true
