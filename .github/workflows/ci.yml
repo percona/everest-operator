@@ -333,7 +333,6 @@ jobs:
           'test-e2e-data-importer-pxc'
         ]
     uses: ./.github/workflows/ci-data-importer.yaml
-    secrets: inherit
     with:
       make_target: ${{ matrix.make_target }}
 
