@@ -36,6 +36,16 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     steps:
+      - name: Docker Setup Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            { 
+              "exec-opts": ["native.cgroupdriver=cgroupfs"], 
+              "cgroup-parent": "/actions_job", 
+              "data-root": "/mnt/docker-data"
+            }
+
       - name: Install TOOLS_PATH
         run: |
           mkdir -p $TOOLS_PATH
