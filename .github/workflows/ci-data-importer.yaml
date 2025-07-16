@@ -7,6 +7,12 @@ on:
         description: 'Make target to execute'
         type: string
         required: true
+env:
+  KUBECTL_VERSION: 1.29.5
+  KUTTL_VERSION: 0.22.0
+  K3D_VERSION: 5.8.3
+  TOOLS_PATH: "/opt/tools/bin"
+  MAKE_TARGET: ${{ inputs.make_target }}
 jobs:
   e2e-data-import-test:
     name: test
@@ -15,12 +21,25 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     steps:
+      - name: Install TOOLS_PATH
+        run: |
+          mkdir -p $TOOLS_PATH
+          echo $TOOLS_PATH >> $GITHUB_PATH
+
       - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools.yaml
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
+        run: |
+          # Kubectl
+          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
+          chmod +x ${TOOLS_PATH}/kubectl
+          kubectl version --client --output=yaml
+          # Kuttl
+          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v${KUTTL_VERSION}/kubectl-kuttl_${KUTTL_VERSION}_linux_x86_64  
+          chmod +x ${TOOLS_PATH}/kubectl-kuttl
+          echo $(kubectl kuttl --version) installed
+          # K3D
+          curl -s -L -o ${TOOLS_PATH}/k3d https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-amd64
+          chmod +x ${TOOLS_PATH}/k3d
+          k3d version
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -47,4 +66,4 @@ jobs:
 
       - name: Run data importer tests
         run: |
-          make ${{ inputs.make_target }}
+          make ${{ env.MAKE_TARGET }}
