@@ -946,11 +946,6 @@ spec:
                   DataImportJobName refers to the DataImportJob that is used to import data into the cluster.
                   This is set only when .spec.dataSource.dataImport is set.
                 type: string
-              dataImportJobName:
-                description: |-
-                  DataImportJobName refers to the DataImportJob that is used to import data into the cluster.
-                  This is set only when .spec.dataSource.dataImport is set.
-                type: string
               details:
                 description: Details provides full status of the upstream cluster
                   as a plain text.
