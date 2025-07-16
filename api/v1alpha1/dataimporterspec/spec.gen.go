@@ -49,7 +49,7 @@ type Source struct {
 //
 // The importer is expected to read a path to this JSON as the first command-line argument. For example:
 //
-// ./my-importer.sh /path/to/spec.json
+// ./my-importer.sh /payload/request.json
 //
 // This serves as a contract between Everest and external importers.
 type Spec struct {
