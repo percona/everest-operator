@@ -59,6 +59,8 @@ jobs:
       - name: Run core tests
         run: |
             make test-integration-core
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   integration-features-tests:
     name: Integration features tests
@@ -91,6 +93,8 @@ jobs:
       - name: Run features tests
         run: |
           make test-integration-features
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   integration-operator-upgrade-tests:
     name: Integration operator upgrade tests
@@ -123,6 +127,8 @@ jobs:
       - name: Run operator upgrade tests
         run: |
           make test-integration-operator-upgrade
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -161,6 +167,8 @@ jobs:
       - name: Build operator
         run:
           make build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -274,6 +282,8 @@ jobs:
       - name: Run data importer tests
         run: |
           make test-e2e-data-importer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   make-bundle:
     name: Make Bundle
@@ -290,10 +300,8 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      - name: Install operator-sdk
-        run: |
-          make operator-sdk
-
       - name: Make bundle and build bundle image
         run: |
           make bundle bundle-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
