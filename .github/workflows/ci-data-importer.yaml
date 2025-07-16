@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
+        uses: ./.github/actions/install-kubernetes-tools.yaml
         with:
           install-kubectl: true
           install-kuttl: true
