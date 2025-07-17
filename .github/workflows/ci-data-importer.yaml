@@ -7,12 +7,6 @@ on:
         description: 'Make target to execute'
         type: string
         required: true
-env:
-  KUBECTL_VERSION: 1.29.5
-  KUTTL_VERSION: 0.22.0
-  K3D_VERSION: 5.8.3
-  TOOLS_PATH: "/opt/tools/bin"
-  MAKE_TARGET: ${{ inputs.make_target }}
 jobs:
   e2e-data-import-test:
     name: test
@@ -53,6 +47,6 @@ jobs:
 
       - name: Run data importer tests
         run: |
-          make ${{ env.MAKE_TARGET }}
+          make ${{ inputs.make_target }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
