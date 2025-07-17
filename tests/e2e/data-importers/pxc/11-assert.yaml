@@ -9,6 +9,9 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+  - type: pod
+    selector: app.kubernetes.io/name=percona-xtradb-cluster-operator
+    tail: 100
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster

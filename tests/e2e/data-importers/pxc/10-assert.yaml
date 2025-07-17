@@ -8,6 +8,9 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+  - type: pod
+    selector: app.kubernetes.io/name=percona-xtradb-cluster-operator
+    tail: 100
 commands:
   - command: kubectl wait --for=jsonpath='{.spec.dataSource.dataImport.source.s3.endpointURL}'='https://minio.${NAMESPACE}.svc' db/test-pxc-cluster -n ${NAMESPACE}
 ---
