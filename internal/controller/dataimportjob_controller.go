@@ -211,7 +211,7 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 			diJob.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
 		}
-		if controllerutil.AddFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) {
+		if controllerutil.AddFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 			if err := r.Client.Update(ctx, diJob); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to data import job: %w", err)
 			}
@@ -571,9 +571,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 	ctx context.Context,
 	diJob *everestv1alpha1.DataImportJob,
 ) (bool, error) {
-	if controllerutil.ContainsFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
-		// deprecated finalizer handled for backward compatibility
-		controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
+	if controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 		return r.deleteResourcesInOrder(ctx, diJob)
 	}
 	return true, nil
@@ -594,7 +592,7 @@ func (r *DataImportJobReconciler) ensureJobDeleted(ctx context.Context, diJob *e
 
 	// The actual deletion of the Job is handled by the garbage collector since we set a controller reference.
 	// We will first check if the associated pods are gone, because the deletion of the child resources (pods) happens in background.
-	// This means the pods may be gone before the Job itself. So in order to allow proper cleanup, we need to allow the pods to be deleted first.
+	// This means the pods may be around even if the Job is cleaned up. So in order to allow proper cleanup, we need to allow the pods to be deleted first.
 	pods := &corev1.PodList{}
 	if err := r.Client.List(ctx, pods, client.InNamespace(diJob.GetNamespace()), client.MatchingLabels{
 		"job-name": jobName,
@@ -676,9 +674,7 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 	if !ok {
 		return false, nil
 	}
-	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobOrderedCleanupFinalizer) ||
-		// deprecated finalizer handled for backward compatibility
-		controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
+	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
 		if err := r.Client.Update(ctx, diJob); err != nil {
 			return false, fmt.Errorf("failed to remove ordered cleanup finalizer: %w", err)
 		}
