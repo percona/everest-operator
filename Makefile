@@ -57,8 +57,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-OS ?= $(shell go env GOOS)
-ARCH ?= $(shell go env GOARCH)
+OS=$(shell go env GOHOSTOS)
+ARCH=$(shell go env GOHOSTARCH)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -110,9 +110,9 @@ init: cleanup-localbin  ## Install development tools
 
 .PHONY: format
 format:
-	go tool gofumpt -l -w .
-	go tool goimports -local github.com/percona/everest-operator -l -w .
-	go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: check
 check:
@@ -299,7 +299,7 @@ endif
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 ifeq (,$(wildcard $(CONTROLLER_GEN)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
 endif
 
@@ -307,7 +307,7 @@ endif
 ENVTEST = $(LOCALBIN)/setup-envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 ifeq (,$(wildcard $(ENVTEST)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 endif
 
 .PHONY: operator-sdk
@@ -317,7 +317,7 @@ operator-sdk: $(LOCALBIN) ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
 	@{ \
 	set -e ;\
-	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH} ;\
+	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_$(OS)_$(ARCH) ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
 endif
