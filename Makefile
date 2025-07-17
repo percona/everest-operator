@@ -160,7 +160,7 @@ test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-impo
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
 
 .PHONY: test-e2e-data-importer-pxc
-test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
+test-e2e-data-importer-pxc: docker-build k3d-upload-image k3d-upload-pxc-image ## Run e2e/data-importer PXC test
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
 
 .PHONY: k3d-cluster-up
@@ -176,6 +176,15 @@ k3d-cluster-down: ## Create a K8S cluster for testing
 .PHONY: k3d-upload-image
 k3d-upload-image:
 	k3d image import -c everest-operator-test -m direct $(IMG)
+
+.PHONY: k3d-upload-pxc-image
+k3d-upload-pxc-image:
+	docker pull percona/percona-xtradb-cluster-operator:1.17.0
+	docker pull percona/percona-xtradb-cluster:8.0.41-32.1
+	docker pull docker.io/percona/haproxy:2.8.14
+	k3d image import -c everest-operator-test -m direct percona/percona-xtradb-cluster-operator:1.17.0
+	k3d image import -c everest-operator-test -m direct percona/percona-xtradb-cluster:8.0.41-32.1
+	k3d image import -c everest-operator-test -m direct docker.io/percona/haproxy:2.8.14
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
