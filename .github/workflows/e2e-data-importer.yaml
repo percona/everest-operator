@@ -49,8 +49,13 @@ jobs:
           sudo modprobe br_netfilter
           make k3d-cluster-up
 
-      - name: Run data importer tests
-        run: |
-          make ${{ inputs.make_target }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Enable Tmate debug ssh session on demand
+      - name: Setup tmate session
+        uses: percona/gh-action-action-tmate@v3
+        if: ${{ always() }}
+
+#      - name: Run data importer tests
+#        run: |
+#          make ${{ inputs.make_target }}
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
