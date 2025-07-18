@@ -33,8 +33,8 @@ jobs:
 
       - name: Disable AppArmor on host
         run: |
-          sudo systemctl stop apparmor
           sudo aa-teardown
+          sudo systemctl stop apparmor
 
       # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
       - name: Switch docker-daemon data directory to /mnt
