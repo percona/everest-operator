@@ -1,5 +1,5 @@
 ---
-name: Data importer test
+name: E2E data importer test
 on:
   workflow_call:
     inputs:
