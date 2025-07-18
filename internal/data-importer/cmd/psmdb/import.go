@@ -54,7 +54,7 @@ var Cmd = &cobra.Command{
 	},
 }
 
-func runPSMDBImport(ctx context.Context, configPath string) error {
+func runPSMDBImport(ctx context.Context, configPath string) error { //nolint:contextcheck
 	cfg := &dataimporterspec.Spec{}
 	if err := cfg.ReadFromFilepath(configPath); err != nil {
 		return err
@@ -92,8 +92,14 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	}
 	psmdbRestoreName := "data-import-" + dbName
 
+	// We use a separate context for cleanup since the parent context may be cancelled
+	// if the Job is terminated prematurely (for e.g, if the DB is deleted before the import completes).
+	cleanupTimeout := time.Second * 30 //nolint:mnd
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+
 	defer func() {
-		if err := cleanup(ctx, k8sClient, namespace, psmdbRestoreName); err != nil {
+		if err := cleanup(cleanupCtx, k8sClient, namespace, psmdbRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PSMDB import for database %s", dbName)
 		}
 	}()
