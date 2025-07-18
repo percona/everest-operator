@@ -674,7 +674,7 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 	if !ok {
 		return false, nil
 	}
-	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) { //nolint:staticcheck
+	if controllerutil.RemoveFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 		if err := r.Client.Update(ctx, diJob); err != nil {
 			return false, fmt.Errorf("failed to remove ordered cleanup finalizer: %w", err)
 		}
