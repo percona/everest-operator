@@ -140,11 +140,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        make_target: [
-          'test-e2e-data-importer-pg',
-          'test-e2e-data-importer-psmdb',
-          'test-e2e-data-importer-pxc'
-        ]
+        make_target:
+          - test-e2e-data-importer-pg
+          - test-e2e-data-importer-psmdb
+          - test-e2e-data-importer-pxc
     uses: ./.github/workflows/e2e-data-importer.yaml
     secrets: inherit
     with:

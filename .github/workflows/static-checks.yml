@@ -45,12 +45,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        linter: [
-          'license-check',
-          'go-sumtype',
-          'golangci-lint'
-        ]
-    uses: .github/workflows/static-checks-linters.yaml
+        linter:
+          - license-check
+          - go-sumtype
+          - golangci-lint
+    uses: ./.github/workflows/static-checks-linters.yaml
     secrets: inherit
     with:
       linter: ${{ matrix.linter }}
