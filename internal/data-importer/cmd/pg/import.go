@@ -66,7 +66,7 @@ var Cmd = &cobra.Command{
 // To ensure a successful restore, we need to 're-create' the PGCluster with dataSource configuration.
 // This guarantees the bootstrap process is triggered and the restore happens correctly.
 // Using PerconaPGRestore to restore on running cluster results in the same issue (instances not coming up).
-func runPGImport(
+func runPGImport( //nolint:contextcheck
 	ctx context.Context,
 	configPath string,
 ) (err error) {
@@ -111,14 +111,19 @@ func runPGImport(
 		return err
 	}
 
+	// We use a separate context for cleanup since the parent context may be cancelled
+	// if the Job is terminated prematurely (for e.g, if the DB is deleted before the import completes).
+	cleanupTimeout := time.Second * 30 //nolint:mnd
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+
 	// first we will pause reconciliation of the database cluster because
 	// we will be making changes to the PGCluster and we don't want Everest interfering.
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() { //nolint:contextcheck
-		// We use new context here because the parent may be cancelled.
-		if unpauseErr := unpauseDBReconciliation(context.Background(), k8sClient, dbName, namespace); unpauseErr != nil {
+	defer func() {
+		if unpauseErr := unpauseDBReconciliation(cleanupCtx, k8sClient, dbName, namespace); unpauseErr != nil {
 			log.Error().Err(err).Msg("Failed to unpause DB reconciliation")
 			err = errors.Join(err, unpauseErr)
 		}
@@ -130,9 +135,8 @@ func runPGImport(
 	if err != nil {
 		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
 	}
-	defer func() { //nolint:contextcheck
-		// We use new context here because the parent may be cancelled.
-		if err := cleanup(context.Background(), k8sClient, namespace, pgBackRestSecretName); err != nil {
+	defer func() {
+		if err := cleanup(cleanupCtx, k8sClient, namespace, pgBackRestSecretName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up PGBackrest secret %s/%s", namespace, pgBackRestSecretName)
 		}
 	}()
