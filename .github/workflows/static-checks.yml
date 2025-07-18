@@ -1,0 +1,56 @@
+---
+name: Static checks
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  code-formatting:
+    name: Code changes
+    continue-on-error: false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Check files are formatted and no source code changes
+        run: |
+          make format
+          go mod tidy -v
+          git status
+          git diff --exit-code
+
+      - name: Check default main state - dev version
+        run: |
+          if ! grep -q "VERSION ?= 0.0.0" Makefile; then
+            echo "default VERSION in Makefile should be 0.0.0"
+            exit 1
+          fi
+
+      - name: Check default main state - generated files
+        run: |
+          make release
+          echo "Checking there is no source code changes except of the file with the generated date after a release attempt"
+          git diff --exit-code $(git ls-files | grep -v "bundle/manifests/everest-operator.clusterserviceversion.yaml")
+
+  linters:
+    name: Linter checks
+    strategy:
+      fail-fast: false
+      matrix:
+        linter: [
+          'license-check',
+          'go-sumtype',
+          'golangci-lint'
+        ]
+    uses: .github/workflows/static-checks-linters.yaml
+    secrets: inherit
+    with:
+      linter: ${{ matrix.linter }}
