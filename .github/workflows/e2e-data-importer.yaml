@@ -32,7 +32,7 @@ jobs:
           install-k3d: true
 
       - name: Adjust GitHub worker node
-        uses: .github/actions/adjust-github-node
+        uses: ./.github/actions/adjust-github-node
         with:
           disable-apparmor: true
           mount-docker-data: true
