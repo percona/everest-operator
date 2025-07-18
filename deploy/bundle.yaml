@@ -9229,3 +9229,23 @@ webhooks:
     resources:
     - databaseclusters
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: everest-operator-webhook-service
+      namespace: everest-operator-system
+      path: /validate-everest-percona-com-v1alpha1-monitoringconfig
+  failurePolicy: Fail
+  name: vmonitoringconfig-v1alpha1.everest.percona.com
+  rules:
+  - apiGroups:
+    - everest.percona.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - monitoringconfigs
+  sideEffects: None
