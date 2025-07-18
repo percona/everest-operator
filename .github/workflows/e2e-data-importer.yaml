@@ -31,19 +31,11 @@ jobs:
           install-kuttl: true
           install-k3d: true
 
-      - name: Disable AppArmor on host
-        continue-on-error: true
-        run: |
-          sudo systemctl stop apparmor
-          sudo aa-teardown
-
-      # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
-      - name: Switch docker-daemon data directory to /mnt
-        run: |
-          sudo systemctl stop docker
-          echo '{ "exec-opts": ["native.cgroupdriver=cgroupfs"], "cgroup-parent": "/actions_job", "data-root": "/mnt/docker-data" }' | sudo tee /etc/docker/daemon.json
-          sudo mkdir /mnt/docker-data
-          sudo systemctl start docker
+      - name: Adjust GitHub worker node
+        uses: .github/actions/adjust-github-node
+        with:
+          disable-apparmor: true
+          mount-docker-data: true
 
       # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
       - name: Create K3D cluster
