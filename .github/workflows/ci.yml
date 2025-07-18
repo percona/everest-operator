@@ -4,11 +4,28 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 env:
-  KUBECTL_VERSION: 1.29.5
-  KUTTL_VERSION: 0.22.0
-  K3D_VERSION: 5.8.3
   TOOLS_PATH: "/opt/tools/bin"
 jobs:
+  golang-build:
+    name: Build Go binary
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run tests
+        run: |
+          make build
+
   golang-tests:
     name: Go unit tests
     timeout-minutes: 30
@@ -29,107 +46,20 @@ jobs:
         run: |
           make test
 
-  integration-core-tests:
-    name: Integration core tests
-    timeout-minutes: 30
+  integration-tests-flows:
+    name: Integration tests
     strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run core tests
-        run: |
-            make test-integration-core
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  integration-features-tests:
-    name: Integration features tests
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run features tests
-        run: |
-          make test-integration-features
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  integration-operator-upgrade-tests:
-    name: Integration operator upgrade tests
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run operator upgrade tests
-        run: |
-          make test-integration-operator-upgrade
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      fail-fast: false
+      matrix:
+        make_target: [
+          'test-integration-core',
+          'test-integration-features',
+          'test-integration-operator-upgrade'
+        ]
+    uses: ./.github/workflows/ci-integration-tests.yaml
+    secrets: inherit
+    with:
+      make_target: ${{ matrix.make_target }}
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -258,8 +188,8 @@ jobs:
     with:
       make_target: ${{ matrix.make_target }}
 
-  make-bundle:
-    name: Make Bundle
+  build-bundle:
+    name: Check operator bundle
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
@@ -271,10 +201,54 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
-      - name: Make bundle and build bundle image
+      - name: Build bundle
         run: |
-          make bundle bundle-build
+          make bundle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build bundle image
+        run: |
+          make bundle-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  check-crds:
+    name: Check operator CRDs
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: false
+          install-k3d: true
+
+      - name: Create K3D cluster
+        run: |
+          make k3d-cluster-up
+
+      - name: Install CRDs into the K8s cluster
+        run: |
+          make install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Uninstall CRDs from the K8s cluster
+        run: |
+          make uninstall
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
