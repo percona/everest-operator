@@ -57,8 +57,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-OS ?= $(shell go env GOOS)
-ARCH ?= $(shell go env GOARCH)
+OS=$(shell go env GOHOSTOS)
+ARCH=$(shell go env GOHOSTARCH)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -95,36 +95,32 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: cleanup-localbin
 cleanup-localbin:
 	@echo "Cleaning up local bin directory..."
 	rm -rf $(LOCALBIN)
 
 .PHONY: init
-init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm  ## Install development tools
-	cd tools && go generate -x -tags=tools
+init: cleanup-localbin  ## Install development tools
+	$(MAKE) kustomize
+	$(MAKE) controller-gen
+	$(MAKE) envtest
+	$(MAKE) operator-sdk
+	$(MAKE) opm
 
 .PHONY: format
 format:
-	bin/gofumpt -l -w .
-	bin/goimports -local github.com/percona/everest-operator -l -w .
-	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: check
 check:
-	LOG_LEVEL=error bin/golangci-lint run
-	bin/go-sumtype ./...
+	LOG_LEVEL=error go tool golangci-lint run
+	go tool go-sumtype ./...
 
 .PHONY: test
-test: $(LOCALBIN) manifests generate fmt vet envtest ## Run tests.
+test: $(LOCALBIN) manifests generate format envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
@@ -206,16 +202,16 @@ cluster-cleanup:
 ##@ Build
 
 .PHONY: build
-build: $(LOCALBIN) manifests generate fmt vet ## Build manager binary.
+build: $(LOCALBIN) manifests generate format ## Build manager binary.
 	go build -o $(LOCALBIN)/manager cmd/main.go
 	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
-build-debug: $(LOCALBIN) manifests generate fmt vet ## Build manager binary with debug symbols.
+build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
 	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate format ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
@@ -303,7 +299,7 @@ endif
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 ifeq (,$(wildcard $(CONTROLLER_GEN)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
 endif
 
@@ -311,7 +307,7 @@ endif
 ENVTEST = $(LOCALBIN)/setup-envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 ifeq (,$(wildcard $(ENVTEST)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 endif
 
 .PHONY: operator-sdk
@@ -321,7 +317,7 @@ operator-sdk: $(LOCALBIN) ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
 	@{ \
 	set -e ;\
-	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH} ;\
+	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_$(OS)_$(ARCH) ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
 endif
