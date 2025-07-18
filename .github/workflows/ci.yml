@@ -253,7 +253,7 @@ jobs:
 #          'test-e2e-data-importer-psmdb',
           'test-e2e-data-importer-pxc'
         ]
-    uses: ./.github/workflows/ci-data-importer.yaml
+    uses: ./.github/jobs/e2e-data-importer.yaml
     secrets: inherit
     with:
       make_target: ${{ matrix.make_target }}
