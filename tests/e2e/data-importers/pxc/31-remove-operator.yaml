@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 30
+commands:
+  - command: kubectl delete -n ${NAMESPACE} deploy/percona-xtradb-cluster-operator --wait=false

@@ -1,0 +1,29 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 600
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pods -n ${NAMESPACE}
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+  - type: pod
+    selector: app.kubernetes.io/name=percona-xtradb-cluster-operator
+    tail: 100
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  status: importing
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: data-import-test-pxc-cluster
+status:
+  state: Restoring
+---

@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 120
+commands:
+  - script: |-
+     MYSQL_PWD="$(kubectl get secret -n ${NAMESPACE} everest-secrets-test-pxc-cluster -o jsonpath='{.data.root}' | base64 --decode)"
+     MYSQL_HOST="$(kubectl get -n ${NAMESPACE} db/test-pxc-cluster -o jsonpath='{.status.hostname}')"
+     IMAGE="$(kubectl get -n ${NAMESPACE} pxc/test-pxc-cluster -o jsonpath='{.spec.pxc.image}')"
+
+     kubectl run -n "${NAMESPACE}" pxc-client --image=${IMAGE} --env="MYSQL_PWD=${MYSQL_PWD}" --env="MYSQL_HOST=${MYSQL_HOST}" --restart=Never --command -- sleep infinity
