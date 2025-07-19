@@ -1,48 +1,39 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
-commands:
-  - script: |
-      cat <<EOF | kubectl apply -f -
-      apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseCluster
-      metadata:
-        name: test-pg-cluster
-        namespace: ${NAMESPACE}
-      spec:
-        dataSource:
-          dataImport:
-            dataImporterName: everest-percona-pg-operator
-            source:
-              path: "/pg/backup/db/20250702-131148F"
-              s3:
-                bucket: everest-operator
-                region: us-east-1
-                endpointURL: https://minio.${NAMESPACE}.svc
-                credentialsSecretName: test-s3-secret
-                verifyTLS: false
-                forcePathStyle: true
-        engine:
-          type: postgresql
-          replicas: 3
-          storage:
-            size: 1G
-          resources:
-            cpu: 1
-            memory: 500M
-          userSecretsName: test-pg-cluster-user-secret
-        proxy:
-          type: pgbouncer
-          replicas: 3
-          resources:
-            cpu: "1"
-            memory: 30M
-      EOF
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
 metadata:
-  name: test-s3-secret
-stringData:
-  AWS_ACCESS_KEY_ID: minioadmin
-  AWS_SECRET_ACCESS_KEY: minioadmin
+  name: test-pg-cluster
+spec:
+  dataSource:
+    dataImport:
+      dataImporterName: everest-percona-pg-operator
+      source:
+        path: "/pg/backup/db/20250702-131148F"
+        s3:
+          bucket: everest-operator
+          region: us-east-1
+          endpointURL: https://minio.minio.svc
+          credentialsSecretName: test-s3-secret
+          verifyTLS: false
+          forcePathStyle: true
+          accessKeyId: minioadmin
+          secretAccessKey: minioadmin
+  engine:
+    type: postgresql
+    replicas: 3
+    storage:
+      size: 1G
+    resources:
+      cpu: 1
+      memory: 500M
+    userSecretsName: test-pg-cluster-user-secret
+  proxy:
+    type: pgbouncer
+    replicas: 3
+    resources:
+      cpu: "1"
+      memory: 30M
+---
