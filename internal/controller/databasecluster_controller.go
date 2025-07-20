@@ -69,6 +69,7 @@ const (
 	defaultRequeueAfter = 5 * time.Second
 )
 
+// test comment for the linter to ignore
 var everestFinalizers = []string{
 	consts.UpstreamClusterCleanupFinalizer,
 	consts.ForegroundDeletionFinalizer,

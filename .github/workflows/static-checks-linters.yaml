@@ -7,6 +7,11 @@ on:
         description: 'Linter to run'
         type: string
         required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   linter-check:
     name: linter
@@ -34,8 +39,24 @@ jobs:
         if: ${{ inputs.linter == 'go-sumtype' }}
         run: go tool go-sumtype ./...
 
-      - name: Run linters
+#      - name: Run golangci-lint
+#        if: ${{ inputs.linter == 'golangci-lint' }}
+#        run: |
+#          # use GITHUB_TOKEN because only it has access to GitHub Checks API
+#          go tool golangci-lint run --out-format=line-number --issues-exit-code=0 --new-from-merge-base HEAD | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
+
+      - name: Run golangci-lint
         if: ${{ inputs.linter == 'golangci-lint' }}
+        uses: golangci/golangci-lint-action@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run go-consistent
+        if: ${{ inputs.linter == 'go-consistent' }}
         run: |
-          # use GITHUB_TOKEN because only it has access to GitHub Checks API
-          go tool golangci-lint run --out-format=line-number | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
+          FILES=$(git --no-pager diff --name-only --diff-filter=ACMRT ${{github.event.pull_request.base.sha}} ${{github.sha}} | grep -e '\.go$' | xargs)
+          if [ -z "$FILES" ]; then
+            echo "No Go files to check."
+            exit 0
+          fi
+          go tool go-consistent -pedantic ${FILES}
