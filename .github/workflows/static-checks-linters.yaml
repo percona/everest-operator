@@ -36,8 +36,8 @@ jobs:
           go tool license-eye -c .licenserc.yaml header check
 
       # Enable Tmate debug ssh session on demand
-      - name: Setup tmate session
-        uses: percona/gh-action-action-tmate@v3
+#      - name: Setup tmate session
+#        uses: percona/gh-action-action-tmate@v3
 
       - name: Run golangci-lint
         if: ${{ inputs.linter == 'golangci-lint' }}
