@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestSuite
 artifactsDir: /tmp/
 startKIND: false
-skipDelete: false
+skipDelete: true
 # test uses external cluster, so skip cluster deletion
 skipClusterDelete: true
 suppress:
@@ -14,9 +14,13 @@ commands:
   # Check that DataImporters are installed.
   - command: kubectl wait --for condition=established --timeout=10s crd dataimporters.everest.percona.com
   # Install upstream DB operators CRDs.
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v${PXC_OPERATOR_VERSION}/deploy/crd.yaml
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v${PSMDB_OPERATOR_VERSION}/deploy/crd.yaml
   - command: kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-postgresql-operator/v${PG_OPERATOR_VERSION}/deploy/crd.yaml
   # Check that upstream DB operators CRDs are installed.
   - command: kubectl wait --for condition=established --timeout=10s crd perconapgclusters.pgv2.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd perconaservermongodbs.psmdb.percona.com
+  - command: kubectl wait --for condition=established --timeout=10s crd perconaxtradbclusters.pxc.percona.com
   # Wait for Everest Operator to be ready.
   - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
 testDirs:
