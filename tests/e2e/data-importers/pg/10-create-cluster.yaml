@@ -2,6 +2,12 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-pg-cluster-user-secret
+data: {}
+---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
