@@ -92,13 +92,12 @@ func runPSMDBImport(ctx context.Context, configPath string) error { //nolint:con
 	}
 	psmdbRestoreName := "data-import-" + dbName
 
-	// We use a separate context for cleanup since the parent context may be cancelled
-	// if the Job is terminated prematurely (for e.g, if the DB is deleted before the import completes).
-	cleanupTimeout := time.Second * 30 //nolint:mnd
-	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	defer cancel()
-
 	defer func() {
+		// We use a new context for cleanup since the original context may be canceled or timed out,
+		// for e.g., if the DB is deleted before the import can complete.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
+		defer cancel()
+
 		if err := cleanup(cleanupCtx, k8sClient, namespace, psmdbRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PSMDB import for database %s", dbName)
 		}

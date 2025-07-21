@@ -91,12 +91,6 @@ func runPXCImport(ctx context.Context, configPath string) error { //nolint:conte
 		return err
 	}
 
-	// We use a separate context for cleanup since the parent context may be cancelled
-	// if the Job is terminated prematurely (for e.g, if the DB is deleted before the import completes).
-	cleanupTimeout := time.Second * 30 //nolint:mnd
-	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	defer cancel()
-
 	// First we shall pause the DB reconciliation because the PXC operator will
 	// pause/unpause the cluster during the restore operation and we don't want
 	// the Everest operator to interfere with that.
@@ -104,7 +98,11 @@ func runPXCImport(ctx context.Context, configPath string) error { //nolint:conte
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
 	defer func() {
-		// We use new context here because the parent may be cancelled.
+		// We use a new context for cleanup since the original context may be canceled or timed out,
+		// for e.g., if the DB is deleted before the import can complete.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
+		defer cancel()
+
 		if unpauseErr := unpauseDBReconciliation(cleanupCtx, k8sClient, dbName, namespace); unpauseErr != nil {
 			log.Error().Err(unpauseErr).Msg("Failed to unpause DB reconciliation")
 			err = errors.Join(err, unpauseErr)
@@ -113,7 +111,11 @@ func runPXCImport(ctx context.Context, configPath string) error { //nolint:conte
 
 	pxcRestoreName := "data-import-" + dbName
 	defer func() {
-		// We use new context here because the parent may be cancelled.
+		// We use a new context for cleanup since the original context may be canceled or timed out,
+		// for e.g., if the DB is deleted before the import can complete.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
+		defer cancel()
+
 		if err := cleanup(cleanupCtx, k8sClient, namespace, pxcRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PXC import for database %s", dbName)
 		}
