@@ -123,17 +123,9 @@ check:
 test: $(LOCALBIN) manifests generate format envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
-.PHONY: test-integration-core
-test-integration-core: docker-build k3d-upload-image ## Run integration/core tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
-
-.PHONY: test-integration-features
-test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
-
-.PHONY: test-integration-db-upgrade
-test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+.PHONY: test-integration-%
+test-integration-%: docker-build k3d-upload-image ## Run integration tests
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-$*.yaml
 
 .PHONY: test-e2e-core
 test-e2e-core: docker-build ## Run e2e/core tests
@@ -151,17 +143,9 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
-.PHONY: test-e2e-data-importer-pg
-test-e2e-data-importer-pg: docker-build k3d-upload-image ## Run e2e/data-importer PG test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
-
-.PHONY: test-e2e-data-importer-psmdb
-test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-importer PSMDB test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
-
-.PHONY: test-e2e-data-importer-pxc
-test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+.PHONY: test-e2e-data-importer-%
+test-e2e-data-importer-%: docker-build k3d-upload-image ## Run e2e/data-importer for specific DB
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test $*
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing
