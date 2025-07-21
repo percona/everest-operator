@@ -58,8 +58,8 @@ jobs:
     with:
       make_target: ${{ matrix.make_target }}
 
-  build-bundle:
-    name: Operator bundle checks
+  release:
+    name: Operator code generation check
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
@@ -73,11 +73,32 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Build bundle
+      - name: Check default main state - generated files
         run: |
-          make bundle
+          make release
+          #          git diff --exit-code $(git ls-files | grep -v "bundle/manifests/everest-operator.clusterserviceversion.yaml")
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # post diff as a suggestion to commit to the PR (if any)
+      - uses: ./.github/actions/reviewdog-suggester
+        with:
+          tool_name: make_release
+
+  bundle-build:
+    name: Operator bundle build check
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Build bundle image
         run: |
