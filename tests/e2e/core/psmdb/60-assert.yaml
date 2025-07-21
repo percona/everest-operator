@@ -12,7 +12,6 @@ spec:
     config: |
      operationProfiling:
         mode: slowOp
-    userSecretsName: psmdb-sample-secrets
     replicas: 3
     storage:
       size: 15G
@@ -52,7 +51,7 @@ spec:
             requests:
               storage: 15G
   secrets:
-    users: psmdb-sample-secrets
+    users: everest-secrets-test-psmdb-cluster
   sharding:
     enabled: false
   unsafeFlags: {}

@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 600
+timeout: 300
 commands:
   - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=${PSMDB_OPERATOR_VERSION} db/test-psmdb-cluster -n "${NAMESPACE}"
   - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PSMDB_DB_ENGINE_VERSION} db/test-psmdb-cluster -n "${NAMESPACE}"
@@ -8,7 +8,7 @@ collectors:
   - command: kubectl get dbc/test-psmdb-cluster -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
 
-  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n "${NAMESPACE}" -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -24,7 +24,6 @@ spec:
     config: |
      operationProfiling:
         mode: slowOp
-    userSecretsName: psmdb-sample-secrets
     replicas: 3
     storage:
       size: 15G
@@ -67,7 +66,7 @@ spec:
             requests:
               storage: 15G
   secrets:
-    users: psmdb-sample-secrets
+    users: everest-secrets-test-psmdb-cluster
   sharding:
     enabled: false
 status:

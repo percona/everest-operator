@@ -15,7 +15,6 @@ spec:
     config: |
      operationProfiling:
         mode: slowOp
-    userSecretsName: psmdb-sample-secrets
     replicas: 3
     storage:
       size: 15G
