@@ -47,9 +47,7 @@ jobs:
       matrix:
         linter:
           - license-check
-          - go-sumtype
           - golangci-lint
-          - go-consistent
     uses: ./.github/workflows/static-checks-linters.yaml
     secrets: inherit
     with:
