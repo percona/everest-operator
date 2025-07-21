@@ -3,6 +3,10 @@ version: "2"
 linters:
   default: all
   disable:
+    - arangolint
+    - ginkgolinter
+    - spancheck
+    - sqlclosecheck
     - exhaustive
     - exhaustruct
     - funlen
