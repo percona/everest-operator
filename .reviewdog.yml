@@ -1,0 +1,5 @@
+---
+runner:
+  golangci-lint:
+    cmd: go tool golangci-lint run --config=./.golangci.yml --issues-exit-code=0 --new-from-merge-base $(git merge-base origin/main HEAD)
+    level: warning
