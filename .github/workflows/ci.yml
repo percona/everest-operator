@@ -80,7 +80,6 @@ jobs:
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
 
       - name: Run core tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
         run: |
           make test-e2e-core
 
