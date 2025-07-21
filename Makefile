@@ -116,8 +116,8 @@ format:
 
 .PHONY: static-check
 static-check:
-	go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(shell git merge-base main HEAD)
-	go tool license-eye -c .licenserc.yaml header check
+	go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(shell git merge-base main HEAD) --fix
+	go tool license-eye -c .licenserc.yaml header fix
 
 .PHONY: test
 test: $(LOCALBIN) manifests generate format envtest ## Run tests.

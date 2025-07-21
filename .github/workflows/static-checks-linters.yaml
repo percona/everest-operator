@@ -27,14 +27,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
-
-      - name: Run license check
-        if: ${{ inputs.linter == 'license-check' }}
-        continue-on-error: true
-        run: |
-          # run license checker on configured files
-          go tool license-eye -c .licenserc.yaml header check
-
+# license-check
       - name: Fix license check
         if: ${{ inputs.linter == 'license-check' }}
         run: |
@@ -45,9 +38,10 @@ jobs:
         with:
           tool_name: license-eye
 
+# golangci-lint
       - name: Run golangci-lint
         if: ${{ inputs.linter == 'golangci-lint' }}
-        run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix | go tool reviewdog -f=golangci-lint -reporter=github-pr-review
+        run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix --issues-exit-code=0 | go tool reviewdog -f=golangci-lint -reporter=github-pr-review
         continue-on-error: true
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

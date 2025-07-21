@@ -1,9 +1,0 @@
----
-runner:
-  golangci-lint:
-    cmd: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix
-    errorformat:
-      - '%E%f:%l:%c: %m'
-      - '%E%f:%l: %m'
-      - '%C%.%#'
-    level: warning
