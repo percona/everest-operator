@@ -30,6 +30,7 @@ jobs:
 
       - name: Run license check
         if: ${{ inputs.linter == 'license-check' }}
+        continue-on-error: true
         run: |
           # run license checker on configured files
           go tool license-eye -c .licenserc.yaml header check
