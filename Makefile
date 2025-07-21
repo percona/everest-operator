@@ -117,6 +117,7 @@ format:
 .PHONY: static-check
 static-check:
 	go tool golangci-lint run --new-from-merge-base HEAD
+	go tool license-eye -c .licenserc.yaml header check
 
 .PHONY: test
 test: $(LOCALBIN) manifests generate format envtest ## Run tests.

@@ -35,14 +35,8 @@ jobs:
           # run license checker on configured files
           go tool license-eye -c .licenserc.yaml header check
 
-#      - name: Run golangci-lint
-#        if: ${{ inputs.linter == 'golangci-lint' }}
-#        run: |
-#          # use GITHUB_TOKEN because only it has access to GitHub Checks API
-#          go tool golangci-lint run --out-format=line-number --issues-exit-code=0 --new-from-merge-base HEAD | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
-
       - name: Run golangci-lint
         if: ${{ inputs.linter == 'golangci-lint' }}
-        uses: golangci/golangci-lint-action@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # use GITHUB_TOKEN because only it has access to GitHub Checks API
+          go tool golangci-lint run --out-format=line-number --issues-exit-code=0 --new-from-merge-base HEAD | env REVIEWDOG_GITHUB_API_TOKEN=${{ secrets.GITHUB_TOKEN }} go tool reviewdog -f=golangci-lint -reporter=github-pr-review -filter-mode=nofilter -fail-on-error=true
