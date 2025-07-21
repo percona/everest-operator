@@ -34,12 +34,23 @@ jobs:
           # run license checker on configured files
           go tool license-eye -c .licenserc.yaml header check
 
+      - name: Fix license check
+        if: ${{ inputs.linter == 'license-check' }}
+        run: |
+          # run license checker on configured files
+          go tool license-eye -c .licenserc.yaml header fix
+      - uses: ./.github/actions/reviewdog-suggester
+        if: ${{ inputs.linter == 'license-check' }}
+        with:
+          tool_name: license-eye
+
       - name: Run golangci-lint
         if: ${{ inputs.linter == 'golangci-lint' }}
-        run: go tool reviewdog -reporter=github-pr-review
+        run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix | go tool reviewdog -f=golangci-lint -reporter=github-pr-review
         continue-on-error: true
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/reviewdog-suggester
+        if: ${{ inputs.linter == 'golangci-lint' }}
         with:
           tool_name: golangci-lint
