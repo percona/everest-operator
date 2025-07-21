@@ -72,7 +72,6 @@ jobs:
         # - test/e2e-db-upgrade
         # - test/e2e-operator-upgrade
         # TODO: Review this condition once we have more tests running on KinD.
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
@@ -96,8 +95,4 @@ jobs:
           CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
           NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
 
-      - name: Clean up resources and CRDs
-        if: always()
-        run: |
-          make cluster-cleanup
 
