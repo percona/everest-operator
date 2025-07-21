@@ -8,14 +8,13 @@ on:
         type: string
         required: true
 
-permissions:
-  contents: read
-  pull-requests: read,write
-
 jobs:
   linter-check:
     name: linter
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
