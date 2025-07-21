@@ -37,7 +37,5 @@ export PREVIOUS_PSMDB_OPERATOR_VERSION=${PREVIOUS_PSMDB_OPERATOR_VERSION:-"1.18.
 echo "PREVIOUS_PSMDB_OPERATOR_VERSION=${PREVIOUS_PSMDB_OPERATOR_VERSION}"
 
 ## ============== K3D cluster configuration ===================
-if [ -z "$KUBECONFIG" ]; then
-  export KUBECONFIG="${OPERATOR_ROOT_PATH}/tests/kubeconfig"
-fi
+export KUBECONFIG="${KUBECONFIG:-${OPERATOR_ROOT_PATH}/tests/kubeconfig}"
 echo "KUBECONFIG=${KUBECONFIG}"
