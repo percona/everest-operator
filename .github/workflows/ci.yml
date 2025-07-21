@@ -244,49 +244,21 @@ jobs:
         run: |
           make cluster-cleanup
 
-  k3d-e2e-tests:
-    name: E2E tests (K3D)
+  e2e-data-importer-tests-flows:
+    name: E2E data importer tests
     if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
-    timeout-minutes: 80
     strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
-      - name: Switch docker-daemon data directory to /mnt
-        run: |
-          sudo systemctl stop docker
-          echo '{ "exec-opts": ["native.cgroupdriver=cgroupfs"], "cgroup-parent": "/actions_job", "data-root": "/mnt/docker-data" }' | sudo tee /etc/docker/daemon.json
-          sudo mkdir /mnt/docker-data
-          sudo systemctl start docker
-
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run data importer tests
-        run: |
-          make test-e2e-data-importer
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      fail-fast: false
+      matrix:
+        make_target: [
+          'test-e2e-data-importer-pg',
+          'test-e2e-data-importer-psmdb',
+          'test-e2e-data-importer-pxc'
+        ]
+    uses: ./.github/workflows/e2e-data-importer.yaml
+    secrets: inherit
+    with:
+      make_target: ${{ matrix.make_target }}
 
   make-bundle:
     name: Make Bundle
