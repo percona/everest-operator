@@ -116,7 +116,7 @@ format:
 
 .PHONY: static-check
 static-check:
-	go tool golangci-lint run --new-from-merge-base HEAD
+	go tool golangci-lint run --new-from-merge-base $(git merge-base FETCH_HEAD main)
 	go tool license-eye -c .licenserc.yaml header check
 
 .PHONY: test
