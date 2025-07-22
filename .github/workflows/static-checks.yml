@@ -23,7 +23,6 @@ jobs:
       - name: Check files are formatted and no source code changes
         run: |
           make format
-#          git diff --exit-code
 
       # post diff as a suggestion to commit to the PR (if any)
       - uses: ./.github/actions/reviewdog-suggester
@@ -33,7 +32,6 @@ jobs:
       - name: Check there are no changes in go.mod and go.sum
         run: |
           go mod tidy -v
-#          git diff --exit-code
 
       # post diff as a suggestion to commit to the PR (if any)
       - uses: ./.github/actions/reviewdog-suggester
@@ -46,16 +44,3 @@ jobs:
             echo "default VERSION in Makefile should be 0.0.0"
             exit 1
           fi
-
-  linters:
-    name: Linter checks
-    strategy:
-      fail-fast: false
-      matrix:
-        linter:
-          - license-check
-          - golangci-lint
-    uses: ./.github/workflows/static-checks-linters.yaml
-    secrets: inherit
-    with:
-      linter: ${{ matrix.linter }}
