@@ -133,7 +133,7 @@ func TestAddBackupStorages(t *testing.T) {
 		{
 			name:       "none of the backup name and backupSource defined",
 			backups:    []everestv1alpha1.DatabaseClusterBackup{},
-			dataSource: &everestv1alpha1.DataSource{},
+			dataSource: &everestv1alpha1.DataSource{BackupSource: &everestv1alpha1.BackupSource{}},
 			expected:   nil,
 			error:      errInvalidDataSourceConfiguration,
 		},
