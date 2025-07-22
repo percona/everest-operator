@@ -105,6 +105,7 @@ func clusterWideResourceHandler() handler.EventHandler { //nolint:ireturn
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;watch;create;update;patch;delete;escalate;bind
@@ -578,7 +579,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 }
 
 // Returns: [done(bool), error] .
-func (r *DataImportJobReconciler) ensureJobDeleted(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
+func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
 	jobName := diJob.Status.JobName
 	if jobName == "" {
 		return true, nil
@@ -589,26 +590,21 @@ func (r *DataImportJobReconciler) ensureJobDeleted(ctx context.Context, diJob *e
 			Namespace: diJob.GetNamespace(),
 		},
 	}
-
-	// The actual deletion of the Job is handled by the garbage collector since we set a controller reference.
-	// We will first check if the associated pods are gone, because the deletion of the child resources (pods) happens in background.
-	// This means the pods may be around even if the Job is cleaned up. So in order to allow proper cleanup, we need to allow the pods to be deleted first.
+	// Terminate the Job.
+	if err := r.Client.Delete(ctx, job, &client.DeleteOptions{
+		PropagationPolicy: pointer.To(metav1.DeletePropagationForeground),
+	}); client.IgnoreNotFound(err) != nil {
+		return false, fmt.Errorf("failed to delete job %s: %w", jobName, err)
+	}
+	// Ensure Pods have terminated before proceeding.
+	const jobNameLabel = "job-name"
 	pods := &corev1.PodList{}
 	if err := r.Client.List(ctx, pods, client.InNamespace(diJob.GetNamespace()), client.MatchingLabels{
-		"job-name": jobName,
+		jobNameLabel: jobName,
 	}); err != nil {
 		return false, fmt.Errorf("failed to list pods for job %s: %w", jobName, err)
 	}
-	if len(pods.Items) > 0 {
-		return false, nil // pods are still running, so wait.
-	}
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(job), job)
-	if apierrors.IsNotFound(err) {
-		return true, nil
-	} else if err != nil {
-		return false, fmt.Errorf("failed to get job %s: %w", jobName, err)
-	}
-	return false, err
+	return len(pods.Items) == 0, nil // if no pods are running, we can proceed with RBAC cleanup.
 }
 
 // Returns: [done(bool), error] .
@@ -659,7 +655,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 
 // Returns: [done(bool), error] .
 func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, diJob *everestv1alpha1.DataImportJob) (bool, error) {
-	ok, err := r.ensureJobDeleted(ctx, diJob)
+	ok, err := r.deleteJob(ctx, diJob)
 	if err != nil {
 		return false, fmt.Errorf("failed to delete job: %w", err)
 	}
