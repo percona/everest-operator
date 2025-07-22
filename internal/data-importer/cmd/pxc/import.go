@@ -55,7 +55,7 @@ var Cmd = &cobra.Command{
 	},
 }
 
-func runPXCImport(ctx context.Context, configPath string) error { //nolint:contextcheck
+func runPXCImport(ctx context.Context, configPath string) error {
 	cfg := &dataimporterspec.Spec{}
 	if err := cfg.ReadFromFilepath(configPath); err != nil {
 		return err
@@ -97,7 +97,7 @@ func runPXCImport(ctx context.Context, configPath string) error { //nolint:conte
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
 		// for e.g., if the DB is deleted before the import can complete.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
@@ -110,7 +110,7 @@ func runPXCImport(ctx context.Context, configPath string) error { //nolint:conte
 	}()
 
 	pxcRestoreName := "data-import-" + dbName
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
 		// for e.g., if the DB is deleted before the import can complete.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd

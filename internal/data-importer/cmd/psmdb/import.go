@@ -54,7 +54,7 @@ var Cmd = &cobra.Command{
 	},
 }
 
-func runPSMDBImport(ctx context.Context, configPath string) error { //nolint:contextcheck
+func runPSMDBImport(ctx context.Context, configPath string) error {
 	cfg := &dataimporterspec.Spec{}
 	if err := cfg.ReadFromFilepath(configPath); err != nil {
 		return err
@@ -92,7 +92,7 @@ func runPSMDBImport(ctx context.Context, configPath string) error { //nolint:con
 	}
 	psmdbRestoreName := "data-import-" + dbName
 
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
 		// for e.g., if the DB is deleted before the import can complete.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd

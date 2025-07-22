@@ -66,7 +66,7 @@ var Cmd = &cobra.Command{
 // To ensure a successful restore, we need to 're-create' the PGCluster with dataSource configuration.
 // This guarantees the bootstrap process is triggered and the restore happens correctly.
 // Using PerconaPGRestore to restore on running cluster results in the same issue (instances not coming up).
-func runPGImport( //nolint:contextcheck
+func runPGImport(
 	ctx context.Context,
 	configPath string,
 ) (err error) {
@@ -116,7 +116,7 @@ func runPGImport( //nolint:contextcheck
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
 		// for e.g., if the DB is deleted before the import can complete.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
@@ -134,7 +134,7 @@ func runPGImport( //nolint:contextcheck
 	if err != nil {
 		return fmt.Errorf("failed to create PGBackrest secret: %w", err)
 	}
-	defer func() {
+	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
 		// for e.g., if the DB is deleted before the import can complete.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
