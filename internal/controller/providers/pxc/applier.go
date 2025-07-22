@@ -770,7 +770,7 @@ func (p *applier) addBackupStorages(
 	}
 	// add the storage from datasource. The restore works without listing the related storage in the pxc config,
 	// however if the storage is insecure, we need to specify it explicitly to set the insecureTLS flag
-	if dataSource != nil {
+	if dataSource != nil && (dataSource.DBClusterBackupName != "" || dataSource.BackupSource != nil) {
 		storageName, err := p.getStorageNameFromDataSource(*dataSource)
 		if err != nil {
 			return err
