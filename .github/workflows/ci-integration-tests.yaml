@@ -1,5 +1,5 @@
 ---
-name: Data importer test
+name: Integration test
 on:
   workflow_call:
     inputs:
@@ -8,9 +8,9 @@ on:
         type: string
         required: true
 jobs:
-  e2e-data-import-test:
+  integration-test:
     name: test
-    timeout-minutes: 80
+    timeout-minutes: 30
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
@@ -31,19 +31,12 @@ jobs:
           install-kuttl: true
           install-k3d: true
 
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          disable-apparmor: true
-          mount-docker-data: true
-
-      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
       - name: Create K3D cluster
         run: |
           sudo modprobe br_netfilter
           make k3d-cluster-up
 
-      - name: Run data importer tests
+      - name: Run integration tests
         run: |
           make ${{ inputs.make_target }}
         env:

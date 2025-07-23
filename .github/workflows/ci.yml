@@ -2,13 +2,28 @@
 name: CI
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
-env:
-  KUBECTL_VERSION: 1.29.5
-  KUTTL_VERSION: 0.22.0
-  K3D_VERSION: 5.8.3
-  TOOLS_PATH: "/opt/tools/bin"
+    types: [opened, synchronize, reopened]
 jobs:
+  golang-build:
+    name: Build Go binary
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run tests
+        run: |
+          make build
+
   golang-tests:
     name: Go unit tests
     timeout-minutes: 30
@@ -29,239 +44,22 @@ jobs:
         run: |
           make test
 
-  integration-core-tests:
-    name: Integration core tests
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run core tests
-        run: |
-            make test-integration-core
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  integration-features-tests:
-    name: Integration features tests
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run features tests
-        run: |
-          make test-integration-features
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  integration-operator-upgrade-tests:
-    name: Integration operator upgrade tests
-    timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: true
-
-      - name: Create K3D cluster
-        run: |
-          sudo modprobe br_netfilter
-          make k3d-cluster-up
-
-      - name: Run operator upgrade tests
-        run: |
-          make test-integration-operator-upgrade
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  eks-e2e-tests:
-    name: E2E tests (EKS)
-    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
-    timeout-minutes: 80
-    concurrency: eks-e2e-tests
-    strategy:
-      fail-fast: true
-    runs-on: ubuntu-latest
-    env:
-      KUBECONFIG: "/home/runner/.kube/config"
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go release
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: false
-
-      - name: Install Kubernetes tools
-        uses: ./.github/actions/install-kubernetes-tools
-        with:
-          install-kubectl: true
-          install-kuttl: true
-          install-k3d: false
-
-      - name: Install EKS tools
-        run: |
-          # Install EKSCTL
-          ARCH=amd64
-          PLATFORM=$(uname -s)_${ARCH}
-          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_${PLATFORM}.tar.gz"
-          tar -xzf eksctl_${PLATFORM}.tar.gz -C "${TOOLS_PATH}"
-          chmod +x "${TOOLS_PATH}"/eksctl
-
-      - name: Build operator
-        run:
-          make build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.EVEREST_EKS_E2E_IAM_USER_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.EVEREST_EKS_E2E_IAM_USER_ACCESS_KEY_SECRET }}
-          aws-region: us-east-2
-
-      - name: Update EKS kubeconfig
-        run: |
-          aws eks update-kubeconfig --name everest-e2e-dev-eks-cluster
-
-      - name: Scale up cluster
-        # Only the following E2E tests require EKS:
-        # - test/e2e
-        # - test/e2e-core
-        # - test/e2e-db-upgrade
-        # - test/e2e-operator-upgrade
-        # TODO: Review this condition once we have more tests running on KinD.
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
-        run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
-        env:
-          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
-
-      - name: Run operator upgrade tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
-        run: |
-          make test-e2e-operator-upgrade
-
-      - name: Clean up custom resources
-        if: always()
-        continue-on-error: true
-        # If this does not finish in 10 minutes, it's stuck with some resource having a finalizer.
-        timeout-minutes: 10
-        run: |
-          make cluster-cleanup
-
-      - name: Run core tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
-        run: |
-          make test-e2e-core
-
-      - name: Clean up custom resources
-        if: always()
-        run: |
-          make cluster-cleanup
-
-      - name: Run db upgrade tests
-        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade')
-        run: |
-          make test-e2e-db-upgrade
-
-      - name: Clean up custom resources
-        if: always()
-        run: |
-          make cluster-cleanup
-
-      - name: Scale down cluster
-        if: always()
-        run: |
-          eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=0 "$NODEPOOL_NAME"
-        env:
-          CLUSTER_NAME: "everest-e2e-dev-eks-cluster"
-          NODEPOOL_NAME: "everest-e2e-dev-eks-workers-glowworm"
-
-      - name: Clean up resources and CRDs
-        if: always()
-        run: |
-          make cluster-cleanup
-
-  e2e-data-importer-tests-flows:
-    name: E2E data importer tests
-    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+  integration-tests-flows:
+    name: Integration tests
     strategy:
       fail-fast: false
       matrix:
-        make_target: [
-          'test-e2e-data-importer-pg',
-          'test-e2e-data-importer-psmdb',
-          'test-e2e-data-importer-pxc'
-        ]
-    uses: ./.github/workflows/e2e-data-importer.yaml
+        make_target:
+          - test-integration-core
+          - test-integration-features
+          - test-integration-operator-upgrade
+    uses: ./.github/workflows/ci-integration-tests.yaml
     secrets: inherit
     with:
       make_target: ${{ matrix.make_target }}
 
-  make-bundle:
-    name: Make Bundle
+  release:
+    name: Operator code generation check
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
@@ -273,10 +71,75 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
-      - name: Make bundle and build bundle image
+      - name: Check default main state - generated files
         run: |
-          make bundle bundle-build
+          make release
+          #          git diff --exit-code $(git ls-files | grep -v "bundle/manifests/everest-operator.clusterserviceversion.yaml")
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # post diff as a suggestion to commit to the PR (if any)
+      - uses: ./.github/actions/reviewdog-suggester
+        with:
+          tool_name: make_release
+
+  bundle-build:
+    name: Operator bundle build check
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build bundle image
+        run: |
+          make bundle-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  check-crds:
+    name: Operator CRDs checks
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: false
+          install-k3d: true
+
+      - name: Create K3D cluster
+        run: |
+          make k3d-cluster-up
+
+      - name: Install CRDs into the K8s cluster
+        run: |
+          make install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Uninstall CRDs from the K8s cluster
+        run: |
+          make uninstall
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
