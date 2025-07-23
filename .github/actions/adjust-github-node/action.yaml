@@ -12,6 +12,8 @@ inputs:
 runs:
   using: "composite"
   steps:
+    # GitHub worker node has enabled AppArmor profile for Docker.
+    # Use this step when AppArmor creates issues with running application in Docker container (like PXC).
     - name: Disable AppArmor on host
       if: ${{ inputs.disable-apparmor == 'true' }}
       continue-on-error: true
