@@ -9074,7 +9074,6 @@ spec:
     protocol: TCP
     targetPort: 9443
   selector:
-    app.kubernetes.io/name: project
     control-plane: controller-manager
 ---
 apiVersion: apps/v1
