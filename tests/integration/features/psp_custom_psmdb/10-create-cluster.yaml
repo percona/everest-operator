@@ -15,7 +15,6 @@ spec:
       class: local-path
       size: 25Gi
     type: psmdb
-    userSecretsName: everest-secrets-mongodb-mu2
     version: 7.0.15-9
   proxy:
     expose:
