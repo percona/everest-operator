@@ -8,8 +8,14 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
-commands:
-  - command: kubectl wait --for=jsonpath='{.spec.dataSource.dataImport.source.s3.endpointURL}'='https://minio.${NAMESPACE}.svc' db/test-pg-cluster -n ${NAMESPACE}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-s3-secret
+data:
+  AWS_ACCESS_KEY_ID: bWluaW9hZG1pbg==     # minioadmin
+  AWS_SECRET_ACCESS_KEY: bWluaW9hZG1pbg== # minioadmin
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -22,6 +28,7 @@ spec:
       source:
         path: "/pg/backup/db/20250702-131148F"
         s3:
+          endpointURL: https://minio.minio.svc
           bucket: everest-operator
           region: us-east-1
           credentialsSecretName: test-s3-secret
