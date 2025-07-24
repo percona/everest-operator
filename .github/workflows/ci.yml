@@ -1,12 +1,13 @@
+---
 name: CI
 on:
-  push:
-    branches:
-      - main
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 env:
   KUBECTL_VERSION: 1.29.5
+  KUTTL_VERSION: 0.22.0
+  K3D_VERSION: 5.8.3
+  TOOLS_PATH: "/opt/tools/bin"
 jobs:
   golang-tests:
     name: Go unit tests
@@ -15,45 +16,95 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code into the Go module directory
+      - name: Check out code
         uses: actions/checkout@v4
 
       - name: Set up Go release
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
       - name: Run tests
         run: |
           make test
 
-  integration-tests:
-    name: Integration tests
+  integration-core-tests:
+    name: Integration core tests
     timeout-minutes: 30
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
     steps:
-      - name: Install kubecltl
-        run: |
-            mkdir -p $TOOLS_PATH
-            echo $TOOLS_PATH >> $GITHUB_PATH
-            # Kubectl
-            curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
-            chmod +x ${TOOLS_PATH}/kubectl
-            # Kuttl
-            curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
-            chmod +x ${TOOLS_PATH}/kubectl-kuttl
+      - name: Check out code
+        uses: actions/checkout@v4
 
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
-          echo $(kubectl kuttl --version) installed
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
 
-      - name: Check out code into the Go module directory
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: true
+          install-k3d: true
+
+      - name: Create K3D cluster
+        run: |
+          sudo modprobe br_netfilter
+          make k3d-cluster-up
+
+      - name: Run core tests
+        run: |
+            make test-integration-core
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  integration-features-tests:
+    name: Integration features tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: true
+          install-k3d: true
+
+      - name: Create K3D cluster
+        run: |
+          sudo modprobe br_netfilter
+          make k3d-cluster-up
+
+      - name: Run features tests
+        run: |
+          make test-integration-features
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  integration-operator-upgrade-tests:
+    name: Integration operator upgrade tests
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
         uses: actions/checkout@v4
 
       - name: Set up Go release
@@ -62,20 +113,23 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      - name: Run core tests
-        if: always()
-        run: |
-            make test-integration-core
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: true
+          install-k3d: true
 
-      - name: Run features tests
-        if: always()
+      - name: Create K3D cluster
         run: |
-            make test-integration-features
+          sudo modprobe br_netfilter
+          make k3d-cluster-up
 
       - name: Run operator upgrade tests
-        if: always()
         run: |
-            make test-integration-operator-upgrade
+          make test-integration-operator-upgrade
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   eks-e2e-tests:
     name: E2E tests (EKS)
@@ -86,9 +140,9 @@ jobs:
       fail-fast: true
     runs-on: ubuntu-latest
     env:
-      TOOLS_PATH: "/opt/tools/bin"
+      KUBECONFIG: "/home/runner/.kube/config"
     steps:
-      - name: Check out code into the Go module directory
+      - name: Check out code
         uses: actions/checkout@v4
 
       - name: Set up Go release
@@ -97,9 +151,27 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: true
+          install-k3d: false
+
+      - name: Install EKS tools
+        run: |
+          # Install EKSCTL
+          ARCH=amd64
+          PLATFORM=$(uname -s)_${ARCH}
+          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_${PLATFORM}.tar.gz"
+          tar -xzf eksctl_${PLATFORM}.tar.gz -C "${TOOLS_PATH}"
+          chmod +x "${TOOLS_PATH}"/eksctl
+
       - name: Build operator
         run:
           make build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -108,39 +180,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.EVEREST_EKS_E2E_IAM_USER_ACCESS_KEY_SECRET }}
           aws-region: us-east-2
 
-      - name: Configure env
+      - name: Update EKS kubeconfig
         run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
           aws eks update-kubeconfig --name everest-e2e-dev-eks-cluster
 
-      - name: Install kubecltl
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-          # Kubectl
-          curl -s -L -o ${TOOLS_PATH}/kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl 
-          chmod +x ${TOOLS_PATH}/kubectl
-          # Kuttl
-          curl -s -L -o ${TOOLS_PATH}/kubectl-kuttl https://github.com/kudobuilder/kuttl/releases/download/v0.22.0/kubectl-kuttl_0.22.0_linux_x86_64  
-          chmod +x ${TOOLS_PATH}/kubectl-kuttl
-
-      - name: Kubectl version
-        run: |
-          kubectl version --client --output=yaml
-          echo $(kubectl kuttl --version) installed
-
-      - name: Install tools
-        run: |
-          # Install EKSCTL
-          ARCH=amd64
-          PLATFORM=$(uname -s)_$ARCH
-          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
-          tar -xzf eksctl_$PLATFORM.tar.gz -C "$TOOLS_PATH"
-          chmod +x "$TOOLS_PATH"/eksctl
-
       - name: Scale up cluster
+        # Only the following E2E tests require EKS:
+        # - test/e2e
+        # - test/e2e-core
+        # - test/e2e-db-upgrade
+        # - test/e2e-operator-upgrade
+        # TODO: Review this condition once we have more tests running on KinD.
+        if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core') || contains(github.event.pull_request.labels.*.name, 'test/e2e-db-upgrade') || contains(github.event.pull_request.labels.*.name, 'test/e2e-operator-upgrade')
         run: |
           eksctl scale nodegroup --cluster="$CLUSTER_NAME" --nodes=10 "$NODEPOOL_NAME" --wait
         env:
@@ -159,7 +210,6 @@ jobs:
         timeout-minutes: 10
         run: |
           make cluster-cleanup
-
 
       - name: Run core tests
         if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-core')
@@ -194,14 +244,27 @@ jobs:
         run: |
           make cluster-cleanup
 
+  e2e-data-importer-tests-flows:
+    name: E2E data importer tests
+    if: contains(github.event.pull_request.labels.*.name, 'test/e2e') || contains(github.event.pull_request.labels.*.name, 'test/e2e-data-importer')
+    strategy:
+      fail-fast: false
+      matrix:
+        make_target: [
+          'test-e2e-data-importer-pg',
+          'test-e2e-data-importer-psmdb',
+          'test-e2e-data-importer-pxc'
+        ]
+    uses: ./.github/workflows/e2e-data-importer.yaml
+    secrets: inherit
+    with:
+      make_target: ${{ matrix.make_target }}
+
   make-bundle:
     name: Make Bundle
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
-    env:
-      TOOLS_PATH: "/opt/tools/bin"
-
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -212,28 +275,8 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
-      - name: Install operator-sdk
-        run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
-
-          export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
-          export OS=$(uname | awk '{print tolower($0)}')
-
-          export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.38.0
-          curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-
-          gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E
-
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-          gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
-
-          grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-
-          chmod +x operator-sdk_${OS}_${ARCH}
-          mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
-
       - name: Make bundle and build bundle image
         run: |
           make bundle bundle-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

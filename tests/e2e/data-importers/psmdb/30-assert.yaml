@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pod/psmdb-client -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete db/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=delete psmdb/test-psmdb-cluster -n ${NAMESPACE}
+  - command: kubectl wait --for=delete pod/psmdb-client -n $NAMESPACE
+  - command: kubectl wait --for=delete pod/minio -n ${NAMESPACE}
+  - command: kubectl wait --for=delete dataimporter/everest-percona-psmdb-operator

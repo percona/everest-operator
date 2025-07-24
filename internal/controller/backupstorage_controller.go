@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -293,10 +294,10 @@ func (r *BackupStorageReconciler) initIndexers(ctx context.Context, mgr ctrl.Man
 
 func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *everestv1alpha1.BackupStorage) (bool, error) {
 	// Check if the backup storage is used by any database cluster backups through the DBClusterBackupBackupStorageNameField field
-	if dbbList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client, common.DBClusterBackupBackupStorageNameField,
+	if dbbList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, r.Client, consts.DBClusterBackupBackupStorageNameField,
 		bs.GetNamespace(), bs.GetName()); err != nil {
 		return false, fmt.Errorf("failed to fetch DB cluster backups that use backup storage='%s' through '%s' field: %w",
-			bs.GetName(), common.DBClusterBackupBackupStorageNameField, err)
+			bs.GetName(), consts.DBClusterBackupBackupStorageNameField, err)
 	} else if len(dbbList.Items) > 0 {
 		return true, nil
 	}
@@ -320,10 +321,10 @@ func (r *BackupStorageReconciler) isBackupStorageUsed(ctx context.Context, bs *e
 	}
 
 	// Check if the backup storage is used by any database clusters through the DBClusterDataSourceBackupStorageNameField field
-	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, dataSourceBackupStorageNameField,
+	if dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, consts.DataSourceBackupStorageNameField,
 		bs.GetNamespace(), bs.GetName()); err != nil {
 		return false, fmt.Errorf("failed to fetch DB clusters that use backup storage='%s' through '%s' field: %w",
-			bs.GetName(), dataSourceBackupStorageNameField, err)
+			bs.GetName(), consts.DataSourceBackupStorageNameField, err)
 	} else if len(dbList.Items) > 0 {
 		return true, nil
 	}

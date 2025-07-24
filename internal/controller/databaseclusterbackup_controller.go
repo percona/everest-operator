@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	goversion "github.com/hashicorp/go-version"
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -51,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -117,7 +117,7 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 
 	// DBBackups are always deleted in foreground.
 	if backup.GetDeletionTimestamp().IsZero() &&
-		controllerutil.AddFinalizer(backup, common.ForegroundDeletionFinalizer) {
+		controllerutil.AddFinalizer(backup, consts.ForegroundDeletionFinalizer) {
 		if err := r.Update(ctx, backup); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -195,7 +195,7 @@ func (r *DatabaseClusterBackupReconciler) reconcileMeta(
 	var needUpdate bool
 	if len(backup.ObjectMeta.Labels) == 0 {
 		backup.ObjectMeta.Labels = map[string]string{
-			databaseClusterNameLabel: backup.Spec.DBClusterName,
+			consts.DatabaseClusterNameLabel: backup.Spec.DBClusterName,
 		}
 		needUpdate = true
 	}
@@ -241,7 +241,7 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 func (r *DatabaseClusterBackupReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
 	// Index the dbClusterName field in DatabaseClusterBackup.
 	err := mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.DatabaseClusterBackup{}, common.DBClusterBackupDBClusterNameField,
+		ctx, &everestv1alpha1.DatabaseClusterBackup{}, consts.DBClusterBackupDBClusterNameField,
 		func(o client.Object) []string {
 			var res []string
 			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
@@ -258,7 +258,7 @@ func (r *DatabaseClusterBackupReconciler) initIndexers(ctx context.Context, mgr 
 
 	// Index the DBClusterBackupBackupStorageNameField field in DatabaseClusterBackup.
 	err = mgr.GetFieldIndexer().IndexField(
-		ctx, &everestv1alpha1.DatabaseClusterBackup{}, common.DBClusterBackupBackupStorageNameField,
+		ctx, &everestv1alpha1.DatabaseClusterBackup{}, consts.DBClusterBackupBackupStorageNameField,
 		func(o client.Object) []string {
 			var res []string
 			dbb, ok := o.(*everestv1alpha1.DatabaseClusterBackup)
@@ -409,7 +409,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePG(ctx context.Context, obj c
 
 	backup.Spec.BackupStorageName = name
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: pgBackup.Spec.PGCluster,
+		consts.DatabaseClusterNameLabel: pgBackup.Spec.PGCluster,
 	}
 	if err = controllerutil.SetControllerReference(cluster, backup, r.Scheme); err != nil {
 		return err
@@ -453,7 +453,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePXC(ctx context.Context, obj 
 	backup.Spec.BackupStorageName = pxcBackup.Spec.StorageName
 
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
+		consts.DatabaseClusterNameLabel: pxcBackup.Spec.PXCCluster,
 	}
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: pxcBackup.Spec.PXCCluster, Namespace: pxcBackup.Namespace}, cluster)
@@ -506,7 +506,7 @@ func (r *DatabaseClusterBackupReconciler) tryCreatePSMDB(ctx context.Context, ob
 	backup.Spec.BackupStorageName = psmdbBackup.Spec.StorageName
 
 	backup.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
+		consts.DatabaseClusterNameLabel: psmdbBackup.Spec.ClusterName,
 	}
 	cluster := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{Name: psmdbBackup.Spec.ClusterName, Namespace: psmdbBackup.Namespace}, cluster)
@@ -620,29 +620,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 		return false, err
 	}
 
-	psmdbCluster := &psmdbv1.PerconaServerMongoDB{}
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      backup.Spec.DBClusterName,
-		Namespace: backup.Namespace,
-	}, psmdbCluster)
-	if client.IgnoreNotFound(err) != nil {
-		return false, err
-	}
-
-	// the .Status.BackupConfigHash field appeared in psmdb 1.20.0 so
-	// we need to check the CR version when we check if the field is populated
-	versionCheck, err := isCRVersionGreaterOrEqual(psmdbCluster.Spec.CRVersion, "1.20.0")
-	if err != nil {
-		return false, err
-	}
-	// Requeue if the pbm is not configured yet in psmdb 1.20.0+.
-	// An indicator that the pbm is configured in 1.20.0+ is the non-empty psmdb.Status.BackupConfigHash
-	// NOTE: in the future, to add support for multiple storages we would need not only to check the BackupConfigHash but also understand if
-	// it has changed to be able to create on-demand backups to a new storage.
-	if psmdbCluster.Status.BackupConfigHash == "" && versionCheck {
-		return true, nil
-	}
-
 	// If the psmdb-backup object exists, we will wait for it to progress beyond the waiting state.
 	// This is a known limitation in PSMSD operator, where updating the object while it is in the waiting
 	// state results in a duplicate backup being created.
@@ -653,7 +630,7 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	}
 
 	psmdbDBCR := &psmdbv1.PerconaServerMongoDB{}
-	err = r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
+	err := r.Get(ctx, types.NamespacedName{Name: backup.Spec.DBClusterName, Namespace: backup.Namespace}, psmdbDBCR)
 	if err != nil {
 		return false, err
 	}
@@ -714,18 +691,6 @@ func (r *DatabaseClusterBackupReconciler) reconcilePSMDB(
 	backup.Status.Destination = &psmdbCR.Status.Destination
 	backup.Status.LatestRestorableTime = psmdbCR.Status.LatestRestorableTime
 	return false, r.Status().Update(ctx, backup)
-}
-
-func isCRVersionGreaterOrEqual(currentVersionStr, desiredVersionStr string) (bool, error) {
-	crVersion, err := goversion.NewVersion(currentVersionStr)
-	if err != nil {
-		return false, err
-	}
-	desiredVersion, err := goversion.NewVersion(desiredVersionStr)
-	if err != nil {
-		return false, err
-	}
-	return crVersion.GreaterThanOrEqual(desiredVersion), nil
 }
 
 // Get the last performed PG backup directly from S3.

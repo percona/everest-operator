@@ -1,0 +1,45 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-pg-cluster-user-secret
+data: {}
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  dataSource:
+    dataImport:
+      dataImporterName: everest-percona-pg-operator
+      source:
+        path: "/pg/backup/db/20250702-131148F"
+        s3:
+          bucket: everest-operator
+          region: us-east-1
+          endpointURL: https://minio.minio.svc
+          credentialsSecretName: test-s3-secret
+          verifyTLS: false
+          forcePathStyle: true
+          accessKeyId: minioadmin
+          secretAccessKey: minioadmin
+  engine:
+    type: postgresql
+    replicas: 3
+    storage:
+      size: 1G
+    resources:
+      cpu: 1
+      memory: 500M
+    userSecretsName: test-pg-cluster-user-secret
+  proxy:
+    type: pgbouncer
+    replicas: 3
+    resources:
+      cpu: "1"
+      memory: 30M
+---

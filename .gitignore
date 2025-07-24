@@ -15,14 +15,13 @@ testbin/*
 *.out
 
 # Kubernetes Generated files - skip generated files, except for vendored files
-
-!vendor/**/zz_generated.*
+!**/zz_generated.*
 
 # editor and IDE paraphernalia
 .idea
 *.swp
 *.swo
 *~
-kind-logs-*/
-
 kubeconfig
+/tests/kubeconfig
+.DS_Store

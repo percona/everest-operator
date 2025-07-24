@@ -1,0 +1,81 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 100
+collectors:
+  - command: kubectl get db/test-pg-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get perconapgcluster/test-pg-cluster -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-s3-secret
+data:
+  AWS_ACCESS_KEY_ID: bWluaW9hZG1pbg==     # minioadmin
+  AWS_SECRET_ACCESS_KEY: bWluaW9hZG1pbg== # minioadmin
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  dataSource:
+    dataImport:
+      dataImporterName: everest-percona-pg-operator
+      source:
+        path: "/pg/backup/db/20250702-131148F"
+        s3:
+          endpointURL: https://minio.minio.svc
+          bucket: everest-operator
+          region: us-east-1
+          credentialsSecretName: test-s3-secret
+          verifyTLS: false
+          forcePathStyle: true
+  engine:
+    replicas: 3
+    type: postgresql
+  proxy:
+    replicas: 3
+status:
+  status: initializing
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: test-pg-cluster
+spec:
+  backups:
+    pgbackrest:
+      configuration:
+        - secret:
+            name: test-pg-cluster-pgbackrest-secrets
+      global:
+        repo1-retention-full: "1"
+      manual:
+        repoName: repo1
+      repos:
+        - name: repo1
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1G
+  instances:
+    - dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1G
+      name: instance1
+      replicas: 3
+  proxy:
+    pgBouncer:
+      replicas: 3
+status:
+  state: initializing

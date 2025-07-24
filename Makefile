@@ -47,14 +47,8 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
 
-# Set the Operator SDK version to use. By default, what is installed on the system is used.
-# This is useful for CI or a project to utilize a specific version of the operator-sdk toolkit.
-OPERATOR_SDK_VERSION ?= v1.38.0
-
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.29
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -62,6 +56,9 @@ GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+
+OS=$(shell go env GOHOSTOS)
+ARCH=$(shell go env GOHOSTARCH)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -98,100 +95,106 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
+.PHONY: cleanup-localbin
+cleanup-localbin:
+	@echo "Cleaning up local bin directory..."
+	rm -rf $(LOCALBIN)
 
 .PHONY: init
-init: ## Install development tools
-	rm -rfv $(LOCALBIN)
-	cd tools && go generate -x -tags=tools
+init: cleanup-localbin  ## Install development tools
+	$(MAKE) kustomize
+	$(MAKE) controller-gen
+	$(MAKE) envtest
+	$(MAKE) operator-sdk
+	$(MAKE) opm
 
 .PHONY: format
 format:
-	bin/gofumpt -l -w .
-	bin/goimports -local github.com/percona/everest-operator -l -w .
-	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: check
 check:
-	LOG_LEVEL=error bin/golangci-lint run
-	bin/go-sumtype ./...
+	LOG_LEVEL=error go tool golangci-lint run
+	go tool go-sumtype ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
+test: $(LOCALBIN) manifests generate format envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
-test-integration-core: docker-build ## Run integration/core tests against kind cluster
+test-integration-core: docker-build k3d-upload-image ## Run integration/core tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
 
 .PHONY: test-integration-features
-test-integration-features: docker-build ## Run feature tests against kind cluster
+test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
-.PHONY: test-integration-db-upgrade
-test-integration-operator-upgrade: docker-build ## Run operator upgrade tests against kind cluster
+.PHONY: test-integration-operator-upgrade
+test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
-test-e2e-core: docker-build ## Run e2e/core tests against kind cluster
+test-e2e-core: docker-build ## Run e2e/core tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
-test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests against kind cluster
+test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
 
 .PHONY: test-e2e-operator-upgrade
-test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests against kind cluster
+test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+
+.PHONY: test-e2e-data-importer
+test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+
+.PHONY: test-e2e-data-importer-pg
+test-e2e-data-importer-pg: docker-build k3d-upload-image ## Run e2e/data-importer PG test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
+
+.PHONY: test-e2e-data-importer-psmdb
+test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-importer PSMDB test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
+
+.PHONY: test-e2e-data-importer-pxc
+test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+
+.PHONY: k3d-cluster-up
+k3d-cluster-up: ## Create a K8S cluster for testing
+	k3d cluster create --config ./tests/k3d_config.yaml
+	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
+
+.PHONY: k3d-cluster-up
+k3d-cluster-down: ## Create a K8S cluster for testing
+	k3d cluster delete --config ./tests/k3d_config.yaml
+	rm -f ./tests/kubeconfig || true
+
+.PHONY: k3d-upload-image
+k3d-upload-image:
+	k3d image import -c everest-operator-test -m direct $(IMG)
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
 cluster-cleanup:
-	kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true || true
-	@namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pxc -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get psmdb -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pg -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get db -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
-	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
-	kubectl get ns -o name | grep kuttl | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete ns operators olm --ignore-not-found=true --wait=false || true
-	sleep 10
-	kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true || true
-	kubectl get crd -o name | grep .coreos.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl get crd -o name | grep .percona.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com --ignore-not-found=true || true
+	./scripts/cluster-cleanup.sh
 
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+build: $(LOCALBIN) manifests generate format ## Build manager binary.
+	go build -o $(LOCALBIN)/manager cmd/main.go
+	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
-build-debug: manifests generate fmt vet ## Build manager binary with debug symbols.
-	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o bin/manager cmd/main.go
+build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
+	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate format ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
@@ -256,51 +259,62 @@ LOCALBIN := $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-## Tool Binaries
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-ENVTEST ?= $(LOCALBIN)/setup-envtest
-
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.16.3
+KUSTOMIZE_VERSION ?= v5.7.0
+CONTROLLER_TOOLS_VERSION ?= v0.18.0
+# Set the Operator SDK version to use.
+OPERATOR_SDK_VERSION ?= v1.40.0
+# Set the OPM version to use.
+OPM_VERSION ?= v1.56.0
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.29
 
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
-$(KUSTOMIZE): $(LOCALBIN)
-	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
-		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
-		rm -rf $(LOCALBIN)/kustomize; \
-	fi
-	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+KUSTOMIZE_INSTALL_SCRIPT = "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+KUSTOMIZE = $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
+kustomize: $(LOCALBIN) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+ifeq (,$(wildcard $(KUSTOMIZE)))
+	curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
+	mv $(LOCALBIN)/kustomize $(KUSTOMIZE)
+endif
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+CONTROLLER_GEN = $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
+controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+ifeq (,$(wildcard $(CONTROLLER_GEN)))
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
+endif
 
 .PHONY: envtest
-envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+ENVTEST = $(LOCALBIN)/setup-envtest
+envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
+ifeq (,$(wildcard $(ENVTEST)))
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+endif
 
 .PHONY: operator-sdk
-OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
-operator-sdk: ## Download operator-sdk locally if necessary.
+OPERATOR_SDK_DL_URL = https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)
+OPERATOR_SDK = $(LOCALBIN)/operator-sdk-$(OPERATOR_SDK_VERSION)
+operator-sdk: $(LOCALBIN) ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
-ifeq (, $(shell which operator-sdk 2>/dev/null))
 	@{ \
 	set -e ;\
-	mkdir -p $(dir $(OPERATOR_SDK)) ;\
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
+	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_$(OS)_$(ARCH) ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
-else
-OPERATOR_SDK = $(shell which operator-sdk)
 endif
+
+.PHONY: opm
+OPM_DL_URL = https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)
+OPM = $(LOCALBIN)/opm-$(OPM_VERSION)
+opm: $(LOCALBIN) ## Download opm locally if necessary.
+ifeq (,$(wildcard $(OPM)))
+	@{ \
+	set -e ;\
+	curl -sSLo $(OPM) $(OPM_DL_URL)/$(OS)-$(ARCH)-opm ;\
+	chmod +x $(OPM) ;\
+	}
 endif
 
 .PHONY: bundle
@@ -317,23 +331,6 @@ bundle-build: ## Build the bundle image.
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
-
-.PHONY: opm
-OPM = ./bin/opm
-opm: ## Download opm locally if necessary.
-ifeq (,$(wildcard $(OPM)))
-ifeq (,$(shell which opm 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(OPM)) ;\
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.23.0/$${OS}-$${ARCH}-opm ;\
-	chmod +x $(OPM) ;\
-	}
-else
-OPM = $(shell which opm)
-endif
-endif
 
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
@@ -369,8 +366,6 @@ local-env-up: ## Create a local minikube cluster
 
 ## Location to output deployment manifests
 DEPLOYDIR = ./deploy
-
-#.PHONY: $(DEPLOYDIR)/bundle.yaml
 $(DEPLOYDIR)/bundle.yaml: manifests kustomize ## Generate deploy/bundle.yaml
 	$(KUSTOMIZE) build config/default -o $(DEPLOYDIR)/bundle.yaml
 

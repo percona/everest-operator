@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 120
+collectors:
+  - command: kubectl get db/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/test-psmdb-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pod/psmdb-client -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: ${NAMESPACE}
+    pod: psmdb-client
+    tail: 100
+commands:
+  - command: kubectl wait --for=condition=Ready pod/psmdb-client --timeout=30s -n ${NAMESPACE}

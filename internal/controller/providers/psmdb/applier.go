@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -264,7 +265,7 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			expose.ServiceAnnotations = annotations
 		}
 	default:
@@ -283,7 +284,7 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			expose.ServiceAnnotations = annotations
 		}
 	default:
@@ -720,7 +721,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	storages := make(map[string]psmdbv1.BackupStorageSpec)
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, consts.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return emptySpec, err
 	}
@@ -730,7 +731,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	}
 
 	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, common.DBClusterRestoreDBClusterNameField, database.GetNamespace(), database.GetName())
+	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, consts.DBClusterRestoreDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return emptySpec, err
 	}
@@ -742,12 +743,11 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	// If there are no schedules, just return the storages used in
 	// DatabaseClusterBackup objects
 	if len(database.Spec.Backup.Schedules) == 0 {
-		storages, err = withMarkedAsMain(storages)
-		if err != nil {
-			return emptySpec, err
+		if len(storages) > 1 {
+			return emptySpec, common.ErrPSMDBOneStorageRestriction
 		}
 		psmdbBackupSpec.Storages = storages
-		return psmdbBackupSpec, err
+		return psmdbBackupSpec, nil
 	}
 
 	tasks, err := p.getBackupTasks(storages)
@@ -764,27 +764,14 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		}
 	}
 
-	storages, err = withMarkedAsMain(storages)
-	if err != nil {
-		return emptySpec, err
+	if len(storages) > 1 {
+		return emptySpec, common.ErrPSMDBOneStorageRestriction
 	}
+
 	psmdbBackupSpec.Storages = storages
 	psmdbBackupSpec.Tasks = tasks
 
 	return psmdbBackupSpec, nil
-}
-
-func withMarkedAsMain(storages map[string]psmdbv1.BackupStorageSpec) (map[string]psmdbv1.BackupStorageSpec, error) {
-	if len(storages) > 1 {
-		return nil, common.ErrPSMDBOneStorageRestriction
-	}
-	for key, storage := range storages {
-		// mark the first and the single one as Main
-		storage.Main = true
-		storages[key] = storage
-		return storages, nil
-	}
-	return storages, nil
 }
 
 func (p *applier) getCurrentReplSet(name string) *psmdbv1.ReplsetSpec {

@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 30
+commands:
+  - command: kubectl -n ${NAMESPACE} delete db/test-psmdb-cluster --wait=false
+  - command: kubectl delete -n ${NAMESPACE} pod/psmdb-client --wait=false
+  - command: kubectl delete -f ${OPERATOR_ROOT_PATH}/internal/data-importer/deploy/psmdb --wait=false

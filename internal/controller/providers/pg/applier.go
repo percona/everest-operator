@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/common"
 )
 
@@ -94,7 +95,7 @@ func (p *applier) Engine() error {
 		// During the initial installation, a CRVersion may not be provided.
 		// So we will use the operator version.
 		v, err := common.GetOperatorVersion(p.ctx, p.C, types.NamespacedName{
-			Name:      common.PGDeploymentName,
+			Name:      consts.PGDeploymentName,
 			Namespace: p.DB.GetNamespace(),
 		})
 		if err != nil {
@@ -142,7 +143,7 @@ func (p *applier) Engine() error {
 	}
 
 	image, err := common.GetOperatorImage(p.ctx, p.C, types.NamespacedName{
-		Name:      common.PGDeploymentName,
+		Name:      consts.PGDeploymentName,
 		Namespace: p.DB.GetNamespace(),
 	})
 	if err != nil {
@@ -185,7 +186,7 @@ func (p *applier) Proxy() error {
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
-		if annotations, ok := common.ExposeAnnotationsMap[p.clusterType]; ok {
+		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
 			pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = annotations
 		}
 	default:
@@ -330,7 +331,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	pg.Spec.PMM = &pgv2.PMMSpec{
 		Enabled:   true,
 		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:    fmt.Sprintf("%s%s-pmm", common.EverestSecretsPrefix, database.GetName()),
+		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
 		Image:     common.DefaultPMMClientImage,
 	}
 
@@ -507,6 +508,7 @@ func (p *applier) handlePGDataSourceAzure(
 
 	secretData := pgBackrestSecretBuf.Bytes()
 
+	// NOTE: The PG DataImporter depends on Everest creating this Secret.
 	pgBackrestSecret, err := p.createPGBackrestSecret(
 		"azure.conf",
 		secretData,
@@ -521,6 +523,7 @@ func (p *applier) handlePGDataSourceAzure(
 		{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
+					// NOTE: The PG DataImporter depends on Everest setting this field.
 					Name: pgBackrestSecret.Name,
 				},
 			},
@@ -757,6 +760,7 @@ func addBackupStorageCredentialsToPGBackrestSecretIni(
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
+// NOTE: The PG DataImporter depends on Everest creating this Secret.
 func (p *applier) createPGBackrestSecret(
 	pgbackrestKey string,
 	pgbackrestConf []byte,
@@ -966,7 +970,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	}
 
 	// List DatabaseClusterBackup objects for this database
-	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.Name)
+	backupList, err := common.DatabaseClusterBackupsThatReferenceObject(ctx, c, consts.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.Name)
 	if err != nil {
 		return pgv2.Backups{}, err
 	}
@@ -980,7 +984,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	}
 
 	// List DatabaseClusterRestore objects for this database
-	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, common.DBClusterBackupDBClusterNameField, database.GetNamespace(), database.GetName())
+	restoreList, err := common.DatabaseClusterRestoresThatReferenceObject(ctx, c, consts.DBClusterRestoreDBClusterNameField, database.GetNamespace(), database.GetName())
 	if err != nil {
 		return pgv2.Backups{}, err
 	}

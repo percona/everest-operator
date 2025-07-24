@@ -27,19 +27,19 @@ func TestValidatePitrRestoreSpec(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name string
-		data everestv1alpha1.DataSource
+		data everestv1alpha1.DatabaseClusterRestoreDataSource
 		err  error
 	}{
 		{
 			name: "empty date",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{},
 			},
 			err: errPitrEmptyDate,
 		},
 		{
 			name: "type latest",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{
 					Type: "latest",
 				},
@@ -48,7 +48,7 @@ func TestValidatePitrRestoreSpec(t *testing.T) {
 		},
 		{
 			name: "type unknown",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{
 					Type: "some-type",
 				},
@@ -57,7 +57,7 @@ func TestValidatePitrRestoreSpec(t *testing.T) {
 		},
 		{
 			name: "no error with type",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{
 					Type: "date",
 					Date: &everestv1alpha1.RestoreDate{},
@@ -67,7 +67,7 @@ func TestValidatePitrRestoreSpec(t *testing.T) {
 		},
 		{
 			name: "no error without type",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{
 					Date: &everestv1alpha1.RestoreDate{},
 				},
@@ -93,17 +93,17 @@ func TestGetPGRestoreOptions(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name    string
-		data    everestv1alpha1.DataSource
+		data    everestv1alpha1.DatabaseClusterRestoreDataSource
 		options []string
 	}{
 		{
 			name:    "only backup",
-			data:    everestv1alpha1.DataSource{},
+			data:    everestv1alpha1.DatabaseClusterRestoreDataSource{},
 			options: []string{"--set=smth", "--type=immediate"},
 		},
 		{
 			name: "pitr with date",
-			data: everestv1alpha1.DataSource{
+			data: everestv1alpha1.DatabaseClusterRestoreDataSource{
 				PITR: &everestv1alpha1.PITR{
 					Date: &everestv1alpha1.RestoreDate{},
 				},

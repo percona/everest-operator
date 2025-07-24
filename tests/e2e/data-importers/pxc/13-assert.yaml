@@ -1,0 +1,37 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 600
+collectors:
+  - command: kubectl get db/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get pxc/test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get dataimportjob/data-import-test-pxc-cluster -n ${NAMESPACE} -o yaml
+  - command: kubectl get job -n ${NAMESPACE} -o yaml
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  status: ready
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-pxc-cluster
+status:
+  state: ready
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DataImportJob
+metadata:
+  labels:
+    clusterName: test-pxc-cluster
+  name: data-import-test-pxc-cluster
+  ownerReferences:
+    - apiVersion: everest.percona.com/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DatabaseCluster
+      name: test-pxc-cluster
+status:
+  state: Succeeded
