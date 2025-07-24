@@ -14,7 +14,6 @@ spec:
     storage:
       size: 25Gi
     type: postgresql
-    userSecretsName: everest-secrets-test-pg-cluster
   proxy:
     expose:
       type: internal

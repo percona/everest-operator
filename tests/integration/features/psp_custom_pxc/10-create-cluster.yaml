@@ -14,7 +14,6 @@ spec:
     storage:
       size: 25Gi
     type: pxc
-    userSecretsName: everest-secrets-test-pxc-cluster
   proxy:
     expose:
       type: internal

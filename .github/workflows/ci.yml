@@ -139,6 +139,8 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: ubuntu-latest
+    env:
+      KUBECONFIG: "/home/runner/.kube/config"
     steps:
       - name: Check out code
         uses: actions/checkout@v4
