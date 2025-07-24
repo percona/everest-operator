@@ -130,6 +130,16 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
+func (r *DatabaseClusterReconciler) deleteSecret(ctx context.Context, secretName, namespace string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+	return client.IgnoreNotFound(r.Client.Delete(ctx, secret))
+}
+
 //nolint:nonamedreturns,gocognit
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
@@ -138,6 +148,13 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 ) (rr ctrl.Result, rerr error) {
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
+		// If this DB has a data import associated with it, delete the credentials secret.
+		if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport != nil {
+			credentialsSecretName := pointer.Get(dataImport.Source.S3).CredentialsSecretName
+			if err := r.deleteSecret(ctx, credentialsSecretName, db.GetNamespace()); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 		done, err := p.Cleanup(ctx, db)
 		if err != nil {
 			return ctrl.Result{}, err
