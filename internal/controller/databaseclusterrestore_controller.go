@@ -19,7 +19,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/workqueue"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"strings"
 	"time"
 
@@ -842,7 +845,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	}
 
 	restore.ObjectMeta.Labels = map[string]string{
-		databaseClusterNameLabel: pgRestore.Spec.PGCluster,
+		consts.DatabaseClusterNameLabel: pgRestore.Spec.PGCluster,
 	}
 	if err = controllerutil.SetControllerReference(cluster, restore, r.Scheme); err != nil {
 		return err
