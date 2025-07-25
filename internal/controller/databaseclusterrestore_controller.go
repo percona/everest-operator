@@ -690,20 +690,8 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 	}
 
 	log := log.FromContext(ctx)
-	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object) error {
-		// This source is the same as calling Owns() on the controller builder.
-		// I.e, &DatabaseClusterRestore{} owns obj.
-		src := source.Kind(
-			r.Cache,
-			obj,
-			handler.EnqueueRequestForOwner(
-				r.Scheme,
-				r.RESTMapper(),
-				&everestv1alpha1.DatabaseClusterRestore{},
-				handler.OnlyControllerOwner(),
-			),
-		)
-		if err := r.controller.addWatchers(string(dbEngineType), src); err != nil {
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
+		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
 		return nil
@@ -715,15 +703,15 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 		}
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
-			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}); err != nil {
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}, nil); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &pgv2.PerconaPGRestore{}); err != nil {
+			if err := addWatcher(t, &pgv2.PerconaPGRestore{}, r.tryCreatePG); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}); err != nil {
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}, nil); err != nil {
 				return err
 			}
 		default:
