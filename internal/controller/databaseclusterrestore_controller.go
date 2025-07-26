@@ -815,6 +815,15 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	// The restore that we try to create when pg-restore CR appears is always a bootstrap restore
 	// so we take the DataSource details from the dbCluster.DataSource.
 	if cluster.Spec.DataSource != nil {
+		// if the bootstrap restore is triggered by DataImport - delete the upstream pg-restore (it's excessive)
+		// and do not create a dbr for it accordingly
+		if cluster.Spec.DataSource.DataImport != nil {
+			err = r.Delete(ctx, obj)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
 		if cluster.Spec.DataSource.DBClusterBackupName != "" {
 			restore.Spec.DataSource.DBClusterBackupName = cluster.Spec.DataSource.DBClusterBackupName
 		}
@@ -844,6 +853,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 
 func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Context, obj client.Object) {
 	logger := log.FromContext(ctx)
+	logger.Info("DELETE!!!!")
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
 	dbr := &everestv1alpha1.DatabaseClusterRestore{
