@@ -1,5 +1,5 @@
 // everest-operator
-// Copyright (C) 2025 Percona LLC
+// Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,7 +69,6 @@ const (
 	defaultRequeueAfter = 5 * time.Second
 )
 
-// test comment for the linter to ignore
 var everestFinalizers = []string{
 	consts.UpstreamClusterCleanupFinalizer,
 	consts.ForegroundDeletionFinalizer,
