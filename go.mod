@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	github.com/AlekSi/pointer v1.2.0
-	github.com/VictoriaMetrics/operator/api v0.60.2
+	github.com/VictoriaMetrics/operator/api v0.61.2
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
