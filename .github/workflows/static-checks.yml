@@ -1,0 +1,41 @@
+---
+name: Static checks
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  code-formatting:
+    name: Code formatting
+    continue-on-error: false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Check files are formatted and no source code changes
+        run: |
+          make format
+
+      - name: Check there are no changes in go.mod and go.sum
+        run: |
+          go mod tidy -v
+
+      # post diff as a suggestion to commit to the PR (if any)
+      - uses: ./.github/actions/reviewdog-suggester
+        with:
+          tool_name: go_mod
+
+      - name: Check default main state - dev version
+        run: |
+          if ! grep -q "VERSION ?= 0.0.0" Makefile; then
+            echo "default VERSION in Makefile should be 0.0.0"
+            exit 1
+          fi
