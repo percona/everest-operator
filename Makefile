@@ -57,8 +57,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-OS ?= $(shell go env GOOS)
-ARCH ?= $(shell go env GOARCH)
+OS=$(shell go env GOHOSTOS)
+ARCH=$(shell go env GOHOSTARCH)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -95,36 +95,32 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
 .PHONY: cleanup-localbin
 cleanup-localbin:
 	@echo "Cleaning up local bin directory..."
 	rm -rf $(LOCALBIN)
 
 .PHONY: init
-init: cleanup-localbin kustomize controller-gen envtest operator-sdk opm  ## Install development tools
-	cd tools && go generate -x -tags=tools
+init: cleanup-localbin  ## Install development tools
+	$(MAKE) kustomize
+	$(MAKE) controller-gen
+	$(MAKE) envtest
+	$(MAKE) operator-sdk
+	$(MAKE) opm
 
 .PHONY: format
 format:
-	bin/gofumpt -l -w .
-	bin/goimports -local github.com/percona/everest-operator -l -w .
-	bin/gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
+	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: check
 check:
-	LOG_LEVEL=error bin/golangci-lint run
-	bin/go-sumtype ./...
+	LOG_LEVEL=error go tool golangci-lint run
+	go tool go-sumtype ./...
 
 .PHONY: test
-test: $(LOCALBIN) manifests generate fmt vet envtest ## Run tests.
+test: $(LOCALBIN) manifests generate format envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
@@ -135,7 +131,7 @@ test-integration-core: docker-build k3d-upload-image ## Run integration/core tes
 test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
-.PHONY: test-integration-db-upgrade
+.PHONY: test-integration-operator-upgrade
 test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
@@ -155,6 +151,18 @@ test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
 test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
 
+.PHONY: test-e2e-data-importer-pg
+test-e2e-data-importer-pg: docker-build k3d-upload-image ## Run e2e/data-importer PG test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
+
+.PHONY: test-e2e-data-importer-psmdb
+test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-importer PSMDB test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
+
+.PHONY: test-e2e-data-importer-pxc
+test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
+	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing
 	k3d cluster create --config ./tests/k3d_config.yaml
@@ -172,50 +180,21 @@ k3d-upload-image:
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
 cluster-cleanup:
-	kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true || true
-	@namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pxc -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get psmdb -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pg -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get db -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns delete -f ./tests/testdata/minio --ignore-not-found || true; \
-	done
-	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
-	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
-	kubectl get ns -o name | grep kuttl | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete ns operators olm --ignore-not-found=true --wait=false || true
-	sleep 10
-	kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true || true
-	kubectl get crd -o name | grep .coreos.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl get crd -o name | grep .percona.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com --ignore-not-found=true || true
+	./scripts/cluster-cleanup.sh
 
 ##@ Build
 
 .PHONY: build
-build: $(LOCALBIN) manifests generate fmt vet ## Build manager binary.
+build: $(LOCALBIN) manifests generate format ## Build manager binary.
 	go build -o $(LOCALBIN)/manager cmd/main.go
 	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
 
 .PHONY: build-debug
-build-debug: $(LOCALBIN) manifests generate fmt vet ## Build manager binary with debug symbols.
+build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
 	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: manifests generate format ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
@@ -303,7 +282,7 @@ endif
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 ifeq (,$(wildcard $(CONTROLLER_GEN)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
 endif
 
@@ -311,7 +290,7 @@ endif
 ENVTEST = $(LOCALBIN)/setup-envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 ifeq (,$(wildcard $(ENVTEST)))
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 endif
 
 .PHONY: operator-sdk
@@ -321,7 +300,7 @@ operator-sdk: $(LOCALBIN) ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
 	@{ \
 	set -e ;\
-	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH} ;\
+	curl -sSLo $(OPERATOR_SDK) ${OPERATOR_SDK_DL_URL}/operator-sdk_$(OS)_$(ARCH) ;\
 	chmod +x $(OPERATOR_SDK) ;\
 	}
 endif

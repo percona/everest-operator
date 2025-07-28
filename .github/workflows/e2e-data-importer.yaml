@@ -1,0 +1,58 @@
+---
+name: E2E data importer test
+on:
+  workflow_call:
+    inputs:
+      make_target:
+        description: 'Make target to execute'
+        type: string
+        required: true
+jobs:
+  e2e-data-import-test:
+    name: test
+    timeout-minutes: 80
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kuttl: true
+          install-k3d: true
+
+      - name: Disable AppArmor on host
+        continue-on-error: true
+        run: |
+          sudo systemctl stop apparmor
+          sudo aa-teardown
+
+      # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
+      - name: Switch docker-daemon data directory to /mnt
+        run: |
+          sudo systemctl stop docker
+          echo '{ "exec-opts": ["native.cgroupdriver=cgroupfs"], "cgroup-parent": "/actions_job", "data-root": "/mnt/docker-data" }' | sudo tee /etc/docker/daemon.json
+          sudo mkdir /mnt/docker-data
+          sudo systemctl start docker
+
+      # https://github.com/NixOS/nixpkgs/issues/98766#issuecomment-714757707
+      - name: Create K3D cluster
+        run: |
+          sudo modprobe br_netfilter
+          make k3d-cluster-up
+
+      - name: Run data importer tests
+        run: |
+          make ${{ inputs.make_target }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
