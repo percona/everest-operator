@@ -15,7 +15,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/operator-framework/api v0.32.0
-	github.com/percona/percona-backup-mongodb v1.8.1-0.20250327100109-3ca299246bfe
+	github.com/percona/percona-backup-mongodb v1.8.1-0.20241212160532-0157f87a7eee
 	github.com/percona/percona-postgresql-operator v0.0.0-20250313094841-676233c83e26
 	github.com/percona/percona-server-mongodb-operator v1.19.1
 	github.com/percona/percona-xtradb-cluster-operator v1.17.0
@@ -307,6 +307,7 @@ require (
 	github.com/timonwong/loggercheck v0.10.1 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.10.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
+	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/ultraware/funlen v0.2.0 // indirect
 	github.com/ultraware/whitespace v0.2.0 // indirect
 	github.com/uudashr/gocognit v1.2.0 // indirect
