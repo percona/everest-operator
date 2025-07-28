@@ -1,0 +1,62 @@
+---
+name: Linter checks
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  license-check:
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: License check
+        run: |
+          # run license checker on configured files
+          go tool license-eye -c .licenserc.yaml header fix
+
+      # post diff as a suggestion to commit to the PR (if any)
+      - uses: ./.github/actions/reviewdog-suggester
+        with:
+          tool_name: license-eye
+
+  golangci-lint:
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go release
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run golangci-lint
+        run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix --issues-exit-code=0 | go tool reviewdog -f=golangci-lint -reporter=github-pr-review
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # post diff as a suggestion to commit to the PR (if any)
+      - uses: ./.github/actions/reviewdog-suggester
+        with:
+          tool_name: golangci-lint
