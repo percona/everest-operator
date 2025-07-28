@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   code-formatting:
-    name: Code changes
+    name: Code formatting
     continue-on-error: false
     runs-on: ubuntu-latest
     strategy:
