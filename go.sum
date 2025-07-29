@@ -105,8 +105,8 @@ github.com/VictoriaMetrics/metrics v1.35.2 h1:Bj6L6ExfnakZKYPpi7mGUnkJP4NGQz2v5w
 github.com/VictoriaMetrics/metrics v1.35.2/go.mod h1:r7hveu6xMdUACXvB8TYdAj8WEsKzWB0EkpJN+RDtOf8=
 github.com/VictoriaMetrics/metricsql v0.84.3 h1:MXYiNHpIIzaM49Q/5YhWzcSlFWqLAkjWKOgMlI2NDN8=
 github.com/VictoriaMetrics/metricsql v0.84.3/go.mod h1:1g4hdCwlbJZ851PU9VN65xy9Rdlzupo6fx3SNZ8Z64U=
-github.com/VictoriaMetrics/operator/api v0.60.2 h1:7Zm4876xXwOEQFjap1q3v+teaCPYr59xksxA/iGqKaM=
-github.com/VictoriaMetrics/operator/api v0.60.2/go.mod h1:A3mLYrPQULC/L4MYRA1+oGz5Wy++c3DVSjw/gwRCEcc=
+github.com/VictoriaMetrics/operator/api v0.61.2 h1:fxi4Cc3kY4HhhtvrzeZFlaaLmS1UGmsEV1kR+0fG/y8=
+github.com/VictoriaMetrics/operator/api v0.61.2/go.mod h1:WS0lBZ6dSK8L1CmvqIPdwlRhGRN9IhPYX8y7V/yywzY=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
 github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
