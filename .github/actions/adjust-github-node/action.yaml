@@ -25,6 +25,7 @@ runs:
     # Switch docker data directory to /mnt to have more space for the local Kubernetes cluster
     - name: Switch docker-daemon data directory to /mnt
       if: ${{ inputs.mount-docker-data == 'true' }}
+      shell: bash
       run: |
         sudo systemctl stop docker
         echo '{ "exec-opts": ["native.cgroupdriver=cgroupfs"], "cgroup-parent": "/actions_job", "data-root": "/mnt/docker-data" }' | sudo tee /etc/docker/daemon.json
