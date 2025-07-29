@@ -47,6 +47,7 @@ var Cmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		configPath := args[0]
+
 		if err := runPXCImport(cmd.Context(), configPath); err != nil {
 			log.Error().Err(err).Msg("Failed to run pxc import")
 			os.Exit(1)
@@ -96,16 +97,28 @@ func runPXCImport(ctx context.Context, configPath string) error {
 	if err := pauseDBReconciliation(ctx, k8sClient, dbName, namespace); err != nil {
 		return fmt.Errorf("failed to pause DB reconciliation: %w", err)
 	}
-	defer func() {
-		if unpauseErr := unpauseDBReconciliation(ctx, k8sClient, dbName, namespace); unpauseErr != nil {
-			log.Error().Err(err).Msg("Failed to unpause DB reconciliation")
+
+	defer func() { //nolint:contextcheck
+		// We use a new context for cleanup since the original context may be canceled or timed out,
+		// for e.g., if the DB is deleted before the import can complete.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
+		defer cancel()
+
+		if unpauseErr := unpauseDBReconciliation(cleanupCtx, k8sClient, dbName, namespace); unpauseErr != nil {
+			log.Error().Err(unpauseErr).Msg("Failed to unpause DB reconciliation")
 			err = errors.Join(err, unpauseErr)
 		}
 	}()
 
 	pxcRestoreName := "data-import-" + dbName
-	defer func() {
-		if err := cleanup(ctx, k8sClient, namespace, pxcRestoreName); err != nil {
+
+	defer func() { //nolint:contextcheck
+		// We use a new context for cleanup since the original context may be canceled or timed out,
+		// for e.g., if the DB is deleted before the import can complete.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*30) //nolint:mnd
+		defer cancel()
+
+		if err := cleanup(cleanupCtx, k8sClient, namespace, pxcRestoreName); err != nil {
 			log.Error().Err(err).Msgf("Failed to clean up after PXC import for database %s", dbName)
 		}
 	}()
