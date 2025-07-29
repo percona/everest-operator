@@ -28,6 +28,7 @@ func main() {
 	// and clean up any resources it has created.
 	// Note that this works only because the Job starts the importer process as PID 1.
 	pCtx := context.Background()
+
 	ctx, stop := signal.NotifyContext(pCtx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 

@@ -130,16 +130,6 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	}
 }
 
-func (r *DatabaseClusterReconciler) deleteSecret(ctx context.Context, secretName, namespace string) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-	}
-	return client.IgnoreNotFound(r.Client.Delete(ctx, secret))
-}
-
 //nolint:nonamedreturns,gocognit
 func (r *DatabaseClusterReconciler) reconcileDB(
 	ctx context.Context,
@@ -885,11 +875,7 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	} else {
 		objs := make([]client.Object, len(bsList.Items))
 		for i, item := range bsList.Items {
-			// With the move to go 1.22 it's safe to reuse the same variable,
-			// see https://go.dev/blog/loopvar-preview. However, exportloopref
-			// linter doesn't like it. Let's disable them for this line until
-			// they are updated to support go 1.22.
-			objs[i] = &item //nolint:exportloopref
+			objs[i] = &item
 		}
 		return r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, objs, backupStorageNameField)
 	}
@@ -901,11 +887,7 @@ func (r *DatabaseClusterReconciler) databaseClustersThatReferenceSecret(ctx cont
 	} else {
 		objs := make([]client.Object, len(mcList.Items))
 		for i, item := range mcList.Items {
-			// With the move to go 1.22 it's safe to reuse the same variable,
-			// see https://go.dev/blog/loopvar-preview. However, exportloopref
-			// linter doesn't like it. Let's disable them for this line until
-			// they are updated to support go 1.22.
-			objs[i] = &item //nolint:exportloopref
+			objs[i] = &item
 		}
 		return r.getDBClustersReconcileRequestsByRelatedObjectName(ctx, objs, monitoringConfigNameField)
 	}
@@ -1016,6 +998,17 @@ func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error
 		}
 	}
 	return nil
+}
+
+func (r *DatabaseClusterReconciler) deleteSecret(ctx context.Context, secretName, namespace string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+
+	return client.IgnoreNotFound(r.Delete(ctx, secret))
 }
 
 func newPXCRestoreWatchSource(cache cache.Cache) source.Source { //nolint:ireturn

@@ -142,10 +142,12 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 			logger.Error(err, "Failed to handle finalizers")
 			return ctrl.Result{}, err
 		}
+
 		result := ctrl.Result{}
 		if !ok {
 			result.RequeueAfter = 5 * time.Second //nolint:mnd
 		}
+
 		return result, nil
 	}
 
@@ -212,6 +214,7 @@ func (r *DataImportJobReconciler) Reconcile( //nolint:nonamedreturns
 			diJob.Status.Message = fmt.Errorf("failed to ensure RBAC resources: %w", err).Error()
 			return ctrl.Result{}, err
 		}
+
 		if controllerutil.AddFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 			if err := r.Client.Update(ctx, diJob); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to add finalizer to data import job: %w", err)
@@ -556,6 +559,7 @@ func (r *DataImportJobReconciler) ensureRBACResources(
 			return fmt.Errorf("failed to ensure role binding: %w", err)
 		}
 	}
+
 	if len(clusterPermissions) > 0 {
 		if err := r.ensureClusterRole(ctx, clusterPermissions, diJob); err != nil {
 			return fmt.Errorf("failed to ensure cluster role: %w", err)
@@ -575,6 +579,7 @@ func (r *DataImportJobReconciler) handleFinalizers(
 	if controllerutil.ContainsFinalizer(diJob, consts.DataImportJobRBACCleanupFinalizer) {
 		return r.deleteResourcesInOrder(ctx, diJob)
 	}
+
 	return true, nil
 }
 
@@ -584,6 +589,7 @@ func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv
 	if jobName == "" {
 		return true, nil
 	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
@@ -598,12 +604,14 @@ func (r *DataImportJobReconciler) deleteJob(ctx context.Context, diJob *everestv
 	}
 	// Ensure Pods have terminated before proceeding.
 	const jobNameLabel = "job-name"
+
 	pods := &corev1.PodList{}
 	if err := r.Client.List(ctx, pods, client.InNamespace(diJob.GetNamespace()), client.MatchingLabels{
 		jobNameLabel: jobName,
 	}); err != nil {
 		return false, fmt.Errorf("failed to list pods for job %s: %w", jobName, err)
 	}
+
 	return len(pods.Items) == 0, nil // if no pods are running, we can proceed with RBAC cleanup.
 }
 
@@ -642,6 +650,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 		},
 	}
 	allGone := true
+
 	for _, res := range resources {
 		err := r.Client.Delete(ctx, res)
 		if err == nil {
@@ -650,6 +659,7 @@ func (r *DataImportJobReconciler) deleteRBAC(ctx context.Context, diJob *everest
 			return false, fmt.Errorf("failed to delete resource %s: %w", res.GetName(), err)
 		}
 	}
+
 	return allGone, nil
 }
 
@@ -659,6 +669,7 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 	if err != nil {
 		return false, fmt.Errorf("failed to delete job: %w", err)
 	}
+
 	if !ok {
 		return false, nil // do not proceed with RBAC cleanup if job deletion is not done
 	}
@@ -667,6 +678,7 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 	if err != nil {
 		return false, fmt.Errorf("failed to delete RBAC resources: %w", err)
 	}
+
 	if !ok {
 		return false, nil
 	}
@@ -675,6 +687,7 @@ func (r *DataImportJobReconciler) deleteResourcesInOrder(ctx context.Context, di
 			return false, fmt.Errorf("failed to remove ordered cleanup finalizer: %w", err)
 		}
 	}
+
 	return true, nil
 }
 
