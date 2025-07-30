@@ -109,7 +109,7 @@ init: cleanup-localbin  ## Install development tools
 	$(MAKE) opm
 
 .PHONY: format
-format:
+format: ## Format code.
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
@@ -174,12 +174,12 @@ k3d-cluster-down: ## Create a K8S cluster for testing
 	rm -f ./tests/kubeconfig || true
 
 .PHONY: k3d-upload-image
-k3d-upload-image:
+k3d-upload-image: ## Upload the everest-operator image to the k3d cluster
 	k3d image import -c everest-operator-test -m direct $(IMG)
 
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
-cluster-cleanup:
+cluster-cleanup: ## Cleanup all resources created by the tests from the K8S cluster
 	./scripts/cluster-cleanup.sh
 
 ##@ Build

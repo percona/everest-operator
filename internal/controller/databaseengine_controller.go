@@ -59,6 +59,7 @@ var errInstallPlanNotFound = errors.New("install plan not found")
 
 var operatorEngine = map[string]everestv1alpha1.EngineType{
 	consts.PXCDeploymentName:   everestv1alpha1.DatabaseEnginePXC,
+	consts.PSDeploymentName:    everestv1alpha1.DatabaseEnginePS,
 	consts.PSMDBDeploymentName: everestv1alpha1.DatabaseEnginePSMDB,
 	consts.PGDeploymentName:    everestv1alpha1.DatabaseEnginePostgresql,
 }
@@ -78,13 +79,13 @@ type DatabaseController interface {
 	ReconcileWatchers(ctx context.Context) error
 }
 
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
-//+kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=pods,verbs=delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=everest.percona.com,resources=databaseengines/finalizers,verbs=update
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -155,7 +156,8 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		Backup: matrix.Backup,
 	}
 
-	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePXC {
+	switch dbEngine.Spec.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
 		for key := range matrix.PXC {
 			// We do not need supporting mysql 5
 			if strings.HasPrefix(key, "5") {
@@ -170,19 +172,27 @@ func (r *DatabaseEngineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		versions.Tools = map[string]everestv1alpha1.ComponentsMap{
 			"logCollector": matrix.LogCollector,
 		}
-	}
-
-	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePSMDB {
+	case everestv1alpha1.DatabaseEnginePS:
+		versions.Engine = matrix.MYSQL
+		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
+			everestv1alpha1.ProxyTypeHAProxy: matrix.HAProxy,
+		}
+		versions.Tools = map[string]everestv1alpha1.ComponentsMap{
+			"pmm":          matrix.PMM,
+			"router":       matrix.Router,
+			"toolkit":      matrix.Toolkit,
+			"orchestrator": matrix.Orchestrator,
+		}
+	case everestv1alpha1.DatabaseEnginePSMDB:
 		versions.Engine = matrix.Mongod
-	}
-
-	if dbEngine.Spec.Type == everestv1alpha1.DatabaseEnginePostgresql {
+	case everestv1alpha1.DatabaseEnginePostgresql:
 		versions.Engine = matrix.Postgresql
 		versions.Backup = matrix.PGBackRest
 		versions.Proxy = map[everestv1alpha1.ProxyType]everestv1alpha1.ComponentsMap{
 			everestv1alpha1.ProxyTypePGBouncer: matrix.PGBouncer,
 		}
 	}
+
 	dbEngine.Status.AvailableVersions = versions
 
 	if err := r.Status().Update(ctx, dbEngine); err != nil {
@@ -416,7 +426,7 @@ func (r *DatabaseEngineReconciler) listPendingOperatorUpgrades(
 	}
 
 	installPlanRefs := getInstallPlanRefsForUpgrade(dbEngine, subscription, installPlans)
-	result := []everestv1alpha1.OperatorUpgrade{}
+	var result []everestv1alpha1.OperatorUpgrade
 	for v, ipName := range installPlanRefs {
 		result = append(result, everestv1alpha1.OperatorUpgrade{
 			TargetVersion:  v,
@@ -444,7 +454,7 @@ func (r *DatabaseEngineReconciler) getOperatorStatus(ctx context.Context, name t
 }
 
 func (r *DatabaseEngineReconciler) ensureDBEnginesInNamespaces(ctx context.Context, namespaces []string) ([]reconcile.Request, error) {
-	requests := []reconcile.Request{}
+	var requests []reconcile.Request
 	for _, ns := range namespaces {
 		for operatorName, engineType := range operatorEngine {
 			dbEngine := &everestv1alpha1.DatabaseEngine{
@@ -563,7 +573,7 @@ func getDatabaseEngineRequestsFromCSV(_ context.Context, o client.Object) []reco
 // getDatabaseEngineRequestsFromInstallPlan returns a list of reconcile.Request for each possible
 // databaseengine referenced by an InstallPlan.
 func getDatabaseEngineRequestsFromInstallPlan(_ context.Context, o client.Object) []reconcile.Request {
-	result := []reconcile.Request{}
+	var result []reconcile.Request
 	installPlan, ok := o.(*opfwv1alpha1.InstallPlan)
 	if !ok {
 		return result

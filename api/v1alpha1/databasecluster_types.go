@@ -69,6 +69,8 @@ const (
 	ProxyTypeMongos ProxyType = "mongos"
 	// ProxyTypeHAProxy is a HAProxy proxy type.
 	ProxyTypeHAProxy ProxyType = "haproxy"
+	// ProxyTypeRouter is a Router proxy type for Percona Server for MySQL.
+	ProxyTypeRouter ProxyType = "router"
 	// ProxyTypeProxySQL is a ProxySQL proxy type.
 	ProxyTypeProxySQL ProxyType = "proxysql"
 	// ProxyTypePGBouncer is a PGBouncer proxy type.
@@ -156,7 +158,7 @@ type Resources struct {
 // Engine is the engine configuration.
 type Engine struct {
 	// Type is the engine type
-	// +kubebuilder:validation:Enum:=pxc;postgresql;psmdb
+	// +kubebuilder:validation:Enum:=pxc;ps;postgresql;psmdb
 	Type EngineType `json:"type"`
 	// Version is the engine version
 	Version string `json:"version,omitempty"`

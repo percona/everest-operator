@@ -35,12 +35,17 @@ type (
 		Backup       map[string]*everestv1alpha1.Component `json:"backup"`
 		Mongod       map[string]*everestv1alpha1.Component `json:"mongod"`
 		PXC          map[string]*everestv1alpha1.Component `json:"pxc"`
+		MYSQL        map[string]*everestv1alpha1.Component `json:"mysql"`
 		ProxySQL     map[string]*everestv1alpha1.Component `json:"proxysql"`
 		HAProxy      map[string]*everestv1alpha1.Component `json:"haproxy"`
 		LogCollector map[string]*everestv1alpha1.Component `json:"logCollector"`
 		Postgresql   map[string]*everestv1alpha1.Component `json:"postgresql"`
 		PGBackRest   map[string]*everestv1alpha1.Component `json:"pgbackrest"`
 		PGBouncer    map[string]*everestv1alpha1.Component `json:"pgbouncer"`
+		PMM          map[string]*everestv1alpha1.Component `json:"pmm"`
+		Router       map[string]*everestv1alpha1.Component `json:"router"`
+		Orchestrator map[string]*everestv1alpha1.Component `json:"orchestrator"`
+		Toolkit      map[string]*everestv1alpha1.Component `json:"toolkit"`
 	}
 	// Response is a response model for version service response parsing.
 	Response struct {
@@ -57,6 +62,7 @@ const (
 
 var operatorNames = map[everestv1alpha1.EngineType]string{
 	everestv1alpha1.DatabaseEnginePXC:        "pxc-operator",
+	everestv1alpha1.DatabaseEnginePS:         "ps-operator",
 	everestv1alpha1.DatabaseEnginePSMDB:      "psmdb-operator",
 	everestv1alpha1.DatabaseEnginePostgresql: "pg-operator",
 }
