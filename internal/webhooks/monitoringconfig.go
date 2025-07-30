@@ -75,15 +75,18 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 	if !ok {
 		return fmt.Errorf("expected a MonitoringConfig, got %T", obj)
 	}
+
 	if !m.DeletionTimestamp.IsZero() {
 		return nil
 	}
+
 	secretName := m.Spec.CredentialsSecretName
 	if secretName == "" {
 		return errors.New("missing secret name")
 	}
 	// ensure that the secret exists.
 	secret := corev1.Secret{}
+
 	if err := v.Client.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: m.GetNamespace(),
@@ -114,17 +117,20 @@ func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
 	if err != nil {
 		return err
 	}
+
 	req.Close = true
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	httpClient := newHTTPClient(insecure)
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer resp.Body.Close() //nolint:errcheck
+
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -137,9 +143,11 @@ func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
 		return errors.New("authorization failed, please provide the correct credentials")
 	default:
 		var pmmErr *pmmErrorMessage
+
 		if err := json.Unmarshal(data, &pmmErr); err != nil {
 			return errors.Join(err, fmt.Errorf("PMM returned an unknown error. HTTP status code %d", resp.StatusCode))
 		}
+
 		return fmt.Errorf("PMM returned an error with message: %s", pmmErr.Message)
 	}
 }
@@ -151,6 +159,7 @@ func newHTTPClient(insecure bool) *http.Client {
 			InsecureSkipVerify: insecure, //nolint:gosec
 		},
 	}
+
 	return client
 }
 
