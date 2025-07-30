@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-07-22T11:46:25Z"
+    createdAt: "2025-07-30T09:47:42Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -300,6 +300,20 @@ spec:
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - ps.percona.com
+          resources:
+          - perconaservermysqlbackups
+          - perconaservermysqlrestores
+          - perconaservermysqls
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - psmdb.percona.com

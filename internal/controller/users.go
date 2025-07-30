@@ -19,6 +19,7 @@ import everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 
 var userSecretKeys = map[everestv1alpha1.EngineType][]everestv1alpha1.SecretKey{
 	everestv1alpha1.DatabaseEnginePXC:   pxcUserKeys,
+	everestv1alpha1.DatabaseEnginePS:    psUserKeys,
 	everestv1alpha1.DatabaseEnginePSMDB: psmdbUserKeys,
 
 	// not supported until K8SPG-570 is fixed.
@@ -51,6 +52,40 @@ var (
 		{
 			Name:        "replication",
 			Description: "Password for the replication user",
+		},
+	}
+	psUserKeys = []everestv1alpha1.SecretKey{
+		{
+			Name:        "monitor",
+			Description: "Password for monitoring user",
+		},
+		{
+			Name:        "root",
+			Description: "Password for root user",
+		},
+		{
+			Name:        "orchestrator",
+			Description: "Password for Orchestrator admin user",
+		},
+		{
+			Name:        "xtrabackup",
+			Description: "Password for backup user",
+		},
+		{
+			Name:        "operator",
+			Description: "Password for the operator user",
+		},
+		{
+			Name:        "replication",
+			Description: "Password for the replication user",
+		},
+		{
+			Name:        "heartbeat",
+			Description: "Password for the heartbeat checks user",
+		},
+		{
+			Name:        "pmmserverkey",
+			Description: "PMM key",
 		},
 	}
 	psmdbUserKeys = []everestv1alpha1.SecretKey{

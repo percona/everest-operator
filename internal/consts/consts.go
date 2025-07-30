@@ -40,6 +40,8 @@ const (
 
 	// PXCDeploymentName is the name of the Percona XtraDB Cluster operator deployment.
 	PXCDeploymentName = "percona-xtradb-cluster-operator"
+	// PSDeploymentName is the name of the Percona Server for MySQL operator deployment.
+	PSDeploymentName = "percona-server-mysql-operator"
 	// PSMDBDeploymentName is the name of the Percona Server for MongoDB operator deployment.
 	PSMDBDeploymentName = "percona-server-mongodb-operator"
 	// PGDeploymentName is the name of the Percona PostgreSQL operator deployment.
@@ -47,6 +49,8 @@ const (
 
 	// PXCAPIGroup is the API group for Percona XtraDB Cluster.
 	PXCAPIGroup = "pxc.percona.com"
+	// PSAPIGroup is the API group for Percona Server for MySQL Cluster.
+	PSAPIGroup = "ps.percona.com"
 	// PSMDBAPIGroup is the API group for Percona Server for MongoDB.
 	PSMDBAPIGroup = "psmdb.percona.com"
 	// PGAPIGroup is the API group for Percona PostgreSQL.
@@ -54,6 +58,8 @@ const (
 
 	// PerconaXtraDBClusterKind is the kind for Percona XtraDB Cluster.
 	PerconaXtraDBClusterKind = "PerconaXtraDBCluster"
+	// PerconaServerMySQLKind is the kind for Percona Server for MySQL Cluster.
+	PerconaServerMySQLKind = "PerconaServerMySQL"
 	// PerconaServerMongoDBKind is the kind for Percona Server for MongoDB.
 	PerconaServerMongoDBKind = "PerconaServerMongoDB"
 	// PerconaPGClusterKind is the kind for Percona PostgreSQL.
