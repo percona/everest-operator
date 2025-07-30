@@ -52,6 +52,7 @@ replacements:
       name: validating-webhook-configuration
     fieldPaths:
     - webhooks.[name=vdatabasecluster-v1alpha1.everest.percona.com].clientConfig.caBundle
+    - webhooks.[name=vmonitoringconfig-v1alpha1.everest.percona.com].clientConfig.caBundle
     options:
       create: true
   - select:
