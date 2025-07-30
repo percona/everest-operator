@@ -10,8 +10,6 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
-commands:
-  - command: kubectl wait --for=jsonpath='{.spec.source.s3.endpointURL}'='https://minio.${NAMESPACE}.svc' dataimportjob/data-import-test-psmdb-cluster -n ${NAMESPACE}
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DataImportJob
@@ -30,6 +28,7 @@ spec:
   source:
     path: "/psmdb/2025-07-14T10:52:52Z"
     s3:
+      endpointURL: "https://minio.minio.svc"
       bucket: everest-operator
       credentialsSecretName: test-s3-secret
       forcePathStyle: true

@@ -114,10 +114,10 @@ format: ## Format code.
 	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
-.PHONY: check
-check: ## Check code quality.
-	LOG_LEVEL=error go tool golangci-lint run
-	go tool go-sumtype ./...
+.PHONY: static-check
+static-check:
+	go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(shell git merge-base main HEAD) --fix
+	go tool license-eye -c .licenserc.yaml header fix
 
 .PHONY: test
 test: $(LOCALBIN) manifests generate format envtest ## Run tests.
@@ -131,7 +131,7 @@ test-integration-core: docker-build k3d-upload-image ## Run integration/core tes
 test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
 
-.PHONY: test-integration-db-upgrade
+.PHONY: test-integration-operator-upgrade
 test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
 
@@ -180,36 +180,7 @@ k3d-upload-image: ## Upload the everest-operator image to the k3d cluster
 # Cleanup all resources created by the tests
 .PHONY: cluster-cleanup
 cluster-cleanup: ## Cleanup all resources created by the tests from the K8S cluster
-	kubectl delete db --all-namespaces --all --cascade=foreground --ignore-not-found=true || true
-	@namespaces=$$(kubectl get pxc -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pxc -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get psmdb -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get psmdb -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get pg -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get pg -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns get db -o name | xargs --no-run-if-empty -I{} kubectl patch -n $$ns {} -p '{"metadata":{"finalizers":null}}' --type=merge; \
-	done
-	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
-	for ns in $$namespaces; do \
-		kubectl -n $$ns delete -f ./tests/testdata/minio --ignore-not-found || true; \
-	done
-	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
-	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
-	kubectl get ns -o name | grep kuttl | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete ns operators olm --ignore-not-found=true --wait=false || true
-	sleep 10
-	kubectl delete apiservice v1.packages.operators.coreos.com --ignore-not-found=true || true
-	kubectl get crd -o name | grep .coreos.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl get crd -o name | grep .percona.com$ | xargs --no-run-if-empty kubectl delete || true
-	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com --ignore-not-found=true || true
+	./scripts/cluster-cleanup.sh
 
 ##@ Build
 

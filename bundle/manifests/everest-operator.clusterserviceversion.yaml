@@ -539,7 +539,7 @@ spec:
   - admissionReviewVersions:
     - v1
     containerPort: 443
-    deploymentName: everest-operator-webhook
+    deploymentName: everest-operator-controller-manager
     failurePolicy: Fail
     generateName: mdatabasecluster-v1alpha1.everest.percona.com
     rules:
@@ -559,7 +559,7 @@ spec:
   - admissionReviewVersions:
     - v1
     containerPort: 443
-    deploymentName: everest-operator-webhook
+    deploymentName: everest-operator-controller-manager
     failurePolicy: Fail
     generateName: mdataimportjobs-v1akpha1.everest.percona.com
     rules:
@@ -579,7 +579,7 @@ spec:
   - admissionReviewVersions:
     - v1
     containerPort: 443
-    deploymentName: everest-operator-webhook
+    deploymentName: everest-operator-controller-manager
     failurePolicy: Fail
     generateName: vdatabasecluster-v1alpha1.everest.percona.com
     rules:
