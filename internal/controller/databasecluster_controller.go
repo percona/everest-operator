@@ -457,36 +457,42 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
 	}
 
+	sourceDB := &everestv1alpha1.DatabaseCluster{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      dbb.Spec.DBClusterName,
+		Namespace: db.GetNamespace(),
+	}, sourceDB)
+	if err != nil {
+		return errors.Join(err, errors.New("could not get source DB cluster to copy credentials from"))
+	}
+
+	prevSecretName := sourceDB.Spec.Engine.UserSecretsName
+	prevSecret := &corev1.Secret{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      prevSecretName,
+		Namespace: db.GetNamespace(),
+	}, prevSecret)
+	if err != nil {
+		return errors.Join(err, errors.New("could not get secret to copy credentials from source DB cluster"))
+	}
+
 	newSecretName := consts.EverestSecretsPrefix + db.Name
 	newSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      newSecretName,
 		Namespace: db.Namespace,
 	}, newSecret)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if client.IgnoreNotFound(err) != nil {
 		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
-	}
-
-	if err == nil {
+	} else if err == nil {
 		logger.Info(fmt.Sprintf("Secret %s already exists. Skipping secret copy during provisioning", newSecretName))
 		return nil
 	}
 
-	prevSecretName := consts.EverestSecretsPrefix + dbb.Spec.DBClusterName
-	secret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      prevSecretName,
-		Namespace: db.Namespace,
-	}, secret)
-	if err != nil {
-		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
-	}
+	// copy data from previous secret
+	newSecret.Data = prevSecret.Data
 
-	secret.ObjectMeta = metav1.ObjectMeta{
-		Name:      newSecretName,
-		Namespace: secret.Namespace,
-	}
-	if err := common.CreateOrUpdate(ctx, r.Client, secret, false); err != nil {
+	if err := r.Create(ctx, newSecret); err != nil {
 		return errors.Join(err, errors.New("could not create new secret to copy credentials from old DB cluster"))
 	}
 
