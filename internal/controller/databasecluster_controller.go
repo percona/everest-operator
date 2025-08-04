@@ -437,8 +437,11 @@ func (r *DatabaseClusterReconciler) handleRestart(
 
 // copyCredentialsFromDBBackup copies credentials from an old DB to the new DB about to be
 // provisioned by providing a DB Backup name of the old DB.
+// The provided db must contain a non-empty value in .spec.engine.userSecretsName field.
 func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
-	ctx context.Context, dbBackupName string, db *everestv1alpha1.DatabaseCluster,
+	ctx context.Context,
+	dbBackupName string,
+	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -467,22 +470,24 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 	}
 
 	prevSecretName := sourceDB.Spec.Engine.UserSecretsName
-	prevSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      prevSecretName,
-		Namespace: db.GetNamespace(),
-	}, prevSecret)
-	if err != nil {
+	prevSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prevSecretName,
+			Namespace: db.GetNamespace(),
+		},
+	}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(prevSecret), prevSecret); err != nil {
 		return errors.Join(err, errors.New("could not get secret to copy credentials from source DB cluster"))
 	}
 
-	newSecretName := consts.EverestSecretsPrefix + db.Name
-	newSecret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      newSecretName,
-		Namespace: db.Namespace,
-	}, newSecret)
-	if client.IgnoreNotFound(err) != nil {
+	newSecretName := db.Spec.Engine.UserSecretsName
+	newSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      newSecretName,
+			Namespace: db.GetNamespace(),
+		},
+	}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(newSecret), newSecret); client.IgnoreNotFound(err) != nil {
 		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
 	} else if err == nil {
 		logger.Info(fmt.Sprintf("Secret %s already exists. Skipping secret copy during provisioning", newSecretName))
@@ -491,13 +496,10 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 
 	// copy data from previous secret
 	newSecret.Data = prevSecret.Data
-
 	if err := r.Create(ctx, newSecret); err != nil {
 		return errors.Join(err, errors.New("could not create new secret to copy credentials from old DB cluster"))
 	}
-
 	logger.Info(fmt.Sprintf("Copied secret %s to %s", prevSecretName, newSecretName))
-
 	return nil
 }
 
