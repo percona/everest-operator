@@ -470,6 +470,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 	}
 
 	prevSecretName := sourceDB.Spec.Engine.UserSecretsName
+
 	prevSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      prevSecretName,
@@ -481,6 +482,7 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 	}
 
 	newSecretName := db.Spec.Engine.UserSecretsName
+
 	newSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      newSecretName,
