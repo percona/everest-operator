@@ -65,6 +65,7 @@ const (
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
+	loadBalancerConfigNameField     = ".spec.proxy.expose.loadBalancerConfigName"
 
 	defaultRequeueAfter = 5 * time.Second
 )

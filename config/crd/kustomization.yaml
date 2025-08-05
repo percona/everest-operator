@@ -11,6 +11,7 @@ resources:
 - bases/everest.percona.com_dataimportjobs.yaml
 - bases/everest.percona.com_dataimporters.yaml
 - bases/everest.percona.com_podschedulingpolicies.yaml
+- bases/everest.percona.com_loadbalancerconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
