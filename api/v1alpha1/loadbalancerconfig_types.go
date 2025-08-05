@@ -22,7 +22,6 @@ import (
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig.
 type LoadBalancerConfigSpec struct {
 	// Annotations key-value pairs to apply as annotations to the load balancer
-	// +kubebuilder:validation:XValidation:message="Invalid annotation key: must conform to DNS subdomain (e.g., 'example.com/key') or start with 'kubernetes.io/' or 'k8s.io/'", rule="self.all(key, key.matches('^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-z0-9]([-a-z0-9]*[a-z0-9])?$') || key.startsWith('kubernetes.io/') || key.startsWith('k8s.io/'))"
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
