@@ -1,0 +1,28 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get lbc/lbc-custom -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: LoadBalancerConfig
+    name: lbc-custom
+    ref: lbc
+assertAll:
+  - celExpr: "!has(lbc.metadata.finalizers)"
+    message: "lbc has unexpected finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom
+spec:
+  annotations:
+    some-annotation.com/annotation-key: "some-value"
+status:
+  inUse: false
