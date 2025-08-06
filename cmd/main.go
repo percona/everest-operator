@@ -351,6 +351,11 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "MonitoringConfig")
 			os.Exit(1)
 		}
+
+		if err := webhooks.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
