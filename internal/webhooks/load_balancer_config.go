@@ -100,9 +100,9 @@ func toAggregateFieldErrors(errs []error) fielderrors.ErrorList {
 	fieldErrList := fielderrors.ErrorList{}
 	for _, err := range errs {
 		fieldErrList = append(fieldErrList, &fielderrors.Error{
-			Type:   fielderrors.ErrorTypeInvalid,
-			Field:  "spec.annotations",
-			Detail: err.Error(),
+			Type:     fielderrors.ErrorTypeInvalid,
+			Field:    "spec.annotations",
+			BadValue: err.Error(),
 		})
 	}
 	return fieldErrList
