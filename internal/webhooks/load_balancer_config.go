@@ -14,6 +14,8 @@
 // limitations under the License.
 
 // Package webhooks ...
+//
+//nolint:lll
 package webhooks
 
 import (
@@ -65,7 +67,7 @@ func (v *LoadBalancerConfigValidator) ValidateDelete(_ context.Context, _ runtim
 	return nil, nil
 }
 
-var annotationKeyRegex = regexp.MustCompile(`^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?/)?([a-z0-9](?:[a-z0-9_.-]{0,61}[a-z0-9])?)$`)
+var annotationKeyRegex = regexp.MustCompile(`^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?/)?([a-z0-9](?:[a-z0-9_.-]{0,61}[a-z0-9])?)$`) //nolint:lll
 
 func (v *LoadBalancerConfigValidator) validateLoadBalancerConfig(_ context.Context, obj runtime.Object) error {
 	lbc, ok := obj.(*everestv1alpha1.LoadBalancerConfig)
@@ -105,5 +107,6 @@ func toAggregateFieldErrors(errs []error) fielderrors.ErrorList {
 			BadValue: err.Error(),
 		})
 	}
+
 	return fieldErrList
 }

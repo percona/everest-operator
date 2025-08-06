@@ -34,6 +34,7 @@ import (
 // LoadBalancerConfigReconciler reconciles a LoadBalancerConfig object.
 type LoadBalancerConfigReconciler struct {
 	client.Client
+
 	Scheme *runtime.Scheme
 }
 
@@ -52,6 +53,7 @@ type LoadBalancerConfigReconciler struct {
 func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling")
+
 	defer func() {
 		logger.Info("Reconciled")
 	}()
