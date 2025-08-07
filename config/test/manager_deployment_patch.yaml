@@ -30,5 +30,5 @@
 - op: add
   path: /spec/template/spec/containers/0/env/-
   value:
-    name: DEBUG
-    value: "1"
+    name: DEPLOY_TYPE
+    value: "dev"

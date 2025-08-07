@@ -109,8 +109,8 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 }
 
 func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
-	debug := os.Getenv("DEBUG")
-	if debug == "1" {
+	debug := os.Getenv("DEPLOY_TYPE")
+	if debug == "dev" {
 		return nil
 	}
 	req, err := http.NewRequestWithContext(
