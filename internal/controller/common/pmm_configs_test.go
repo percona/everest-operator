@@ -32,10 +32,12 @@ func TestGetPMMResources(t *testing.T) {
 		memory string
 		cpu    string
 	}
+
 	type resourceString struct {
 		requests res
 		limits   res
 	}
+
 	tests := []struct {
 		name           string
 		monitoringSpec v1alpha1.Monitoring
@@ -175,17 +177,22 @@ func TestGetPMMResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			calculatedResources := GetPMMResources(tt.monitoringSpec, tt.dbEnginSize)
 			assert.Equal(t, tt.want, calculatedResources)
+
 			if tt.wantString.requests.memory != "" {
 				assert.Equal(t, tt.wantString.requests.memory, calculatedResources.Requests.Memory().String())
 			}
+
 			if tt.wantString.requests.cpu != "" {
 				assert.Equal(t, tt.wantString.requests.cpu, calculatedResources.Requests.Cpu().String())
 			}
+
 			if tt.wantString.limits.memory != "" {
 				assert.Equal(t, tt.wantString.limits.memory, calculatedResources.Limits.Memory().String())
 			}
+
 			if tt.wantString.limits.cpu != "" {
 				assert.Equal(t, tt.wantString.limits.cpu, calculatedResources.Limits.Cpu().String())
 			}
