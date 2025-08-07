@@ -195,7 +195,8 @@ func TestGetPMMResources(t *testing.T) {
 
 			wantString: resourceString{
 			assert.Equal(t, tt.want, calculatedResources)
-			if tt.wantString.requests.memory != "" {
+
+					memory: "197Mi",
 				assert.Equal(t, tt.wantString.requests.memory, calculatedResources.Requests.Memory().String())
 			}
 			if tt.wantString.requests.cpu != "" {
