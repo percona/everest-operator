@@ -33,24 +33,27 @@ var (
 	// A pmmResourceRequirementsSmall is the resource requirements for PMM for small clusters.
 	pmmResourceRequirementsSmall = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("97.27Mi"),
-			corev1.ResourceCPU:    resource.MustParse("95m"),
+			// 97.27Mi = 97 MiB + 276 KiB = 99604 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(97*1024*1024+276*1024, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(95, resource.Milli),
 		},
 	}
 
 	// A pmmResourceRequirementsMedium is the resource requirements for PMM for medium clusters.
 	pmmResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("194.5Mi"),
-			corev1.ResourceCPU:    resource.MustParse("228m"),
+			// 194.5Mi = 194 MiB + 512 KiB = 199168 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(194*1024*1024+512*1024, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(228, resource.Milli),
 		},
 	}
 
 	// A pmmResourceRequirementsLarge is the resource requirements for PMM for large clusters.
 	pmmResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("778.23Mi"),
-			corev1.ResourceCPU:    resource.MustParse("228m"),
+			// 778.23Mi = 778 MiB + 235 KiB = 796907 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(778*1024*1024+235*1024, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(228, resource.Milli),
 		},
 	}
 )
