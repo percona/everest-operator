@@ -25,6 +25,12 @@ import (
 const (
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
+	// pmmClientRequestCPUSmall are the default CPU requests for PMM client in small clusters.
+	pmmClientRequestCPUSmall = 95
+	// pmmClientRequestCPUSmall are the default CPU requests for PMM client in medium clusters.
+	pmmClientRequestCPUMedium = 228
+	// pmmClientRequestCPUSmall are the default CPU requests for PMM client in large clusters.
+	pmmClientRequestCPULarge = 228
 )
 
 var (
@@ -35,7 +41,7 @@ var (
 		Requests: corev1.ResourceList{
 			// 97.27Mi = 97 MiB + 276 KiB = 99604 KiB
 			corev1.ResourceMemory: *resource.NewQuantity(97*1024*1024+276*1024, resource.BinarySI),
-			corev1.ResourceCPU:    *resource.NewScaledQuantity(95, resource.Milli),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUSmall, resource.Milli),
 		},
 	}
 
@@ -44,7 +50,7 @@ var (
 		Requests: corev1.ResourceList{
 			// 194.5Mi = 194 MiB + 512 KiB = 199168 KiB
 			corev1.ResourceMemory: *resource.NewQuantity(194*1024*1024+512*1024, resource.BinarySI),
-			corev1.ResourceCPU:    *resource.NewScaledQuantity(228, resource.Milli),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUMedium, resource.Milli),
 		},
 	}
 
@@ -53,7 +59,7 @@ var (
 		Requests: corev1.ResourceList{
 			// 778.23Mi = 778 MiB + 235 KiB = 796907 KiB
 			corev1.ResourceMemory: *resource.NewQuantity(778*1024*1024+235*1024, resource.BinarySI),
-			corev1.ResourceCPU:    *resource.NewScaledQuantity(228, resource.Milli),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPULarge, resource.Milli),
 		},
 	}
 )

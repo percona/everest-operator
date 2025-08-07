@@ -132,13 +132,20 @@ build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with 
 run: manifests generate format ## Run a controller from your host.
 	go run ./cmd/main.go
 
-# Create a local minikube cluster
 .PHONY: local-env-up
 minikube-cluster-up: ## Create a local minikube cluster
 	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal
 	minikube addons disable storage-provisioner
 	kubectl delete storageclass standard
 	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
+
+.PHONY: prepare-pr
+prepare-pr: ## Prepare the code for creating PR.
+	$(MAKE) manifests
+	$(MAKE) generate
+	$(MAKE) static-check
+	$(MAKE) format
+	$(MAKE) build
 
 ##@ Testing
 
