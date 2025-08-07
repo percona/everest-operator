@@ -113,6 +113,7 @@ func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
 	if debug == "dev" {
 		return nil
 	}
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
