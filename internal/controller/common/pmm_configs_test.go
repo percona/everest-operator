@@ -47,7 +47,8 @@ func TestGetPMMResources(t *testing.T) {
 		memory string
 		cpu    string
 	}
-	type resourceString struct {
+
+
 		requests res
 		limits   res
 	}
