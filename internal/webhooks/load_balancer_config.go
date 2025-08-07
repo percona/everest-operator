@@ -33,6 +33,25 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
+	"github.com/percona/everest-operator/internal/utils"
+)
+
+var (
+	// Default configs errors
+	errUpdateDefaultLBC = func(name string) error {
+		return fmt.Errorf("load balancer config with name='%s' is default and cannot be updated", name)
+	}
+	errDeleteDefaultLBC = func(name string) error {
+		return fmt.Errorf("load balancer config with name='%s' is default and cannot be deleted", name)
+	}
+	// Used config error
+	errDeleteInUseLBC = func(name string) error {
+		return fmt.Errorf("load balancer config with name='%s' is used by some DB cluster and cannot be deleted", name)
+	}
+
+	errUnexpectedObject = func(obj runtime.Object) error {
+		return fmt.Errorf("expected a LoadBalancerConfig, got %T", obj)
+	}
 )
 
 // SetupLoadBalancerConfigWebhookWithManager sets up the webhook with the manager.
@@ -54,25 +73,57 @@ type LoadBalancerConfigValidator struct {
 
 // ValidateCreate validates the creation of a DatabaseCluster.
 func (v *LoadBalancerConfigValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	return nil, v.validateLoadBalancerConfig(ctx, obj)
+	lbc, ok := obj.(*everestv1alpha1.LoadBalancerConfig)
+	if !ok {
+		return nil, errUnexpectedObject(obj)
+	}
+	return nil, v.validateLoadBalancerConfig(ctx, lbc)
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
-func (v *LoadBalancerConfigValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	return nil, v.validateLoadBalancerConfig(ctx, newObj)
+func (v *LoadBalancerConfigValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	oldLbc, ok := oldObj.(*everestv1alpha1.LoadBalancerConfig)
+	if !ok {
+		return nil, errUnexpectedObject(oldObj)
+	}
+	newLbc, ok := newObj.(*everestv1alpha1.LoadBalancerConfig)
+	if !ok {
+		return nil, errUnexpectedObject(newObj)
+	}
+
+	if utils.IsEverestReadOnlyObject(oldLbc) {
+		// default config update is not allowed
+		return nil, errUpdateDefaultLBC(newLbc.Name)
+	}
+
+	return nil, v.validateLoadBalancerConfig(ctx, newLbc)
 }
 
 // ValidateDelete validates the deletion of a DatabaseCluster.
-func (v *LoadBalancerConfigValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *LoadBalancerConfigValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	lbc, ok := obj.(*everestv1alpha1.LoadBalancerConfig)
+	if !ok {
+		return nil, errUnexpectedObject(obj)
+	}
+
+	if utils.IsEverestReadOnlyObject(lbc) {
+		// default config deletion is not allowed
+		return nil, errDeleteDefaultLBC(lbc.Name)
+	}
+
+	if utils.IsEverestObjectInUse(lbc) {
+		// config is used by some DB cluster
+		return nil, errDeleteInUseLBC(lbc.Name)
+	}
+
 	return nil, nil
 }
 
 var annotationKeyRegex = regexp.MustCompile(`^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?/)?([a-z0-9](?:[a-z0-9_.-]{0,61}[a-z0-9])?)$`) //nolint:lll
 
-func (v *LoadBalancerConfigValidator) validateLoadBalancerConfig(_ context.Context, obj runtime.Object) error {
-	lbc, ok := obj.(*everestv1alpha1.LoadBalancerConfig)
-	if !ok {
-		return fmt.Errorf("expected a LoadBalancerConfig, got %T", obj)
+func (v *LoadBalancerConfigValidator) validateLoadBalancerConfig(_ context.Context, lbc *everestv1alpha1.LoadBalancerConfig) error {
+	if err := utils.ValidateRFC1035(lbc.GetName(), "metadata.name"); err != nil {
+		return err
 	}
 
 	if !lbc.DeletionTimestamp.IsZero() {
