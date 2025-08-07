@@ -26,3 +26,9 @@
   value:
     name: PERCONA_VERSION_SERVICE_URL
     value: https://check-dev.percona.com/versions/v1
+# Add Debug flag
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: DEBUG
+    value: "1"
