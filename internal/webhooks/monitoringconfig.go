@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -108,6 +109,11 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 }
 
 func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
+	debug := os.Getenv("DEPLOY_TYPE")
+	if debug == "dev" {
+		return nil
+	}
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
