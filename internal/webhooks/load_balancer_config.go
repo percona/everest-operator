@@ -33,7 +33,7 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
-	"github.com/percona/everest-operator/internal/utils"
+	"github.com/percona/everest-operator/utils"
 )
 
 var (
