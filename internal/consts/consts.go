@@ -60,6 +60,8 @@ const (
 	PerconaPGClusterKind = "PerconaPGCluster"
 	// PerconaXtraDBClusterRestoreKind is the kind for Percona XtraDB Cluster restore.
 	PerconaXtraDBClusterRestoreKind = "PerconaXtraDBClusterRestore"
+	// LoadBalancerConfigKind is the kind for load balancer configs.
+	LoadBalancerConfigKind = "LoadBalancerConfig"
 
 	// ClusterTypeEKS represents the EKS cluster type.
 	ClusterTypeEKS ClusterType = "eks"

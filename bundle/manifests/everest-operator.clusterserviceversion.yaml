@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-07-29T10:45:34Z"
+    createdAt: "2025-08-06T07:51:38Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -119,6 +119,9 @@ spec:
       version: v1alpha1
     - kind: DataImportJob
       name: dataimportjobs.everest.percona.com
+      version: v1alpha1
+    - kind: LoadBalancerConfig
+      name: loadbalancerconfigs.everest.percona.com
       version: v1alpha1
     - description: MonitoringConfig is the Schema for the monitoringconfigs API.
       displayName: Monitoring Config
@@ -206,6 +209,7 @@ spec:
           - databaseclusters
           - databaseengines
           - dataimportjobs
+          - loadbalancerconfigs
           - monitoringconfigs
           - podschedulingpolicies
           verbs:
@@ -236,6 +240,7 @@ spec:
           - databaseclusters/status
           - databaseengines/status
           - dataimportjobs/status
+          - loadbalancerconfigs/status
           - monitoringconfigs/status
           - podschedulingpolicies/status
           verbs:
@@ -582,6 +587,26 @@ spec:
     targetPort: 9443
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-everest-percona-com-v1alpha1-databasecluster
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vloadbalancerconfig-v1alpha1.everest.percona.com
+    rules:
+    - apiGroups:
+      - everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - loadbalancerconfigs
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-everest-percona-com-v1alpha1-loadbalancerconfig
   - admissionReviewVersions:
     - v1
     containerPort: 443
