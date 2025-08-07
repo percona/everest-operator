@@ -52,7 +52,8 @@ func TestGetPMMResources(t *testing.T) {
 		requests res
 		limits   res
 	}
-	tests := []struct {
+
+
 		name           string
 		monitoringSpec v1alpha1.Monitoring
 		dbEnginSize    v1alpha1.EngineSize
