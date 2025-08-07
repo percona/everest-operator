@@ -192,7 +192,8 @@ func TestGetPMMResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			calculatedResources := GetPMMResources(tt.monitoringSpec, tt.dbEnginSize)
+
+			wantString: resourceString{
 			assert.Equal(t, tt.want, calculatedResources)
 			if tt.wantString.requests.memory != "" {
 				assert.Equal(t, tt.wantString.requests.memory, calculatedResources.Requests.Memory().String())
