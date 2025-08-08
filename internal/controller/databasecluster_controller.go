@@ -437,8 +437,11 @@ func (r *DatabaseClusterReconciler) handleRestart(
 
 // copyCredentialsFromDBBackup copies credentials from an old DB to the new DB about to be
 // provisioned by providing a DB Backup name of the old DB.
+// The provided db must contain a non-empty value in .spec.engine.userSecretsName field.
 func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
-	ctx context.Context, dbBackupName string, db *everestv1alpha1.DatabaseCluster,
+	ctx context.Context,
+	dbBackupName string,
+	db *everestv1alpha1.DatabaseCluster,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -457,41 +460,48 @@ func (r *DatabaseClusterReconciler) copyCredentialsFromDBBackup(
 		return errors.Join(err, errors.New("could not get DB backup to copy credentials from old DB cluster"))
 	}
 
-	newSecretName := consts.EverestSecretsPrefix + db.Name
-	newSecret := &corev1.Secret{}
+	sourceDB := &everestv1alpha1.DatabaseCluster{}
 	err = r.Get(ctx, types.NamespacedName{
-		Name:      newSecretName,
-		Namespace: db.Namespace,
-	}, newSecret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
+		Name:      dbb.Spec.DBClusterName,
+		Namespace: db.GetNamespace(),
+	}, sourceDB)
+	if err != nil {
+		return errors.Join(err, errors.New("could not get source DB cluster to copy credentials from"))
 	}
 
-	if err == nil {
+	prevSecretName := sourceDB.Spec.Engine.UserSecretsName
+
+	prevSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prevSecretName,
+			Namespace: db.GetNamespace(),
+		},
+	}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(prevSecret), prevSecret); err != nil {
+		return errors.Join(err, errors.New("could not get secret to copy credentials from source DB cluster"))
+	}
+
+	newSecretName := db.Spec.Engine.UserSecretsName
+
+	newSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      newSecretName,
+			Namespace: db.GetNamespace(),
+		},
+	}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(newSecret), newSecret); client.IgnoreNotFound(err) != nil {
+		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
+	} else if err == nil {
 		logger.Info(fmt.Sprintf("Secret %s already exists. Skipping secret copy during provisioning", newSecretName))
 		return nil
 	}
 
-	prevSecretName := consts.EverestSecretsPrefix + dbb.Spec.DBClusterName
-	secret := &corev1.Secret{}
-	err = r.Get(ctx, types.NamespacedName{
-		Name:      prevSecretName,
-		Namespace: db.Namespace,
-	}, secret)
-	if err != nil {
-		return errors.Join(err, errors.New("could not get secret to copy credentials from old DB cluster"))
-	}
-
-	secret.ObjectMeta = metav1.ObjectMeta{
-		Name:      newSecretName,
-		Namespace: secret.Namespace,
-	}
-	if err := common.CreateOrUpdate(ctx, r.Client, secret, false); err != nil {
+	// copy data from previous secret
+	newSecret.Data = prevSecret.Data
+	if err := r.Create(ctx, newSecret); err != nil {
 		return errors.Join(err, errors.New("could not create new secret to copy credentials from old DB cluster"))
 	}
-
 	logger.Info(fmt.Sprintf("Copied secret %s to %s", prevSecretName, newSecretName))
-
 	return nil
 }
 
