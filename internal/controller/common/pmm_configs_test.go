@@ -86,7 +86,7 @@ func TestGetPMMResources(t *testing.T) {
 			monitoringSpec: v1alpha1.Monitoring{
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: *resource.NewQuantity(97*1024*1024, resource.BinarySI),
+						corev1.ResourceMemory: *resource.NewQuantity(97*mebibyte, resource.BinarySI),
 						corev1.ResourceCPU:    *resource.NewScaledQuantity(95, resource.Milli),
 					},
 				},
@@ -94,7 +94,7 @@ func TestGetPMMResources(t *testing.T) {
 			dbEnginSize: v1alpha1.EngineSizeSmall,
 			want: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: *resource.NewQuantity(97*1024*1024, resource.BinarySI),
+					corev1.ResourceMemory: *resource.NewQuantity(97*mebibyte, resource.BinarySI),
 					corev1.ResourceCPU:    *resource.NewScaledQuantity(95, resource.Milli),
 				},
 			},
@@ -110,7 +110,7 @@ func TestGetPMMResources(t *testing.T) {
 			monitoringSpec: v1alpha1.Monitoring{
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: *resource.NewQuantity(197*1024*1024, resource.BinarySI),
+						corev1.ResourceMemory: *resource.NewQuantity(197*mebibyte, resource.BinarySI),
 						corev1.ResourceCPU:    *resource.NewScaledQuantity(195, resource.Milli),
 					},
 				},
@@ -118,11 +118,11 @@ func TestGetPMMResources(t *testing.T) {
 			dbEnginSize: v1alpha1.EngineSizeSmall,
 			want: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: *resource.NewQuantity(97*1024*1024+276*1024, resource.BinarySI),
+					corev1.ResourceMemory: *resource.NewQuantity(97*mebibyte+276*kibibyte, resource.BinarySI),
 					corev1.ResourceCPU:    *resource.NewScaledQuantity(95, resource.Milli),
 				},
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: *resource.NewQuantity(197*1024*1024, resource.BinarySI),
+					corev1.ResourceMemory: *resource.NewQuantity(197*mebibyte, resource.BinarySI),
 					corev1.ResourceCPU:    *resource.NewScaledQuantity(195, resource.Milli),
 				},
 			},
@@ -142,11 +142,11 @@ func TestGetPMMResources(t *testing.T) {
 			monitoringSpec: v1alpha1.Monitoring{
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: *resource.NewQuantity(197*1024*1024, resource.BinarySI),
+						corev1.ResourceMemory: *resource.NewQuantity(197*mebibyte, resource.BinarySI),
 						corev1.ResourceCPU:    *resource.NewScaledQuantity(195, resource.Milli),
 					},
 					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: *resource.NewQuantity(297*1024*1024, resource.BinarySI),
+						corev1.ResourceMemory: *resource.NewQuantity(297*mebibyte, resource.BinarySI),
 						corev1.ResourceCPU:    *resource.NewScaledQuantity(295, resource.Milli),
 					},
 				},
@@ -154,11 +154,11 @@ func TestGetPMMResources(t *testing.T) {
 			dbEnginSize: v1alpha1.EngineSizeSmall,
 			want: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceMemory: *resource.NewQuantity(197*1024*1024, resource.BinarySI),
+					corev1.ResourceMemory: *resource.NewQuantity(197*mebibyte, resource.BinarySI),
 					corev1.ResourceCPU:    *resource.NewScaledQuantity(195, resource.Milli),
 				},
 				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: *resource.NewQuantity(297*1024*1024, resource.BinarySI),
+					corev1.ResourceMemory: *resource.NewQuantity(297*mebibyte, resource.BinarySI),
 					corev1.ResourceCPU:    *resource.NewScaledQuantity(295, resource.Milli),
 				},
 			},
