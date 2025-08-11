@@ -639,6 +639,26 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// Index the loadBalancerConfig field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, loadBalancerConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			db, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+
+			if db.Spec.Proxy.Expose.LoadBalancerConfigName != "" {
+				res = append(res, db.Spec.Proxy.Expose.LoadBalancerConfigName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -791,6 +811,36 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(predicate.GenerationChangedPredicate{},
 			predicates.GetPodSchedulingPolicyPredicate()),
 		// defaultPredicate is not needed here since PodSchedulingPolicy doesn't belong to any namespace.
+	)
+	controller.Watches(
+		&everestv1alpha1.LoadBalancerConfig{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			lbc, ok := obj.(*everestv1alpha1.LoadBalancerConfig)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				loadBalancerConfigNameField, "", lbc.GetName())
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+			for i, item := range attachedDatabaseClusters.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+			}
+
+			return requests
+		}),
+		builder.WithPredicates(predicate.GenerationChangedPredicate{},
+			predicates.GetLoadBalancerConfigPredicate()),
+		// defaultPredicate is not needed here since LoadBalancerConfig doesn't belong to any namespace.
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
