@@ -64,7 +64,7 @@ func SetupLoadBalancerConfigWebhookWithManager(mgr manager.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-everest-percona-com-v1alpha1-loadbalancerconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=loadbalancerconfigs,verbs=create;update,versions=v1alpha1,name=vloadbalancerconfig-v1alpha1.everest.percona.com,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-everest-percona-com-v1alpha1-loadbalancerconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=loadbalancerconfigs,verbs=create;update;delete,versions=v1alpha1,name=vloadbalancerconfig-v1alpha1.everest.percona.com,admissionReviewVersions=v1
 
 // LoadBalancerConfigValidator validates the LoadBalancerConfig resource.
 type LoadBalancerConfigValidator struct {
