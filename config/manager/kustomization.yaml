@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: docker.io/perconalab/everest-operator
-  newTag: 1.8.1-rc1
+  newTag: 1.8.1-rc2
