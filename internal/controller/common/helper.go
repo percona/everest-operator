@@ -642,7 +642,7 @@ func GetAnnotations(
 	if lbc == nil {
 		return map[string]string{}, nil
 	}
-	return lbc.Annotations, nil
+	return lbc.Spec.Annotations, nil
 }
 
 // GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
