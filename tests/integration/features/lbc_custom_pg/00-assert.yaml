@@ -1,0 +1,42 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get lbc/lbc-custom-pg -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: LoadBanacerConfig
+    name: lbc-custom-pg
+    ref: lbc
+assertAll:
+  - celExpr: "!has(lbc.metadata.finalizers)"
+    message: "lbc has unexpected finalizers"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-postgresql-operator
+spec:
+  replicas: 0
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-postgresql-operator
+spec:
+  type: postgresql
+status:
+  status: installed
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom-pg
+spec:
+  annotations:
+    annot-1: "value-1"

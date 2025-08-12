@@ -1,0 +1,61 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get lbc/lbc-custom-pg -o yaml
+  - command: kubectl -n $NAMESPACE get db/pg-lbc -o yaml
+  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-lbc -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: lbc-custom-pg
+    ref: lbc
+  - apiVersion: pgv2.percona.com/v2
+    kind: PerconaPGCluster
+    name: pg-lbc
+    ref: pg
+assertAll:
+  - celExpr: "has(lbc.metadata.finalizers)"
+    message: "lbc doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/in-use-protection' in lbc.metadata.finalizers"
+    message: "'everest.percona.com/in-use-protection' is absent in lbc.metadata.finalizers"
+
+  - celExpr: "!has(pg.spec.proxy.pgBouncer.expose.annotations)"
+    message: "pg.spec.proxy.pgBouncer.expose.annotations are empty"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom-pg
+spec:
+  annotations:
+    annot-1: "value-1"
+    annot-2: "value-2"
+status:
+  inUse: true
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pg-lbc
+spec:
+  proxy:
+    expose:
+      loadBalancerConfigName: lbc-custom-pg
+---
+apiVersion: pgv2.percona.com/v2
+kind: PerconaPGCluster
+metadata:
+  name: pg-lbc
+spec:
+  proxy:
+    pgBouncer:
+      expose:
+        annotations:
+          annot-1: "value-1"
+          annot-2: "value-2"

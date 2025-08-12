@@ -1,0 +1,33 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get lbc/lbc-custom-pg -o yaml
+  - command: kubectl get db/pg-lbc -n ${NAMESPACE} -o yaml
+  - command: kubectl get perconapgcluster/pg-lbc -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+commands:
+  - command: kubectl wait --for=delete db/pg-lbc -n ${NAMESPACE}
+  - command: kubectl wait --for=delete perconapgclusters/pg-lbc -n ${NAMESPACE}
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: PodSchedulingPolicy
+    name: lbc-custom-pg
+    ref: lbc
+assertAll:
+  - celExpr: "!has(lbc.metadata.finalizers)"
+    message: "lbc has unexpected finalizers"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom-pg
+spec:
+  annotations:
+    annot-1: "value-1"
+    annot-2: "value-2"
+status:
+  inUse: false
