@@ -183,6 +183,7 @@ func checkJSONKeyExists(keyExpr string, obj any) (bool, error) {
 	return true, nil
 }
 
+// ValidateLoadBalancerConfig validates if the LoadBalancerConfig with the given name exists.
 func (v *DatabaseClusterValidator) ValidateLoadBalancerConfig(ctx context.Context, lbcName string) error {
 	if lbcName == "" {
 		return nil

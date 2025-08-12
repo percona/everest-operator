@@ -265,10 +265,12 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+
 		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
 		if err != nil {
 			return err
 		}
+
 		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
@@ -286,10 +288,12 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
+
 		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
 		if err != nil {
 			return err
 		}
+
 		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)

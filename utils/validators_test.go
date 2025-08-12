@@ -23,6 +23,7 @@ import (
 
 func TestValidateRFC1035(t *testing.T) {
 	t.Parallel()
+
 	type testCase struct {
 		value string
 		valid bool
@@ -91,6 +92,7 @@ func TestValidateRFC1035(t *testing.T) {
 
 func TestValidateResourceName(t *testing.T) {
 	t.Parallel()
+
 	type testCase struct {
 		value string
 		valid bool

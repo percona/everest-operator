@@ -621,6 +621,7 @@ func GetLoadBalancerConfig(
 	}
 
 	lbc := &everestv1alpha1.LoadBalancerConfig{}
+
 	err := c.Get(ctx, types.NamespacedName{Name: lbcName}, lbc)
 	if err != nil {
 		return nil, err
@@ -629,7 +630,7 @@ func GetLoadBalancerConfig(
 	return lbc, nil
 }
 
-// GetAnnotations returns annotations from the LoadBalancerConfig used in the given DB
+// GetAnnotations returns annotations from the LoadBalancerConfig used in the given DB.
 func GetAnnotations(
 	ctx context.Context,
 	c client.Client,
@@ -639,9 +640,11 @@ func GetAnnotations(
 	if err != nil {
 		return nil, err
 	}
+
 	if lbc == nil {
 		return map[string]string{}, nil
 	}
+
 	return lbc.Spec.Annotations, nil
 }
 

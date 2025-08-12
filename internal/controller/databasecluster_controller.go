@@ -644,6 +644,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		ctx, &everestv1alpha1.DatabaseCluster{}, loadBalancerConfigNameField,
 		func(o client.Object) []string {
 			var res []string
+
 			db, ok := o.(*everestv1alpha1.DatabaseCluster)
 			if !ok {
 				return res
@@ -652,6 +653,7 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 			if db.Spec.Proxy.Expose.LoadBalancerConfigName != "" {
 				res = append(res, db.Spec.Proxy.Expose.LoadBalancerConfigName)
 			}
+
 			return res
 		},
 	)

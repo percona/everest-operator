@@ -72,6 +72,7 @@ func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil {
 		msg := fmt.Sprintf("failed to fetch DB clusters that use load balancer config='%s'", lbc.Name)
 		logger.Error(err, msg)
+
 		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
@@ -81,7 +82,9 @@ func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if !lbc.GetDeletionTimestamp().IsZero() {
 			return
 		}
+
 		lbc.Status.InUse = len(dbList.Items) > 0
+
 		lbc.Status.LastObservedGeneration = lbc.GetGeneration()
 		if err := r.Client.Status().Update(ctx, lbc); err != nil {
 			rr = ctrl.Result{}
@@ -94,6 +97,7 @@ func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, lbc); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for load balancer config='%s'", lbc.Name)
 		logger.Error(err, msg)
+
 		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
 
@@ -139,6 +143,7 @@ func (r *LoadBalancerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 			return false
 		},
 	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("LoadBalancerConfig").
 		For(&everestv1alpha1.LoadBalancerConfig{},
