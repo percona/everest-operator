@@ -11,7 +11,7 @@ collectors:
     tail: 100
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
-    kind: PodSchedulingPolicy
+    kind: LoadBalancerConfig
     name: lbc-custom-pg
     ref: lbc
   - apiVersion: pgv2.percona.com/v2
@@ -25,7 +25,7 @@ assertAll:
   - celExpr: "'everest.percona.com/in-use-protection' in lbc.metadata.finalizers"
     message: "'everest.percona.com/in-use-protection' is absent in lbc.metadata.finalizers"
 
-  - celExpr: "!has(pg.spec.proxy.pgBouncer.expose.annotations)"
+  - celExpr: "has(pg.spec.proxy.pgBouncer.expose.annotations)"
     message: "pg.spec.proxy.pgBouncer.expose.annotations are empty"
 ---
 apiVersion: everest.percona.com/v1alpha1

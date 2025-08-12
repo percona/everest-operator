@@ -29,8 +29,8 @@ assertAll:
   - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
     message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
 
-  - celExpr: "has(psmdb.spec.shardring.mongos.expose.annotations)"
-    message: "psmdb.spec.shardring.mongos.expose.annotations is not empty"
+  - celExpr: "!has(psmdb.spec.sharding.mongos.expose.annotations)"
+    message: "psmdb.spec.sharding.mongos.expose.annotations is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig

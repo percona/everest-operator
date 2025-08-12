@@ -14,7 +14,7 @@ commands:
   - command: kubectl wait --for=delete psmdb/psmdb-lbc -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
-    kind: PodSchedulingPolicy
+    kind: LoadBalancerConfig
     name: lbc-custom-psmdb-nonsharded
     ref: lbc
 assertAll:

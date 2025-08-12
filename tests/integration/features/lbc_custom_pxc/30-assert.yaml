@@ -11,7 +11,7 @@ collectors:
     tail: 100
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
-    kind: PodSchedulingPolicy
+    kind: LoadBalancerConfig
     name: lbc-custom-pxc
     ref: lbc
   - apiVersion: pxc.percona.com/v1
@@ -25,11 +25,11 @@ assertAll:
   - celExpr: "'everest.percona.com/in-use-protection' in lbc.metadata.finalizers"
     message: "'everest.percona.com/in-use-protection' is absent in lbc.metadata.finalizers"
 
-  - celExpr: "!has(pxc.spec.haProxy.exposePrimary.annotations)"
-    message: "pxc.spec.haProxy.exposePrimary.annotations is not empty"
+  - celExpr: "has(pxc.spec.haproxy.exposePrimary.annotations)"
+    message: "pxc.spec.haproxy.exposePrimary.annotations is empty"
 
-  - celExpr: "!has(pxc.spec.haProxy.exposeReplicas.annotations)"
-    message: "pxc.spec.haProxy.exposeReplicas.annotations is not empty"
+  - celExpr: "has(pxc.spec.haproxy.exposeReplicas.annotations)"
+    message: "pxc.spec.haproxy.exposeReplicas.annotations is empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig

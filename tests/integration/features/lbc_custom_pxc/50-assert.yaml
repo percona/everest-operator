@@ -14,7 +14,7 @@ commands:
   - command: kubectl wait --for=delete pxc/pxc-lbc -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
-    kind: PodSchedulingPolicy
+    kind: LoadBalancerConfig
     name: lbc-custom-pxc
     ref: lbc
 assertAll:

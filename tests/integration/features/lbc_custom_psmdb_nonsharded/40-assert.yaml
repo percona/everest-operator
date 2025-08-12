@@ -27,10 +27,10 @@ assertAll:
     message: "lbc has unexpected finalizers"
 
   - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
-    message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
+    message: "db.spec.proxy.expose.loadBalancerConfigName is empty"
 
-  - celExpr: "has(psmdb.spec.shardring.mongos.expose.annotations)"
-    message: "psmdb.spec.shardring.mongos.expose.annotations is not empty"
+  - celExpr: "!psmdb.spec.replsets.all(i, has(i.expose.annotations))"
+    message: "psmdb.spec.replsets[*].expose.annotations is empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig

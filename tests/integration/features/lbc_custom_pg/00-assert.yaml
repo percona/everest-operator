@@ -10,7 +10,7 @@ collectors:
     tail: 100
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
-    kind: LoadBanacerConfig
+    kind: LoadBalancerConfig
     name: lbc-custom-pg
     ref: lbc
 assertAll:
