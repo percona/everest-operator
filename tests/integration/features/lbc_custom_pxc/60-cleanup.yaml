@@ -4,4 +4,4 @@ timeout: 10
 delete:
   - apiVersion: everest.percona.com/v1alpha1
     kind: LoadBalancerConfig
-    name: lbc-custom
+    name: lbc-custom-pxc

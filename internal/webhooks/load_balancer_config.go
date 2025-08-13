@@ -37,14 +37,14 @@ import (
 )
 
 var (
-	// Default configs errors
+	// Default configs errors.
 	errUpdateDefaultLBC = func(name string) error {
 		return fmt.Errorf("load balancer config with name='%s' is default and cannot be updated", name)
 	}
 	errDeleteDefaultLBC = func(name string) error {
 		return fmt.Errorf("load balancer config with name='%s' is default and cannot be deleted", name)
 	}
-	// Used config error
+	// Used config error.
 	errDeleteInUseLBC = func(name string) error {
 		return fmt.Errorf("load balancer config with name='%s' is used by some DB cluster and cannot be deleted", name)
 	}
@@ -64,7 +64,7 @@ func SetupLoadBalancerConfigWebhookWithManager(mgr manager.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-everest-percona-com-v1alpha1-loadbalancerconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=loadbalancerconfigs,verbs=create;update,versions=v1alpha1,name=vloadbalancerconfig-v1alpha1.everest.percona.com,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-everest-percona-com-v1alpha1-loadbalancerconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=loadbalancerconfigs,verbs=create;update;delete,versions=v1alpha1,name=vloadbalancerconfig-v1alpha1.everest.percona.com,admissionReviewVersions=v1
 
 // LoadBalancerConfigValidator validates the LoadBalancerConfig resource.
 type LoadBalancerConfigValidator struct {
@@ -77,6 +77,7 @@ func (v *LoadBalancerConfigValidator) ValidateCreate(ctx context.Context, obj ru
 	if !ok {
 		return nil, errUnexpectedObject(obj)
 	}
+
 	return nil, v.validateLoadBalancerConfig(ctx, lbc)
 }
 
@@ -86,6 +87,7 @@ func (v *LoadBalancerConfigValidator) ValidateUpdate(ctx context.Context, oldObj
 	if !ok {
 		return nil, errUnexpectedObject(oldObj)
 	}
+
 	newLbc, ok := newObj.(*everestv1alpha1.LoadBalancerConfig)
 	if !ok {
 		return nil, errUnexpectedObject(newObj)

@@ -75,13 +75,6 @@ const (
 	EverestSecretsPrefix = "everest-secrets-"
 )
 
-// ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
-var ExposeAnnotationsMap = map[ClusterType]map[string]string{
-	ClusterTypeEKS: {
-		"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
-	},
-}
-
 //noling:gochecknoglobals
 var (
 	// PXCGVK is the GroupVersionKind for Percona XtraDB Cluster.

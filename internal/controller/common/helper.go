@@ -607,6 +607,47 @@ func GetDBMonitoringConfig(
 	return monitoring, nil
 }
 
+// GetLoadBalancerConfig returns the LoadBalancerConfig object
+// for the given DatabaseCluster object.
+func GetLoadBalancerConfig(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (*everestv1alpha1.LoadBalancerConfig, error) {
+	lbcName := database.Spec.Proxy.Expose.LoadBalancerConfigName
+
+	if lbcName == "" {
+		return nil, nil
+	}
+
+	lbc := &everestv1alpha1.LoadBalancerConfig{}
+
+	err := c.Get(ctx, types.NamespacedName{Name: lbcName}, lbc)
+	if err != nil {
+		return nil, err
+	}
+
+	return lbc, nil
+}
+
+// GetAnnotations returns annotations from the LoadBalancerConfig used in the given DB.
+func GetAnnotations(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (map[string]string, error) {
+	lbc, err := GetLoadBalancerConfig(ctx, c, database)
+	if err != nil {
+		return nil, err
+	}
+
+	if lbc == nil {
+		return map[string]string{}, nil
+	}
+
+	return lbc.Spec.Annotations, nil
+}
+
 // GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
 func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
 	psp := &everestv1alpha1.PodSchedulingPolicy{}

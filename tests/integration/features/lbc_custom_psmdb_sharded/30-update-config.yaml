@@ -5,8 +5,8 @@ timeout: 10
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig
 metadata:
-  name: lbc-custom
+  name: lbc-custom-psmdb
 spec:
   annotations:
-    more-annotations.com/annotation-key-1: "some-value-1"
-    more-annotations.com/annotation-key-2: "some-value-2"
+    annot-1: "value-1"
+    annot-2: "value-2"

@@ -21,13 +21,18 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/predicates"
 )
 
@@ -63,12 +68,22 @@ func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client, loadBalancerConfigNameField, "", lbc.Name)
+	if err != nil {
+		msg := fmt.Sprintf("failed to fetch DB clusters that use load balancer config='%s'", lbc.Name)
+		logger.Error(err, msg)
+
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+	}
+
 	// Update the status and finalizers of the LoadBalancerConfig object after the reconciliation.
 	defer func() {
 		// Nothing to process on delete events
 		if !lbc.GetDeletionTimestamp().IsZero() {
 			return
 		}
+
+		lbc.Status.InUse = len(dbList.Items) > 0
 
 		lbc.Status.LastObservedGeneration = lbc.GetGeneration()
 		if err := r.Client.Status().Update(ctx, lbc); err != nil {
@@ -79,16 +94,86 @@ func (r *LoadBalancerConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}()
 
+	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, lbc); err != nil {
+		msg := fmt.Sprintf("failed to update finalizers for load balancer config='%s'", lbc.Name)
+		logger.Error(err, msg)
+
+		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+	}
+
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LoadBalancerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Predicate to trigger reconciliation only on .spec.proxy.expose.loadBalancerConfigName changes in the DatabaseCluster resource.
+	dbClusterEventsPredicate := predicate.Funcs{
+		// Allow to create events only if the .spec.proxy.expose.loadBalancerConfigName is set
+		CreateFunc: func(e event.CreateEvent) bool {
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return db.Spec.Proxy.Expose.LoadBalancerConfigName != ""
+		},
+
+		// Only allow updates when the .spec.proxy.expose.loadBalancerConfigName of the DatabaseCluster resource changes
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldDB, oldOk := e.ObjectOld.(*everestv1alpha1.DatabaseCluster)
+			newDB, newOk := e.ObjectNew.(*everestv1alpha1.DatabaseCluster)
+			if !oldOk || !newOk {
+				return false
+			}
+
+			// Trigger reconciliation only if the .spec.proxy.expose.loadBalancerConfigName field has changed
+			return oldDB.Spec.Proxy.Expose.LoadBalancerConfigName != newDB.Spec.Proxy.Expose.LoadBalancerConfigName
+		},
+
+		// Allow delete events only if the .spec.proxy.expose.loadBalancerConfigName is set
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			db, ok := e.Object.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return false
+			}
+			return db.Spec.Proxy.Expose.LoadBalancerConfigName != ""
+		},
+
+		// Nothing to process on generic events
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("LoadBalancerConfig").
 		For(&everestv1alpha1.LoadBalancerConfig{},
 			builder.WithPredicates(predicates.GetLoadBalancerConfigPredicate(),
 				predicate.GenerationChangedPredicate{}),
+		).
+		// need to watch DBClusters that reference LoadBalancerConfig to update the config status.
+		Watches(
+			&everestv1alpha1.DatabaseCluster{},
+			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+				db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+				if !ok {
+					return []reconcile.Request{}
+				}
+
+				if db.Spec.Proxy.Expose.LoadBalancerConfigName == "" {
+					// No PodSchedulingPolicyName specified, no need to enqueue
+					return []reconcile.Request{}
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name: db.Spec.Proxy.Expose.LoadBalancerConfigName,
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{},
+				dbClusterEventsPredicate,
+				common.DefaultNamespaceFilter),
 		).
 		Complete(r)
 }
