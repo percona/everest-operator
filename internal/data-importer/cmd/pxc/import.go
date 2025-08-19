@@ -18,6 +18,8 @@ package pxc
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -110,7 +112,11 @@ func runPXCImport(ctx context.Context, configPath string) error {
 		}
 	}()
 
-	pxcRestoreName := "data-import-" + dbName
+	// Create an 8-character long hash for the restore name.
+	// This is done to ensure that long DB names are shortened to not
+	// exceed the 63-character limit for Kubernetes labels.
+	nameHash := md5.Sum([]byte("data-import-" + dbName))
+	pxcRestoreName := hex.EncodeToString(nameHash[:])[:8]
 
 	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
@@ -249,6 +255,10 @@ func runPXCRestoreAndWait(
 		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
 		pxcRestore.SetAnnotations(map[string]string{
 			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// Additional labels to help identify the object.
+		pxcRestore.SetLabels(map[string]string{
+			consts.EverestLabelPrefix + consts.DatabaseClusterNameLabel: dbName,
 		})
 		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
 		if err := controllerutil.SetOwnerReference(db, pxcRestore, c.Scheme()); err != nil {

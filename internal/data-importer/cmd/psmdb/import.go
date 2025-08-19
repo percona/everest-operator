@@ -18,6 +18,8 @@ package psmdb
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -90,7 +92,11 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	psmdbRestoreName := "data-import-" + dbName
+	// Create an 8-character long hash for the restore name.
+	// This is done to ensure that long DB names are shortened to not
+	// exceed the 63-character limit for Kubernetes labels.
+	nameHash := md5.Sum([]byte("data-import-" + dbName))
+	psmdbRestoreName := hex.EncodeToString(nameHash[:])[:8]
 
 	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
@@ -178,6 +184,10 @@ func runPSMDBRestoreAndWait(
 		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
 		psmdbRestore.SetAnnotations(map[string]string{
 			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// Additional labels to help identify the object.
+		psmdbRestore.SetLabels(map[string]string{
+			consts.EverestLabelPrefix + consts.DatabaseClusterNameLabel: dbName,
 		})
 		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
 		if err := controllerutil.SetOwnerReference(db, psmdbRestore, c.Scheme()); err != nil {
