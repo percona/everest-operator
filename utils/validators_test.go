@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+// Package utils contains common utils
+package utils //nolint:revive
 
 import (
 	"testing"
@@ -21,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateRFC1035(t *testing.T) {
+func TestValidateRFC1035(t *testing.T) { //nolint:dupl
 	t.Parallel()
 
 	type testCase struct {
@@ -90,7 +91,7 @@ func TestValidateRFC1035(t *testing.T) {
 	}
 }
 
-func TestValidateResourceName(t *testing.T) {
+func TestValidateResourceName(t *testing.T) { //nolint:dupl
 	t.Parallel()
 
 	type testCase struct {

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package migrator contains binary to migrate resources between versions
 package migrator
 
 import (
@@ -44,7 +45,7 @@ const (
 	defaultEKSLoadBalancerConfigName   = "eks-default"
 )
 
-// Migrator is the struct representing the migrator
+// Migrator is the struct representing the migrator.
 type Migrator struct {
 	l               logr.Logger
 	currentVersion  string
@@ -52,33 +53,38 @@ type Migrator struct {
 	client          client.Client
 }
 
-// NewMigrator creates a new migrator
+// NewMigrator creates a new migrator.
 func NewMigrator(logger logr.Logger) (*Migrator, error) {
 	m := &Migrator{
 		l:               logger,
 		currentVersion:  os.Getenv(versionEnvVar),
 		systemNamespace: os.Getenv(systemNamespaceEnvVar),
 	}
+
 	cl, err := client.New(config.GetConfigOrDie(), client.Options{Scheme: m.BuildScheme()})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create client: %w", err)
 	}
+
 	m.client = cl
 
 	return m, nil
 }
 
-// Migrate function that performs CRs migration
-func (m *Migrator) Migrate(ctx context.Context) (rerr error, info string) {
+// Migrate function that performs CRs migration.
+func (m *Migrator) Migrate(ctx context.Context) (info string, rerr error) { //nolint:nonamedreturns
 	lease, err := m.getLease(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to prepare lease: %w", err), ""
+		return "", fmt.Errorf("unable to prepare lease: %w", err)
 	}
+
 	defer func() {
 		if rerr != nil {
 			return
 		}
+
 		lease.Annotations[lastMigrationVersionAnnotationName] = m.currentVersion
+
 		err = m.client.Update(ctx, lease)
 		if err != nil {
 			rerr = fmt.Errorf("unable to update lease: %w", err)
@@ -86,14 +92,25 @@ func (m *Migrator) Migrate(ctx context.Context) (rerr error, info string) {
 	}()
 
 	if lease.Annotations[lastMigrationVersionAnnotationName] == m.currentVersion {
-		return nil, "migration is already performed"
+		return "migration is already performed", nil
 	}
 
-	err, info = m.migrateResources(ctx)
+	info, err = m.migrateResources(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to perform migration: %w", err), ""
+		return "", fmt.Errorf("unable to perform migration: %w", err)
 	}
-	return nil, info
+
+	return info, nil
+}
+
+// BuildScheme creates and returns the scheme for k8s client.
+func (m *Migrator) BuildScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(storagev1.AddToScheme(scheme))
+	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1.AddToScheme(scheme))
+
+	return scheme
 }
 
 func (m *Migrator) getLease(ctx context.Context) (*v1.Lease, error) {
@@ -104,25 +121,30 @@ func (m *Migrator) getLease(ctx context.Context) (*v1.Lease, error) {
 	lease := &v1.Lease{
 		ObjectMeta: meta,
 	}
+
 	err := m.client.Get(ctx, types.NamespacedName{Name: leaseName, Namespace: m.systemNamespace}, lease)
 	if k8serrors.IsNotFound(err) {
 		lease.Annotations = map[string]string{
 			lastMigrationVersionAnnotationName: "",
 		}
+
 		err = m.client.Create(ctx, lease)
 		if err != nil {
 			return nil, err
 		}
+
 		err = m.client.Get(ctx, types.NamespacedName{Name: leaseName, Namespace: m.systemNamespace}, lease)
 		if err != nil {
 			return nil, err
 		}
+
 		return lease, nil
 	}
 
 	if err != nil {
 		return nil, err
 	}
+
 	return lease, nil
 }
 
@@ -132,37 +154,33 @@ func (m *Migrator) getLease(ctx context.Context) (*v1.Lease, error) {
 // For 1.9.0 Everest needs to patch all existing DBs if they are exposed and running on EKS
 // to assign the default .spec.proxy.expose.loadBalancerConfigName value.
 // Returns error and the additional info if needed.
-func (m *Migrator) migrateResources(ctx context.Context) (error, string) {
+func (m *Migrator) migrateResources(ctx context.Context) (string, error) {
 	clusterType, err := common.GetClusterType(ctx, m.client)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 
 	if clusterType != consts.ClusterTypeEKS {
-		return nil, "cluster type is not EKS, applying empty migration"
+		return "cluster type is not EKS, applying empty migration", nil
 	}
 
 	dbs := &everestv1alpha1.DatabaseClusterList{}
+
 	err = m.client.List(ctx, dbs)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
+
 	for _, db := range dbs.Items {
 		if db.Spec.Proxy.Expose.Type == everestv1alpha1.ExposeTypeExternal {
 			db.Spec.Proxy.Expose.LoadBalancerConfigName = defaultEKSLoadBalancerConfigName
+
 			err = m.client.Update(ctx, &db)
 			if err != nil {
-				return err, ""
+				return "", err
 			}
 		}
 	}
-	return nil, "migration is performed successfully"
-}
 
-func (m *Migrator) BuildScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	utilruntime.Must(storagev1.AddToScheme(scheme))
-	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(v1.AddToScheme(scheme))
-	return scheme
+	return "migration is performed successfully", nil
 }

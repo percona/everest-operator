@@ -31,7 +31,7 @@ var (
 
 	// ErrNameNotRFC1035Compatible appears when some of the provided names are not RFC1035 compatible.
 	ErrNameNotRFC1035Compatible = func(fieldName string) error {
-		return fmt.Errorf(`'%s' is not RFC 1035 compatible. The name should contain only lowercase alphanumeric characters or '-', start with an alphabetic character, end with an alphanumeric character`,
+		return fmt.Errorf(`'%s' is not RFC 1035 compatible. The name should contain only lowercase alphanumeric characters or '-', start with an alphabetic character, end with an alphanumeric character`, //nolint:lll
 			fieldName,
 		)
 	}

@@ -55,6 +55,9 @@ import (
 	"github.com/percona/everest-operator/internal/predicates"
 )
 
+// ErrEmptyLbc error returned when no lbc name is definded in db.
+var ErrEmptyLbc = errors.New("empty backup load balancer config")
+
 // DefaultNamespaceFilter is the default namespace filter.
 var DefaultNamespaceFilter predicate.Predicate = &predicates.Nop{}
 
@@ -609,7 +612,7 @@ func GetLoadBalancerConfig(
 	lbcName := database.Spec.Proxy.Expose.LoadBalancerConfigName
 
 	if lbcName == "" {
-		return nil, nil
+		return nil, ErrEmptyLbc
 	}
 
 	lbc := &everestv1alpha1.LoadBalancerConfig{}
@@ -630,11 +633,11 @@ func GetAnnotations(
 ) (map[string]string, error) {
 	lbc, err := GetLoadBalancerConfig(ctx, c, database)
 	if err != nil {
-		return nil, err
-	}
+		if errors.Is(err, ErrEmptyLbc) {
+			return map[string]string{}, nil
+		}
 
-	if lbc == nil {
-		return map[string]string{}, nil
+		return nil, err
 	}
 
 	return lbc.Spec.Annotations, nil
