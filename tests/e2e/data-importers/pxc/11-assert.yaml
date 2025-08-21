@@ -25,7 +25,7 @@ kind: PerconaXtraDBClusterRestore
 metadata:
   name: 81df3530
   labels:
-    everest.percona.com/database-cluster-name: test-pxc-cluster
+    everest.percona.com/clusterName: test-pxc-cluster
 status:
   state: Restoring
 ---
