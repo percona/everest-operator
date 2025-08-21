@@ -36,6 +36,7 @@ const everestSystemNs = "everest-system"
 
 func TestMigrateNonAWS(t *testing.T) {
 	t.Parallel()
+
 	m := Migrator{
 		l:               zap.New(zap.UseDevMode(true), zap.WriteTo(os.Stdout)),
 		currentVersion:  "0.0.0",

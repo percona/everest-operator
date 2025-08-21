@@ -14,7 +14,7 @@
 // limitations under the License.
 
 // Package utils contains common utils
-package utils //nolint:revive
+package utils
 
 import (
 	"testing"
