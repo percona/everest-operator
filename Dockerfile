@@ -39,4 +39,4 @@ COPY --from=builder /workspace/data-importer .
 COPY --from=builder /workspace/migrator .
 USER 65532:65532
 
-ENTRYPOINT ["/manager", "/migrator"]
+ENTRYPOINT ["/manager"]
