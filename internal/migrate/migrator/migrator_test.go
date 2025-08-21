@@ -17,6 +17,7 @@ package migrator
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -232,6 +234,20 @@ func TestMigrateAWSExposedClusters(t *testing.T) {
 	assert.Equal(t, defaultEKSLoadBalancerConfigName, updatedDB.Spec.Proxy.Expose.LoadBalancerConfigName)
 }
 
+func TestMigrate_LeaseUpdateFails(t *testing.T) {
+	t.Parallel()
+
+	m := &Migrator{
+		currentVersion: "1.2.3",
+	}
+
+	m.client = &failingClient{fake.NewClientBuilder().WithScheme(m.BuildScheme()).Build()}
+
+	_, err := m.Migrate(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to update lease")
+}
+
 func checkLeaseIsCreatedAndUpdated(ctx context.Context, t *testing.T, m Migrator) {
 	// check the Lease is created and contains the current version
 	t.Helper()
@@ -243,4 +259,12 @@ func checkLeaseIsCreatedAndUpdated(ctx context.Context, t *testing.T, m Migrator
 	}, lease, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{lastMigrationVersionAnnotationName: "0.0.0"}, lease.Annotations)
+}
+
+type failingClient struct {
+	client.Client
+}
+
+func (f *failingClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	return fmt.Errorf("simulated update failure")
 }
