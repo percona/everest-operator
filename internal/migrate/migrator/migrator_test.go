@@ -17,7 +17,7 @@ package migrator
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"testing"
 
@@ -265,6 +265,6 @@ type failingClient struct {
 	client.Client
 }
 
-func (f *failingClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
-	return fmt.Errorf("simulated update failure")
+func (f *failingClient) Update(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
+	return errors.New("simulated update failure")
 }

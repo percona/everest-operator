@@ -15,5 +15,5 @@
 
 package consts
 
-// Version is a component version e.g. v1.9.0-rc1
+// Version is a component version e.g. v1.9.0-rc1.
 var Version string //nolint:gochecknoglobals

@@ -73,7 +73,7 @@ func NewMigrator(logger logr.Logger) (*Migrator, error) {
 
 // Migrate function that performs CRs migration.
 func (m *Migrator) Migrate(ctx context.Context) (info string, rerr error) { //nolint:nonamedreturns
-	lease, err := m.getLease(ctx)
+	lease, err := m.createLeaseIfNotExists(ctx)
 	if err != nil {
 		return "", fmt.Errorf("unable to prepare lease: %w", err)
 	}
@@ -113,7 +113,7 @@ func (m *Migrator) BuildScheme() *runtime.Scheme {
 	return scheme
 }
 
-func (m *Migrator) getLease(ctx context.Context) (*v1.Lease, error) {
+func (m *Migrator) createLeaseIfNotExists(ctx context.Context) (*v1.Lease, error) {
 	meta := metav1.ObjectMeta{
 		Name:      leaseName,
 		Namespace: m.systemNamespace,
