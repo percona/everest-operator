@@ -22,9 +22,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/percona/everest-operator/internal/migrate/migrator"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/percona/everest-operator/internal/migrate/migrator"
 )
 
 /*
