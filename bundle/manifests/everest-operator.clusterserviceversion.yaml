@@ -457,8 +457,6 @@ spec:
               - command:
                 - /migrator
                 env:
-                - name: EVEREST_VERSION
-                  value: latest
                 - name: SYSTEM_NAMESPACE
                   valueFrom:
                     fieldRef:

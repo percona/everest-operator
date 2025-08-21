@@ -39,7 +39,6 @@ import (
 
 const (
 	systemNamespaceEnvVar              = "SYSTEM_NAMESPACE"
-	versionEnvVar                      = "EVEREST_VERSION"
 	leaseName                          = "everest-migration-lease"
 	lastMigrationVersionAnnotationName = "last-migration-version"
 	defaultEKSLoadBalancerConfigName   = "eks-default"
@@ -55,9 +54,10 @@ type Migrator struct {
 
 // NewMigrator creates a new migrator.
 func NewMigrator(logger logr.Logger) (*Migrator, error) {
+	logger.Info("Initializing Migrator", "currentVersion", consts.Version)
 	m := &Migrator{
 		l:               logger,
-		currentVersion:  os.Getenv(versionEnvVar),
+		currentVersion:  consts.Version,
 		systemNamespace: os.Getenv(systemNamespaceEnvVar),
 	}
 
