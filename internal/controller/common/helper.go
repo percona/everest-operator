@@ -121,28 +121,20 @@ func GetOperatorVersion(
 // GetClusterType returns the type of the cluster on which this operator is running.
 func GetClusterType(ctx context.Context, c client.Client) (consts.ClusterType, error) {
 	clusterType := consts.ClusterTypeMinikube
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "storage.k8s.io",
-		Kind:    "StorageClass",
-		Version: "v1",
-	})
 	storageList := &storagev1.StorageClassList{}
 
-	err := c.List(ctx, unstructuredResource)
+	err := c.List(ctx, storageList)
 	if err != nil {
 		return clusterType, err
 	}
-	err = runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, storageList)
-	if err != nil {
-		return clusterType, err
-	}
+
 	for _, storage := range storageList.Items {
 		if strings.Contains(storage.Provisioner, "aws") {
 			clusterType = consts.ClusterTypeEKS
+			break
 		}
 	}
+
 	return clusterType, nil
 }
 

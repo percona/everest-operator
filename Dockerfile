@@ -27,12 +27,16 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o ma
 # Build data importer CLI
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o data-importer internal/data-importer/main.go
 
+# Build migration binary
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o migrator internal/migrate/main.go
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/data-importer .
+COPY --from=builder /workspace/migrator .
 USER 65532:65532
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT ["/manager", "/migrator"]
