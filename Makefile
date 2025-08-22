@@ -114,10 +114,10 @@ format:
 	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
-.PHONY: check
-check:
-	LOG_LEVEL=error go tool golangci-lint run
-	go tool go-sumtype ./...
+.PHONY: static-check
+static-check:
+	go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(shell git merge-base main HEAD) --fix
+	go tool license-eye -c .licenserc.yaml header fix
 
 .PHONY: test
 test: $(LOCALBIN) manifests generate format envtest ## Run tests.

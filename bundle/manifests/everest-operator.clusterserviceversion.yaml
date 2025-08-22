@@ -78,7 +78,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-07-19T08:10:38Z"
+    createdAt: "2025-07-29T10:45:34Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -582,3 +582,23 @@ spec:
     targetPort: 9443
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-everest-percona-com-v1alpha1-databasecluster
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vmonitoringconfig-v1alpha1.everest.percona.com
+    rules:
+    - apiGroups:
+      - everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - monitoringconfigs
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-everest-percona-com-v1alpha1-monitoringconfig
