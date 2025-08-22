@@ -18,8 +18,6 @@ package pxc
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -41,6 +39,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	"github.com/percona/everest-operator/internal/consts"
+	"github.com/percona/everest-operator/internal/data-importer/utils"
 )
 
 // Cmd is the command for running PXC import.
@@ -112,11 +111,7 @@ func runPXCImport(ctx context.Context, configPath string) error {
 		}
 	}()
 
-	// Create an 8-character long hash for the restore name.
-	// This is done to ensure that long DB names are shortened to not
-	// exceed the 63-character limit for Kubernetes labels.
-	nameHash := md5.Sum([]byte("data-import-" + dbName))
-	pxcRestoreName := hex.EncodeToString(nameHash[:])[:8]
+	pxcRestoreName := utils.GetMd5HashedName("data-import-" + dbName)
 
 	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,

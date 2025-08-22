@@ -18,8 +18,6 @@ package psmdb
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -41,6 +39,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	"github.com/percona/everest-operator/internal/consts"
+	"github.com/percona/everest-operator/internal/data-importer/utils"
 )
 
 // Cmd is the command for running psmdb import.
@@ -92,11 +91,7 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	// Create an 8-character long hash for the restore name.
-	// This is done to ensure that long DB names are shortened to not
-	// exceed the 63-character limit for Kubernetes labels.
-	nameHash := md5.Sum([]byte("data-import-" + dbName))
-	psmdbRestoreName := hex.EncodeToString(nameHash[:])[:8]
+	psmdbRestoreName := utils.GetMd5HashedName("data-import-" + dbName)
 
 	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
