@@ -188,7 +188,9 @@ func (v *DatabaseClusterValidator) ValidateLoadBalancerConfig(ctx context.Contex
 	if lbcName == "" {
 		return nil
 	}
+
 	lbc := everestv1alpha1.LoadBalancerConfig{}
+
 	err := v.Client.Get(ctx, client.ObjectKey{
 		Name: lbcName,
 	}, &lbc)
@@ -196,6 +198,7 @@ func (v *DatabaseClusterValidator) ValidateLoadBalancerConfig(ctx context.Contex
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf("load balancer config %s not found: %w", lbcName, err)
 		}
+
 		return fmt.Errorf("failed to get load balancer config %s: %w", lbcName, err)
 	}
 

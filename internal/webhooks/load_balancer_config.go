@@ -21,6 +21,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -93,7 +94,7 @@ func (v *LoadBalancerConfigValidator) ValidateUpdate(ctx context.Context, oldObj
 		return nil, errUnexpectedObject(newObj)
 	}
 
-	if utils.IsEverestReadOnlyObject(oldLbc) {
+	if utils.IsEverestReadOnlyObject(oldLbc) && !reflect.DeepEqual(oldLbc.Spec, newLbc.Spec) {
 		// default config update is not allowed
 		return nil, errUpdateDefaultLBC(newLbc.Name)
 	}

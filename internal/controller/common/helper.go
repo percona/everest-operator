@@ -55,6 +55,9 @@ import (
 	"github.com/percona/everest-operator/internal/predicates"
 )
 
+// ErrEmptyLbc error returned when no lbc name is definded in db.
+var ErrEmptyLbc = errors.New("empty backup load balancer config")
+
 // DefaultNamespaceFilter is the default namespace filter.
 var DefaultNamespaceFilter predicate.Predicate = &predicates.Nop{}
 
@@ -121,28 +124,20 @@ func GetOperatorVersion(
 // GetClusterType returns the type of the cluster on which this operator is running.
 func GetClusterType(ctx context.Context, c client.Client) (consts.ClusterType, error) {
 	clusterType := consts.ClusterTypeMinikube
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "storage.k8s.io",
-		Kind:    "StorageClass",
-		Version: "v1",
-	})
 	storageList := &storagev1.StorageClassList{}
 
-	err := c.List(ctx, unstructuredResource)
+	err := c.List(ctx, storageList)
 	if err != nil {
 		return clusterType, err
 	}
-	err = runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, storageList)
-	if err != nil {
-		return clusterType, err
-	}
+
 	for _, storage := range storageList.Items {
 		if strings.Contains(storage.Provisioner, "aws") {
 			clusterType = consts.ClusterTypeEKS
+			break
 		}
 	}
+
 	return clusterType, nil
 }
 
@@ -617,7 +612,7 @@ func GetLoadBalancerConfig(
 	lbcName := database.Spec.Proxy.Expose.LoadBalancerConfigName
 
 	if lbcName == "" {
-		return nil, nil
+		return nil, ErrEmptyLbc
 	}
 
 	lbc := &everestv1alpha1.LoadBalancerConfig{}
@@ -638,11 +633,11 @@ func GetAnnotations(
 ) (map[string]string, error) {
 	lbc, err := GetLoadBalancerConfig(ctx, c, database)
 	if err != nil {
-		return nil, err
-	}
+		if errors.Is(err, ErrEmptyLbc) {
+			return map[string]string{}, nil
+		}
 
-	if lbc == nil {
-		return map[string]string{}, nil
+		return nil, err
 	}
 
 	return lbc.Spec.Annotations, nil
