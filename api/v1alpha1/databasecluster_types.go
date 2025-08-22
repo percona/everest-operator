@@ -210,6 +210,8 @@ type Expose struct {
 	// IPSourceRanges is the list of IP source ranges (CIDR notation)
 	// to allow access from. If not set, there is no limitations
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
+	// LoadBalancerConfigName is the name of load balancer config if applied
+	LoadBalancerConfigName string `json:"loadBalancerConfigName,omitempty"`
 }
 
 func (e *Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {

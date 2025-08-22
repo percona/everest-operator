@@ -5,6 +5,9 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.0.0
 
+FLAGS = -X 'github.com/percona/everest-operator/internal/consts.Version=$(VERSION)'
+LD_FLAGS_OPERATOR = -ldflags " $(FLAGS)"
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -215,12 +218,13 @@ cluster-cleanup:
 
 .PHONY: build
 build: $(LOCALBIN) manifests generate format ## Build manager binary.
-	go build -o $(LOCALBIN)/manager cmd/main.go
-	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
+	go build -v $(LD_FLAGS_OPERATOR) -o $(LOCALBIN)/manager cmd/main.go
+	go build -v $(LD_FLAGS_OPERATOR) -o $(LOCALBIN)/data-importer internal/data-importer/main.go
+	go build -v $(LD_FLAGS_OPERATOR) -o $(LOCALBIN)/migrator internal/migrate/main.go
 
 .PHONY: build-debug
 build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
-	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
+	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -v $(LD_FLAGS_OPERATOR)  -o $(LOCALBIN)/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate format ## Run a controller from your host.
@@ -231,7 +235,7 @@ run: manifests generate format ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build --build-arg FLAGS="$(FLAGS)" -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
