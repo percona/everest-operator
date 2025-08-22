@@ -199,6 +199,7 @@ func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context)
 		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
 			return err
 		}
+
 		return nil
 	}
 
