@@ -747,6 +747,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreateDBRestore(
 	if createRestoreFunc == nil {
 		return
 	}
+
 	logger := log.FromContext(ctx)
 	if len(obj.GetOwnerReferences()) == 0 {
 		err := createRestoreFunc(ctx, obj)
@@ -768,6 +769,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -777,6 +779,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -786,6 +789,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
+
 		return err
 	}
 
@@ -801,6 +805,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	if err == nil {
 		return nil
 	}
+
 	if !k8serrors.IsNotFound(err) {
 		return err
 	}
@@ -808,6 +813,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 	restore.Spec.DBClusterName = pgRestore.Spec.PGCluster
 
 	cluster := &everestv1alpha1.DatabaseCluster{}
+
 	err = r.Get(ctx, types.NamespacedName{Name: pgRestore.Spec.PGCluster, Namespace: pgRestore.Namespace}, cluster)
 	if err != nil {
 		return err
@@ -822,17 +828,21 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 			if err != nil {
 				return err
 			}
+
 			return nil
 		}
+
 		if cluster.Spec.DataSource.DBClusterBackupName != "" {
 			restore.Spec.DataSource.DBClusterBackupName = cluster.Spec.DataSource.DBClusterBackupName
 		}
+
 		if cluster.Spec.DataSource.BackupSource != nil {
 			restore.Spec.DataSource.BackupSource = &everestv1alpha1.BackupSource{
 				Path:              "",
 				BackupStorageName: cluster.Spec.DataSource.BackupSource.BackupStorageName,
 			}
 		}
+
 		if cluster.Spec.DataSource.PITR != nil {
 			restore.Spec.DataSource.PITR = &everestv1alpha1.PITR{
 				Type: cluster.Spec.DataSource.PITR.Type,
@@ -841,7 +851,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 		}
 	}
 
-	restore.ObjectMeta.Labels = map[string]string{
+	restore.Labels = map[string]string{
 		consts.DatabaseClusterNameLabel: pgRestore.Spec.PGCluster,
 	}
 	if err = controllerutil.SetControllerReference(cluster, restore, r.Scheme); err != nil {
@@ -854,6 +864,7 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Context, obj client.Object) {
 	logger := log.FromContext(ctx)
 	logger.Info("DELETE!!!!")
+
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
 	dbr := &everestv1alpha1.DatabaseClusterRestore{
@@ -867,6 +878,7 @@ func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Contex
 		if k8serrors.IsNotFound(err) {
 			return
 		}
+
 		logger.Error(err, "Failed to delete the DatabaseClusterRestore", "name", name, "namespace", namespace)
 	}
 }

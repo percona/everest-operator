@@ -3574,6 +3574,7 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 
 func TestReconcilePGBackRestReposAfterDataSource_withoutSchedule(t *testing.T) {
 	t.Parallel()
+
 	testRepos := []crunchyv1beta1.PGBackRestRepo{
 		{
 			Name: "repo1",
@@ -3721,6 +3722,7 @@ func pvcVolumeAndEngineStorage() (*crunchyv1beta1.RepoPVC, everestv1alpha1.Stora
 		Size:  testEngineStorageSize,
 		Class: &testEngineStorageClass,
 	}
+
 	return &crunchyv1beta1.RepoPVC{
 		VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
