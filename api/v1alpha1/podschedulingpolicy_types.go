@@ -78,7 +78,6 @@ type PodSchedulingPolicyStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,path=podschedulingpolicies,shortName=psp
-// +kubebuilder:selectablefield:JSONPath=".spec.engineType"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".spec.engineType",description="DB engine type the policy can be applied to"
 // +kubebuilder:printcolumn:name="InUse",type="string",JSONPath=".status.inUse",description="Indicates if the policy is used by any DB cluster"
 
