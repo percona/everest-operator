@@ -160,7 +160,7 @@ func (r *LoadBalancerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error 
 				}
 
 				if db.Spec.Proxy.Expose.LoadBalancerConfigName == "" {
-					// No PodSchedulingPolicyName specified, no need to enqueue
+					// No LoadBalancerConfigName specified, no need to enqueue
 					return []reconcile.Request{}
 				}
 				return []reconcile.Request{
