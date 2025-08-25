@@ -29,6 +29,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
+	psv1 "github.com/percona/percona-server-mysql-operator/api/v1alpha1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,6 +53,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/common"
 	"github.com/percona/everest-operator/internal/controller/providers"
 	"github.com/percona/everest-operator/internal/controller/providers/pg"
+	"github.com/percona/everest-operator/internal/controller/providers/ps"
 	"github.com/percona/everest-operator/internal/controller/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/providers/pxc"
 	"github.com/percona/everest-operator/internal/predicates"
@@ -121,6 +123,8 @@ func (r *DatabaseClusterReconciler) newDBProvider(
 	switch engineType {
 	case everestv1alpha1.DatabaseEnginePXC:
 		return pxc.New(ctx, opts)
+	case everestv1alpha1.DatabaseEnginePS:
+		return ps.New(ctx, opts)
 	case everestv1alpha1.DatabaseEnginePostgresql:
 		return pg.New(ctx, opts)
 	case everestv1alpha1.DatabaseEnginePSMDB:
@@ -327,6 +331,7 @@ func (r *DatabaseClusterReconciler) ensureDataImportJob(
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=pxc.percona.com,resources=perconaxtradbclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=ps.percona.com,resources=perconaservermysqls,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -735,6 +740,7 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 	controller.Watches(
 		&everestv1alpha1.DatabaseEngine{},
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			// TODO: filter DB clusters by the affected DB engine type
 			return r.databaseClustersInObjectNamespace(ctx, obj)
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
@@ -992,6 +998,10 @@ func (r *DatabaseClusterReconciler) ReconcileWatchers(ctx context.Context) error
 		switch t := dbEngine.Spec.Type; t {
 		case everestv1alpha1.DatabaseEnginePXC:
 			if err := addWatcher(t, &pxcv1.PerconaXtraDBCluster{}); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePS:
+			if err := addWatcher(t, &psv1.PerconaServerMySQL{}); err != nil {
 				return err
 			}
 		case everestv1alpha1.DatabaseEnginePostgresql:

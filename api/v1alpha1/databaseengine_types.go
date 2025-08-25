@@ -36,6 +36,8 @@ const (
 
 	// DatabaseEnginePXC represents engine type for PXC clusters.
 	DatabaseEnginePXC EngineType = "pxc"
+	// DatabaseEnginePS represents engine type for PS clusters.
+	DatabaseEnginePS EngineType = "ps"
 	// DatabaseEnginePSMDB represents engine type for PSMDB clusters.
 	DatabaseEnginePSMDB EngineType = "psmdb"
 	// DatabaseEnginePostgresql represents engine type for Postgresql clusters.
@@ -171,12 +173,12 @@ type OperatorUpgradeStatus struct {
 	Message         string       `json:"message,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=dbengine;
-//+kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type"
-//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
-//+kubebuilder:printcolumn:name="Operator Version",type="string",JSONPath=".status.operatorVersion"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=dbengine;
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
+// +kubebuilder:printcolumn:name="Operator Version",type="string",JSONPath=".status.operatorVersion"
 
 // DatabaseEngine is the Schema for the databaseengines API.
 type DatabaseEngine struct {
@@ -187,7 +189,7 @@ type DatabaseEngine struct {
 	Status DatabaseEngineStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DatabaseEngineList contains a list of DatabaseEngine.
 type DatabaseEngineList struct {

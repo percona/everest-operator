@@ -703,7 +703,7 @@ func deleteBackupsForDatabase(
 	return false, nil
 }
 
-// HandleUpstreamClusterCleanup handles the cleanup of the psdmb objects.
+// HandleUpstreamClusterCleanup handles the cleanup of the upstream DB objects.
 // Returns true if cleanup is complete.
 func HandleUpstreamClusterCleanup(
 	ctx context.Context,
