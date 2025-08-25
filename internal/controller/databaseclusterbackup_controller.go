@@ -187,27 +187,44 @@ func (r *DatabaseClusterBackupReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{Requeue: requeue}, nil
 }
 
-func (r *DatabaseClusterBackupReconciler) reconcileMeta(
-	ctx context.Context,
-	backup *everestv1alpha1.DatabaseClusterBackup,
-	cluster *everestv1alpha1.DatabaseCluster,
-) error {
-	var needUpdate bool
-	if len(backup.ObjectMeta.Labels) == 0 {
-		backup.ObjectMeta.Labels = map[string]string{
-			consts.DatabaseClusterNameLabel: backup.Spec.DBClusterName,
-		}
-		needUpdate = true
-	}
-	if metav1.GetControllerOf(backup) == nil {
-		if err := controllerutil.SetControllerReference(cluster, backup, r.Client.Scheme()); err != nil {
-			return err
-		}
-		needUpdate = true
+// ReconcileWatchers reconciles the watchers for the DatabaseClusterBackup controller.
+func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context) error {
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := r.List(ctx, dbEngines); err != nil {
+		return err
 	}
 
-	if needUpdate {
-		return r.Update(ctx, backup)
+	log := log.FromContext(ctx)
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
+		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	for _, dbEngine := range dbEngines.Items {
+		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
+			continue
+		}
+
+		switch t := dbEngine.Spec.Type; t {
+		case everestv1alpha1.DatabaseEnginePXC:
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterBackup{}, r.tryCreatePXC); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePostgresql:
+			if err := addWatcher(t, &pgv2.PerconaPGBackup{}, r.tryCreatePG); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePSMDB:
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBBackup{}, r.tryCreatePSMDB); err != nil {
+				return err
+			}
+		default:
+			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
+			continue
+		}
 	}
 	return nil
 }
@@ -235,6 +252,35 @@ func (r *DatabaseClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterBackup")
 	r.controller = newControllerWatcherRegistry(log, ctrl)
+	return nil
+}
+
+func (r *DatabaseClusterBackupReconciler) reconcileMeta(
+	ctx context.Context,
+	backup *everestv1alpha1.DatabaseClusterBackup,
+	cluster *everestv1alpha1.DatabaseCluster,
+) error {
+	var needUpdate bool
+
+	if len(backup.Labels) == 0 {
+		backup.Labels = map[string]string{
+			consts.DatabaseClusterNameLabel: backup.Spec.DBClusterName,
+		}
+		needUpdate = true
+	}
+
+	if metav1.GetControllerOf(backup) == nil {
+		if err := controllerutil.SetControllerReference(cluster, backup, r.Client.Scheme()); err != nil {
+			return err
+		}
+
+		needUpdate = true
+	}
+
+	if needUpdate {
+		return r.Update(ctx, backup)
+	}
+
 	return nil
 }
 
@@ -273,7 +319,7 @@ func (r *DatabaseClusterBackupReconciler) initIndexers(ctx context.Context, mgr 
 	return err
 }
 
-func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs {
+func (r *DatabaseClusterBackupReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs { //nolint:dupl
 	return handler.Funcs{
 		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			r.tryCreateDBBackups(ctx, e.Object, creationFunc)
@@ -896,46 +942,6 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	// Finalizer is gone from upstream object, remove from DatabaseClusterBackup.
 	if controllerutil.RemoveFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return r.Update(ctx, dbcBackup)
-	}
-	return nil
-}
-
-// ReconcileWatchers reconciles the watchers for the DatabaseClusterBackup controller.
-func (r *DatabaseClusterBackupReconciler) ReconcileWatchers(ctx context.Context) error {
-	dbEngines := &everestv1alpha1.DatabaseEngineList{}
-	if err := r.List(ctx, dbEngines); err != nil {
-		return err
-	}
-
-	log := log.FromContext(ctx)
-	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
-		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	for _, dbEngine := range dbEngines.Items {
-		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
-			continue
-		}
-		switch t := dbEngine.Spec.Type; t {
-		case everestv1alpha1.DatabaseEnginePXC:
-			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterBackup{}, r.tryCreatePXC); err != nil {
-				return err
-			}
-		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &pgv2.PerconaPGBackup{}, r.tryCreatePG); err != nil {
-				return err
-			}
-		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBBackup{}, r.tryCreatePSMDB); err != nil {
-				return err
-			}
-		default:
-			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
-			continue
-		}
 	}
 	return nil
 }
