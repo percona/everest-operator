@@ -98,7 +98,7 @@ spec:
     image: percona/pmm-client:latest
     resources:
       requests:
-        memory: 816033300480m
+        memory: 796907Ki
         cpu: 228m
   secrets:
     users: everest-secrets-psmdb-mc
