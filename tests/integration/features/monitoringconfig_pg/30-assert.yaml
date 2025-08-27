@@ -11,6 +11,7 @@ collectors:
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
+    tail: 200
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: MonitoringConfig
