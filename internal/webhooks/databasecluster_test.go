@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 func TestCheckJSONKeyExists(t *testing.T) {
@@ -179,12 +180,56 @@ func TestDatabaseClusterValidator(t *testing.T) {
 			},
 		}
 
+		apiObjects := []runtime.Object{
+			&everestv1alpha1.DatabaseEngine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      consts.PSMDBDeploymentName,
+					Namespace: ns,
+				},
+				Spec: everestv1alpha1.DatabaseEngineSpec{
+					Type: everestv1alpha1.DatabaseEnginePSMDB,
+				},
+				Status: everestv1alpha1.DatabaseEngineStatus{
+					AvailableVersions: everestv1alpha1.Versions{
+						Engine: everestv1alpha1.ComponentsMap{
+							"8.0.8-3": {},
+						},
+					},
+				},
+			},
+			&everestv1alpha1.DatabaseEngine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      consts.PGDeploymentName,
+					Namespace: ns,
+				},
+				Spec: everestv1alpha1.DatabaseEngineSpec{
+					Type: everestv1alpha1.DatabaseEnginePostgresql,
+				},
+				Status: everestv1alpha1.DatabaseEngineStatus{
+					AvailableVersions: everestv1alpha1.Versions{
+						Engine: everestv1alpha1.ComponentsMap{
+							"17.1": {},
+						},
+					},
+				},
+			},
+		}
+
 		testCases := []struct {
 			name      string
 			objects   []runtime.Object
 			modify    func(*everestv1alpha1.DatabaseCluster)
 			wantError string
 		}{
+			{
+				name:    "invalid DBEngine version",
+				objects: nil,
+				modify: func(db *everestv1alpha1.DatabaseCluster) {
+					db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePostgresql
+					db.Spec.Engine.Version = "17.100"
+				},
+				wantError: "engine version 17.100 not available",
+			},
 			{
 				name:    "missing user secret",
 				objects: nil,
@@ -226,7 +271,8 @@ func TestDatabaseClusterValidator(t *testing.T) {
 							Config:           config,
 						},
 					}
-					db.Spec.Engine.Type = "not-supported"
+					db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePostgresql
+					db.Spec.Engine.Version = "17.1"
 				},
 				wantError: "does not support engine",
 			},
@@ -272,15 +318,18 @@ func TestDatabaseClusterValidator(t *testing.T) {
 						Namespace: ns,
 					},
 					Spec: everestv1alpha1.DatabaseClusterSpec{
-						Engine: everestv1alpha1.Engine{},
+						Engine: everestv1alpha1.Engine{
+							Type:    everestv1alpha1.DatabaseEnginePSMDB,
+							Version: "8.0.8-3",
+						},
 					},
 				}
 				if tc.modify != nil {
 					tc.modify(db)
 				}
 				// fake.NewClientBuilder().WithObjects expects client.Object, so we must ensure all objects are client.Object
-				objs := make([]runtime.Object, 0, len(tc.objects))
-
+				objs := make([]runtime.Object, 0, len(tc.objects)+len(apiObjects))
+				objs = append(objs, apiObjects...)
 				objs = append(objs, tc.objects...)
 				client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 				validator := &DatabaseClusterValidator{Client: client}
