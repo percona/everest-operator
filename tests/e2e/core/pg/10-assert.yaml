@@ -48,6 +48,7 @@ spec:
             resources:
               requests:
                 storage: 15G
+  imagePullPolicy: IfNotPresent
   instances:
   - dataVolumeClaimSpec:
       accessModes:
