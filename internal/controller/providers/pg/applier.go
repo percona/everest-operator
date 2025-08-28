@@ -157,6 +157,7 @@ func (p *applier) Engine() error {
 		Image:           image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
+
 	return nil
 }
 
