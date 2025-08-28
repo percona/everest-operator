@@ -114,6 +114,7 @@ func (p *applier) Engine() error {
 
 	pg.Spec.Image = pgEngineVersion.ImagePath
 	pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
 		FindStringSubmatch(database.Spec.Engine.Version)
