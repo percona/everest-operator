@@ -147,6 +147,7 @@ spec:
             http-request use-service prometheus-exporter if { path /metrics }
     enabled: true
     envVarsSecret: haproxy-env-secret
+    imagePullPolicy: IfNotPresent
     exposePrimary: {}
     lifecycle: {}
     livenessProbes:
@@ -200,6 +201,7 @@ spec:
       maxUnavailable: 1
     readinessProbes:
       timeoutSeconds: 450
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: "1"
