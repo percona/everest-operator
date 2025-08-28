@@ -198,6 +198,7 @@ func (p *applier) Engine() error {
 	if !ok {
 		return fmt.Errorf("engine version %s not available", p.DB.Spec.Engine.Version)
 	}
+
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
 	pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
 
