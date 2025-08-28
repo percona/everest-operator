@@ -66,7 +66,7 @@ ARCH=$(shell go env GOHOSTARCH)
 #.SHELLFLAGS = -ec
 
 .PHONY: all
-all: build
+all: help
 
 ##@ General
 
