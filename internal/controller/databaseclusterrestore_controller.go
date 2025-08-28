@@ -863,7 +863,6 @@ func (r *DatabaseClusterRestoreReconciler) tryCreatePG(ctx context.Context, obj 
 
 func (r *DatabaseClusterRestoreReconciler) tryDeleteDBRestore(ctx context.Context, obj client.Object) {
 	logger := log.FromContext(ctx)
-	logger.Info("DELETE!!!!")
 
 	name := obj.GetName()
 	namespace := obj.GetNamespace()

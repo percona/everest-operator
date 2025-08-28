@@ -456,7 +456,10 @@ func (p *applier) applyHAProxyCfg() error {
 	case everestv1alpha1.ExposeTypeInternal:
 		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations := consts.ExposeAnnotationsMap[p.clusterType]
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
@@ -562,10 +565,15 @@ func (p *applier) applyProxySQLCfg() error {
 	case everestv1alpha1.ExposeTypeInternal:
 		// No need to set anything, defaults are fine.
 	case everestv1alpha1.ExposeTypeExternal:
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+			Annotations:              annotations,
 		}
 		proxySQL.Expose = expose
 	default:

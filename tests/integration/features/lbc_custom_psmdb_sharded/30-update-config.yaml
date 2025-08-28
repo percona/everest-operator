@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1
+kind: TestStep
+timeout: 10
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom-psmdb
+spec:
+  annotations:
+    annot-1: "value-1"
+    annot-2: "value-2"
