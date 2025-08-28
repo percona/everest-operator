@@ -41,6 +41,7 @@ metadata:
     - percona.com/delete-psmdb-pods-in-order
     - percona.com/delete-psmdb-pvc
 spec:
+  imagePullPolicy: IfNotPresent
   multiCluster:
     enabled: false
   replsets:

@@ -95,6 +95,8 @@ spec:
   extensions:
     builtin: {}
     storage: {}
+    imagePullPolicy: IfNotPresent
+  imagePullPolicy: IfNotPresent
   instances:
     - dataVolumeClaimSpec:
         accessModes:
