@@ -35,6 +35,7 @@ kind: PerconaServerMongoDB
 metadata:
   name: single-node
 spec:
+  imagePullPolicy: IfNotPresent
   multiCluster:
     enabled: false
   replsets:
