@@ -152,6 +152,7 @@ func (p *applier) Engine() error {
 	if err != nil {
 		return err
 	}
+
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
 		Image:           image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
