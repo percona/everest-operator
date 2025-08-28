@@ -113,6 +113,8 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
 	psmdb.Spec.Image = engineVersion.ImagePath
+	psmdb.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,
 		EncryptionKey: database.Name + encryptionKeySuffix,
