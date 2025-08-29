@@ -66,7 +66,7 @@ ARCH=$(shell go env GOHOSTARCH)
 #.SHELLFLAGS = -ec
 
 .PHONY: all
-all: build
+all: help
 
 ##@ General
 
@@ -189,14 +189,17 @@ test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-import
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
 
 .PHONY: k3d-cluster-up
-k3d-cluster-up: ## Create a K8S cluster for testing
+k3d-cluster-up: ## Create a K8S cluster for testing.
 	k3d cluster create --config ./tests/k3d_config.yaml
 	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
 
 .PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing
+k3d-cluster-down: ## Create a K8S cluster for testing.
 	k3d cluster delete --config ./tests/k3d_config.yaml
 	rm -f ./tests/kubeconfig || true
+
+.PHONY: k3d-cluster-reset
+k3d-cluster-reset: k3d-cluster-down k3d-cluster-up ## Recreate a K8S cluster for testing.
 
 .PHONY: k3d-upload-image
 k3d-upload-image:

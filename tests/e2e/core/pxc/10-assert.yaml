@@ -38,10 +38,12 @@ metadata:
     - delete-ssl
 spec:
   haproxy:
+    imagePullPolicy: IfNotPresent
     enabled: true
     exposePrimary: {}
     size: 3
   pxc:
+    imagePullPolicy: IfNotPresent
     configuration: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
