@@ -262,6 +262,7 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
@@ -282,8 +283,9 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	database := p.DB
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		expose.Enabled = false
+		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer

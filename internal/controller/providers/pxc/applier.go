@@ -452,7 +452,13 @@ func (p *applier) applyHAProxyCfg() error {
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		// No need to set anything, defaults are fine.
+		expose := pxcv1.ServiceExpose{
+			Enabled:     true,
+			Type:        corev1.ServiceTypeClusterIP,
+			Annotations: map[string]string{},
+		}
+		haProxy.ExposePrimary = expose
+		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	case everestv1alpha1.ExposeTypeExternal:
 		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
 		if err != nil {
@@ -560,7 +566,12 @@ func (p *applier) applyProxySQLCfg() error {
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		// No need to set anything, defaults are fine.
+		expose := pxcv1.ServiceExpose{
+			Enabled:     true,
+			Type:        corev1.ServiceTypeClusterIP,
+			Annotations: map[string]string{},
+		}
+		proxySQL.Expose = expose
 	case everestv1alpha1.ExposeTypeExternal:
 		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
 		if err != nil {
