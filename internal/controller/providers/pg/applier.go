@@ -181,6 +181,7 @@ func (p *applier) Proxy() error {
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type: string(corev1.ServiceTypeClusterIP),
 		}
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
