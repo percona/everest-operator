@@ -97,12 +97,35 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 		testSecretKey = "ZmFrZVNlY3JldEtleQ==" //nolint:gosec // base64 for "fakeSecretKey"
 	)
 
+	apiObjects := []runtime.Object{
+		&everestv1alpha1.DatabaseEngine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      consts.PSMDBDeploymentName,
+				Namespace: ns,
+			},
+			Spec: everestv1alpha1.DatabaseEngineSpec{
+				Type: everestv1alpha1.DatabaseEnginePSMDB,
+			},
+			Status: everestv1alpha1.DatabaseEngineStatus{
+				AvailableVersions: everestv1alpha1.Versions{
+					Engine: everestv1alpha1.ComponentsMap{
+						"8.0.8-3": {},
+					},
+				},
+			},
+		},
+	}
+
 	db := &everestv1alpha1.DatabaseCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cluster",
 			Namespace: ns,
 		},
 		Spec: everestv1alpha1.DatabaseClusterSpec{
+			Engine: everestv1alpha1.Engine{
+				Type:    everestv1alpha1.DatabaseEnginePSMDB,
+				Version: "8.0.8-3",
+			},
 			DataSource: &everestv1alpha1.DataSource{
 				DataImport: &everestv1alpha1.DataImportJobTemplate{
 					DataImporterName: "importer",
@@ -121,7 +144,7 @@ func TestDatabaseClusterDefaulter(t *testing.T) {
 		},
 	}
 
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(apiObjects...).Build()
 	defaulter := &DatabaseClusterDefaulter{Client: client}
 
 	err := defaulter.Default(t.Context(), db)
