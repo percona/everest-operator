@@ -78,10 +78,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-08-21T07:02:37Z"
+    createdAt: "2025-09-01T13:17:45Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: everest-operator.v0.0.0
+  name: everest-operator.v1.10000.0-rc20250901131651
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -419,7 +419,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                image: docker.io/perconalab/everest-operator:0.0.0
+                image: docker.io/perconalab/everest-operator:1.10000.0-rc20250901131651
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -461,7 +461,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: docker.io/perconalab/everest-operator:0.0.0
+                image: docker.io/perconalab/everest-operator:1.10000.0-rc20250901131651
                 imagePullPolicy: IfNotPresent
                 name: crs-migration
                 resources: {}
@@ -537,7 +537,7 @@ spec:
   provider:
     name: Percona
     url: https://percona.com
-  version: 0.0.0
+  version: 1.10000.0-rc20250901131651
   webhookdefinitions:
   - admissionReviewVersions:
     - v1
