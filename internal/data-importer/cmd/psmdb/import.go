@@ -39,6 +39,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/api/v1alpha1/dataimporterspec"
 	"github.com/percona/everest-operator/internal/consts"
+	"github.com/percona/everest-operator/internal/data-importer/utils"
 )
 
 // Cmd is the command for running psmdb import.
@@ -90,7 +91,7 @@ func runPSMDBImport(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	psmdbRestoreName := "data-import-" + dbName
+	psmdbRestoreName := utils.GetMd5HashedName("data-import-" + dbName)
 
 	defer func() { //nolint:contextcheck
 		// We use a new context for cleanup since the original context may be canceled or timed out,
@@ -178,6 +179,10 @@ func runPSMDBRestoreAndWait(
 		// set this annotation so that Everest operator does not create a DatabaseBackupRestore (DBR) for this restore.
 		psmdbRestore.SetAnnotations(map[string]string{
 			consts.ManagedByDataImportAnnotation: consts.ManagedByDataImportAnnotationValueTrue,
+		})
+		// Additional labels to help identify the object.
+		psmdbRestore.SetLabels(map[string]string{
+			consts.EverestLabelPrefix + consts.DatabaseClusterNameLabel: dbName,
 		})
 		// set owner reference to the database cluster, so that it will be deleted when the DB is deleted.
 		if err := controllerutil.SetOwnerReference(db, psmdbRestore, c.Scheme()); err != nil {
