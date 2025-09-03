@@ -30,4 +30,9 @@ const (
 	ManagedByDataImportAnnotation = EverestAnnotationPrefix + "managed-by-data-import"
 	// ManagedByDataImportAnnotationValueTrue is the value for the ManagedByDataImportAnnotation to indicate that the resource is managed by data import.
 	ManagedByDataImportAnnotationValueTrue = "true"
+	// DefaultEverestExposeServiceAnnotationsKey is the annotation key which is used by default in all everest-managed exposure services
+	// to be able to cleanup the annotations list since the upstream does not allow to delete all annotations
+	DefaultEverestExposeServiceAnnotationsKey = "everest.percona.com/custom-annotations"
+	// DefaultEverestExposeServiceAnnotationsValue is the value used for DefaultEverestExposeServiceAnnotationsKey
+	DefaultEverestExposeServiceAnnotationsValue = "true"
 )

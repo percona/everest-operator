@@ -449,27 +449,28 @@ func (p *applier) applyHAProxyCfg() error {
 	} else {
 		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaXtraDBCluster.Spec.HAProxy.ExposePrimary.Annotations, consts.HAProxyComponentLabelValue)
+	if err != nil {
+		return err
+	}
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose := pxcv1.ServiceExpose{
 			Enabled:     true,
 			Type:        corev1.ServiceTypeClusterIP,
-			Annotations: map[string]string{},
+			Annotations: desiredAnnotations,
 		}
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
-		if err != nil {
-			return err
-		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
-			Annotations:              annotations,
+			Annotations:              desiredAnnotations,
 		}
+		p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	default:
@@ -545,6 +546,7 @@ func (p *applier) applyHAProxyCfg() error {
 		}
 	}
 
+	p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
 	return nil
 }
@@ -563,25 +565,25 @@ func (p *applier) applyProxySQLCfg() error {
 	} else {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaXtraDBCluster.Spec.ProxySQL.Expose.Annotations, consts.ProxySQLComponentLabelValue)
+	if err != nil {
+		return err
+	}
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose := pxcv1.ServiceExpose{
 			Enabled:     true,
 			Type:        corev1.ServiceTypeClusterIP,
-			Annotations: map[string]string{},
+			Annotations: desiredAnnotations,
 		}
 		proxySQL.Expose = expose
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
-		if err != nil {
-			return err
-		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
-			Annotations:              annotations,
+			Annotations:              desiredAnnotations,
 		}
 		proxySQL.Expose = expose
 	default:
@@ -636,6 +638,7 @@ func (p *applier) applyProxySQLCfg() error {
 			proxySQL.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		}
 	}
+	p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
 	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
 	return nil
 }
