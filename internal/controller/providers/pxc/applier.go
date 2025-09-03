@@ -451,7 +451,8 @@ func (p *applier) applyHAProxyCfg() error {
 	} else {
 		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaXtraDBCluster.Spec.HAProxy.ExposePrimary.Annotations, consts.HAProxyComponentLabelValue)
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
+		p.ctx, p.C, p.DB, p.Spec.HAProxy.ExposePrimary.Annotations, consts.HAProxyComponentLabelValue)
 	if err != nil {
 		return err
 	}
@@ -472,7 +473,7 @@ func (p *applier) applyHAProxyCfg() error {
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 			Annotations:              desiredAnnotations,
 		}
-		p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
+		p.Spec.IgnoreAnnotations = ignore
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	default:
@@ -549,7 +550,7 @@ func (p *applier) applyHAProxyCfg() error {
 		}
 	}
 
-	p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
+	p.Spec.IgnoreAnnotations = ignore
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
 	return nil
 }
@@ -568,7 +569,8 @@ func (p *applier) applyProxySQLCfg() error {
 	} else {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaXtraDBCluster.Spec.ProxySQL.Expose.Annotations, consts.ProxySQLComponentLabelValue)
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
+		p.ctx, p.C, p.DB, p.Spec.ProxySQL.Expose.Annotations, consts.ProxySQLComponentLabelValue)
 	if err != nil {
 		return err
 	}
@@ -641,7 +643,7 @@ func (p *applier) applyProxySQLCfg() error {
 			proxySQL.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		}
 	}
-	p.PerconaXtraDBCluster.Spec.IgnoreAnnotations = ignore
+	p.Spec.IgnoreAnnotations = ignore
 	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
 	return nil
 }

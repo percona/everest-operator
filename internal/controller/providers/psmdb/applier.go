@@ -262,7 +262,8 @@ func (p *applier) Proxy() error {
 
 func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	database := p.DB
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaServerMongoDB.Spec.Sharding.Mongos.Expose.ServiceAnnotations, consts.PSMDBShardedComponentLabelValue)
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
+		p.ctx, p.C, p.DB, p.Spec.Sharding.Mongos.Expose.ServiceAnnotations, consts.PSMDBShardedComponentLabelValue)
 	if err != nil {
 		return err
 	}
@@ -278,13 +279,14 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
-	p.PerconaServerMongoDB.Spec.IgnoreAnnotations = ignore
+	p.Spec.IgnoreAnnotations = ignore
 	return nil
 }
 
 func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	database := p.DB
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, p.PerconaServerMongoDB.Spec.Replsets[0].Expose.ServiceAnnotations, consts.PSMDBReplicasetComponentLabelValue)
+	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
+		p.ctx, p.C, p.DB, p.Spec.Replsets[0].Expose.ServiceAnnotations, consts.PSMDBReplicasetComponentLabelValue)
 	if err != nil {
 		return err
 	}
@@ -302,7 +304,7 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
-	p.PerconaServerMongoDB.Spec.IgnoreAnnotations = ignore
+	p.Spec.IgnoreAnnotations = ignore
 	return nil
 }
 

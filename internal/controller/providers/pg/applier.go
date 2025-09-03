@@ -194,7 +194,8 @@ func (p *applier) Proxy() error {
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
 
-		desiredAnnotations, _, err := common.ReconcileExposureAnnotations(p.ctx, p.C, p.DB, pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations, consts.PGBouncerComponentLabelValue)
+		desiredAnnotations, _, err := common.ReconcileExposureAnnotations(
+			p.ctx, p.C, p.DB, pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations, consts.PGBouncerComponentLabelValue)
 		if err != nil {
 			return err
 		}

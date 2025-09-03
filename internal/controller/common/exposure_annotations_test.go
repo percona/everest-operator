@@ -1,4 +1,19 @@
-package common
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package common //nolint:revive,nolintlint
 
 import (
 	"context"
@@ -18,6 +33,7 @@ import (
 )
 
 func TestReconcileExposureAnnotations(t *testing.T) {
+	t.Parallel()
 	type testCase struct {
 		name                        string
 		lbcs                        []client.Object
@@ -31,6 +47,7 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 	ctx := context.Background()
 	namespace := "test"
 	dbName := "db"
+	lbcName := "lbc"
 
 	cases := []testCase{
 		{
@@ -59,9 +76,9 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 		},
 		{
 			name:                        "LB service exists and has no annotations; exposed DB with lbc",
-			lbcs:                        lbcs(t, "lbc", map[string]string{"from/lbc": "value-from-lbc"}),
+			lbcs:                        lbcs(t, lbcName, map[string]string{"from/lbc": "value-from-lbc"}),
 			services:                    servicesList(t, dbName, namespace, map[string]string{}, corev1.ServiceTypeLoadBalancer),
-			db:                          db(t, dbName, namespace, "lbc", everestv1alpha1.ExposeTypeExternal),
+			db:                          db(t, dbName, namespace, lbcName, everestv1alpha1.ExposeTypeExternal),
 			existingUpstreamAnnotations: map[string]string{},
 			err:                         nil,
 			desiredIgnore:               []string{},
@@ -72,9 +89,9 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 		},
 		{
 			name:                        "LB service exists and has annotations; exposed DB with lbc",
-			lbcs:                        lbcs(t, "lbc", map[string]string{"from/lbc": "value-from-lbc"}),
+			lbcs:                        lbcs(t, lbcName, map[string]string{"from/lbc": "value-from-lbc"}),
 			services:                    servicesList(t, dbName, namespace, map[string]string{"from/svc": "value-from-svc"}, corev1.ServiceTypeLoadBalancer),
-			db:                          db(t, dbName, namespace, "lbc", everestv1alpha1.ExposeTypeExternal),
+			db:                          db(t, dbName, namespace, lbcName, everestv1alpha1.ExposeTypeExternal),
 			existingUpstreamAnnotations: map[string]string{},
 			err:                         nil,
 			desiredIgnore:               []string{"from/svc"},
@@ -85,9 +102,9 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 		},
 		{
 			name:                        "expose service is not LB; not exposed DB with lbc",
-			lbcs:                        lbcs(t, "lbc", map[string]string{"from/lbc": "value-from-lbc"}),
+			lbcs:                        lbcs(t, lbcName, map[string]string{"from/lbc": "value-from-lbc"}),
 			services:                    servicesList(t, dbName, namespace, map[string]string{"from/svc": "value-from-svc"}, corev1.ServiceTypeClusterIP),
-			db:                          db(t, dbName, namespace, "lbc", everestv1alpha1.ExposeTypeInternal),
+			db:                          db(t, dbName, namespace, lbcName, everestv1alpha1.ExposeTypeInternal),
 			existingUpstreamAnnotations: map[string]string{},
 			err:                         nil,
 			desiredIgnore:               []string{},
@@ -120,14 +137,14 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 		},
 		{
 			name: "cloud provider adds it's own annotation",
-			lbcs: lbcs(t, "lbc", map[string]string{"from/lbc": "value-from-lbc"}),
+			lbcs: lbcs(t, lbcName, map[string]string{"from/lbc": "value-from-lbc"}),
 			services: servicesList(t, dbName, namespace, map[string]string{
 				"from/svc":         "value-from-svc", // annotation added by cloud provider
 				"last-config-hash": "some-hash",
 				"from/lbc":         "value-from-lbc",
 				consts.DefaultEverestExposeServiceAnnotationsKey: consts.DefaultEverestExposeServiceAnnotationsValue,
 			}, corev1.ServiceTypeLoadBalancer),
-			db: db(t, dbName, namespace, "lbc", everestv1alpha1.ExposeTypeExternal),
+			db: db(t, dbName, namespace, lbcName, everestv1alpha1.ExposeTypeExternal),
 			existingUpstreamAnnotations: map[string]string{
 				"last-config-hash": "some-hash", // annotation added by upstream operator
 				"from/lbc":         "value-from-lbc",
@@ -213,6 +230,7 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			client := fakeClient(t, tc.lbcs, tc.services)
 			desiredAnnotations, ignore, err := ReconcileExposureAnnotations(ctx, client, tc.db, tc.existingUpstreamAnnotations, "")
 			if tc.err == nil {
@@ -226,6 +244,7 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 	}
 }
 
+// nolint:ireturn,nolintlint
 func fakeClient(t *testing.T, objects []client.Object, lists []client.ObjectList) client.Client {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -234,7 +253,7 @@ func fakeClient(t *testing.T, objects []client.Object, lists []client.ObjectList
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithLists(lists...).Build()
 }
 
-func db(t *testing.T, dbName, namespace, lbcName string, exposeType everestv1alpha1.ExposeType) *everestv1alpha1.DatabaseCluster {
+func db(t *testing.T, dbName, namespace, lbcName string, exposeType everestv1alpha1.ExposeType) *everestv1alpha1.DatabaseCluster { //nolint:unparam
 	t.Helper()
 	return &everestv1alpha1.DatabaseCluster{
 		TypeMeta: metav1.TypeMeta{},
@@ -253,7 +272,7 @@ func db(t *testing.T, dbName, namespace, lbcName string, exposeType everestv1alp
 	}
 }
 
-func servicesList(t *testing.T, dbName, namespace string, annotations map[string]string, serviceType corev1.ServiceType) []client.ObjectList {
+func servicesList(t *testing.T, dbName, namespace string, annotations map[string]string, serviceType corev1.ServiceType) []client.ObjectList { //nolint:unparam
 	t.Helper()
 	return []client.ObjectList{&corev1.ServiceList{
 		Items: []corev1.Service{
@@ -310,7 +329,7 @@ func servicesListTwoSvcs(t *testing.T, dbName, namespace string, annotations1, a
 	}}
 }
 
-func lbcs(t *testing.T, lbcName string, annotations map[string]string) []client.Object {
+func lbcs(t *testing.T, lbcName string, annotations map[string]string) []client.Object { //nolint:unparam
 	t.Helper()
 	return []client.Object{&everestv1alpha1.LoadBalancerConfig{
 		ObjectMeta: metav1.ObjectMeta{

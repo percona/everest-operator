@@ -1,4 +1,19 @@
-package common
+// everest-operator
+// Copyright (C) 2022 Percona LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package common //nolint:revive,nolintlint
 
 import (
 	"context"
@@ -14,8 +29,18 @@ import (
 
 var errNoSvcFound = errors.New("no expose service found")
 
-// ReconcileExposureAnnotations returns the annotations to apply to the upstream cluster, the list of annotations keys to ignore to avoid overriding and an error
-func ReconcileExposureAnnotations(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, upstreamAnnotations map[string]string, componentName string) (desiredUpstreamAnnotations map[string]string, ignore []string, err error) {
+// ReconcileExposureAnnotations returns the annotations to apply to the upstream cluster, the list of annotations keys to ignore to avoid overriding and an error.
+func ReconcileExposureAnnotations( //nolint:nonamedreturns
+	ctx context.Context,
+	c client.Client,
+	db *everestv1alpha1.DatabaseCluster,
+	upstreamAnnotations map[string]string,
+	componentName string,
+) (
+	desiredUpstreamAnnotations map[string]string,
+	ignore []string,
+	err error,
+) {
 	serviceAnnotations, err := getExposeServiceAnnotations(ctx, c, db, componentName)
 	if err != nil {
 		// if there is no service available yet, we shouldn't populate the upstream annotations & ignore
@@ -51,7 +76,7 @@ func getAnnotations(
 	return lbc.Spec.Annotations, nil
 }
 
-// getExposeServiceAnnotations returns the annotations of the expose service
+// getExposeServiceAnnotations returns the annotations of the expose service.
 func getExposeServiceAnnotations(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, componentName string) (map[string]string, error) {
 	svcs := &corev1.ServiceList{}
 	err := c.List(ctx, svcs, client.InNamespace(db.GetNamespace()), client.MatchingLabels{
@@ -86,12 +111,10 @@ func getExposeServiceAnnotations(ctx context.Context, c client.Client, db *evere
 	default:
 		return nil, fmt.Errorf("invalid expose type: %s", exposeType)
 	}
-
-	return emptyMap, nil
 }
 
 // everest always adds the default annotation to the list to be able to delete all custom annotations
-// since the upstream operator does not support it
+// since the upstream operator does not support it.
 func addDefaultAnnotation(annotations map[string]string) map[string]string {
 	if annotations == nil {
 		annotations = make(map[string]string)
@@ -102,7 +125,7 @@ func addDefaultAnnotation(annotations map[string]string) map[string]string {
 	return annotations
 }
 
-// returns the keys that appears only in minuend
+// returns the keys that appears only in minuend.
 func getUniqueKeys(minuend, subtrahend map[string]string) []string {
 	keys := make([]string, 0)
 	for k := range minuend {
