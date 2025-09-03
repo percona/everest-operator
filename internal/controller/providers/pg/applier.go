@@ -194,12 +194,12 @@ func (p *applier) Proxy() error {
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
 
-		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		desiredAnnotations, _, err := common.ReconcileExposureAnnotations(
+			p.ctx, p.C, p.DB, pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations, consts.PGBouncerComponentLabelValue)
 		if err != nil {
 			return err
 		}
-
-		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = annotations
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = desiredAnnotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}

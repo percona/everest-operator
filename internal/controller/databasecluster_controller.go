@@ -332,6 +332,7 @@ func (r *DatabaseClusterReconciler) ensureDataImportJob(
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
@@ -904,6 +905,29 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 			}
 		}),
 		builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}, defaultPredicate),
+	)
+	// whenever an annotation has changed we reconcile the DB that created it (if any).
+	controller.Watches(
+		&corev1.Service{},
+		handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
+			svc, ok := obj.(*corev1.Service)
+			if !ok {
+				return []reconcile.Request{}
+			}
+			dbName, ok := svc.Labels[consts.ExposureSvcLabel]
+			if !ok || dbName == "" {
+				return []reconcile.Request{}
+			}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      dbName,
+						Namespace: obj.GetNamespace(),
+					},
+				},
+			}
+		}),
+		builder.WithPredicates(predicate.AnnotationChangedPredicate{}, defaultPredicate),
 	)
 }
 
