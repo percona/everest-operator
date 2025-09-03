@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/internal/consts"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 var errNoSvcFound = errors.New("no expose service found")
@@ -16,7 +17,6 @@ var errNoSvcFound = errors.New("no expose service found")
 // ReconcileExposureAnnotations returns the annotations to apply to the upstream cluster, the list of annotations keys to ignore to avoid overriding and an error
 func ReconcileExposureAnnotations(ctx context.Context, c client.Client, db *everestv1alpha1.DatabaseCluster, upstreamAnnotations map[string]string, componentName string) (desiredUpstreamAnnotations map[string]string, ignore []string, err error) {
 	serviceAnnotations, err := getExposeServiceAnnotations(ctx, c, db, componentName)
-
 	if err != nil {
 		// if there is no service available yet, we shouldn't populate the upstream annotations & ignore
 		if errors.Is(err, errNoSvcFound) {
@@ -65,7 +65,7 @@ func getExposeServiceAnnotations(ctx context.Context, c client.Client, db *evere
 		return nil, errNoSvcFound
 	}
 
-	var emptyMap = make(map[string]string)
+	emptyMap := make(map[string]string)
 	exposeType := db.Spec.Proxy.Expose.Type
 
 	switch exposeType {

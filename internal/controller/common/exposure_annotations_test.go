@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
-	"github.com/percona/everest-operator/internal/consts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +12,9 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 )
 
 func TestReconcileExposureAnnotations(t *testing.T) {
@@ -223,7 +224,6 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 			assert.Equal(t, tc.desiredIgnore, ignore)
 		})
 	}
-
 }
 
 func fakeClient(t *testing.T, objects []client.Object, lists []client.ObjectList) client.Client {
