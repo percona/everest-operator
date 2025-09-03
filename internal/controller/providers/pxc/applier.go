@@ -449,7 +449,7 @@ func (p *applier) applyHAProxyCfg() error {
 	if p.DB.Spec.Proxy.Replicas == nil {
 		haProxy.PodSpec.Size = p.DB.Spec.Engine.Replicas
 	} else {
-		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
+		haProxy.Size = *p.DB.Spec.Proxy.Replicas
 	}
 	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
 		p.ctx, p.C, p.DB, p.Spec.HAProxy.ExposePrimary.Annotations, consts.HAProxyComponentLabelValue)
