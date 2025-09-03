@@ -644,7 +644,7 @@ func (p *applier) applyProxySQLCfg() error {
 		}
 	}
 	p.Spec.IgnoreAnnotations = ignore
-	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
+	p.Spec.ProxySQL = proxySQL
 	return nil
 }
 
