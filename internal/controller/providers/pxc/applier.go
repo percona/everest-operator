@@ -551,7 +551,7 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 
 	p.Spec.IgnoreAnnotations = ignore
-	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
+	p.Spec.HAProxy = haProxy
 	return nil
 }
 
