@@ -447,7 +447,7 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 
 	if p.DB.Spec.Proxy.Replicas == nil {
-		haProxy.PodSpec.Size = p.DB.Spec.Engine.Replicas
+		haProxy.Size = p.DB.Spec.Engine.Replicas
 	} else {
 		haProxy.Size = *p.DB.Spec.Proxy.Replicas
 	}
