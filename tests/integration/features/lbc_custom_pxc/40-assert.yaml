@@ -28,12 +28,6 @@ assertAll:
 
   - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
     message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
-
-  - celExpr: "!has(pxc.spec.haproxy.exposePrimary.annotations)"
-    message: "pxc.spec.haproxy.exposePrimary.annotations is not empty"
-
-  - celExpr: "!has(pxc.spec.haproxy.exposeReplicas.annotations)"
-    message: "pxc.spec.haproxy.exposeReplicas.annotations is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig
@@ -55,4 +49,12 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: pxc-lbc
+spec:
+  haproxy:
+    exposePrimary:
+      annotations:
+        everest.percona.com/custom-annotations: "true"
+    exposeReplicas:
+      annotations:
+        everest.percona.com/custom-annotations: "true"
 

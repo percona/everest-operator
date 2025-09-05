@@ -9,3 +9,20 @@ spec:
   proxy:
     expose:
       loadBalancerConfigName: lbc-custom-pxc
+---
+#simulate existence of the LB service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pxc-lbc-haproxy
+  labels:
+    app.kubernetes.io/instance: pxc-lbc
+    app.kubernetes.io/component: haproxy
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/component: haproxy
+  ports:
+    - port: 3306
+      targetPort: 3306
+      protocol: TCP

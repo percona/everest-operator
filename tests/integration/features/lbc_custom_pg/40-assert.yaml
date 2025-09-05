@@ -28,9 +28,6 @@ assertAll:
 
   - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
     message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
-
-  - celExpr: "!has(pg.spec.proxy.pgBouncer.expose.annotations)"
-    message: "pg.spec.proxy.pgBouncer.expose.annotations is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: LoadBalancerConfig
@@ -52,4 +49,10 @@ apiVersion: pgv2.percona.com/v2
 kind: PerconaPGCluster
 metadata:
   name: pg-lbc
+spec:
+  proxy:
+    pgBouncer:
+      expose:
+        annotations:
+          everest.percona.com/custom-annotations: "true"
 

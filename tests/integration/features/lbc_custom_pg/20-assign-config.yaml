@@ -9,3 +9,20 @@ spec:
   proxy:
     expose:
       loadBalancerConfigName: lbc-custom-pg
+---
+#simulate existence of the LB service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-lbc-pgbouncer
+  labels:
+    app.kubernetes.io/instance: pg-lbc
+    app.kubernetes.io/component: pgbouncer
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/component: pgbouncer
+  ports:
+    - port: 3306
+      targetPort: 3306
+      protocol: TCP
