@@ -99,7 +99,7 @@ spec:
     querySource: pgstatmonitor
     resources:
       requests:
-        memory: 816033300480m
+        memory: 796907Ki
         cpu: 228m
 ---
 apiVersion: v1

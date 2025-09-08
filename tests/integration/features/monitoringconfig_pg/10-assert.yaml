@@ -96,10 +96,11 @@ spec:
     serverHost: localhost-mc-pg
     secret: everest-secrets-pg-mc-pmm
     image: percona/pmm-client:latest
+    imagePullPolicy: IfNotPresent
     querySource: pgstatmonitor
     resources:
       requests:
-        memory: 101994987520m
+        memory: 99604Ki
         cpu: 95m
 ---
 apiVersion: v1
