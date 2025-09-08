@@ -161,6 +161,7 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
 	if cfg.WebhookCertPath != "" {
 		setupLog.Info("Initializing webhook certificate watcher using provided certificates",
 			"webhook-cert-path", cfg.WebhookCertPath, "webhook-cert-name", cfg.WebhookCertName, "webhook-cert-key", cfg.WebhookCertKey)
@@ -174,6 +175,13 @@ func main() {
 			setupLog.Error(err, "Failed to initialize webhook certificate watcher")
 			os.Exit(1)
 		}
+
+		go func() {
+			if err := webhookCertWatcher.Start(ctx); err != nil {
+				setupLog.Error(err, "Failed to start webhook certificate watcher")
+				os.Exit(1)
+			}
+		}()
 
 		tlsOpts = append(tlsOpts, func(config *tls.Config) {
 			config.GetCertificate = webhookCertWatcher.GetCertificate
@@ -369,7 +377,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
