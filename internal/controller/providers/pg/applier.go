@@ -51,6 +51,7 @@ const (
 	pgBackRestStorageVerifyTmpl    = "%s-storage-verify-tls"
 	pgBackRestStorageForcePathTmpl = "%s-s3-uri-style"
 	pgBackRestStoragePathStyle     = "path"
+	repo1Name                      = "repo1"
 )
 
 type applier struct {
@@ -110,7 +111,10 @@ func (p *applier) Engine() error {
 	if !ok {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
+
 	pg.Spec.Image = pgEngineVersion.ImagePath
+	pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
 		FindStringSubmatch(database.Spec.Engine.Version)
@@ -148,9 +152,12 @@ func (p *applier) Engine() error {
 	if err != nil {
 		return err
 	}
+
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
-		Image: image,
+		Image:           image,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
+
 	return nil
 }
 
@@ -328,10 +335,11 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	ctx := p.ctx
 
 	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled:   true,
-		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
-		Image:     common.DefaultPMMClientImage,
+		Enabled:         true,
+		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
+		Image:           common.DefaultPMMClientImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 
 	if monitoring.Spec.PMM.Image != "" {

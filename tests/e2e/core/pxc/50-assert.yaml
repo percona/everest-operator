@@ -33,9 +33,11 @@ metadata:
 spec:
   haproxy:
     enabled: true
+    imagePullPolicy: IfNotPresent
     exposePrimary: {}
     size: 1
   pxc:
+    imagePullPolicy: IfNotPresent
     configuration: |
       [mysqld]
       wsrep_provider_options="debug=1;gcache.size=1G"
