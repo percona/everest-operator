@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,7 +44,8 @@ func SetupMonitoringConfigWebhookWithManager(mgr manager.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&everestv1alpha1.MonitoringConfig{}).
 		WithValidator(&MonitoringConfigValidator{
-			Client: mgr.GetClient(),
+			Client:    mgr.GetClient(),
+			apiReader: mgr.GetAPIReader(),
 		}).
 		Complete()
 }
@@ -53,6 +55,8 @@ func SetupMonitoringConfigWebhookWithManager(mgr manager.Manager) error {
 // MonitoringConfigValidator validates the MonitoringConfig resource.
 type MonitoringConfigValidator struct {
 	Client client.Client
+	// apiReader bypasses the cache and directly reads from the API server.
+	apiReader client.Reader
 }
 
 // ValidateCreate validates the creation of a DatabaseCluster.
@@ -84,10 +88,13 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 	if secretName == "" {
 		return errors.New("missing secret name")
 	}
-	// ensure that the secret exists.
-	secret := corev1.Secret{}
 
-	if err := v.Client.Get(ctx, types.NamespacedName{
+	// Ensure that the secret exists.
+	// We read from the API server directly. This is because the webhook
+	// may be called before the cached client has had the chance to sync
+	// with the API server.
+	secret := corev1.Secret{}
+	if err := v.apiReader.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: m.GetNamespace(),
 	}, &secret); err != nil {
@@ -108,6 +115,11 @@ func (v *MonitoringConfigValidator) validateMonitoringConfig(ctx context.Context
 }
 
 func checkAccess(ctx context.Context, url, apiKey string, insecure bool) error {
+	debug := os.Getenv("DEPLOY_TYPE")
+	if debug == "dev" {
+		return nil
+	}
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,

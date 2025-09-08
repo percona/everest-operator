@@ -23,8 +23,18 @@ import (
 )
 
 const (
+	// Consts used for calculating resources.
+	kibibyte = 1024
+	mebibyte = 1024 * kibibyte
+
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
+	// pmmClientRequestCPUSmall are the default CPU requests for PMM client in small clusters.
+	pmmClientRequestCPUSmall = 95
+	// pmmClientRequestCPUMedium are the default CPU requests for PMM client in medium clusters.
+	pmmClientRequestCPUMedium = 228
+	// pmmClientRequestCPULarge are the default CPU requests for PMM client in large clusters.
+	pmmClientRequestCPULarge = 228
 )
 
 var (
@@ -33,24 +43,27 @@ var (
 	// A pmmResourceRequirementsSmall is the resource requirements for PMM for small clusters.
 	pmmResourceRequirementsSmall = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("97.27Mi"),
-			corev1.ResourceCPU:    resource.MustParse("95m"),
+			// 97.27Mi = 97 MiB + 276 KiB = 99604 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(97*mebibyte+276*kibibyte, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUSmall, resource.Milli),
 		},
 	}
 
 	// A pmmResourceRequirementsMedium is the resource requirements for PMM for medium clusters.
 	pmmResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("194.5Mi"),
-			corev1.ResourceCPU:    resource.MustParse("228m"),
+			// 194.5Mi = 194 MiB + 512 KiB = 199168 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(194*mebibyte+512*kibibyte, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUMedium, resource.Milli),
 		},
 	}
 
 	// A pmmResourceRequirementsLarge is the resource requirements for PMM for large clusters.
 	pmmResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: resource.MustParse("778.23Mi"),
-			corev1.ResourceCPU:    resource.MustParse("228m"),
+			// 778.23Mi = 778 MiB + 235 KiB = 796907 KiB
+			corev1.ResourceMemory: *resource.NewQuantity(778*mebibyte+235*kibibyte, resource.BinarySI),
+			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPULarge, resource.Milli),
 		},
 	}
 )

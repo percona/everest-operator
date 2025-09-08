@@ -3572,6 +3572,49 @@ func TestReconcilePGBackRestReposEmpty(t *testing.T) {
 	assert.Equal(t, expRepos, repos)
 }
 
+func TestReconcilePGBackRestReposAfterDataSource_withoutSchedule(t *testing.T) {
+	t.Parallel()
+
+	testRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name: "repo1",
+			S3: &crunchyv1beta1.RepoS3{
+				Bucket:   "bucket1",
+				Region:   "region1",
+				Endpoint: "endpoint1",
+			},
+		},
+	}
+	testBackupSchedules := []everestv1alpha1.BackupSchedule{}
+	testBackupRequests := []everestv1alpha1.DatabaseClusterBackup{}
+	testBackupStorages := map[string]everestv1alpha1.BackupStorage{}
+	testBackupStoragesSecrets := map[string]*corev1.Secret{}
+
+	expRepos := []crunchyv1beta1.PGBackRestRepo{
+		{
+			Name:   "repo1",
+			Volume: pvcVolume,
+		},
+	}
+
+	repos, _, _, err := reconcilePGBackRestRepos(
+		testRepos,
+		testBackupSchedules,
+		testBackupRequests,
+		testBackupStorages,
+		testBackupStoragesSecrets,
+		testEngineStorage,
+		&everestv1alpha1.DatabaseCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "123",
+			},
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, expRepos, repos)
+}
+
 func Test_globalDatasourceDestination(t *testing.T) {
 	t.Parallel()
 
@@ -3668,4 +3711,29 @@ func TestSortPGBackRestReposByName(t *testing.T) {
 		sortByName(input)
 		assert.Equal(t, input, tc.sortedRepos)
 	}
+}
+
+var pvcVolume, testEngineStorage = pvcVolumeAndEngineStorage()
+
+func pvcVolumeAndEngineStorage() (*crunchyv1beta1.RepoPVC, everestv1alpha1.Storage) {
+	testEngineStorageSize, _ := resource.ParseQuantity("15G")
+	testEngineStorageClass := "someSC"
+	testEngineStorage := everestv1alpha1.Storage{
+		Size:  testEngineStorageSize,
+		Class: &testEngineStorageClass,
+	}
+
+	return &crunchyv1beta1.RepoPVC{
+		VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			StorageClassName: &testEngineStorageClass,
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: testEngineStorageSize,
+				},
+			},
+		},
+	}, testEngineStorage
 }

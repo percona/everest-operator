@@ -2,14 +2,15 @@ apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 30
 collectors:
-  - command: kubectl get monitoringconfig/mc-pg -n ${NAMESPACE} -o yaml
-  - command: kubectl get secret/mc-pg-secret -n ${NAMESPACE} -o yaml
+  - command: kubectl get monitoringconfig/mc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/mc-psmdb-secret -n ${NAMESPACE} -o yaml
   - command: kubectl get vmagent/everest-monitoring -n everest-monitoring -o yaml
 
-  - command: kubectl get dbc/pg-mc -n ${NAMESPACE} -o yaml
-  - command: kubectl get perconapgcluster/pg-mc -n ${NAMESPACE} -o yaml
+  - command: kubectl get db/psmdb-mc -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/psmdb-mc -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/everest-secrets-psmdb-mc -n ${NAMESPACE} -o yaml
 
-  - command: kubectl get secret/everest-secrets-pg-mc-pmm -n ${NAMESPACE} -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
     selector: control-plane=controller-manager
@@ -17,13 +18,17 @@ collectors:
 resourceRefs:
   - apiVersion: everest.percona.com/v1alpha1
     kind: MonitoringConfig
-    name: mc-pg
+    name: mc-psmdb
     ref: mc
   - apiVersion: operator.victoriametrics.com/v1beta1
     kind: VMAgent
     name: everest-monitoring
     namespace: everest-monitoring
     ref: vmagent
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-mc
+    ref: psmdb
 assertAll:
   - celExpr: "has(mc.metadata.finalizers)"
     message: "mc doesn't have finalizers"
@@ -40,31 +45,22 @@ assertAll:
   - celExpr: "has(vmagent.spec.remoteWrite)"
     message: "vmagent doesn't have .spec.remoteWrite"
 
-  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pg/victoriametrics/api/v1/write')"
-    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pg/victoriametrics/api/v1/write'"
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: pg-mc
-spec:
-  monitoring:
-    monitoringConfigName: mc-pg
-    resources:
-      limits:
-        memory: "1G"
-        cpu: "1"
+  - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-psmdb/victoriametrics/api/v1/write')"
+    message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-psmdb/victoriametrics/api/v1/write'"
+
+  - celExpr: "!has(psmdb.spec.pmm.resources.limits)"
+    message: "psmdb.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
 metadata:
-  name: mc-pg
+  name: mc-psmdb
 spec:
   type: pmm
-  credentialsSecretName: mc-pg-secret
+  credentialsSecretName: mc-psmdb-secret
   verifyTLS: false
   pmm:
-    url: http://localhost-mc-pg
+    url: http://localhost-mc-psmdb
     image: percona/pmm-client:latest
 status:
   inUse: true
@@ -72,49 +68,48 @@ status:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: mc-pg-secret
+  name: mc-psmdb-secret
   ownerReferences:
     - apiVersion: everest.percona.com/v1alpha1
       blockOwnerDeletion: true
       controller: true
       kind: MonitoringConfig
-      name: mc-pg
+      name: mc-psmdb
 type: Opaque
 data:
   apiKey: YWJjZGVm
 ---
-apiVersion: pgv2.percona.com/v2
-kind: PerconaPGCluster
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
 metadata:
-  name: pg-mc
+  name: psmdb-mc
+spec:
+  monitoring:
+    monitoringConfigName: mc-psmdb
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: psmdb-mc
 spec:
   pmm:
     enabled: true
-    serverHost: localhost-mc-pg
-    secret: everest-secrets-pg-mc-pmm
+    serverHost: localhost-mc-psmdb
     image: percona/pmm-client:latest
-    querySource: pgstatmonitor
     resources:
       requests:
-        memory: 816033300480m
+        memory: 796907Ki
         cpu: 228m
-      limits:
-        memory: 1G
-        cpu: "1"
+  secrets:
+    users: everest-secrets-psmdb-mc
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: everest-secrets-pg-mc-pmm
-  ownerReferences:
-    - apiVersion: everest.percona.com/v1alpha1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DatabaseCluster
-      name: pg-mc
+  name: everest-secrets-psmdb-mc
 type: Opaque
 data:
-  PMM_SERVER_KEY: YWJjZGVm
+  PMM_SERVER_API_KEY: YWJjZGVm
 ---
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMAgent

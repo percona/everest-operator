@@ -66,7 +66,7 @@ ARCH=$(shell go env GOHOSTARCH)
 #.SHELLFLAGS = -ec
 
 .PHONY: all
-all: build
+all: help
 
 ##@ General
 
@@ -87,6 +87,14 @@ help: ## Display this help.
 
 ##@ Development
 
+.PHONY: init
+init: cleanup-localbin  ## Install development tools
+	$(MAKE) kustomize
+	$(MAKE) controller-gen
+	$(MAKE) envtest
+	$(MAKE) operator-sdk
+	$(MAKE) opm
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -100,27 +108,44 @@ cleanup-localbin:
 	@echo "Cleaning up local bin directory..."
 	rm -rf $(LOCALBIN)
 
-.PHONY: init
-init: cleanup-localbin  ## Install development tools
-	$(MAKE) kustomize
-	$(MAKE) controller-gen
-	$(MAKE) envtest
-	$(MAKE) operator-sdk
-	$(MAKE) opm
-
 .PHONY: format
-format:
+format: ## Format code with gofmt, goimports, and gci.
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gofumpt -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool goimports -local github.com/percona/everest-operator -l -w .
 	GOOS=$(OS) GOARCH=$(ARCH) go tool gci write --skip-generated -s standard -s default -s "prefix(github.com/percona/everest-operator)" .
 
 .PHONY: static-check
-static-check:
+static-check: ## Run static checks.
 	go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(shell git merge-base main HEAD) --fix
 	go tool license-eye -c .licenserc.yaml header fix
 
+.PHONY: build
+build: $(LOCALBIN) manifests generate format ## Build manager binary.
+	go build -o $(LOCALBIN)/manager cmd/main.go
+	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
+
+.PHONY: build-debug
+build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
+	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
+
+.PHONY: run
+run: manifests generate format ## Run a controller from your host.
+	go run ./cmd/main.go
+
+.PHONY: local-env-up
+minikube-cluster-up: ## Create a local minikube cluster
+	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal
+	minikube addons disable storage-provisioner
+	kubectl delete storageclass standard
+	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
+
+.PHONY: prepare-pr
+prepare-pr: manifests generate static-check format build ## Prepare the code for creating PR.
+
+##@ Testing
+
 .PHONY: test
-test: $(LOCALBIN) manifests generate format envtest ## Run tests.
+test: $(LOCALBIN) manifests generate format envtest ## Run unit tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: test-integration-core
@@ -164,14 +189,17 @@ test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-import
 	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
 
 .PHONY: k3d-cluster-up
-k3d-cluster-up: ## Create a K8S cluster for testing
+k3d-cluster-up: ## Create a K8S cluster for testing.
 	k3d cluster create --config ./tests/k3d_config.yaml
 	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
 
 .PHONY: k3d-cluster-up
-k3d-cluster-down: ## Create a K8S cluster for testing
+k3d-cluster-down: ## Create a K8S cluster for testing.
 	k3d cluster delete --config ./tests/k3d_config.yaml
 	rm -f ./tests/kubeconfig || true
+
+.PHONY: k3d-cluster-reset
+k3d-cluster-reset: k3d-cluster-down k3d-cluster-up ## Recreate a K8S cluster for testing.
 
 .PHONY: k3d-upload-image
 k3d-upload-image:
@@ -211,20 +239,7 @@ cluster-cleanup:
 	kubectl get crd -o name | grep .percona.com$ | xargs --no-run-if-empty kubectl delete || true
 	kubectl delete crd postgresclusters.postgres-operator.crunchydata.com --ignore-not-found=true || true
 
-##@ Build
-
-.PHONY: build
-build: $(LOCALBIN) manifests generate format ## Build manager binary.
-	go build -o $(LOCALBIN)/manager cmd/main.go
-	go build -o $(LOCALBIN)/data-importer internal/data-importer/main.go
-
-.PHONY: build-debug
-build-debug: $(LOCALBIN) manifests generate format ## Build manager binary with debug symbols.
-	CGO_ENABLED=0 go build -gcflags 'all=-N -l' -o $(LOCALBIN)/manager cmd/main.go
-
-.PHONY: run
-run: manifests generate format ## Run a controller from your host.
-	go run ./cmd/main.go
+##@ Docker build
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
@@ -254,6 +269,14 @@ docker-buildx: test ## Build and push docker image for the manager for cross-pla
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
 
+.PHONY: bundle-build
+bundle-build: ## Build the bundle image.
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: bundle-push
+bundle-push: ## Push the bundle image.
+	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+
 ##@ Deployment
 
 ifndef ignore-not-found
@@ -274,7 +297,7 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: deploy-test
-deploy-test: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy-test: manifests kustomize ## Deploy controller adjusted for test to the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/test | kubectl apply -f -
 
 .PHONY: undeploy
@@ -301,7 +324,7 @@ ENVTEST_K8S_VERSION = 1.29
 .PHONY: kustomize
 KUSTOMIZE_INSTALL_SCRIPT = "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
-kustomize: $(LOCALBIN) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+kustomize: $(LOCALBIN) ## Download kustomize locally if necessary.
 ifeq (,$(wildcard $(KUSTOMIZE)))
 	curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 	mv $(LOCALBIN)/kustomize $(KUSTOMIZE)
@@ -309,7 +332,7 @@ endif
 
 .PHONY: controller-gen
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
-controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary.
 ifeq (,$(wildcard $(CONTROLLER_GEN)))
 	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
@@ -346,20 +369,14 @@ ifeq (,$(wildcard $(OPM)))
 	}
 endif
 
+##@ Release Preparation
+
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
-
-.PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-.PHONY: bundle-push
-bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
@@ -384,14 +401,6 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
-
-# Create a local minikube cluster
-.PHONY: local-env-up
-local-env-up: ## Create a local minikube cluster
-	minikube start --nodes=3 --cpus=4 --memory=4g --apiserver-names host.docker.internal
-	minikube addons disable storage-provisioner
-	kubectl delete storageclass standard
-	kubectl apply -f ./dev/kubevirt-hostpath-provisioner.yaml
 
 ## Location to output deployment manifests
 DEPLOYDIR = ./deploy
