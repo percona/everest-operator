@@ -9,20 +9,3 @@ spec:
   proxy:
     expose:
       loadBalancerConfigName: lbc-custom-psmdb
----
-#simulate existence of the LB service
-apiVersion: v1
-kind: Service
-metadata:
-  name: psmdb-lbc-mongos
-  labels:
-    app.kubernetes.io/instance: psmdb-lbc
-    app.kubernetes.io/component: mongos
-spec:
-  type: LoadBalancer
-  selector:
-    app.kubernetes.io/component: mongos
-  ports:
-    - port: 3306
-      targetPort: 3306
-      protocol: TCP
