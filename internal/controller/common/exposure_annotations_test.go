@@ -239,7 +239,7 @@ func TestReconcileExposureAnnotations(t *testing.T) {
 				require.Equal(t, tc.err, err)
 			}
 			assert.Equal(t, tc.desiredAnnotations, desiredAnnotations)
-			assert.ElementsMatch(t, tc.desiredIgnore, ignore)
+			assert.Equal(t, tc.desiredIgnore, ignore)
 		})
 	}
 }
