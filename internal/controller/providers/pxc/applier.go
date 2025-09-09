@@ -200,7 +200,11 @@ func (p *applier) Engine() error {
 	}
 
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
-	pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
 	pxc.Spec.VolumeExpansionEnabled = true
 
@@ -518,9 +522,13 @@ func (p *applier) applyHAProxyCfg() error {
 		image = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Image
 	}
 	haProxy.PodSpec.Image = image
-	haProxy.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		haProxy.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
@@ -550,10 +558,6 @@ func (p *applier) applyHAProxyCfg() error {
 
 	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
 	return nil
-}
-
-func shouldUpdateResourceRequests(dbState everestv1alpha1.AppState) bool {
-	return dbState == everestv1alpha1.AppStateNew || dbState == everestv1alpha1.AppStateInit
 }
 
 func (p *applier) applyProxySQLCfg() error {
@@ -612,7 +616,7 @@ func (p *applier) applyProxySQLCfg() error {
 	}
 	proxySQL.Image = image
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).

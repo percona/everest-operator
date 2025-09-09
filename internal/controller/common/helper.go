@@ -674,6 +674,12 @@ func IsDatabaseClusterRestoreRunning(
 	}), nil
 }
 
+// IsNewDatabaseCluster returns true if the database is in a new or init state.
+func IsNewDatabaseCluster(dbState everestv1alpha1.AppState) bool {
+	dbState = dbState.WithCreatingState()
+	return dbState == everestv1alpha1.AppStateCreating || dbState == everestv1alpha1.AppStateInit
+}
+
 // GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage.
 func GetRepoNameByBackupStorage(
 	backupStorage *everestv1alpha1.BackupStorage,
