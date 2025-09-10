@@ -168,7 +168,7 @@ func (p *applier) Engine() error {
 	}
 
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
-		Image: image,
+		Image:           image,
 		ImagePullPolicy: extImagPullPolicy,
 	}
 
@@ -362,10 +362,10 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	}
 
 	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled:   true,
-		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
-		Image:     common.DefaultPMMClientImage,
+		Enabled:         true,
+		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
+		Image:           common.DefaultPMMClientImage,
 		ImagePullPolicy: pmmImagePullPolicy,
 	}
 

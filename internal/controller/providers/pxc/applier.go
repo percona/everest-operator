@@ -658,10 +658,10 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	}
 
 	pxc.Spec.PMM = &pxcv1.PMMSpec{
-		Enabled:   true,
-		Image:     pmmImage,
+		Enabled:         true,
+		Image:           pmmImage,
 		ImagePullPolicy: pmmImagePullPolicy,
-		Resources: common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
+		Resources:       common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
 	}
 
 	//nolint:godox
