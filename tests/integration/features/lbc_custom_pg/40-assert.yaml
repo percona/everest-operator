@@ -1,55 +1,10 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 timeout: 10
-collectors:
-  - command: kubectl get lbc/lbc-custom-pg -o yaml
-  - command: kubectl -n $NAMESPACE get db/pg-lbc -o yaml
-  - command: kubectl -n $NAMESPACE get perconapgcluster/pg-lbc -o yaml
-  - type: pod
-    namespace: everest-system
-    selector: control-plane=controller-manager
-    tail: 100
-resourceRefs:
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: LoadBalancerConfig
-    name: lbc-custom-pg
-    ref: lbc
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: DatabaseCluster
-    name: pg-lbc
-    ref: db
-  - apiVersion: pgv2.percona.com/v2
-    kind: PerconaPGCluster
-    name: pg-lbc
-    ref: pg
-assertAll:
-  - celExpr: "!has(lbc.metadata.finalizers)"
-    message: "lbc has unexpected finalizers"
-
-  - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
-    message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
-
-  - celExpr: "!has(pg.spec.proxy.pgBouncer.expose.annotations)"
-    message: "pg.spec.proxy.pgBouncer.expose.annotations is not empty"
----
-apiVersion: everest.percona.com/v1alpha1
-kind: LoadBalancerConfig
-metadata:
-  name: lbc-custom-pg
-spec:
-  annotations:
-    annot-1: "value-1"
-    annot-2: "value-2"
-status:
-  inUse: false
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: pg-lbc
----
-apiVersion: pgv2.percona.com/v2
-kind: PerconaPGCluster
-metadata:
-  name: pg-lbc
-
+commands:
+  - script: |
+      out=$(kubectl patch db pg-lbc -n "$NAMESPACE" --type=merge -p '{"spec":{"proxy":{"expose":{"loadBalancerConfigName":""}}}}' 2>&1)
+      expected=".spec.proxy.expose.loadBalancerConfigName cannot be cleared once set"
+      if ! echo "$out" | grep -q "$expected"; then
+        exit 1
+      fi
