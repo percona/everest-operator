@@ -113,12 +113,15 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
 
-	psmdb.Spec.Image = engineVersion.ImagePath
+	engineImagePullPolicy := p.currentPSMDBSpec.ImagePullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		psmdb.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+		engineImagePullPolicy = corev1.PullIfNotPresent
 	}
+
+	psmdb.Spec.Image = engineVersion.ImagePath
+	psmdb.Spec.ImagePullPolicy = engineImagePullPolicy
 
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,

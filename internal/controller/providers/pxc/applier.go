@@ -198,16 +198,19 @@ func (p *applier) Engine() error {
 	if !ok {
 		return fmt.Errorf("engine version %s not available", p.DB.Spec.Engine.Version)
 	}
-
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
+
+	var engineImagePullPolicy corev1.PullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+		engineImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPerconaXtraDBClusterSpec.PXC != nil {
+		engineImagePullPolicy = p.currentPerconaXtraDBClusterSpec.PXC.ImagePullPolicy
 	}
+	pxc.Spec.PXC.ImagePullPolicy = engineImagePullPolicy
 
 	pxc.Spec.VolumeExpansionEnabled = true
-
 	if err := configureStorage(p.ctx, p.C, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
 		return err
 	}
@@ -513,11 +516,16 @@ func (p *applier) applyHAProxyCfg() error {
 		image = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Image
 	}
 	haProxy.PodSpec.Image = image
+
+	var haProxyImagePullPolicy corev1.PullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		haProxy.ImagePullPolicy = corev1.PullIfNotPresent
+		haProxyImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPerconaXtraDBClusterSpec.HAProxy != nil {
+		haProxyImagePullPolicy = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.ImagePullPolicy
 	}
+	haProxy.PodSpec.ImagePullPolicy = haProxyImagePullPolicy
 
 	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
@@ -630,14 +638,30 @@ func (p *applier) applyProxySQLCfg() error {
 
 func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pxc := p.PerconaXtraDBCluster
-	pxc.Spec.PMM = &pxcv1.PMMSpec{
-		Enabled:   true,
-		Image:     common.DefaultPMMClientImage,
-		Resources: common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
+
+	pmmImage := common.DefaultPMMClientImage
+	if monitoring.Spec.PMM.Image != "" {
+		pmmImage = monitoring.Spec.PMM.Image
 	}
 
-	if monitoring.Spec.PMM.Image != "" {
-		pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
+	var pmmImagePullPolicy corev1.PullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPerconaXtraDBClusterSpec.PMM != nil {
+		// copy the current image pull policy to prevent changes
+		pmmImagePullPolicy = p.currentPerconaXtraDBClusterSpec.PMM.ImagePullPolicy
+	} else {
+		// DB cluster is not new, but PMM was not enabled before
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	}
+
+	pxc.Spec.PMM = &pxcv1.PMMSpec{
+		Enabled:   true,
+		Image:     pmmImage,
+		ImagePullPolicy: pmmImagePullPolicy,
+		Resources: common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
 	}
 
 	//nolint:godox
