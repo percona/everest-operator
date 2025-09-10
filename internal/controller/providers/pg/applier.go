@@ -113,7 +113,11 @@ func (p *applier) Engine() error {
 	}
 
 	pg.Spec.Image = pgEngineVersion.ImagePath
-	pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
@@ -154,8 +158,12 @@ func (p *applier) Engine() error {
 	}
 
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
-		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		Image: image,
+	}
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pg.Spec.Extensions.ImagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	return nil
@@ -194,12 +202,12 @@ func (p *applier) Proxy() error {
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
 
-		desiredAnnotations, _, err := common.ReconcileExposureAnnotations(
-			p.ctx, p.C, p.DB, pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations, consts.PGBouncerComponentLabelValue)
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
 		if err != nil {
 			return err
 		}
-		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = desiredAnnotations
+
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -340,11 +348,15 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	ctx := p.ctx
 
 	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled:         true,
-		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
-		Image:           common.DefaultPMMClientImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		Enabled:   true,
+		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
+		Image:     common.DefaultPMMClientImage,
+	}
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pg.Spec.PMM.ImagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	if monitoring.Spec.PMM.Image != "" {

@@ -8724,7 +8724,6 @@ rules:
   resources:
   - namespaces
   - persistentvolumeclaims
-  - services
   verbs:
   - get
   - list

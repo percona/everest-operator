@@ -200,7 +200,11 @@ func (p *applier) Engine() error {
 	}
 
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
-	pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
 	pxc.Spec.VolumeExpansionEnabled = true
 
@@ -447,14 +451,9 @@ func (p *applier) applyHAProxyCfg() error {
 	}
 
 	if p.DB.Spec.Proxy.Replicas == nil {
-		haProxy.Size = p.DB.Spec.Engine.Replicas
+		haProxy.PodSpec.Size = p.DB.Spec.Engine.Replicas
 	} else {
-		haProxy.Size = *p.DB.Spec.Proxy.Replicas
-	}
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
-		p.ctx, p.C, p.DB, p.Spec.HAProxy.ExposePrimary.Annotations, consts.HAProxyComponentLabelValue)
-	if err != nil {
-		return err
+		haProxy.PodSpec.Size = *p.DB.Spec.Proxy.Replicas
 	}
 
 	switch p.DB.Spec.Proxy.Expose.Type {
@@ -462,18 +461,21 @@ func (p *applier) applyHAProxyCfg() error {
 		expose := pxcv1.ServiceExpose{
 			Enabled:     true,
 			Type:        corev1.ServiceTypeClusterIP,
-			Annotations: desiredAnnotations,
+			Annotations: map[string]string{},
 		}
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	case everestv1alpha1.ExposeTypeExternal:
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
-			Annotations:              desiredAnnotations,
+			Annotations:              annotations,
 		}
-		p.Spec.IgnoreAnnotations = ignore
 		haProxy.ExposePrimary = expose
 		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	default:
@@ -520,9 +522,13 @@ func (p *applier) applyHAProxyCfg() error {
 		image = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Image
 	}
 	haProxy.PodSpec.Image = image
-	haProxy.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		haProxy.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
@@ -550,13 +556,8 @@ func (p *applier) applyHAProxyCfg() error {
 		}
 	}
 
-	p.Spec.IgnoreAnnotations = ignore
-	p.Spec.HAProxy = haProxy
+	p.PerconaXtraDBCluster.Spec.HAProxy = haProxy
 	return nil
-}
-
-func shouldUpdateResourceRequests(dbState everestv1alpha1.AppState) bool {
-	return dbState == everestv1alpha1.AppStateNew || dbState == everestv1alpha1.AppStateInit
 }
 
 func (p *applier) applyProxySQLCfg() error {
@@ -569,26 +570,25 @@ func (p *applier) applyProxySQLCfg() error {
 	} else {
 		proxySQL.Size = *p.DB.Spec.Proxy.Replicas
 	}
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
-		p.ctx, p.C, p.DB, p.Spec.ProxySQL.Expose.Annotations, consts.ProxySQLComponentLabelValue)
-	if err != nil {
-		return err
-	}
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose := pxcv1.ServiceExpose{
 			Enabled:     true,
 			Type:        corev1.ServiceTypeClusterIP,
-			Annotations: desiredAnnotations,
+			Annotations: map[string]string{},
 		}
 		proxySQL.Expose = expose
 	case everestv1alpha1.ExposeTypeExternal:
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
-			Annotations:              desiredAnnotations,
+			Annotations:              annotations,
 		}
 		proxySQL.Expose = expose
 	default:
@@ -616,7 +616,7 @@ func (p *applier) applyProxySQLCfg() error {
 	}
 	proxySQL.Image = image
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
@@ -643,8 +643,7 @@ func (p *applier) applyProxySQLCfg() error {
 			proxySQL.Resources.Requests[corev1.ResourceMemory] = p.DB.Spec.Proxy.Resources.Memory
 		}
 	}
-	p.Spec.IgnoreAnnotations = ignore
-	p.Spec.ProxySQL = proxySQL
+	p.PerconaXtraDBCluster.Spec.ProxySQL = proxySQL
 	return nil
 }
 

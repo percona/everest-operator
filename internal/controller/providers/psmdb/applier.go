@@ -114,7 +114,11 @@ func (p *applier) Engine() error {
 	}
 
 	psmdb.Spec.Image = engineVersion.ImagePath
-	psmdb.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		psmdb.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	}
 
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,
@@ -262,49 +266,47 @@ func (p *applier) Proxy() error {
 
 func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	database := p.DB
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
-		p.ctx, p.C, p.DB, p.Spec.Sharding.Mongos.Expose.ServiceAnnotations, consts.PSMDBShardedComponentLabelValue)
-	if err != nil {
-		return err
-	}
-
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.ExposeType = corev1.ServiceTypeClusterIP
-		expose.ServiceAnnotations = desiredAnnotations
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		expose.ServiceAnnotations = desiredAnnotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
+
+		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
-	p.Spec.IgnoreAnnotations = ignore
 	return nil
 }
 
 func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	database := p.DB
-	desiredAnnotations, ignore, err := common.ReconcileExposureAnnotations(
-		p.ctx, p.C, p.DB, p.Spec.Replsets[0].Expose.ServiceAnnotations, consts.PSMDBReplicasetComponentLabelValue)
-	if err != nil {
-		return err
-	}
-
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeClusterIP
-		expose.ServiceAnnotations = desiredAnnotations
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		expose.ServiceAnnotations = desiredAnnotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
+
+		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
-	p.Spec.IgnoreAnnotations = ignore
 	return nil
 }
 

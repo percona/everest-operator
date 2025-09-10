@@ -625,6 +625,24 @@ func GetLoadBalancerConfig(
 	return lbc, nil
 }
 
+// GetAnnotations returns annotations from the LoadBalancerConfig used in the given DB.
+func GetAnnotations(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (map[string]string, error) {
+	lbc, err := GetLoadBalancerConfig(ctx, c, database)
+	if err != nil {
+		if errors.Is(err, ErrEmptyLbc) {
+			return map[string]string{}, nil
+		}
+
+		return nil, err
+	}
+
+	return lbc.Spec.Annotations, nil
+}
+
 // GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
 func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
 	psp := &everestv1alpha1.PodSchedulingPolicy{}
@@ -654,6 +672,12 @@ func IsDatabaseClusterRestoreRunning(
 	return slices.ContainsFunc(restoreList.Items, func(dbr everestv1alpha1.DatabaseClusterRestore) bool {
 		return dbr.IsInProgress()
 	}), nil
+}
+
+// IsNewDatabaseCluster returns true if the database is in a new or init state.
+func IsNewDatabaseCluster(dbState everestv1alpha1.AppState) bool {
+	dbState = dbState.WithCreatingState()
+	return dbState == everestv1alpha1.AppStateCreating || dbState == everestv1alpha1.AppStateInit
 }
 
 // GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage.

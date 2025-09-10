@@ -71,26 +71,6 @@ const (
 	// LabelKubernetesManagedBy is a common label that indicates the resource is managed by a specific operator.
 	LabelKubernetesManagedBy = "app.kubernetes.io/managed-by"
 
-	// ExposureSvcLabel is a common label used in exposure services to store the related cluster.
-	ExposureSvcLabel = "app.kubernetes.io/instance"
-	// ComponentLabel is a common label used to specify the component this resource is related to.
-	ComponentLabel = "app.kubernetes.io/component"
-
-	// HAProxyComponentLabelValue is the ComponentLabel value specific for HAProxy.
-	HAProxyComponentLabelValue = "haproxy"
-
-	// ProxySQLComponentLabelValue is the ComponentLabel value specific for ProxySQL.
-	ProxySQLComponentLabelValue = "proxysql"
-
-	// PGBouncerComponentLabelValue is the ComponentLabel value specific for PGBouncer.
-	PGBouncerComponentLabelValue = "pgbouncer"
-
-	// PSMDBReplicasetComponentLabelValue is the ComponentLabel value specific for psmdb non-sharded clusters.
-	PSMDBReplicasetComponentLabelValue = "external-service"
-
-	// PSMDBShardedComponentLabelValue is the ComponentLabel value specific for psmdb sharded clusters.
-	PSMDBShardedComponentLabelValue = "mongos"
-
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
 )
