@@ -160,16 +160,16 @@ func (p *applier) Engine() error {
 		return err
 	}
 
-	extImagPullPolicy := p.currentPGSpec.Extensions.ImagePullPolicy
+	extImagePullPolicy := p.currentPGSpec.Extensions.ImagePullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		extImagPullPolicy = corev1.PullIfNotPresent
+		extImagePullPolicy = corev1.PullIfNotPresent
 	}
 
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
 		Image:           image,
-		ImagePullPolicy: extImagPullPolicy,
+		ImagePullPolicy: extImagePullPolicy,
 	}
 
 	return nil
