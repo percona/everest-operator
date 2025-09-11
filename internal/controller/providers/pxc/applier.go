@@ -92,10 +92,18 @@ func configureStorage(
 	current *pxcv1.PerconaXtraDBClusterSpec,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
-	var currentSize resource.Quantity
-	if db.Status.Status != everestv1alpha1.AppStateNew {
-		currentSize = current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+	getCurrentStorageSize := func() resource.Quantity {
+		if db.Status.Status == everestv1alpha1.AppStateNew ||
+			current == nil ||
+			current.PXC == nil ||
+			current.PXC.PodSpec == nil ||
+			current.PXC.PodSpec.VolumeSpec == nil ||
+			current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim == nil {
+			return resource.Quantity{}
+		}
+		return current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 	}
+	currentSize := getCurrentStorageSize()
 
 	setStorageSize := func(size resource.Quantity) {
 		desired.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
