@@ -112,12 +112,15 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
 
-	pg.Spec.Image = pgEngineVersion.ImagePath
+	engineImagePullPolicy := p.currentPGSpec.ImagePullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+		engineImagePullPolicy = corev1.PullIfNotPresent
 	}
+
+	pg.Spec.Image = pgEngineVersion.ImagePath
+	pg.Spec.ImagePullPolicy = engineImagePullPolicy
 
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
@@ -157,13 +160,16 @@ func (p *applier) Engine() error {
 		return err
 	}
 
-	pg.Spec.Extensions = pgv2.ExtensionsSpec{
-		Image: image,
-	}
+	extImagePullPolicy := p.currentPGSpec.Extensions.ImagePullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		pg.Spec.Extensions.ImagePullPolicy = corev1.PullIfNotPresent
+		extImagePullPolicy = corev1.PullIfNotPresent
+	}
+
+	pg.Spec.Extensions = pgv2.ExtensionsSpec{
+		Image:           image,
+		ImagePullPolicy: extImagePullPolicy,
 	}
 
 	return nil
@@ -347,16 +353,25 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	c := p.C
 	ctx := p.ctx
 
-	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled:   true,
-		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
-		Secret:    fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
-		Image:     common.DefaultPMMClientImage,
-	}
+	var pmmImagePullPolicy corev1.PullPolicy
 	// Set image pull policy explicitly only in case this is a new cluster.
 	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
 	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		pg.Spec.PMM.ImagePullPolicy = corev1.PullIfNotPresent
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPGSpec.PMM != nil {
+		// copy the current image pull policy to prevent changes
+		pmmImagePullPolicy = p.currentPGSpec.PMM.ImagePullPolicy
+	} else {
+		// DB cluster is not new, but PMM was not enabled before
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	}
+
+	pg.Spec.PMM = &pgv2.PMMSpec{
+		Enabled:         true,
+		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
+		Image:           common.DefaultPMMClientImage,
+		ImagePullPolicy: pmmImagePullPolicy,
 	}
 
 	if monitoring.Spec.PMM.Image != "" {
