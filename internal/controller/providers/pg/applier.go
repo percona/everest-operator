@@ -201,14 +201,19 @@ func (p *applier) Proxy() error {
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type: string(corev1.ServiceTypeClusterIP),
 		}
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
-		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
-			pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = annotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
 		}
+
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}

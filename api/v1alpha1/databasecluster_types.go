@@ -210,6 +210,8 @@ type Expose struct {
 	// IPSourceRanges is the list of IP source ranges (CIDR notation)
 	// to allow access from. If not set, there is no limitations
 	IPSourceRanges []IPSourceRange `json:"ipSourceRanges,omitempty"`
+	// LoadBalancerConfigName is the name of load balancer config if applied
+	LoadBalancerConfigName string `json:"loadBalancerConfigName,omitempty"`
 }
 
 func (e *Expose) toCIDR(ranges []IPSourceRange) []IPSourceRange {
@@ -261,6 +263,7 @@ type Proxy struct {
 	// Config is the proxy configuration
 	Config string `json:"config,omitempty"`
 	// Expose is the proxy expose configuration
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerConfigName) || oldSelf.loadBalancerConfigName == '' || (has(self.loadBalancerConfigName) && self.loadBalancerConfigName != '')",message=".spec.proxy.expose.loadBalancerConfigName cannot be cleared once set"
 	Expose Expose `json:"expose,omitempty"`
 	// Resources are the resource limits for each proxy replica.
 	// If not set, resource limits are not imposed

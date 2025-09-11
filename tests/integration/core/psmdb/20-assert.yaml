@@ -96,7 +96,7 @@ spec:
         resources: {}
         size: 0
       expose:
-        enabled: false
+        enabled: true
         type: ClusterIP
       name: rs0
       nonvoting:

@@ -16,7 +16,6 @@
 package pxc
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -29,9 +28,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -214,12 +211,11 @@ func mockApplier(t *testing.T, dbMeta metav1.ObjectMeta, objs ...client.Object) 
 	}
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&engine, &deployment, &storageClassAWS).WithObjects(objs...).Build()
-	unstrCl := unstructuredClient{cl}
 
 	dbEngine, err := common.GetDatabaseEngine(ctx, cl, consts.PXCDeploymentName, mockDatabase.GetNamespace())
 	require.NoError(t, err)
 	p, err := New(ctx, providers.ProviderOptions{
-		C:        unstrCl,
+		C:        cl,
 		DB:       mockDatabase,
 		DBEngine: dbEngine,
 	})
@@ -228,40 +224,4 @@ func mockApplier(t *testing.T, dbMeta metav1.ObjectMeta, objs ...client.Object) 
 		Provider: p,
 		ctx:      ctx,
 	}
-}
-
-// fake client that can work with StorageClassList as UnstructuredList.
-type unstructuredClient struct {
-	client.Client
-}
-
-func (c unstructuredClient) List(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
-	storageList := &storagev1.StorageClassList{}
-	err := c.Client.List(ctx, storageList, opts...)
-	if err != nil {
-		return err
-	}
-	// Adapt the StorageClassList into an Unstructured object
-	unstructuredList := &unstructured.UnstructuredList{} // Create the object
-	unstructuredList.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "storage.k8s.io",
-		Kind:    "StorageClassList",
-		Version: "v1",
-	})
-
-	// convert each StorageClass object into an unstructured format.
-	items := make([]unstructured.Unstructured, len(storageList.Items))
-	for i, item := range storageList.Items {
-		unstructuredItem, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&item)
-		if err != nil {
-			return err
-		}
-		items[i] = unstructured.Unstructured{Object: unstructuredItem} // Assign the result
-	}
-	unstructuredList.Items = items
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredList.Object, obj)
-	if err != nil {
-		return err
-	}
-	return nil
 }
