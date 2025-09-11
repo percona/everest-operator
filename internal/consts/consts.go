@@ -60,6 +60,8 @@ const (
 	PerconaPGClusterKind = "PerconaPGCluster"
 	// PerconaXtraDBClusterRestoreKind is the kind for Percona XtraDB Cluster restore.
 	PerconaXtraDBClusterRestoreKind = "PerconaXtraDBClusterRestore"
+	// LoadBalancerConfigKind is the kind for load balancer configs.
+	LoadBalancerConfigKind = "LoadBalancerConfig"
 
 	// ClusterTypeEKS represents the EKS cluster type.
 	ClusterTypeEKS ClusterType = "eks"
@@ -72,13 +74,6 @@ const (
 	// EverestSecretsPrefix is the prefix for secrets created by Everest.
 	EverestSecretsPrefix = "everest-secrets-"
 )
-
-// ExposeAnnotationsMap is a map of annotations needed for exposing the database cluster.
-var ExposeAnnotationsMap = map[ClusterType]map[string]string{
-	ClusterTypeEKS: {
-		"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
-	},
-}
 
 //noling:gochecknoglobals
 var (

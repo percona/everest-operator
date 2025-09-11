@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+commands:
+  - script: |
+      out=$(kubectl patch db pg-lbc -n "$NAMESPACE" --type=merge -p '{"spec":{"proxy":{"expose":{"loadBalancerConfigName":""}}}}' 2>&1)
+      expected=".spec.proxy.expose.loadBalancerConfigName cannot be cleared once set"
+      if ! echo "$out" | grep -q "$expected"; then
+        exit 1
+      fi

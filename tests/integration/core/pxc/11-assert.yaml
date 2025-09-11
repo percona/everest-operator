@@ -80,6 +80,7 @@ spec:
       resources: {}
       storageName: ""
   haproxy:
+    imagePullPolicy: IfNotPresent
     configuration: |2
 
           global
@@ -162,6 +163,7 @@ spec:
         memory: 1G
     sidecarResources: {}
   pxc:
+    imagePullPolicy: IfNotPresent
     configuration: "[mysqld]\nbinlog_cache_size = 131072\nbinlog_expire_logs_seconds
       = 604800\nbinlog_format = ROW\nbinlog_stmt_cache_size = 131072\nglobal-connection-memory-limit
       = 18446744073709551615\nglobal-connection-memory-tracking = false\ninnodb_adaptive_hash_index

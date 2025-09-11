@@ -92,6 +92,7 @@ spec:
   pmm:
     enabled: true
     serverHost: localhost-mc-pxc-updated
+    imagePullPolicy: IfNotPresent
     image: percona/pmm-client:updated
     resources:
       requests:

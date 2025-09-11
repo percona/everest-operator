@@ -39,7 +39,7 @@ spec:
        operationProfiling:
           mode: slowOp
       expose:
-        enabled: false
+        enabled: true
       name: rs0
       resources:
         limits:

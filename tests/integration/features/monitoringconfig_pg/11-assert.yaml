@@ -95,6 +95,7 @@ spec:
     enabled: true
     serverHost: localhost-mc-pg
     secret: everest-secrets-pg-mc-pmm
+    imagePullPolicy: IfNotPresent
     image: percona/pmm-client:latest
     querySource: pgstatmonitor
     resources:

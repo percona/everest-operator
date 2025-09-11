@@ -44,7 +44,7 @@ metadata:
 spec:
   replsets:
     - expose:
-        enabled: false
+        enabled: true
       name: rs0
       size:        3
       volumeSpec:

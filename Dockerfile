@@ -2,6 +2,7 @@
 FROM golang:1.25 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG FLAGS
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -15,6 +16,7 @@ RUN go mod download
 COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/ internal/
+COPY utils/ utils/
 
 # Build operator
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -26,12 +28,16 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o ma
 # Build data importer CLI
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o data-importer internal/data-importer/main.go
 
+# Build migration binary
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -ldflags "${FLAGS}" -o migrator internal/migrate/main.go
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/data-importer .
+COPY --from=builder /workspace/migrator .
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

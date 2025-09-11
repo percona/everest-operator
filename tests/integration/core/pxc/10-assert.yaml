@@ -92,6 +92,7 @@ spec:
       resources: {}
       storageName: ""
   haproxy:
+    imagePullPolicy: IfNotPresent
     configuration: |2
 
           global
@@ -147,7 +148,6 @@ spec:
             http-request use-service prometheus-exporter if { path /metrics }
     enabled: true
     envVarsSecret: haproxy-env-secret
-    imagePullPolicy: IfNotPresent
     exposePrimary: {}
     lifecycle: {}
     livenessProbes:
@@ -175,6 +175,7 @@ spec:
         memory: 1G
     sidecarResources: {}
   pxc:
+    imagePullPolicy: IfNotPresent
     configuration: "[mysqld]\nbinlog_cache_size = 131072\nbinlog_expire_logs_seconds
       = 604800\nbinlog_format = ROW\nbinlog_stmt_cache_size = 131072\nglobal-connection-memory-limit
       = 18446744073709551615\nglobal-connection-memory-tracking = false\ninnodb_adaptive_hash_index
@@ -201,7 +202,6 @@ spec:
       maxUnavailable: 1
     readinessProbes:
       timeoutSeconds: 450
-    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: "1"
