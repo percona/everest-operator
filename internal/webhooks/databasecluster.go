@@ -27,6 +27,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,7 +90,8 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 			return nil, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}
-	return nil, nil
+
+	return nil, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
@@ -179,4 +181,26 @@ func checkJSONKeyExists(keyExpr string, obj any) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// ValidateLoadBalancerConfig validates if the LoadBalancerConfig with the given name exists.
+func (v *DatabaseClusterValidator) ValidateLoadBalancerConfig(ctx context.Context, lbcName string) error {
+	if lbcName == "" {
+		return nil
+	}
+
+	lbc := everestv1alpha1.LoadBalancerConfig{}
+
+	err := v.Client.Get(ctx, client.ObjectKey{
+		Name: lbcName,
+	}, &lbc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("load balancer config %s not found: %w", lbcName, err)
+		}
+
+		return fmt.Errorf("failed to get load balancer config %s: %w", lbcName, err)
+	}
+
+	return nil
 }
