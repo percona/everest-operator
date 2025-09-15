@@ -801,6 +801,10 @@ spec:
                             notation or without a netmask.
                           type: string
                         type: array
+                      loadBalancerConfigName:
+                        description: LoadBalancerConfigName is the name of load balancer
+                          config if applied
+                        type: string
                       type:
                         default: internal
                         description: Type is the expose type, can be internal or external
@@ -809,6 +813,12 @@ spec:
                         - external
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: .spec.proxy.expose.loadBalancerConfigName cannot be
+                        cleared once set
+                      rule: self.type == 'internal' || !has(oldSelf.loadBalancerConfigName)
+                        || oldSelf.loadBalancerConfigName == '' || (has(self.loadBalancerConfigName)
+                        && self.loadBalancerConfigName != '')
                   replicas:
                     description: Replicas is the number of proxy replicas
                     format: int32
@@ -1631,6 +1641,83 @@ spec:
               state:
                 description: State is the current state of the data import job.
                 type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: loadbalancerconfigs.everest.percona.com
+spec:
+  group: everest.percona.com
+  names:
+    kind: LoadBalancerConfig
+    listKind: LoadBalancerConfigList
+    plural: loadbalancerconfigs
+    shortNames:
+    - lbc
+    singular: loadbalancerconfig
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: Indicates if the config is used by any DB cluster
+      jsonPath: .status.inUse
+      name: InUse
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: LoadBalancerConfig is the Schema for the Load Balancer Config
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig.
+            properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                description: Annotations key-value pairs to apply as annotations to
+                  the load balancer
+                type: object
+            type: object
+          status:
+            default:
+              inUse: false
+            description: LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig.
+            properties:
+              inUse:
+                default: false
+                description: InUse is a flag that indicates if the config is used
+                  by any DB cluster.
+                type: boolean
+              lastObservedGeneration:
+                description: LastObservedGeneration is the most recent generation
+                  observed for this LoadBalancerConfig.
+                format: int64
+                type: integer
             type: object
         type: object
     served: true
@@ -8702,6 +8789,7 @@ rules:
   - databaseclusters
   - databaseengines
   - dataimportjobs
+  - loadbalancerconfigs
   - monitoringconfigs
   - podschedulingpolicies
   verbs:
@@ -8732,6 +8820,7 @@ rules:
   - databaseclusters/status
   - databaseengines/status
   - dataimportjobs/status
+  - loadbalancerconfigs/status
   - monitoringconfigs/status
   - podschedulingpolicies/status
   verbs:
@@ -9146,6 +9235,17 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: webhook-certs
           readOnly: true
+      initContainers:
+      - command:
+        - /migrator
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: docker.io/perconalab/everest-operator:0.0.0
+        imagePullPolicy: IfNotPresent
+        name: crs-migration
       securityContext:
         runAsNonRoot: true
       serviceAccountName: everest-operator-controller-manager
@@ -9225,6 +9325,27 @@ webhooks:
     - UPDATE
     resources:
     - databaseclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: everest-operator-webhook-service
+      namespace: everest-operator-system
+      path: /validate-everest-percona-com-v1alpha1-loadbalancerconfig
+  failurePolicy: Fail
+  name: vloadbalancerconfig-v1alpha1.everest.percona.com
+  rules:
+  - apiGroups:
+    - everest.percona.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - loadbalancerconfigs
   sideEffects: None
 - admissionReviewVersions:
   - v1
