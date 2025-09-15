@@ -112,8 +112,15 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
 
+	engineImagePullPolicy := p.currentPGSpec.ImagePullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		engineImagePullPolicy = corev1.PullIfNotPresent
+	}
+
 	pg.Spec.Image = pgEngineVersion.ImagePath
-	pg.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	pg.Spec.ImagePullPolicy = engineImagePullPolicy
 
 	pgMajorVersionMatch := regexp.
 		MustCompile(`^(\d+)`).
@@ -153,9 +160,16 @@ func (p *applier) Engine() error {
 		return err
 	}
 
+	extImagePullPolicy := p.currentPGSpec.Extensions.ImagePullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		extImagePullPolicy = corev1.PullIfNotPresent
+	}
+
 	pg.Spec.Extensions = pgv2.ExtensionsSpec{
 		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		ImagePullPolicy: extImagePullPolicy,
 	}
 
 	return nil
@@ -187,14 +201,19 @@ func (p *applier) Proxy() error {
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type: string(corev1.ServiceTypeClusterIP),
 		}
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		pg.Spec.Proxy.PGBouncer.ServiceExpose = &pgv2.ServiceExpose{
 			Type:                     string(corev1.ServiceTypeLoadBalancer),
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
 		}
-		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
-			pg.Spec.Proxy.PGBouncer.ServiceExpose.Metadata.Annotations = annotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
 		}
+
+		pg.Spec.Proxy.PGBouncer.ServiceExpose.Annotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -334,12 +353,25 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	c := p.C
 	ctx := p.ctx
 
+	var pmmImagePullPolicy corev1.PullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPGSpec.PMM != nil {
+		// copy the current image pull policy to prevent changes
+		pmmImagePullPolicy = p.currentPGSpec.PMM.ImagePullPolicy
+	} else {
+		// DB cluster is not new, but PMM was not enabled before
+		pmmImagePullPolicy = corev1.PullIfNotPresent
+	}
+
 	pg.Spec.PMM = &pgv2.PMMSpec{
 		Enabled:         true,
 		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
 		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
 		Image:           common.DefaultPMMClientImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		ImagePullPolicy: pmmImagePullPolicy,
 	}
 
 	if monitoring.Spec.PMM.Image != "" {

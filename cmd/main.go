@@ -336,6 +336,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.LoadBalancerConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerConfig")
+		os.Exit(1)
+	}
+
 	// register webhooks
 	if !cfg.DisableWebhookServer {
 		if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
@@ -349,6 +357,11 @@ func main() {
 
 		if err := webhooks.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "MonitoringConfig")
+			os.Exit(1)
+		}
+
+		if err := webhooks.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
 			os.Exit(1)
 		}
 	}
