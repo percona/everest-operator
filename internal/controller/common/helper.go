@@ -176,6 +176,27 @@ func mergeMapInternal(dst map[string]interface{}, src map[string]interface{}, pa
 	return nil
 }
 
+// GetDatabaseEngineForType gets the DatabaseEngine object for the specified engine type.
+func GetDatabaseEngineForType(
+	ctx context.Context,
+	c client.Client,
+	engineType everestv1alpha1.EngineType,
+	namespace string,
+) (*everestv1alpha1.DatabaseEngine, error) {
+	engineName := ""
+	switch engineType {
+	case everestv1alpha1.DatabaseEnginePXC:
+		engineName = consts.PXCDeploymentName
+	case everestv1alpha1.DatabaseEnginePSMDB:
+		engineName = consts.PSMDBDeploymentName
+	case everestv1alpha1.DatabaseEnginePostgresql:
+		engineName = consts.PGDeploymentName
+	default:
+		return nil, fmt.Errorf("unknown engine type: %s", engineType)
+	}
+	return GetDatabaseEngine(ctx, c, engineName, namespace)
+}
+
 // GetDatabaseEngine gets the DatabaseEngine object with the specified name and namespace.
 func GetDatabaseEngine(ctx context.Context, c client.Client, name, namespace string) (*everestv1alpha1.DatabaseEngine, error) {
 	engine := &everestv1alpha1.DatabaseEngine{}

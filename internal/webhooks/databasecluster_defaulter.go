@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 // +kubebuilder:webhook:path=/mutate-everest-percona-com-v1alpha1-databasecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusters,verbs=create;update,versions=v1alpha1,name=mdatabasecluster-v1alpha1.everest.percona.com,admissionReviewVersions=v1
@@ -57,5 +58,22 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 		log.Error(err, "handleS3CredentialsSecret failed")
 		return err
 	}
+
+	// Set the default engine version if not specified
+	if db.Spec.Engine.Version == "" {
+		if err := d.setDefaultEngineVersion(ctx, db); err != nil {
+			log.Error(err, "setDefaultEngineVersion failed")
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *DatabaseClusterDefaulter) setDefaultEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
+	engine, err := common.GetDatabaseEngineForType(ctx, d.Client, db.Spec.Engine.Type, db.GetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to get engine: %w", err)
+	}
+	db.Spec.Engine.Version = engine.Status.AvailableVersions.Engine.BestVersion()
 	return nil
 }
