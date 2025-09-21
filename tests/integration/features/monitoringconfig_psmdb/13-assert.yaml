@@ -80,9 +80,12 @@ spec:
   monitoring:
     monitoringConfigName: mc-psmdb
     resources:
+      requests:
+        cpu: 220m
+        memory: 330M
       limits:
-        memory: 1G
         cpu: "1"
+        memory: 1G
 ---
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDB
@@ -95,11 +98,11 @@ spec:
     image: percona/pmm-client:latest
     resources:
       requests:
-        memory: 796907Ki
-        cpu: 228m
+        cpu: 220m
+        memory: 330M
       limits:
-        memory: 1G
         cpu: "1"
+        memory: 1G
   secrets:
     users: everest-secrets-psmdb-mc
 ---
