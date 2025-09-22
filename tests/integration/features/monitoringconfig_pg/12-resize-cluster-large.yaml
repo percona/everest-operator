@@ -7,6 +7,12 @@ kind: DatabaseCluster
 metadata:
   name: pg-mc
 spec:
+  monitoring:
+    resources:
+      requests:
+        memory: 330M
+      limits:
+        cpu: 330m
   engine:
     resources:
       memory: 32G
