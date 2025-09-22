@@ -7,6 +7,12 @@ kind: DatabaseCluster
 metadata:
   name: pxc-mc
 spec:
+  monitoring:
+    resources:
+      requests:
+        cpu: 220m
+      limits:
+        memory: 220M
   engine:
     resources:
       memory: 8G
