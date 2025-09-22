@@ -353,25 +353,13 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	c := p.C
 	ctx := p.ctx
 
-	var pmmImagePullPolicy corev1.PullPolicy
-	// Set image pull policy explicitly only in case this is a new cluster.
-	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
-	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
-		pmmImagePullPolicy = corev1.PullIfNotPresent
-	} else if p.currentPGSpec.PMM != nil {
-		// copy the current image pull policy to prevent changes
-		pmmImagePullPolicy = p.currentPGSpec.PMM.ImagePullPolicy
-	} else {
-		// DB cluster is not new, but PMM was not enabled before
-		pmmImagePullPolicy = corev1.PullIfNotPresent
-	}
-
 	pg.Spec.PMM = &pgv2.PMMSpec{
-		Enabled:         true,
-		Resources:       common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Enabled: true,
+		Resources: getPMMResources(common.IsNewDatabaseCluster(p.DB.Status.Status),
+			&p.DB.Spec, &p.currentPGSpec),
 		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
 		Image:           common.DefaultPMMClientImage,
-		ImagePullPolicy: pmmImagePullPolicy,
+		ImagePullPolicy: p.getPMMImagePullPolicy(),
 	}
 
 	if monitoring.Spec.PMM.Image != "" {
@@ -397,6 +385,77 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 	return nil
+}
+
+// getPMMImagePullPolicy returns the PMM image pull policy to be used for the DB cluster.
+// The logic is as follows:
+// 1. If this is a new DB cluster, use PullIfNotPresent.
+// 2. If this is an existing DB cluster and PMM was enabled before, use the current image pull policy to prevent changes in spec.
+// 3. If this is an existing DB cluster and PMM was not enabled before, use PullIfNotPresent.
+func (p *applier) getPMMImagePullPolicy() corev1.PullPolicy {
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		// This is new DB cluster.
+		// Set image pull policy and PMM resources explicitly.
+		return corev1.PullIfNotPresent
+	}
+
+	if p.currentPGSpec.PMM != nil && p.currentPGSpec.PMM.Enabled {
+		// DB cluster is not new and PMM was enabled before.
+		// Copy the current image pull policy to prevent changes in spec.
+		return p.currentPGSpec.PMM.ImagePullPolicy
+	}
+
+	// DB cluster is not new and PMM was not enabled before. Now it is being enabled.
+	return corev1.PullIfNotPresent
+}
+
+// getPMMResources returns the PMM resources to be used for the DB cluster.
+// The logic is as follows:
+//  1. If this is a new DB cluster, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+//  2. If this is an existing DB cluster and the DB size has changed, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the new DB size.
+//  3. If this is an existing DB cluster and PMM was enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the current PMM resources.
+//  4. If this is an existing DB cluster and PMM was not enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+func getPMMResources(isNewDBCluster bool,
+	dbSpec *everestv1alpha1.DatabaseClusterSpec,
+	curPgSpec *pgv2.PerconaPGClusterSpec,
+) corev1.ResourceRequirements {
+	requestedResources := pointer.Get(dbSpec.Monitoring).Resources
+
+	if isNewDBCluster {
+		// This is new DB cluster.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		// If none are specified, default resources will be used.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	// Prepare current DB cluster size
+	currentDBSize := (&everestv1alpha1.Engine{Resources: everestv1alpha1.Resources{
+		Memory: *curPgSpec.InstanceSets[0].Resources.Requests.Memory(),
+	}}).Size()
+
+	if dbSpec.Engine.Size() != currentDBSize {
+		// DB cluster size has changed -> need to update PMM resources.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	if curPgSpec.PMM != nil && curPgSpec.PMM.Enabled {
+		// DB cluster is not new and PMM was enabled before.
+		// DB spec may contain new custom PMM resources -> merge them with previously used PMM resources.
+		return common.MergeResources(requestedResources,
+			curPgSpec.PMM.Resources)
+	}
+
+	// DB cluster is not new and PMM was not enabled before. Now it is being enabled.
+	// DB spec may contain custom PMM resources -> merge them with defaults.
+	return common.MergeResources(requestedResources,
+		common.CalculatePMMResources(dbSpec.Engine.Size()))
 }
 
 func defaultSpec() pgv2.PerconaPGClusterSpec {

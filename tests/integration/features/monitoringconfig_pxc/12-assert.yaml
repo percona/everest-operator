@@ -44,9 +44,6 @@ assertAll:
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pxc/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pxc/victoriametrics/api/v1/write'"
-
-  - celExpr: "!has(pxc.spec.pmm.resources.limits)"
-    message: "pxc.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -55,6 +52,13 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pxc
+    resources:
+      requests:
+        cpu: 220m
+        memory: 330M
+      limits:
+        cpu: 330m
+        memory: 220M
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -96,8 +100,11 @@ spec:
     image: percona/pmm-client:latest
     resources:
       requests:
-        memory: 796907Ki
-        cpu: 228m
+        cpu: 220m
+        memory: 330M
+      limits:
+        cpu: 330m
+        memory: 220M
   secretsName: everest-secrets-pxc-mc
 ---
 apiVersion: v1

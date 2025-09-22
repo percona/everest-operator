@@ -9,3 +9,7 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pxc
+    resources:
+      requests:
+        memory: 335Mi
+        cpu: 335m
