@@ -24,8 +24,11 @@ import (
 
 const (
 	// Consts used for calculating resources.
-	kibibyte = 1024
-	mebibyte = 1024 * kibibyte
+
+	// Kibibyte represents 1 KiB.
+	Kibibyte = 1024
+	// Mebibyte represents 1 MiB.
+	Mebibyte = 1024 * Kibibyte
 
 	// DefaultPMMClientImage is the default image for PMM client.
 	DefaultPMMClientImage = "percona/pmm-client:2"
@@ -40,57 +43,42 @@ const (
 var (
 	// NOTE: provided below values were taken from the tool https://github.com/Tusamarco/mysqloperatorcalculator
 
-	// A pmmResourceRequirementsSmall is the resource requirements for PMM for small clusters.
-	pmmResourceRequirementsSmall = corev1.ResourceRequirements{
+	// PmmResourceRequirementsSmall is the resource requirements for PMM for small clusters.
+	PmmResourceRequirementsSmall = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			// 97.27Mi = 97 MiB + 276 KiB = 99604 KiB
-			corev1.ResourceMemory: *resource.NewQuantity(97*mebibyte+276*kibibyte, resource.BinarySI),
+			corev1.ResourceMemory: *resource.NewQuantity(97*Mebibyte+276*Kibibyte, resource.BinarySI),
 			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUSmall, resource.Milli),
 		},
 	}
 
-	// A pmmResourceRequirementsMedium is the resource requirements for PMM for medium clusters.
-	pmmResourceRequirementsMedium = corev1.ResourceRequirements{
+	// PmmResourceRequirementsMedium is the resource requirements for PMM for medium clusters.
+	PmmResourceRequirementsMedium = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			// 194.5Mi = 194 MiB + 512 KiB = 199168 KiB
-			corev1.ResourceMemory: *resource.NewQuantity(194*mebibyte+512*kibibyte, resource.BinarySI),
+			corev1.ResourceMemory: *resource.NewQuantity(194*Mebibyte+512*Kibibyte, resource.BinarySI),
 			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPUMedium, resource.Milli),
 		},
 	}
 
-	// A pmmResourceRequirementsLarge is the resource requirements for PMM for large clusters.
-	pmmResourceRequirementsLarge = corev1.ResourceRequirements{
+	// PmmResourceRequirementsLarge is the resource requirements for PMM for large clusters.
+	PmmResourceRequirementsLarge = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			// 778.23Mi = 778 MiB + 235 KiB = 796907 KiB
-			corev1.ResourceMemory: *resource.NewQuantity(778*mebibyte+235*kibibyte, resource.BinarySI),
+			corev1.ResourceMemory: *resource.NewQuantity(778*Mebibyte+235*Kibibyte, resource.BinarySI),
 			corev1.ResourceCPU:    *resource.NewScaledQuantity(pmmClientRequestCPULarge, resource.Milli),
 		},
 	}
 )
 
-// GetPMMResources returns the resource requirements for PMM based on the monitoring configuration and database engine size.
-func GetPMMResources(monitoringSpec everestv1alpha1.Monitoring, dbEnginSize everestv1alpha1.EngineSize) corev1.ResourceRequirements {
-	var pmmResources corev1.ResourceRequirements
-
-	// Set PMM resources.requests from incoming monitoring config, if specified.
-	if monitoringSpec.Resources.Requests != nil {
-		pmmResources.Requests = monitoringSpec.Resources.Requests
-	} else {
-		// Set resources.requests based on cluster size.
-		switch dbEnginSize {
-		case everestv1alpha1.EngineSizeSmall:
-			pmmResources = pmmResourceRequirementsSmall
-		case everestv1alpha1.EngineSizeMedium:
-			pmmResources = pmmResourceRequirementsMedium
-		case everestv1alpha1.EngineSizeLarge:
-			pmmResources = pmmResourceRequirementsLarge
-		}
+// CalculatePMMResources returns the resource requirements for PMM based on database engine size.
+func CalculatePMMResources(dbEnginSize everestv1alpha1.EngineSize) corev1.ResourceRequirements {
+	switch dbEnginSize {
+	case everestv1alpha1.EngineSizeMedium:
+		return PmmResourceRequirementsMedium
+	case everestv1alpha1.EngineSizeLarge:
+		return PmmResourceRequirementsLarge
+	default:
+		return PmmResourceRequirementsSmall
 	}
-
-	// Set PMM resources.limits from incoming monitoring config, if specified.
-	if monitoringSpec.Resources.Limits != nil {
-		pmmResources.Limits = monitoringSpec.Resources.Limits
-	}
-
-	return pmmResources
 }

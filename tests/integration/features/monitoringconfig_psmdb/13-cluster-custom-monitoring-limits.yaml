@@ -12,7 +12,7 @@ spec:
     resources:
       limits:
         memory: 1G
-        cpu: "1"
+        cpu: 1
   engine:
     resources:
       memory: 32G
