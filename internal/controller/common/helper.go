@@ -992,3 +992,59 @@ func EnsureInUseFinalizer(ctx context.Context, c client.Client, used bool, obj c
 	}
 	return nil
 }
+
+// MergeResources merges highPriorityResources and lowPriorityResources.
+// If a resource is specified in both, the value from highPriorityResources is used.
+// If a resource is only specified in one, that value is used.
+func MergeResources(highPriorityResources, lowPriorityResources corev1.ResourceRequirements) corev1.ResourceRequirements {
+	mergedResources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{},
+		Limits:   corev1.ResourceList{},
+	}
+
+	// CPU Requests
+	if highPriorityResources.Requests != nil &&
+		highPriorityResources.Requests.Cpu() != nil &&
+		!highPriorityResources.Requests.Cpu().IsZero() {
+		mergedResources.Requests[corev1.ResourceCPU] = *highPriorityResources.Requests.Cpu()
+	} else if lowPriorityResources.Requests != nil &&
+		lowPriorityResources.Requests.Cpu() != nil &&
+		!lowPriorityResources.Requests.Cpu().IsZero() {
+		mergedResources.Requests[corev1.ResourceCPU] = *lowPriorityResources.Requests.Cpu()
+	}
+
+	// Memory Requests
+	if highPriorityResources.Requests != nil &&
+		highPriorityResources.Requests.Memory() != nil &&
+		!highPriorityResources.Requests.Memory().IsZero() {
+		mergedResources.Requests[corev1.ResourceMemory] = *highPriorityResources.Requests.Memory()
+	} else if lowPriorityResources.Requests != nil &&
+		lowPriorityResources.Requests.Memory() != nil &&
+		!lowPriorityResources.Requests.Memory().IsZero() {
+		mergedResources.Requests[corev1.ResourceMemory] = *lowPriorityResources.Requests.Memory()
+	}
+
+	// CPU Limits
+	if highPriorityResources.Limits != nil &&
+		highPriorityResources.Limits.Cpu() != nil &&
+		!highPriorityResources.Limits.Cpu().IsZero() {
+		mergedResources.Limits[corev1.ResourceCPU] = *highPriorityResources.Limits.Cpu()
+	} else if lowPriorityResources.Limits != nil &&
+		lowPriorityResources.Limits.Cpu() != nil &&
+		!lowPriorityResources.Limits.Cpu().IsZero() {
+		mergedResources.Limits[corev1.ResourceCPU] = *lowPriorityResources.Limits.Cpu()
+	}
+
+	// Memory Limits
+	if highPriorityResources.Limits != nil &&
+		highPriorityResources.Limits.Memory() != nil &&
+		!highPriorityResources.Limits.Memory().IsZero() {
+		mergedResources.Limits[corev1.ResourceMemory] = *highPriorityResources.Limits.Memory()
+	} else if lowPriorityResources.Limits != nil &&
+		lowPriorityResources.Limits.Memory() != nil &&
+		!lowPriorityResources.Limits.Memory().IsZero() {
+		mergedResources.Limits[corev1.ResourceMemory] = *lowPriorityResources.Limits.Memory()
+	}
+
+	return mergedResources
+}
