@@ -9,4 +9,7 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-psmdb
-
+    resources:
+      requests:
+        memory: 335Mi
+        cpu: 335m
