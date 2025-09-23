@@ -23,7 +23,9 @@ status:
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterRestore
 metadata:
-  name: data-import-test-pxc-cluster
+  name: 81df3530
+  labels:
+    everest.percona.com/clusterName: test-pxc-cluster
 status:
   state: Restoring
 ---

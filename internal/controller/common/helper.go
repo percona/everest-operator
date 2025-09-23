@@ -55,6 +55,9 @@ import (
 	"github.com/percona/everest-operator/internal/predicates"
 )
 
+// ErrEmptyLbc error returned when no lbc name is definded in db.
+var ErrEmptyLbc = errors.New("empty backup load balancer config")
+
 // DefaultNamespaceFilter is the default namespace filter.
 var DefaultNamespaceFilter predicate.Predicate = &predicates.Nop{}
 
@@ -121,28 +124,20 @@ func GetOperatorVersion(
 // GetClusterType returns the type of the cluster on which this operator is running.
 func GetClusterType(ctx context.Context, c client.Client) (consts.ClusterType, error) {
 	clusterType := consts.ClusterTypeMinikube
-	unstructuredResource := &unstructured.Unstructured{}
-	unstructuredResource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "storage.k8s.io",
-		Kind:    "StorageClass",
-		Version: "v1",
-	})
 	storageList := &storagev1.StorageClassList{}
 
-	err := c.List(ctx, unstructuredResource)
+	err := c.List(ctx, storageList)
 	if err != nil {
 		return clusterType, err
 	}
-	err = runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructuredResource.Object, storageList)
-	if err != nil {
-		return clusterType, err
-	}
+
 	for _, storage := range storageList.Items {
 		if strings.Contains(storage.Provisioner, "aws") {
 			clusterType = consts.ClusterTypeEKS
+			break
 		}
 	}
+
 	return clusterType, nil
 }
 
@@ -628,6 +623,47 @@ func GetDBMonitoringConfig(
 	return monitoring, nil
 }
 
+// GetLoadBalancerConfig returns the LoadBalancerConfig object
+// for the given DatabaseCluster object.
+func GetLoadBalancerConfig(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (*everestv1alpha1.LoadBalancerConfig, error) {
+	lbcName := database.Spec.Proxy.Expose.LoadBalancerConfigName
+
+	if lbcName == "" {
+		return nil, ErrEmptyLbc
+	}
+
+	lbc := &everestv1alpha1.LoadBalancerConfig{}
+
+	err := c.Get(ctx, types.NamespacedName{Name: lbcName}, lbc)
+	if err != nil {
+		return nil, err
+	}
+
+	return lbc, nil
+}
+
+// GetAnnotations returns annotations from the LoadBalancerConfig used in the given DB.
+func GetAnnotations(
+	ctx context.Context,
+	c client.Client,
+	database *everestv1alpha1.DatabaseCluster,
+) (map[string]string, error) {
+	lbc, err := GetLoadBalancerConfig(ctx, c, database)
+	if err != nil {
+		if errors.Is(err, ErrEmptyLbc) {
+			return map[string]string{}, nil
+		}
+
+		return nil, err
+	}
+
+	return lbc.Spec.Annotations, nil
+}
+
 // GetPodSchedulingPolicy returns the PodSchedulingPolicy object by name.
 func GetPodSchedulingPolicy(ctx context.Context, c client.Client, pspName string) (*everestv1alpha1.PodSchedulingPolicy, error) {
 	psp := &everestv1alpha1.PodSchedulingPolicy{}
@@ -657,6 +693,12 @@ func IsDatabaseClusterRestoreRunning(
 	return slices.ContainsFunc(restoreList.Items, func(dbr everestv1alpha1.DatabaseClusterRestore) bool {
 		return dbr.IsInProgress()
 	}), nil
+}
+
+// IsNewDatabaseCluster returns true if the database is in a new or init state.
+func IsNewDatabaseCluster(dbState everestv1alpha1.AppState) bool {
+	dbState = dbState.WithCreatingState()
+	return dbState == everestv1alpha1.AppStateCreating || dbState == everestv1alpha1.AppStateInit
 }
 
 // GetRepoNameByBackupStorage returns the name of the repo that corresponds to the given backup storage.
@@ -970,4 +1012,60 @@ func EnsureInUseFinalizer(ctx context.Context, c client.Client, used bool, obj c
 		return c.Update(ctx, obj)
 	}
 	return nil
+}
+
+// MergeResources merges highPriorityResources and lowPriorityResources.
+// If a resource is specified in both, the value from highPriorityResources is used.
+// If a resource is only specified in one, that value is used.
+func MergeResources(highPriorityResources, lowPriorityResources corev1.ResourceRequirements) corev1.ResourceRequirements {
+	mergedResources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{},
+		Limits:   corev1.ResourceList{},
+	}
+
+	// CPU Requests
+	if highPriorityResources.Requests != nil &&
+		highPriorityResources.Requests.Cpu() != nil &&
+		!highPriorityResources.Requests.Cpu().IsZero() {
+		mergedResources.Requests[corev1.ResourceCPU] = *highPriorityResources.Requests.Cpu()
+	} else if lowPriorityResources.Requests != nil &&
+		lowPriorityResources.Requests.Cpu() != nil &&
+		!lowPriorityResources.Requests.Cpu().IsZero() {
+		mergedResources.Requests[corev1.ResourceCPU] = *lowPriorityResources.Requests.Cpu()
+	}
+
+	// Memory Requests
+	if highPriorityResources.Requests != nil &&
+		highPriorityResources.Requests.Memory() != nil &&
+		!highPriorityResources.Requests.Memory().IsZero() {
+		mergedResources.Requests[corev1.ResourceMemory] = *highPriorityResources.Requests.Memory()
+	} else if lowPriorityResources.Requests != nil &&
+		lowPriorityResources.Requests.Memory() != nil &&
+		!lowPriorityResources.Requests.Memory().IsZero() {
+		mergedResources.Requests[corev1.ResourceMemory] = *lowPriorityResources.Requests.Memory()
+	}
+
+	// CPU Limits
+	if highPriorityResources.Limits != nil &&
+		highPriorityResources.Limits.Cpu() != nil &&
+		!highPriorityResources.Limits.Cpu().IsZero() {
+		mergedResources.Limits[corev1.ResourceCPU] = *highPriorityResources.Limits.Cpu()
+	} else if lowPriorityResources.Limits != nil &&
+		lowPriorityResources.Limits.Cpu() != nil &&
+		!lowPriorityResources.Limits.Cpu().IsZero() {
+		mergedResources.Limits[corev1.ResourceCPU] = *lowPriorityResources.Limits.Cpu()
+	}
+
+	// Memory Limits
+	if highPriorityResources.Limits != nil &&
+		highPriorityResources.Limits.Memory() != nil &&
+		!highPriorityResources.Limits.Memory().IsZero() {
+		mergedResources.Limits[corev1.ResourceMemory] = *highPriorityResources.Limits.Memory()
+	} else if lowPriorityResources.Limits != nil &&
+		lowPriorityResources.Limits.Memory() != nil &&
+		!lowPriorityResources.Limits.Memory().IsZero() {
+		mergedResources.Limits[corev1.ResourceMemory] = *lowPriorityResources.Limits.Memory()
+	}
+
+	return mergedResources
 }

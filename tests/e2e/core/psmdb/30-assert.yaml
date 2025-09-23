@@ -46,7 +46,7 @@ spec:
        operationProfiling:
           mode: off
       expose:
-        enabled: false
+        enabled: true
       name: rs0
       resources:
         limits:

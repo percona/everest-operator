@@ -113,8 +113,15 @@ func (p *applier) Engine() error {
 		return fmt.Errorf("engine version %s not available", database.Spec.Engine.Version)
 	}
 
+	engineImagePullPolicy := p.currentPSMDBSpec.ImagePullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		engineImagePullPolicy = corev1.PullIfNotPresent
+	}
+
 	psmdb.Spec.Image = engineVersion.ImagePath
-	psmdb.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	psmdb.Spec.ImagePullPolicy = engineImagePullPolicy
 
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,
@@ -265,12 +272,17 @@ func (p *applier) exposeShardedCluster(expose *psmdbv1.MongosExpose) error {
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
-			expose.ServiceAnnotations = annotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
 		}
+
+		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -281,15 +293,20 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 	database := p.DB
 	switch database.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		expose.Enabled = false
+		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeClusterIP
+		expose.ServiceAnnotations = map[string]string{}
 	case everestv1alpha1.ExposeTypeExternal:
 		expose.Enabled = true
 		expose.ExposeType = corev1.ServiceTypeLoadBalancer
 		expose.LoadBalancerSourceRanges = database.Spec.Proxy.Expose.IPSourceRangesStringArray()
-		if annotations, ok := consts.ExposeAnnotationsMap[p.clusterType]; ok {
-			expose.ServiceAnnotations = annotations
+
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
 		}
+
+		expose.ServiceAnnotations = annotations
 	default:
 		return fmt.Errorf("invalid expose type %s", database.Spec.Proxy.Expose.Type)
 	}
@@ -428,9 +445,10 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	c := p.C
 
 	psmdb.Spec.PMM = psmdbv1.PMMSpec{
-		Enabled:   true,
-		Image:     common.DefaultPMMClientImage,
-		Resources: common.GetPMMResources(pointer.Get(database.Spec.Monitoring), database.Spec.Engine.Size()),
+		Enabled: true,
+		Image:   common.DefaultPMMClientImage,
+		Resources: getPMMResources(common.IsNewDatabaseCluster(p.DB.Status.Status),
+			&p.DB.Spec, &p.currentPSMDBSpec),
 	}
 
 	if monitoring.Spec.PMM.Image != "" {
@@ -463,6 +481,62 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 	return nil
+}
+
+// getPMMResources returns the PMM resources to be used for the DB cluster.
+// The logic is as follows:
+//  1. If this is a new DB cluster, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+//  2. If this is an existing DB cluster and the DB size has changed, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the new DB size.
+//  3. If this is an existing DB cluster and PMM was enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the current PMM resources.
+//  4. If this is an existing DB cluster and PMM was not enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+func getPMMResources(isNewDBCluster bool,
+	dbSpec *everestv1alpha1.DatabaseClusterSpec,
+	curPsmdbSpec *psmdbv1.PerconaServerMongoDBSpec,
+) corev1.ResourceRequirements {
+	requestedResources := pointer.Get(dbSpec.Monitoring).Resources
+
+	if isNewDBCluster {
+		// This is new DB cluster.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		// If none are specified, default resources will be used.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	// Prepare current DB cluster size
+	var currentReplSet psmdbv1.ReplsetSpec
+	for _, replset := range curPsmdbSpec.Replsets {
+		if replset.Name == rsName(0) {
+			currentReplSet = *replset
+			break
+		}
+	}
+
+	currentDBSize := (&everestv1alpha1.Engine{Resources: everestv1alpha1.Resources{
+		Memory: *currentReplSet.Resources.Requests.Memory(),
+	}}).Size()
+
+	if dbSpec.Engine.Size() != currentDBSize {
+		// DB cluster size has changed -> need to update PMM resources.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	if curPsmdbSpec.PMM.Enabled {
+		// DB cluster is not new and PMM was enabled before.
+		// DB spec may contain new custom PMM resources -> merge them with previously used PMM resources.
+		return common.MergeResources(requestedResources, curPsmdbSpec.PMM.Resources)
+	}
+
+	// DB cluster is not new and PMM was not enabled before. Now it is being enabled.
+	// DB spec may contain custom PMM resources -> merge them with defaults.
+	return common.MergeResources(requestedResources,
+		common.CalculatePMMResources(dbSpec.Engine.Size()))
 }
 
 // Add the storages used by restores.

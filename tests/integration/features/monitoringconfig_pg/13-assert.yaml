@@ -51,9 +51,12 @@ spec:
   monitoring:
     monitoringConfigName: mc-pg
     resources:
+      requests:
+        cpu: 220m
+        memory: 330M
       limits:
-        memory: "1G"
         cpu: "1"
+        memory: 1G
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -92,15 +95,16 @@ spec:
     enabled: true
     serverHost: localhost-mc-pg
     secret: everest-secrets-pg-mc-pmm
+    imagePullPolicy: IfNotPresent
     image: percona/pmm-client:latest
     querySource: pgstatmonitor
     resources:
       requests:
-        memory: 796907Ki
-        cpu: 228m
+        cpu: 220m
+        memory: 330M
       limits:
-        memory: 1G
         cpu: "1"
+        memory: 1G
 ---
 apiVersion: v1
 kind: Secret

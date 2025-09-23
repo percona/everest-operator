@@ -92,10 +92,18 @@ func configureStorage(
 	current *pxcv1.PerconaXtraDBClusterSpec,
 	db *everestv1alpha1.DatabaseCluster,
 ) error {
-	var currentSize resource.Quantity
-	if db.Status.Status != everestv1alpha1.AppStateNew {
-		currentSize = current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+	getCurrentStorageSize := func() resource.Quantity {
+		if db.Status.Status == everestv1alpha1.AppStateNew ||
+			current == nil ||
+			current.PXC == nil ||
+			current.PXC.PodSpec == nil ||
+			current.PXC.PodSpec.VolumeSpec == nil ||
+			current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim == nil {
+			return resource.Quantity{}
+		}
+		return current.PXC.PodSpec.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 	}
+	currentSize := getCurrentStorageSize()
 
 	setStorageSize := func(size resource.Quantity) {
 		desired.PXC.PodSpec.VolumeSpec = &pxcv1.VolumeSpec{
@@ -198,12 +206,19 @@ func (p *applier) Engine() error {
 	if !ok {
 		return fmt.Errorf("engine version %s not available", p.DB.Spec.Engine.Version)
 	}
-
 	pxc.Spec.PXC.Image = pxcEngineVersion.ImagePath
-	pxc.Spec.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+
+	var engineImagePullPolicy corev1.PullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		engineImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPerconaXtraDBClusterSpec.PXC != nil {
+		engineImagePullPolicy = p.currentPerconaXtraDBClusterSpec.PXC.ImagePullPolicy
+	}
+	pxc.Spec.PXC.ImagePullPolicy = engineImagePullPolicy
 
 	pxc.Spec.VolumeExpansionEnabled = true
-
 	if err := configureStorage(p.ctx, p.C, &pxc.Spec, &p.currentPerconaXtraDBClusterSpec, p.DB); err != nil {
 		return err
 	}
@@ -454,9 +469,18 @@ func (p *applier) applyHAProxyCfg() error {
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		// No need to set anything, defaults are fine.
+		expose := pxcv1.ServiceExpose{
+			Enabled:     true,
+			Type:        corev1.ServiceTypeClusterIP,
+			Annotations: map[string]string{},
+		}
+		haProxy.ExposePrimary = expose
+		haProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{ServiceExpose: expose}
 	case everestv1alpha1.ExposeTypeExternal:
-		annotations := consts.ExposeAnnotationsMap[p.clusterType]
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
@@ -509,9 +533,18 @@ func (p *applier) applyHAProxyCfg() error {
 		image = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.Image
 	}
 	haProxy.PodSpec.Image = image
-	haProxy.ImagePullPolicy = corev1.PullIfNotPresent
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	var haProxyImagePullPolicy corev1.PullPolicy
+	// Set image pull policy explicitly only in case this is a new cluster.
+	// This will prevent changing the image pull policy on upgrades and no DB restart will be triggered.
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		haProxyImagePullPolicy = corev1.PullIfNotPresent
+	} else if p.currentPerconaXtraDBClusterSpec.HAProxy != nil {
+		haProxyImagePullPolicy = p.currentPerconaXtraDBClusterSpec.HAProxy.PodSpec.ImagePullPolicy
+	}
+	haProxy.PodSpec.ImagePullPolicy = haProxyImagePullPolicy
+
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
@@ -543,10 +576,6 @@ func (p *applier) applyHAProxyCfg() error {
 	return nil
 }
 
-func shouldUpdateResourceRequests(dbState everestv1alpha1.AppState) bool {
-	return dbState == everestv1alpha1.AppStateNew || dbState == everestv1alpha1.AppStateInit
-}
-
 func (p *applier) applyProxySQLCfg() error {
 	proxySQL := defaultSpec().ProxySQL
 	proxySQL.Enabled = true
@@ -560,12 +589,22 @@ func (p *applier) applyProxySQLCfg() error {
 
 	switch p.DB.Spec.Proxy.Expose.Type {
 	case everestv1alpha1.ExposeTypeInternal:
-		// No need to set anything, defaults are fine.
+		expose := pxcv1.ServiceExpose{
+			Enabled:     true,
+			Type:        corev1.ServiceTypeClusterIP,
+			Annotations: map[string]string{},
+		}
+		proxySQL.Expose = expose
 	case everestv1alpha1.ExposeTypeExternal:
+		annotations, err := common.GetAnnotations(p.ctx, p.C, p.DB)
+		if err != nil {
+			return err
+		}
 		expose := pxcv1.ServiceExpose{
 			Enabled:                  true,
 			Type:                     corev1.ServiceTypeLoadBalancer,
 			LoadBalancerSourceRanges: p.DB.Spec.Proxy.Expose.IPSourceRangesStringArray(),
+			Annotations:              annotations,
 		}
 		proxySQL.Expose = expose
 	default:
@@ -593,7 +632,7 @@ func (p *applier) applyProxySQLCfg() error {
 	}
 	proxySQL.Image = image
 
-	shouldUpdateRequests := shouldUpdateResourceRequests(p.DB.Status.Status)
+	shouldUpdateRequests := common.IsNewDatabaseCluster(p.DB.Status.Status)
 	if !p.DB.Spec.Proxy.Resources.CPU.IsZero() {
 		// When the limits are changed, triggers a pod restart, hence ensuring the requests are applied automatically (next block),
 		// as it depends on the cluster being in the 'init' state (shouldUpdateRequests).
@@ -626,14 +665,18 @@ func (p *applier) applyProxySQLCfg() error {
 
 func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pxc := p.PerconaXtraDBCluster
-	pxc.Spec.PMM = &pxcv1.PMMSpec{
-		Enabled:   true,
-		Image:     common.DefaultPMMClientImage,
-		Resources: common.GetPMMResources(pointer.Get(p.DB.Spec.Monitoring), p.DB.Spec.Engine.Size()),
+
+	pmmImage := common.DefaultPMMClientImage
+	if monitoring.Spec.PMM.Image != "" {
+		pmmImage = monitoring.Spec.PMM.Image
 	}
 
-	if monitoring.Spec.PMM.Image != "" {
-		pxc.Spec.PMM.Image = monitoring.Spec.PMM.Image
+	pxc.Spec.PMM = &pxcv1.PMMSpec{
+		Enabled:         true,
+		Image:           pmmImage,
+		ImagePullPolicy: p.getPMMImagePullPolicy(),
+		Resources: getPMMResources(common.IsNewDatabaseCluster(p.DB.Status.Status),
+			&p.DB.Spec, &p.currentPerconaXtraDBClusterSpec),
 	}
 
 	//nolint:godox
@@ -673,6 +716,77 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		return err
 	}
 	return nil
+}
+
+// getPMMImagePullPolicy returns the PMM image pull policy to be used for the DB cluster.
+// The logic is as follows:
+// 1. If this is a new DB cluster, use PullIfNotPresent.
+// 2. If this is an existing DB cluster and PMM was enabled before, use the current image pull policy to prevent changes in spec.
+// 3. If this is an existing DB cluster and PMM was not enabled before, use PullIfNotPresent.
+func (p *applier) getPMMImagePullPolicy() corev1.PullPolicy {
+	if common.IsNewDatabaseCluster(p.DB.Status.Status) {
+		// This is new DB cluster.
+		// Set image pull policy and PMM resources explicitly.
+		return corev1.PullIfNotPresent
+	}
+
+	if p.currentPerconaXtraDBClusterSpec.PMM != nil && p.currentPerconaXtraDBClusterSpec.PMM.Enabled {
+		// DB cluster is not new and PMM was enabled before.
+		// Copy the current image pull policy to prevent changes in spec.
+		return p.currentPerconaXtraDBClusterSpec.PMM.ImagePullPolicy
+	}
+
+	// DB cluster is not new and PMM was not enabled before. Now it is being enabled.
+	return corev1.PullIfNotPresent
+}
+
+// getPMMResources returns the PMM resources to be used for the DB cluster.
+// The logic is as follows:
+//  1. If this is a new DB cluster, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+//  2. If this is an existing DB cluster and the DB size has changed, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the new DB size.
+//  3. If this is an existing DB cluster and PMM was enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the current PMM resources.
+//  4. If this is an existing DB cluster and PMM was not enabled before, use the resources specified in the DB spec, if any.
+//     Otherwise, use the default resources based on the DB size.
+func getPMMResources(isNewDBCluster bool,
+	dbSpec *everestv1alpha1.DatabaseClusterSpec,
+	curPxcSpec *pxcv1.PerconaXtraDBClusterSpec,
+) corev1.ResourceRequirements {
+	requestedResources := pointer.Get(dbSpec.Monitoring).Resources
+
+	if isNewDBCluster {
+		// This is new DB cluster.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		// If none are specified, default resources will be used.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	// Prepare current DB cluster size
+	currentDBSize := (&everestv1alpha1.Engine{Resources: everestv1alpha1.Resources{
+		Memory: *curPxcSpec.PXC.Resources.Requests.Memory(),
+	}}).Size()
+
+	if dbSpec.Engine.Size() != currentDBSize {
+		// DB cluster size has changed -> need to update PMM resources.
+		// DB spec may contain custom PMM resources -> merge them with defaults.
+		return common.MergeResources(requestedResources,
+			common.CalculatePMMResources(dbSpec.Engine.Size()))
+	}
+
+	if curPxcSpec.PMM != nil && curPxcSpec.PMM.Enabled {
+		// DB cluster is not new and PMM was enabled before.
+		// DB spec may contain new custom PMM resources -> merge them with previously used PMM resources.
+		return common.MergeResources(requestedResources,
+			curPxcSpec.PMM.Resources)
+	}
+
+	// DB cluster is not new and PMM was not enabled before. Now it is being enabled.
+	// DB spec may contain custom PMM resources -> merge them with defaults.
+	return common.MergeResources(requestedResources,
+		common.CalculatePMMResources(dbSpec.Engine.Size()))
 }
 
 func (p *applier) genPXCStorageSpec(name, namespace string) (*pxcv1.BackupStorageSpec, *everestv1alpha1.BackupStorage, error) {

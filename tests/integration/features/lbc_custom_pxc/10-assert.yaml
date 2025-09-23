@@ -1,0 +1,57 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get lbc/lbc-custom-pxc -o yaml
+  - command: kubectl -n $NAMESPACE get db/pxc-lbc -o yaml
+  - command: kubectl -n $NAMESPACE get pxc/pxc-lbc -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: LoadBalancerConfig
+    name: lbc-custom-pxc
+    ref: lbc
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: pxc-lbc
+    ref: db
+  - apiVersion: pxc.percona.com/v1
+    kind: PerconaXtraDBCluster
+    name: pxc-lbc
+    ref: pxc
+assertAll:
+  - celExpr: "!has(lbc.metadata.finalizers)"
+    message: "lbc has unexpected finalizers"
+
+  - celExpr: "!has(db.spec.proxy.expose.loadBalancerConfigName)"
+    message: "db.spec.proxy.expose.loadBalancerConfigName is not empty"
+
+  - celExpr: "!has(pxc.spec.haproxy.exposePrimary.annotations)"
+    message: "pxc.spec.haproxy.exposePrimary.annotations is not empty"
+
+  - celExpr: "!has(pxc.spec.haproxy.exposeReplicas.annotations)"
+    message: "pxc.spec.haproxy.exposeReplicas.annotations is not empty"
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: LoadBalancerConfig
+metadata:
+  name: lbc-custom-pxc
+spec:
+  annotations:
+    annot-1: "value-1"
+status:
+  inUse: false
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: pxc-lbc
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: pxc-lbc
+

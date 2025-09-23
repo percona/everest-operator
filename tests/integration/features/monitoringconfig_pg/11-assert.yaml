@@ -46,9 +46,6 @@ assertAll:
 
   - celExpr: "vmagent.spec.remoteWrite.exists(i, i.url == 'http://localhost-mc-pg/victoriametrics/api/v1/write')"
     message: "vmagent.spec.remoteWrite does not contain url 'http://localhost-mc-pg/victoriametrics/api/v1/write'"
-
-  - celExpr: "!has(pg.spec.pmm.resources.limits)"
-    message: "pg.spec.pmm.resources.limits is not empty"
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -57,6 +54,11 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pg
+    resources:
+      requests:
+        cpu: 220m
+      limits:
+        memory: 220M
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -95,12 +97,15 @@ spec:
     enabled: true
     serverHost: localhost-mc-pg
     secret: everest-secrets-pg-mc-pmm
+    imagePullPolicy: IfNotPresent
     image: percona/pmm-client:latest
     querySource: pgstatmonitor
     resources:
       requests:
+        cpu: 220m
         memory: 199168Ki
-        cpu: 228m
+      limits:
+        memory: 220M
 ---
 apiVersion: v1
 kind: Secret

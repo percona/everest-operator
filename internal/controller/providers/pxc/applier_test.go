@@ -16,7 +16,6 @@
 package pxc
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -29,9 +28,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -214,12 +211,11 @@ func mockApplier(t *testing.T, dbMeta metav1.ObjectMeta, objs ...client.Object) 
 	}
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&engine, &deployment, &storageClassAWS).WithObjects(objs...).Build()
-	unstrCl := unstructuredClient{cl}
 
 	dbEngine, err := common.GetDatabaseEngine(ctx, cl, consts.PXCDeploymentName, mockDatabase.GetNamespace())
 	require.NoError(t, err)
 	p, err := New(ctx, providers.ProviderOptions{
-		C:        unstrCl,
+		C:        cl,
 		DB:       mockDatabase,
 		DBEngine: dbEngine,
 	})
@@ -230,38 +226,1055 @@ func mockApplier(t *testing.T, dbMeta metav1.ObjectMeta, objs ...client.Object) 
 	}
 }
 
-// fake client that can work with StorageClassList as UnstructuredList.
-type unstructuredClient struct {
-	client.Client
-}
+//nolint:maintidx
+func TestGetPMMResources(t *testing.T) {
+	t.Parallel()
 
-func (c unstructuredClient) List(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
-	storageList := &storagev1.StorageClassList{}
-	err := c.Client.List(ctx, storageList, opts...)
-	if err != nil {
-		return err
+	type res struct {
+		memory string
+		cpu    string
 	}
-	// Adapt the StorageClassList into an Unstructured object
-	unstructuredList := &unstructured.UnstructuredList{} // Create the object
-	unstructuredList.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "storage.k8s.io",
-		Kind:    "StorageClassList",
-		Version: "v1",
-	})
 
-	// convert each StorageClass object into an unstructured format.
-	items := make([]unstructured.Unstructured, len(storageList.Items))
-	for i, item := range storageList.Items {
-		unstructuredItem, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&item)
-		if err != nil {
-			return err
-		}
-		items[i] = unstructured.Unstructured{Object: unstructuredItem} // Assign the result
+	type resourceString struct {
+		requests res
+		limits   res
 	}
-	unstructuredList.Items = items
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredList.Object, obj)
-	if err != nil {
-		return err
+
+	tests := []struct {
+		name           string
+		isNewDBCluster bool
+		dbSpec         *everestv1alpha1.DatabaseClusterSpec
+		curPxcSpec     *pxcv1.PerconaXtraDBClusterSpec
+		want           corev1.ResourceRequirements
+		wantString     resourceString
+	}{
+		// enable monitoring for new DB cluster w/o requested resources
+		{
+			name:           "New small cluster w/o requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want:       common.PmmResourceRequirementsSmall,
+			wantString: resourceString{
+				requests: res{
+					memory: "99604Ki",
+					cpu:    "95m",
+				},
+			},
+		},
+		{
+			name:           "New medium cluster w/o requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want:       common.PmmResourceRequirementsMedium,
+			wantString: resourceString{
+				requests: res{
+					memory: "199168Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		{
+			name:           "New large cluster w/o requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want:       common.PmmResourceRequirementsLarge,
+			wantString: resourceString{
+				requests: res{
+					memory: "796907Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		// enable monitoring for new DB cluster with requested resources
+		{
+			name:           "New small cluster with requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("100m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("110M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("99604Ki"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("110M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "99604Ki",
+					cpu:    "100m",
+				},
+				limits: res{
+					memory: "110M",
+				},
+			},
+		},
+		{
+			name:           "New medium cluster with requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("300M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("300m"),
+						},
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("228m"),
+					corev1.ResourceMemory: resource.MustParse("300M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU: resource.MustParse("300m"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "300M",
+					cpu:    "228m",
+				},
+				limits: res{
+					cpu: "300m",
+				},
+			},
+		},
+		{
+			name:           "New large cluster with requested resources",
+			isNewDBCluster: true,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("500M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: nil,
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("228m"),
+					corev1.ResourceMemory: resource.MustParse("796907Ki"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("500M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "796907Ki",
+					cpu:    "228m",
+				},
+				limits: res{
+					memory: "500M",
+					cpu:    "500m",
+				},
+			},
+		},
+		// enable monitoring for existing DB cluster w/o monitoring and w/o requested resources
+		{
+			name:           "Existing small cluster w/o monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsSmall,
+			wantString: resourceString{
+				requests: res{
+					memory: "99604Ki",
+					cpu:    "95m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium cluster w/o monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsMedium,
+			wantString: resourceString{
+				requests: res{
+					memory: "199168Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		{
+			name:           "Existing large cluster w/o monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsLarge,
+			wantString: resourceString{
+				requests: res{
+					memory: "796907Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		// enable monitoring for existing DB cluster w/o monitoring and with requested resources
+		{
+			name:           "Existing small cluster w/o monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("100M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "100M",
+					cpu:    "100m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium cluster w/o monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("300m"),
+							corev1.ResourceMemory: resource.MustParse("300M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("300m"),
+					corev1.ResourceMemory: resource.MustParse("300M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "300M",
+					cpu:    "300m",
+				},
+			},
+		},
+		{
+			name:           "Existing large cluster w/o monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("500M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("500M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "500M",
+					cpu:    "500m",
+				},
+			},
+		},
+		// enable monitoring and change DB engine size for existing DB cluster w/o monitoring and w/o requested resources
+		{
+			name:           "Existing small->medium cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsMedium,
+			wantString: resourceString{
+				requests: res{
+					memory: "199168Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium->large cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsLarge,
+			wantString: resourceString{
+				requests: res{
+					memory: "796907Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		{
+			name:           "Existing large->medium cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: common.PmmResourceRequirementsMedium,
+			wantString: resourceString{
+				requests: res{
+					memory: "199168Ki",
+					cpu:    "228m",
+				},
+			},
+		},
+		// enable monitoring and change DB engine size for existing DB cluster w/o monitoring and with requested resources
+		{
+			name:           "Existing small->medium cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("100M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "100M",
+					cpu:    "100m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium->large cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("300m"),
+							corev1.ResourceMemory: resource.MustParse("300M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("300m"),
+					corev1.ResourceMemory: resource.MustParse("300M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "300M",
+					cpu:    "300m",
+				},
+			},
+		},
+		{
+			name:           "Existing large ->medium cluster w/o monitoring and w/o requested resources and change DB engine size",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("500M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: false,
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+					corev1.ResourceMemory: resource.MustParse("500M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "500M",
+					cpu:    "500m",
+				},
+			},
+		},
+		// enable monitoring for existing DB cluster with monitoring and w/o requested resources - keep current resources
+		{
+			name:           "Existing small cluster with monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("110m"),
+							corev1.ResourceMemory: resource.MustParse("110M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("115m"),
+							corev1.ResourceMemory: resource.MustParse("115M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("110m"),
+					corev1.ResourceMemory: resource.MustParse("110M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("115m"),
+					corev1.ResourceMemory: resource.MustParse("115M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "110M",
+					cpu:    "110m",
+				},
+				limits: res{
+					memory: "115M",
+					cpu:    "115m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium cluster with monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("220m"),
+							corev1.ResourceMemory: resource.MustParse("220M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("225m"),
+							corev1.ResourceMemory: resource.MustParse("225M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("220m"),
+					corev1.ResourceMemory: resource.MustParse("220M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("225m"),
+					corev1.ResourceMemory: resource.MustParse("225M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "220M",
+					cpu:    "220m",
+				},
+				limits: res{
+					memory: "225M",
+					cpu:    "225m",
+				},
+			},
+		},
+		{
+			name:           "Existing large cluster with monitoring and w/o requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("330m"),
+							corev1.ResourceMemory: resource.MustParse("330M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("335m"),
+							corev1.ResourceMemory: resource.MustParse("335M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("330m"),
+					corev1.ResourceMemory: resource.MustParse("330M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("335m"),
+					corev1.ResourceMemory: resource.MustParse("335M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "330M",
+					cpu:    "330m",
+				},
+				limits: res{
+					memory: "335M",
+					cpu:    "335m",
+				},
+			},
+		},
+		// enable monitoring for existing DB cluster with monitoring and with requested resources - merge resources
+		{
+			name:           "Existing small cluster with monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("1G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("111m"),
+							corev1.ResourceMemory: resource.MustParse("111M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("110m"),
+							corev1.ResourceMemory: resource.MustParse("110M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("115m"),
+							corev1.ResourceMemory: resource.MustParse("115M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("111m"),
+					corev1.ResourceMemory: resource.MustParse("111M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("115m"),
+					corev1.ResourceMemory: resource.MustParse("115M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "111M",
+					cpu:    "111m",
+				},
+				limits: res{
+					memory: "115M",
+					cpu:    "115m",
+				},
+			},
+		},
+		{
+			name:           "Existing medium cluster with monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("8G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("222m"),
+							corev1.ResourceMemory: resource.MustParse("222M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("220m"),
+							corev1.ResourceMemory: resource.MustParse("220M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("225m"),
+							corev1.ResourceMemory: resource.MustParse("225M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("8G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("222m"),
+					corev1.ResourceMemory: resource.MustParse("222M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("225m"),
+					corev1.ResourceMemory: resource.MustParse("225M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "222M",
+					cpu:    "222m",
+				},
+				limits: res{
+					memory: "225M",
+					cpu:    "225m",
+				},
+			},
+		},
+		{
+			name:           "Existing large cluster with monitoring and with requested resources",
+			isNewDBCluster: false,
+			dbSpec: &everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Resources: everestv1alpha1.Resources{
+						Memory: resource.MustParse("32G"),
+					},
+				},
+				Monitoring: &everestv1alpha1.Monitoring{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("333m"),
+							corev1.ResourceMemory: resource.MustParse("333M"),
+						},
+					},
+				},
+			},
+			curPxcSpec: &pxcv1.PerconaXtraDBClusterSpec{
+				PMM: &pxcv1.PMMSpec{
+					Enabled: true,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("330m"),
+							corev1.ResourceMemory: resource.MustParse("330M"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("335m"),
+							corev1.ResourceMemory: resource.MustParse("335M"),
+						},
+					},
+				},
+				PXC: &pxcv1.PXCSpec{
+					PodSpec: &pxcv1.PodSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("32G"),
+							},
+						},
+					},
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("333m"),
+					corev1.ResourceMemory: resource.MustParse("333M"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("335m"),
+					corev1.ResourceMemory: resource.MustParse("335M"),
+				},
+			},
+			wantString: resourceString{
+				requests: res{
+					memory: "333M",
+					cpu:    "333m",
+				},
+				limits: res{
+					memory: "335M",
+					cpu:    "335m",
+				},
+			},
+		},
 	}
-	return nil
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			calculatedResources := getPMMResources(tt.isNewDBCluster, tt.dbSpec, tt.curPxcSpec)
+			assert.True(t, tt.want.Requests.Cpu().Equal(*calculatedResources.Requests.Cpu()))
+			assert.True(t, tt.want.Requests.Memory().Equal(*calculatedResources.Requests.Memory()))
+			assert.True(t, tt.want.Limits.Cpu().Equal(*calculatedResources.Limits.Cpu()))
+			assert.True(t, tt.want.Limits.Memory().Equal(*calculatedResources.Limits.Memory()))
+
+			if tt.wantString.requests.memory != "" {
+				assert.Equal(t, tt.wantString.requests.memory, calculatedResources.Requests.Memory().String())
+			}
+
+			if tt.wantString.requests.cpu != "" {
+				assert.Equal(t, tt.wantString.requests.cpu, calculatedResources.Requests.Cpu().String())
+			}
+
+			if tt.wantString.limits.memory != "" {
+				assert.Equal(t, tt.wantString.limits.memory, calculatedResources.Limits.Memory().String())
+			}
+
+			if tt.wantString.limits.cpu != "" {
+				assert.Equal(t, tt.wantString.limits.cpu, calculatedResources.Limits.Cpu().String())
+			}
+		})
+	}
 }
