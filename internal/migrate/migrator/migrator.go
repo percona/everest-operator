@@ -34,7 +34,6 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
-	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 const (
@@ -149,38 +148,7 @@ func (m *Migrator) createLeaseIfNotExists(ctx context.Context) (*v1.Lease, error
 }
 
 // This is the list of actions to be performed in the operator init container during the migration to the new
-// Everest version. Update this method for each next release
-//
-// For 1.9.0 Everest needs to patch all existing DBs if they are exposed and running on EKS
-// to assign the default .spec.proxy.expose.loadBalancerConfigName value.
-// Returns error and the additional info if needed.
-func (m *Migrator) migrateResources(ctx context.Context) (string, error) {
-	clusterType, err := common.GetClusterType(ctx, m.client)
-	if err != nil {
-		return "", err
-	}
-
-	if clusterType != consts.ClusterTypeEKS {
-		return "cluster type is not EKS, applying empty migration", nil
-	}
-
-	dbs := &everestv1alpha1.DatabaseClusterList{}
-
-	err = m.client.List(ctx, dbs)
-	if err != nil {
-		return "", err
-	}
-
-	for _, db := range dbs.Items {
-		if db.Spec.Proxy.Expose.Type == everestv1alpha1.ExposeTypeExternal {
-			db.Spec.Proxy.Expose.LoadBalancerConfigName = defaultEKSLoadBalancerConfigName
-
-			err = m.client.Update(ctx, &db)
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-
-	return "migration is performed successfully", nil
+// Everest version. Update this method for each next release.
+func (m *Migrator) migrateResources(_ context.Context) (string, error) { //nolint:unparam
+	return "no resources migration is needed for Everest " + m.currentVersion, nil
 }
