@@ -61,8 +61,8 @@ assertAll:
   - celExpr: "has(pxcb_s3.metadata.finalizers)"
     message: "pxcb_s3 doesn't have finalizers"
 
-  - celExpr: "'delete-s3-backup' in pxcb_s3.metadata.finalizers"
-    message: "delete-s3-backup' is absent in pxcb_s3.metadata.finalizers"
+  - celExpr: "'percona.com/delete-backup' in pxcb_s3.metadata.finalizers"
+    message: "'percona.com/delete-backup' is absent in pxcb_s3.metadata.finalizers"
 
   - celExpr: "has(bs_s3.metadata.finalizers)"
     message: "bs_s3 doesn't have finalizers"
