@@ -1061,9 +1061,14 @@ func (p *applier) addScheduledBackupsConfiguration(
 		}
 
 		pxcSchedules = append(pxcSchedules, pxcv1.PXCScheduledBackupSchedule{
-			Name:        schedule.Name,
-			Schedule:    schedule.Schedule,
-			Keep:        int(schedule.RetentionCopies),
+			Name:     schedule.Name,
+			Schedule: schedule.Schedule,
+			Keep:     int(schedule.RetentionCopies), // deprecated field, preserved for backward compatibility with CRVersion >1.18.0
+			Retention: &pxcv1.PXCScheduledBackupRetention{
+				Type:              pxcv1.PXCScheduledBackupRetentionType("count"),
+				Count:             int(schedule.RetentionCopies),
+				DeleteFromStorage: false, // We control the deletion using finalizers, not from here.
+			},
 			StorageName: schedule.BackupStorageName,
 		})
 	}
