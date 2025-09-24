@@ -64,6 +64,15 @@ func (p *applier) Metadata() error {
 		} {
 			controllerutil.AddFinalizer(p.PerconaXtraDBCluster, f)
 		}
+
+		// remove legacy finalizers.
+		for _, f := range []string{
+			"delete-pxc-pods-in-order",
+			"delete-pxc-pvc",
+			"delete-ssl",
+		} {
+			controllerutil.RemoveFinalizer(p.PerconaXtraDBCluster, f)
+		}
 	}
 	return nil
 }
