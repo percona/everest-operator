@@ -1069,7 +1069,9 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 			Image:   pgbackrestVersion.ImagePath,
 			Manual:  oldBackups.PGBackRest.Manual,
 			Restore: oldBackups.PGBackRest.Restore,
+			Repos:   []crunchyv1beta1.PGBackRestRepo{},
 		},
+		Enabled: pointer.ToBool(false),
 	}
 
 	if newBackups.PGBackRest.Manual == nil {
@@ -1121,7 +1123,6 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		backupList.Items,
 		backupStorages,
 		backupStoragesSecrets,
-		database.Spec.Engine.Storage,
 		database,
 	)
 	if err != nil {
@@ -1140,6 +1141,11 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	if err != nil {
 		return pgv2.Backups{}, err
 	}
+
+	if len(pgBackrestRepos) == 0 {
+		return newBackups, nil
+	}
+	newBackups.Enabled = pointer.ToBool(true)
 
 	newBackups.PGBackRest.Configuration = []corev1.VolumeProjection{
 		{
@@ -1199,7 +1205,6 @@ func reconcilePGBackRestRepos(
 	backups []everestv1alpha1.DatabaseClusterBackup,
 	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
-	engineStorage everestv1alpha1.Storage,
 	db *everestv1alpha1.DatabaseCluster,
 ) (
 	[]crunchyv1beta1.PGBackRestRepo,
@@ -1236,7 +1241,7 @@ func reconcilePGBackRestRepos(
 			errors.Join(err, errors.New("failed to add new backup schedules"))
 	}
 
-	newRepos, err := reposReconciler.addDefaultRepo(engineStorage)
+	newRepos, err := reposReconciler.sortRepos()
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}

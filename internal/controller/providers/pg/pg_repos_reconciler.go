@@ -76,13 +76,7 @@ func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedu
 		reposReconciled:               list.New(),
 		backupSchedulesReconciled:     list.New(),
 		backupSchedulesToBeReconciled: backupSchedulesToBeReconciled,
-		availableRepoNames: []string{
-			// repo1 is reserved for the PVC-based repo, see below for details on
-			// how it is handled
-			"repo2",
-			"repo3",
-			"repo4",
-		},
+		availableRepoNames:            []string{"repo1", "repo2", "repo3", "repo4"},
 	}, nil
 }
 
@@ -399,37 +393,13 @@ func (p *pgReposReconciler) pgBackRestIniBytes() ([]byte, error) {
 	return pgBackrestSecretBuf.Bytes(), nil
 }
 
-func (p *pgReposReconciler) addDefaultRepo(engineStorage everestv1alpha1.Storage) ([]crunchyv1beta1.PGBackRestRepo, error) {
-	// The PG operator requires a repo to be set up in order to create
-	// replicas. Without any credentials we can't set a cloud-based repo so we
-	// define a PVC-backed repo in case the user doesn't define any cloud-based
-	// repos. Moreover, we need to keep this repo in the list even if the user
-	// defines a cloud-based repo because the PG operator will restart the
-	// cluster if the only repo in the list is changed.
-	newRepos := []crunchyv1beta1.PGBackRestRepo{
-		{
-			Name: "repo1",
-			Volume: &crunchyv1beta1.RepoPVC{
-				VolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					StorageClassName: engineStorage.Class,
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: engineStorage.Size,
-						},
-					},
-				},
-			},
-		},
-	}
+func (p *pgReposReconciler) sortRepos() ([]crunchyv1beta1.PGBackRestRepo, error) {
+	newRepos := make([]crunchyv1beta1.PGBackRestRepo, 0, p.reposReconciled.Len())
 
-	// Add the reconciled repos to the list of repos
 	for e := p.reposReconciled.Front(); e != nil; e = e.Next() {
 		repo, ok := e.Value.(crunchyv1beta1.PGBackRestRepo)
 		if !ok {
-			return []crunchyv1beta1.PGBackRestRepo{}, fmt.Errorf("failed to cast repo %v", e.Value)
+			return nil, fmt.Errorf("unexpected type in reposReconciled: %T", e.Value)
 		}
 		newRepos = append(newRepos, repo)
 	}
