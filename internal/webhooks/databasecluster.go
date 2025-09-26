@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
+	"github.com/percona/everest-operator/internal/controller/common"
 )
 
 // SetupDatabaseClusterWebhookWithManager sets up the webhook with the manager.
@@ -71,6 +72,12 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		"namespace", db.GetNamespace(),
 	)
 
+	// Validate the engine version
+	if err := v.validateEngineVersion(ctx, db); err != nil {
+		log.Error(err, "validateEngineVersion failed")
+		return nil, fmt.Errorf("engine version validation failed: %w", err)
+	}
+
 	// If a user secret is specified by the user, ensure that it exists.
 	if userSecretsName := db.Spec.Engine.UserSecretsName; userSecretsName != "" {
 		// ensure that this secret exists.
@@ -86,7 +93,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	// If a data import source is specified, validate it.
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
 		if err := v.validateDataImport(ctx, db); err != nil {
-			log.Error(err, "validateDataImport failed")
+			log.Error(err, "validateDataImport failed (ValidateCreate)")
 			return nil, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}
@@ -95,7 +102,29 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
-func (v *DatabaseClusterValidator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
+func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj runtime.Object) (admission.Warnings, error) {
+	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
+	}
+
+	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
+		"name", db.GetName(),
+		"namespace", db.GetNamespace(),
+	)
+
+	// Validate the engine version
+	if err := v.validateEngineVersion(ctx, db); err != nil {
+		log.Error(err, "validateEngineVersion failed (ValidateUpdate)")
+		return nil, fmt.Errorf("engine version validation failed: %w", err)
+	}
+
+	// TODO: move remaining validations from Everest API
+	// 1. Validate engine version change (upgrade/downgrade)
+	// 2. Validate replica count change
+	// 3. Validate storage size change
+	// 3. Validate sharding constraints
+
 	return nil, nil
 }
 
@@ -181,6 +210,20 @@ func checkJSONKeyExists(keyExpr string, obj any) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (v *DatabaseClusterValidator) validateEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
+	// Get the DatabaseEngine
+	engine, err := common.GetDatabaseEngineForType(ctx, v.Client, db.Spec.Engine.Type, db.GetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to get engine: %w", err)
+	}
+	// Check if the engine version is available
+	_, ok := engine.Status.AvailableVersions.Engine[db.Spec.Engine.Version]
+	if !ok {
+		return fmt.Errorf("engine version %s not available", db.Spec.Engine.Version)
+	}
+	return nil
 }
 
 // ValidateLoadBalancerConfig validates if the LoadBalancerConfig with the given name exists.
