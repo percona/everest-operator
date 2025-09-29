@@ -100,9 +100,11 @@ func (p *applier) Engine() error {
 	engine := p.DBEngine
 
 	// Update CRVersion, if specified.
-	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
-	if desiredCR != "" {
-		psmdb.Spec.CRVersion = desiredCR
+	currentCRVersion := p.currentPSMDBSpec.CRVersion
+	specifiedCRVersion := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	psmdb.Spec.CRVersion = currentCRVersion
+	if specifiedCRVersion != "" {
+		psmdb.Spec.CRVersion = specifiedCRVersion
 	}
 
 	if database.Spec.Engine.Version == "" {
