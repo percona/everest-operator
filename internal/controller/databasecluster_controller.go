@@ -238,7 +238,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	// the object at p.DBObject() to the current state of the object. The applier works
 	// under the assumption that it builds a new object in each reconciliation and using controllerutil.CreateOrUpdate
 	// would break that assumption.
-	if err := r.createOrUpdate(ctx, db); err != nil {
+	if err := r.createOrUpdate(ctx, p.DBObject()); err != nil {
 		return ctrl.Result{}, fmt.Errorf("createOrUpdate failed: %w", err)
 	}
 
