@@ -159,7 +159,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		status, err := p.Status(ctx)
 		if err != nil {
 			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to get status: %w", err))
+			rerr = errors.Join(rerr, fmt.Errorf("failed to get status: %w", err))
 		}
 		db.Status = status
 		db.Status.ObservedGeneration = db.GetGeneration()
@@ -168,13 +168,13 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if pointer.Get(db.Spec.DataSource).DataImport != nil {
 			if err := r.observeDataImportState(ctx, db); err != nil {
 				rr = ctrl.Result{}
-				rerr = errors.Join(err, fmt.Errorf("failed to observe data import state: %w", err))
+				rerr = errors.Join(rerr, fmt.Errorf("failed to observe data import state: %w", err))
 			}
 		}
 
 		if err := r.Client.Status().Update(ctx, db); err != nil {
 			rr = ctrl.Result{}
-			rerr = errors.Join(err, fmt.Errorf("failed to update status: %w", err))
+			rerr = errors.Join(rerr, fmt.Errorf("failed to update status: %w", err))
 		}
 		// DB is not ready, check again soon.
 		if status.Status != everestv1alpha1.AppStateReady {
