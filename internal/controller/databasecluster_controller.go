@@ -1117,6 +1117,7 @@ func newCrunchyWatchSource(cache cache.Cache) source.Source { //nolint:ireturn
 func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
 	key := client.ObjectKeyFromObject(obj)
 	tempObj := &unstructured.Unstructured{}
+	tempObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 	if err := r.Get(ctx, key, tempObj); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	} else if err == nil {
