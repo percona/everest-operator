@@ -34,6 +34,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -205,39 +206,40 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	p.SetNamespace(db.GetNamespace())
 	p.SetAnnotations(db.GetAnnotations())
 
-	// Mutate the spec and update with kube-api.
-	mutate := func() error {
-		applier := p.Apply(ctx)
-		applier.Paused(db.Spec.Paused)
-		applier.AllowUnsafeConfig()
-		if err := applier.Metadata(); err != nil {
-			return err
-		}
-		if err := applier.Engine(); err != nil {
-			return err
-		}
-		if err := applier.Proxy(); err != nil {
-			return err
-		}
-		if err := applier.Monitoring(); err != nil {
-			return err
-		}
-		if err := applier.PodSchedulingPolicy(); err != nil {
-			return err
-		}
-		if err := applier.Backup(); err != nil {
-			return err
-		}
-		// DataSource is run only if we're not importing external data.
-		if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport == nil {
-			if err := applier.DataSource(); err != nil {
-				return err
-			}
-		}
-		return nil
+	applier := p.Apply(ctx)
+	applier.Paused(db.Spec.Paused)
+	applier.AllowUnsafeConfig()
+	if err := applier.Metadata(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply metadata: %w", err)
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), mutate); err != nil {
-		return ctrl.Result{}, err
+	if err := applier.Engine(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply engine: %w", err)
+	}
+	if err := applier.Proxy(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply proxy: %w", err)
+	}
+	if err := applier.Monitoring(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply monitoring: %w", err)
+	}
+	if err := applier.PodSchedulingPolicy(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply pod scheduling policy: %w", err)
+	}
+	if err := applier.Backup(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply backup: %w", err)
+	}
+	// DataSource is run only if we're not importing external data.
+	if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport == nil {
+		if err := applier.DataSource(); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to apply data source: %w", err)
+		}
+	}
+
+	// NOTE: We do not use controllerutil.CreateOrUpdate here because it will first reset
+	// the object at p.DBObject() to the current state of the object. The applier works
+	// under the assumption that it builds a new object in each reconciliation and using controllerutil.CreateOrUpdate
+	// would break that assumption.
+	if err := r.createOrUpdate(ctx, db); err != nil {
+		return ctrl.Result{}, fmt.Errorf("createOrUpdate failed: %w", err)
 	}
 
 	// Running the applier can possibly also mutate the DatabaseCluster,
@@ -248,7 +250,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		dbCopy.Spec = db.Spec
 		return nil
 	}); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to create or update database cluster: %w", err)
 	}
 
 	if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport != nil && db.Status.Status == everestv1alpha1.AppStateReady {
@@ -1110,4 +1112,15 @@ func newCrunchyWatchSource(cache cache.Cache) source.Source { //nolint:ireturn
 		}),
 		common.DefaultNamespaceFilter,
 	)
+}
+
+func (r *DatabaseClusterReconciler) createOrUpdate(ctx context.Context, obj client.Object) error {
+	key := client.ObjectKeyFromObject(obj)
+	tempObj := &unstructured.Unstructured{}
+	if err := r.Get(ctx, key, tempObj); err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	} else if err == nil {
+		return r.Update(ctx, obj)
+	}
+	return r.Create(ctx, obj)
 }
