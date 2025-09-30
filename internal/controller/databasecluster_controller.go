@@ -204,7 +204,6 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	// Set metadata.
 	p.SetName(db.GetName())
 	p.SetNamespace(db.GetNamespace())
-	p.SetAnnotations(db.GetAnnotations())
 
 	applier := p.Apply(ctx)
 	applier.Paused(db.Spec.Paused)
