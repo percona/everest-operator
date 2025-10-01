@@ -995,7 +995,9 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 			Image:   pgbackrestVersion.ImagePath,
 			Manual:  oldBackups.PGBackRest.Manual,
 			Restore: oldBackups.PGBackRest.Restore,
+			Repos:   []crunchyv1beta1.PGBackRestRepo{},
 		},
+		Enabled: pointer.ToBool(false),
 	}
 
 	if newBackups.PGBackRest.Manual == nil {
@@ -1067,6 +1069,11 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	if err != nil {
 		return pgv2.Backups{}, err
 	}
+
+	if len(pgBackrestRepos) == 0 {
+		return newBackups, nil
+	}
+	newBackups.Enabled = pointer.ToBool(true)
 
 	newBackups.PGBackRest.Configuration = []corev1.VolumeProjection{
 		{
