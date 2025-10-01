@@ -136,6 +136,9 @@ func (p *applier) Engine() error {
 	if err := p.updatePGConfig(pg, database); err != nil {
 		return errors.Join(err, errors.New("could not update PG config"))
 	}
+
+	pg.Spec.InstanceSets = defaultSpec().InstanceSets
+
 	pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
 	if !database.Spec.Engine.Resources.CPU.IsZero() {
 		pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
@@ -179,6 +182,8 @@ func (p *applier) Proxy() error {
 	engine := p.DBEngine
 	pg := p.PerconaPGCluster
 	database := p.DB
+
+	pg.Spec.Proxy = defaultSpec().Proxy
 
 	pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
 	if !ok {
@@ -236,6 +241,7 @@ func (p *applier) Proxy() error {
 }
 
 func (p *applier) Backup() error {
+	p.PerconaPGCluster.Spec.Backups = defaultSpec().Backups
 	spec, err := p.reconcilePGBackupsSpec()
 	if err != nil {
 		return err
@@ -245,8 +251,8 @@ func (p *applier) Backup() error {
 }
 
 func (p *applier) DataSource() error {
+	p.PerconaPGCluster.Spec.DataSource = nil
 	if p.DB.Spec.DataSource == nil {
-		p.PerconaPGCluster.Spec.DataSource = nil
 		return nil
 	}
 

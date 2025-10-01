@@ -177,6 +177,7 @@ func (p *applier) Engine() error {
 	}
 
 	pxc := p.PerconaXtraDBCluster
+	pxc.Spec.PXC = defaultSpec().PXC
 
 	// Set the CRVersion specified on the DB, otherwise preserve the current one.
 	currentCRVersion := p.currentPerconaXtraDBClusterSpec.CRVersion
@@ -262,11 +263,12 @@ func (p *applier) Engine() error {
 }
 
 func (p *applier) Backup() error {
+	p.PerconaXtraDBCluster.Spec.Backup = defaultSpec().Backup
 	bkp, err := p.genPXCBackupSpec()
 	if err != nil {
 		return err
 	}
-	p.Spec.Backup = bkp
+	p.PerconaXtraDBCluster.Spec.Backup = bkp
 	return nil
 }
 
@@ -275,10 +277,12 @@ func (p *applier) Proxy() error {
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
+		p.PerconaXtraDBCluster.Spec.HAProxy = defaultSpec().HAProxy
 		if err := p.applyHAProxyCfg(); err != nil {
 			return err
 		}
 	case everestv1alpha1.ProxyTypeProxySQL:
+		p.PerconaXtraDBCluster.Spec.ProxySQL = defaultSpec().ProxySQL
 		if err := p.applyProxySQLCfg(); err != nil {
 			return err
 		}

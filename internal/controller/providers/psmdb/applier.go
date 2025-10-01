@@ -99,6 +99,8 @@ func (p *applier) Engine() error {
 	database := p.DB
 	engine := p.DBEngine
 
+	psmdb.Spec.Replsets = defaultSpec().Replsets
+
 	// Update CRVersion, if specified.
 	currentCRVersion := p.currentPSMDBSpec.CRVersion
 	specifiedCRVersion := pointer.Get(p.DB.Spec.Engine.CRVersion)
@@ -226,6 +228,8 @@ func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 
+	psmdb.Spec.Sharding = defaultSpec().Sharding
+
 	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
 		psmdb.Spec.Sharding.Enabled = false
@@ -316,6 +320,7 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 }
 
 func (p *applier) Backup() error {
+	p.PerconaServerMongoDB.Spec.Backup = defaultSpec().Backup
 	spec, err := p.genPSMDBBackupSpec()
 	if err != nil {
 		return err
