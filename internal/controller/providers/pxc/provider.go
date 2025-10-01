@@ -41,9 +41,9 @@ import (
 const (
 	pxcHAProxyEnvSecretName = "haproxy-env-secret" //nolint:gosec // This is not a credential, only a secret name.
 
-	finalizerDeletePXCPodsInOrder = "delete-pxc-pods-in-order"
-	finalizerDeletePXCPVC         = "delete-pxc-pvc"
-	finalizerDeletePXCSSL         = "delete-ssl"
+	finalizerDeletePXCPodsInOrder = "percona.com/delete-pxc-pods-in-order"
+	finalizerDeletePXCPVC         = "percona.com/delete-pxc-pvc"
+	finalizerDeletePXCSSL         = "percona.com/delete-ssl"
 )
 
 // Provider is a provider for Percona XtraDB Cluster.
