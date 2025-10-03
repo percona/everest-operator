@@ -63,7 +63,6 @@ const (
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 	loadBalancerConfigNameField     = ".spec.proxy.expose.loadBalancerConfigName"
 
@@ -200,44 +199,45 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
-	// Set metadata.
 	p.SetName(db.GetName())
 	p.SetNamespace(db.GetNamespace())
-	p.SetAnnotations(db.GetAnnotations())
 
-	// Mutate the spec and update with kube-api.
-	mutate := func() error {
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), func() error {
 		applier := p.Apply(ctx)
+
+		if err := applier.ResetDefaults(); err != nil {
+			return fmt.Errorf("failed to reset defaults: %w", err)
+		}
+
 		applier.Paused(db.Spec.Paused)
 		applier.AllowUnsafeConfig()
 		if err := applier.Metadata(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply metadata: %w", err)
 		}
 		if err := applier.Engine(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply engine: %w", err)
 		}
 		if err := applier.Proxy(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply proxy: %w", err)
 		}
 		if err := applier.Monitoring(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply monitoring: %w", err)
 		}
 		if err := applier.PodSchedulingPolicy(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply pod scheduling policy: %w", err)
 		}
 		if err := applier.Backup(); err != nil {
-			return err
+			return fmt.Errorf("failed to apply backup: %w", err)
 		}
 		// DataSource is run only if we're not importing external data.
 		if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport == nil {
 			if err := applier.DataSource(); err != nil {
-				return err
+				return fmt.Errorf("failed to apply data source: %w", err)
 			}
 		}
 		return nil
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), mutate); err != nil {
-		return ctrl.Result{}, err
+	}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create or update database cluster: %w", err)
 	}
 
 	// Running the applier can possibly also mutate the DatabaseCluster,
@@ -248,7 +248,7 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		dbCopy.Spec = db.Spec
 		return nil
 	}); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to create or update database cluster: %w", err)
 	}
 
 	if dataImport := pointer.Get(db.Spec.DataSource).DataImport; dataImport != nil && db.Status.Status == everestv1alpha1.AppStateReady {

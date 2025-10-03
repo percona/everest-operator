@@ -135,6 +135,7 @@ type Applier interface {
 	PodSchedulingPolicy() error
 	Backup() error
 	Metadata() error
+	ResetDefaults() error
 }
 
 // Storage is the storage configuration.

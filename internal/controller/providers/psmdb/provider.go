@@ -19,7 +19,6 @@ package psmdb
 import (
 	"context"
 
-	"github.com/AlekSi/pointer"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -282,9 +281,6 @@ func defaultSpec() psmdbv1.PerconaServerMongoDBSpec {
 				MultiAZ: psmdbv1.MultiAZ{
 					PodDisruptionBudget: &psmdbv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: &maxUnavailable,
-					},
-					Affinity: &psmdbv1.PodAffinity{
-						TopologyKey: pointer.ToString(psmdbv1.AffinityOff),
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{},
