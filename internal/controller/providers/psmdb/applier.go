@@ -51,6 +51,11 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) ResetDefaults() error {
+	p.PerconaServerMongoDB.Spec = defaultSpec()
+	return nil
+}
+
 func (p *applier) Metadata() error {
 	if p.PerconaServerMongoDB.GetDeletionTimestamp().IsZero() {
 		for _, f := range []string{

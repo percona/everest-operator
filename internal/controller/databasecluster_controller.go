@@ -63,7 +63,6 @@ const (
 	backupStorageNameField          = ".spec.backup.schedules.backupStorageName"
 	pitrBackupStorageNameField      = ".spec.backup.pitr.backupStorageName"
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
-	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 	loadBalancerConfigNameField     = ".spec.proxy.expose.loadBalancerConfigName"
 
@@ -204,8 +203,12 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	p.SetNamespace(db.GetNamespace())
 
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), func() error {
-
 		applier := p.Apply(ctx)
+
+		if err := applier.ResetDefaults(); err != nil {
+			return fmt.Errorf("failed to reset defaults: %w", err)
+		}
+
 		applier.Paused(db.Spec.Paused)
 		applier.AllowUnsafeConfig()
 		if err := applier.Metadata(); err != nil {
