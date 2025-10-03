@@ -228,7 +228,7 @@ func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 
-	psmdb.Spec.Sharding = defaultSpec().Sharding
+	psmdb.Spec.Sharding.Mongos = defaultSpec().Sharding.Mongos
 
 	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
@@ -328,7 +328,6 @@ func (p *applier) Backup() error {
 	p.PerconaServerMongoDB.Spec.Backup = spec
 	return nil
 }
-
 func (p *applier) DataSource() error {
 	database := p.DB
 	if database.Spec.DataSource == nil {
