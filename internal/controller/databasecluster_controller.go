@@ -200,9 +200,10 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
+	p.SetName(db.GetName())
+	p.SetNamespace(db.GetNamespace())
+
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, p.DBObject(), func() error {
-		p.SetName(db.GetName())
-		p.SetNamespace(db.GetNamespace())
 
 		applier := p.Apply(ctx)
 		applier.Paused(db.Spec.Paused)
