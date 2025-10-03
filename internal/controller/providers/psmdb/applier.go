@@ -368,20 +368,6 @@ func (p *applier) PodSchedulingPolicy() error {
 	// copy the affinity rules to the upstream cluster spec from policy.
 
 	psmdb := p.PerconaServerMongoDB
-	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaServerMongoDB before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	for i := range len(psmdb.Spec.Replsets) {
-		psmdb.Spec.Replsets[i].MultiAZ.Affinity = nil
-	}
-
-	if psmdb.Spec.Sharding.Enabled {
-		// Config Server
-		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = nil
-		// Proxy
-		psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = nil
-	}
-	// --------------------------------- //
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 
 	if pspName == "" {

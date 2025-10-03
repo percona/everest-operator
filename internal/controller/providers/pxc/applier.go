@@ -332,9 +332,6 @@ func (p *applier) PodSchedulingPolicy() error {
 
 	pxc := p.PerconaXtraDBCluster
 	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaXtraDBCluster before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	pxc.Spec.PXC.PodSpec.Affinity = nil
 	if pxc.Spec.HAProxy != nil {
 		pxc.Spec.HAProxy.PodSpec.Affinity = nil
 	}

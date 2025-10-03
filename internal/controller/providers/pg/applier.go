@@ -299,15 +299,6 @@ func (p *applier) PodSchedulingPolicy() error {
 	// copy the affinity rules to the upstream cluster spec from policy.
 
 	pg := p.PerconaPGCluster
-	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaPGCluster before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	for i := range len(pg.Spec.InstanceSets) {
-		// all instances in sets have the same affinity configuration.
-		pg.Spec.InstanceSets[i].Affinity = nil
-	}
-	pg.Spec.Proxy.PGBouncer.Affinity = nil
-	// --------------------------------- //
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 	if pspName == "" {
 		// Covers case 1.
