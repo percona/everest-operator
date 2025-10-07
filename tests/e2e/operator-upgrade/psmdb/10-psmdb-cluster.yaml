@@ -1,16 +1,19 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: test-psmdb-cluster
-spec:
-  engine:
-    type: psmdb
-    replicas: 3
-    storage:
-      size: 1G
-  proxy:
-    type: mongos
-    replicas: 3
+timeout: 10
+commands:
+  - script: |
+      cat <<EOF | kubectl apply -f -
+      apiVersion: everest.percona.com/v1alpha1
+      kind: DatabaseCluster
+      metadata:
+        name: test-psmdb-cluster
+        namespace: "${NAMESPACE}"
+      spec:
+        engine:
+          type: psmdb
+          replicas: 3
+          storage:
+            size: 1Gi
+          version: "${PREVIOUS_PSMDB_DB_ENGINE_VERSION}"
+      EOF
