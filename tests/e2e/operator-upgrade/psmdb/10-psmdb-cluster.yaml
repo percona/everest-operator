@@ -2,6 +2,7 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 commands:
+  # We need to apply if via a script so that we can set the engine version, otherwise the DB reconciliation will fail.
   - script: |
       cat <<EOF | kubectl apply -f -
       apiVersion: everest.percona.com/v1alpha1

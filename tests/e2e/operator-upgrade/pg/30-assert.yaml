@@ -12,7 +12,7 @@ spec:
   engine:
     replicas: 2
     storage:
-      size: 1G
+      size: 1Gi
     type: postgresql
   proxy:
     expose:
@@ -33,7 +33,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 1G
+            storage: 1Gi
       name: instance1
       replicas: 2
   port: 5432
