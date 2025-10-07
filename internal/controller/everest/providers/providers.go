@@ -13,26 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package utils ...
-//
-
-package utils
+// Package providers contains the providers for the DB operators supported by everest.
+package providers
 
 import (
+	"time"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
-// IsEverestReadOnlyObject Checks whether the Everest object is in use.
-// Returns true in case "everest.percona.com/readonly-protection" finalizer is present.
-func IsEverestReadOnlyObject(obj client.Object) bool {
-	return controllerutil.ContainsFinalizer(obj, everestv1alpha1.ReadOnlyFinalizer)
+// ProviderOptions contains options for configuring DB providers.
+type ProviderOptions struct {
+	C        client.Client
+	DB       *everestv1alpha1.DatabaseCluster
+	DBEngine *everestv1alpha1.DatabaseEngine
 }
 
-// IsEverestObjectInUse Checks whether the Everest object is in use.
-// Returns true in case "everest.percona.com/in-use-protection" finalizer is present.
-func IsEverestObjectInUse(obj client.Object) bool {
-	return controllerutil.ContainsFinalizer(obj, everestv1alpha1.InUseResourceFinalizer)
+// HookResult is the result of a pre-reconcile hook.
+type HookResult struct {
+	Requeue      bool
+	RequeueAfter time.Duration
+	Message      string
 }
