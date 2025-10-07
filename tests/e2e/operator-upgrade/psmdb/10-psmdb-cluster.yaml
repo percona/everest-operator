@@ -17,4 +17,7 @@ commands:
           storage:
             size: 1Gi
           version: "${PREVIOUS_PSMDB_DB_ENGINE_VERSION}"
+        proxy:
+          type: mongos
+          replicas: 3
       EOF
