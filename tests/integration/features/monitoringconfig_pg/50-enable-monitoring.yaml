@@ -8,3 +8,7 @@ metadata:
 spec:
   monitoring:
     monitoringConfigName: mc-pg
+    resources:
+      requests:
+        memory: 335Mi
+        cpu: 335m

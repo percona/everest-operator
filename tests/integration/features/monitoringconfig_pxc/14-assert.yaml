@@ -50,11 +50,11 @@ spec:
     monitoringConfigName: mc-pxc
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "250m"
+        memory: 64Mi
+        cpu: 250m
       limits:
-        memory: "128Mi"
-        cpu: "500m"
+        memory: 128Mi
+        cpu: 500m
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: MonitoringConfig
@@ -96,11 +96,11 @@ spec:
     image: percona/pmm-client:latest
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "250m"
+        memory: 64Mi
+        cpu: 250m
       limits:
-        memory: "128Mi"
-        cpu: "500m"
+        memory: 128Mi
+        cpu: 500m
   secretsName: everest-secrets-pxc-mc
 ---
 apiVersion: v1
