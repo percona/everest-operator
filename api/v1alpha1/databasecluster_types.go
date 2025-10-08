@@ -474,7 +474,7 @@ type DatabaseClusterStatus struct {
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
 // +kubebuilder:printcolumn:name="Hostname",type="string",JSONPath=".status.hostname"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:validation:XValidation:rule="!has(self.status.recommendedCRVersion) || self.spec.engine.version == oldSelf.spec.engine.version",message="engine version may not be updated when a CRVersion update is pending"
+// +kubebuilder:validation:XValidation:rule="!has(self.?status.recommendedCRVersion) || self.spec.engine.version == oldSelf.spec.engine.version",message="engine version may not be updated when a CRVersion update is pending"
 //
 // DatabaseCluster is the Schema for the databaseclusters API.
 type DatabaseCluster struct {

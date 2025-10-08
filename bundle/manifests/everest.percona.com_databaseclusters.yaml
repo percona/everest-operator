@@ -627,7 +627,7 @@ spec:
         type: object
         x-kubernetes-validations:
         - message: engine version may not be updated when a CRVersion update is pending
-          rule: '!has(self.status.recommendedCRVersion) || self.spec.engine.version
+          rule: '!has(self.?status.recommendedCRVersion) || self.spec.engine.version
             == oldSelf.spec.engine.version'
     served: true
     storage: true
