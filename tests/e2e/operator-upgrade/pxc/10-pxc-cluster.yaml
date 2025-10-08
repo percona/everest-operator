@@ -1,25 +1,19 @@
 apiVersion: kuttl.dev/v1
 kind: TestStep
-commands:
-  # We need to apply if via a script so that we can set the engine version, otherwise the DB reconciliation will fail.
-  - script: |
-      cat <<EOF | kubectl apply -f -
-      apiVersion: everest.percona.com/v1alpha1
-      kind: DatabaseCluster
-      metadata:
-        name: test-pxc-cluster
-        namespace: "${NAMESPACE}"
-      spec:
-        engine:
-          type: pxc
-          replicas: 3
-          storage:
-            size: 1Gi
-          version: "${PREVIOUS_PXC_DB_ENGINE_VERSION}"
-        proxy:
-          type: haproxy
-          replicas: 3
-          resources:
-            cpu: "600m"
-            memory: "1Gi"
-      EOF
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: test-pxc-cluster
+spec:
+  engine:
+    type: pxc
+    replicas: 3
+    storage:
+      size: 1Gi
+  proxy:
+    type: haproxy
+    replicas: 3
+    resources:
+      cpu: "600m"
+      memory: "1Gi"
