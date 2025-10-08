@@ -22,6 +22,6 @@ commands:
   - command: kubectl delete pod -n everest-system -l control-plane=controller-manager
   - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
 testDirs:
-  - tests/integration/features
+  - test/integration/features
 manifestDirs:
-  - tests/manifests
+  - test/manifests

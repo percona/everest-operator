@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package webhooks ...
-//
 //nolint:lll
-package webhooks
+package v1alpha1
 
 import (
 	"context"
@@ -48,21 +46,21 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 		return fmt.Errorf("expected a DatabaseCluster object but got %T", obj)
 	}
 
-	log := log.FromContext(ctx).WithName("DatabaseClusterDefaulter").WithValues(
+	logger := log.FromContext(ctx).WithName("DatabaseClusterDefaulter").WithValues(
 		"name", db.GetName(),
 		"namespace", db.GetNamespace(),
 	)
 	importTpl := pointer.Get(db.Spec.DataSource).DataImport
 	err := handleS3CredentialsSecret(ctx, d.Client, db.GetNamespace(), importTpl)
 	if err != nil {
-		log.Error(err, "handleS3CredentialsSecret failed")
+		logger.Error(err, "handleS3CredentialsSecret failed")
 		return err
 	}
 
 	// Set the default engine version if not specified
 	if db.Spec.Engine.Version == "" {
 		if err := d.setDefaultEngineVersion(ctx, db); err != nil {
-			log.Error(err, "setDefaultEngineVersion failed")
+			logger.Error(err, "setDefaultEngineVersion failed")
 			return err
 		}
 	}

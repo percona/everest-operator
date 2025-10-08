@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package webhooks ...
-//
 //nolint:lll
-package webhooks
+package v1alpha1
 
 import (
 	"context"
@@ -67,14 +65,14 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
-	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
+	logger := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
 		"name", db.GetName(),
 		"namespace", db.GetNamespace(),
 	)
 
 	// Validate the engine version
 	if err := v.validateEngineVersion(ctx, db); err != nil {
-		log.Error(err, "validateEngineVersion failed")
+		logger.Error(err, "validateEngineVersion failed")
 		return nil, fmt.Errorf("engine version validation failed: %w", err)
 	}
 
@@ -93,7 +91,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	// If a data import source is specified, validate it.
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
 		if err := v.validateDataImport(ctx, db); err != nil {
-			log.Error(err, "validateDataImport failed (ValidateCreate)")
+			logger.Error(err, "validateDataImport failed (ValidateCreate)")
 			return nil, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}
@@ -108,14 +106,14 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj ru
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
-	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
+	logger := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
 		"name", db.GetName(),
 		"namespace", db.GetNamespace(),
 	)
 
 	// Validate the engine version
 	if err := v.validateEngineVersion(ctx, db); err != nil {
-		log.Error(err, "validateEngineVersion failed (ValidateUpdate)")
+		logger.Error(err, "validateEngineVersion failed (ValidateUpdate)")
 		return nil, fmt.Errorf("engine version validation failed: %w", err)
 	}
 

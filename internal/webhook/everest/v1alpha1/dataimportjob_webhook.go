@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package webhooks ...
-//
 //nolint:lll
-package webhooks
+package v1alpha1
 
 import (
 	"context"
@@ -60,13 +58,13 @@ func (d *DataImportJobDefaulter) Default(ctx context.Context, obj runtime.Object
 	if !ok {
 		return fmt.Errorf("expected an DataImportJob object but got %T", obj)
 	}
-	log := ctrl.LoggerFrom(ctx).WithName("DataImportJobDefaulter").WithValues(
+	logger := ctrl.LoggerFrom(ctx).WithName("DataImportJobDefaulter").WithValues(
 		"name", dij.GetName(),
 		"namespace", dij.GetNamespace(),
 	)
 	err := handleS3CredentialsSecret(ctx, d.Client, dij.GetNamespace(), dij.Spec.DataImportJobTemplate)
 	if err != nil {
-		log.Error(err, "handleS3CredentialsSecret failed")
+		logger.Error(err, "handleS3CredentialsSecret failed")
 		return err
 	}
 	return nil

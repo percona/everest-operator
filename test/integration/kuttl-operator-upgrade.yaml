@@ -18,6 +18,6 @@ commands:
   # Wait for Everest Operator to be ready.
   - command: kubectl wait --for condition=available --timeout=30s deploy/everest-controller-manager -n everest-system
 testDirs:
-  - tests/integration/operator-upgrade
+  - test/integration/operator-upgrade
 manifestDirs:
-  - tests/manifests
+  - test/manifests

@@ -52,7 +52,7 @@ import (
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
-	webhooks "github.com/percona/everest-operator/internal/webhook/everest"
+	webhookeverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
 )
 
 var (
@@ -346,21 +346,21 @@ func main() {
 
 	// register webhooks
 	if !cfg.DisableWebhookServer {
-		if err := webhooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
 			os.Exit(1)
 		}
-		if err := webhooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDataImportJobWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
 			os.Exit(1)
 		}
 
-		if err := webhooks.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "MonitoringConfig")
 			os.Exit(1)
 		}
 
-		if err := webhooks.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
 			os.Exit(1)
 		}
