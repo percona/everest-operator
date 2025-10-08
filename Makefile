@@ -154,53 +154,53 @@ test: $(LOCALBIN) manifests generate format envtest ## Run unit tests.
 
 .PHONY: test-integration-core
 test-integration-core: docker-build k3d-upload-image ## Run integration/core tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-core.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-core.yaml
 
 .PHONY: test-integration-features
 test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-features.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-features.yaml
 
 .PHONY: test-integration-operator-upgrade
 test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/integration/kuttl-operator-upgrade.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-core
 test-e2e-core: docker-build ## Run e2e/core tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-core.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-core.yaml
 
 .PHONY: test-e2e-db-upgrade
 test-e2e-db-upgrade: docker-build ## Run e2e/db-upgrade tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-db-upgrade.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-db-upgrade.yaml
 
 .PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: docker-build ## Run e2e/operator-upgrade tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-operator-upgrade.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-operator-upgrade.yaml
 
 .PHONY: test-e2e-data-importer
 test-e2e-data-importer: docker-build k3d-upload-image ## Run e2e/data-importer tests
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml
 
 .PHONY: test-e2e-data-importer-pg
 test-e2e-data-importer-pg: docker-build k3d-upload-image ## Run e2e/data-importer PG test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pg
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml --test pg
 
 .PHONY: test-e2e-data-importer-psmdb
 test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-importer PSMDB test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test psmdb
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml --test psmdb
 
 .PHONY: test-e2e-data-importer-pxc
 test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
-	. ./tests/vars.sh && kubectl kuttl test --config ./tests/e2e/kuttl-data-importer.yaml --test pxc
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml --test pxc
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing.
-	k3d cluster create --config ./tests/k3d_config.yaml
-	k3d kubeconfig get everest-operator-test > ./tests/kubeconfig
+	k3d cluster create --config ./test/k3d_config.yaml
+	k3d kubeconfig get everest-operator-test > ./test/kubeconfig
 
 .PHONY: k3d-cluster-up
 k3d-cluster-down: ## Create a K8S cluster for testing.
-	k3d cluster delete --config ./tests/k3d_config.yaml
-	rm -f ./tests/kubeconfig || true
+	k3d cluster delete --config ./test/k3d_config.yaml
+	rm -f ./test/kubeconfig || true
 
 .PHONY: k3d-cluster-reset
 k3d-cluster-reset: k3d-cluster-down k3d-cluster-up ## Recreate a K8S cluster for testing.
@@ -231,7 +231,7 @@ cluster-cleanup:
 	done
 	@namespaces=$$(kubectl get db -A -o jsonpath='{.items[*].metadata.namespace}'); \
 	for ns in $$namespaces; do \
-		kubectl -n $$ns delete -f ./tests/testdata/minio --ignore-not-found || true; \
+		kubectl -n $$ns delete -f ./test/testdata/minio --ignore-not-found || true; \
 	done
 	kubectl delete pvc --all-namespaces --all --ignore-not-found=true || true
 	kubectl delete backupstorage --all-namespaces --all --ignore-not-found=true || true
