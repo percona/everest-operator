@@ -97,6 +97,7 @@ init: cleanup-localbin  ## Install development tools
 	$(MAKE) envtest
 	$(MAKE) operator-sdk
 	$(MAKE) opm
+	$(MAKE) kubebuilder
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -323,6 +324,8 @@ OPERATOR_SDK_VERSION ?= v1.40.0
 OPM_VERSION ?= v1.56.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.29
+# Kubebuilder version to download.
+KUBEBUILDER_VERSION = v4.9.0
 
 .PHONY: kustomize
 KUSTOMIZE_INSTALL_SCRIPT = "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
@@ -369,6 +372,18 @@ ifeq (,$(wildcard $(OPM)))
 	set -e ;\
 	curl -sSLo $(OPM) $(OPM_DL_URL)/$(OS)-$(ARCH)-opm ;\
 	chmod +x $(OPM) ;\
+	}
+endif
+
+.PHONY: kubebuilder
+KUBEBUILDER_DL_URL = https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)
+KUBEBUILDER = $(LOCALBIN)/kubebuilder-$(KUBEBUILDER_VERSION)
+kubebuilder: $(LOCALBIN) ## Download kubebuilder locally if necessary.
+ifeq (,$(wildcard $(KUBEBUILDER)))
+	@{ \
+	set -e ;\
+	curl -sSLo $(KUBEBUILDER) $(KUBEBUILDER_DL_URL)/kubebuilder_$(OS)_$(ARCH) ;\
+	chmod +x $(KUBEBUILDER) ;\
 	}
 endif
 
