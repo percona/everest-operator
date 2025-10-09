@@ -182,6 +182,10 @@ func (p *applier) Engine() error {
 	}
 
 	pxc := p.PerconaXtraDBCluster
+
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	pxc.Spec.PXC = defaultSpec().PXC
 
 	// Set the CRVersion specified on the DB, otherwise preserve the current one.
@@ -268,7 +272,11 @@ func (p *applier) Engine() error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaXtraDBCluster.Spec.Backup = defaultSpec().Backup
+
 	bkp, err := p.genPXCBackupSpec()
 	if err != nil {
 		return err
@@ -282,11 +290,17 @@ func (p *applier) Proxy() error {
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
+		// Even though we call ResetDefault() as the first step in the mutation process,
+		// we still reset the spec here to protect against the defaults being unintentionally changed
+		// from a previous mutation.
 		p.PerconaXtraDBCluster.Spec.HAProxy = defaultSpec().HAProxy
 		if err := p.applyHAProxyCfg(); err != nil {
 			return err
 		}
 	case everestv1alpha1.ProxyTypeProxySQL:
+		// Even though we call ResetDefault() as the first step in the mutation process,
+		// we still reset the spec here to protect against the defaults being unintentionally changed
+		// from a previous mutation.
 		p.PerconaXtraDBCluster.Spec.ProxySQL = defaultSpec().ProxySQL
 		if err := p.applyProxySQLCfg(); err != nil {
 			return err
@@ -314,6 +328,9 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaXtraDBCluster.Spec.PMM = defaultSpec().PMM
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {

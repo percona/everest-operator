@@ -142,6 +142,9 @@ func (p *applier) Engine() error {
 		return errors.Join(err, errors.New("could not update PG config"))
 	}
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	pg.Spec.InstanceSets = defaultSpec().InstanceSets
 
 	pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
@@ -188,6 +191,9 @@ func (p *applier) Proxy() error {
 	pg := p.PerconaPGCluster
 	database := p.DB
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	pg.Spec.Proxy = defaultSpec().Proxy
 
 	pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
@@ -246,7 +252,11 @@ func (p *applier) Proxy() error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaPGCluster.Spec.Backups = defaultSpec().Backups
+
 	spec, err := p.reconcilePGBackupsSpec()
 	if err != nil {
 		return err
@@ -282,7 +292,11 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaPGCluster.Spec.PMM = defaultSpec().PMM
+
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err

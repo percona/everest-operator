@@ -104,6 +104,9 @@ func (p *applier) Engine() error {
 	database := p.DB
 	engine := p.DBEngine
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	psmdb.Spec.Replsets = defaultSpec().Replsets
 
 	// Update CRVersion, if specified.
@@ -233,6 +236,9 @@ func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	psmdb.Spec.Sharding.Mongos = defaultSpec().Sharding.Mongos
 
 	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
@@ -325,7 +331,11 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaServerMongoDB.Spec.Backup = defaultSpec().Backup
+
 	spec, err := p.genPSMDBBackupSpec()
 	if err != nil {
 		return err
@@ -351,7 +361,11 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaServerMongoDB.Spec.PMM = defaultSpec().PMM
+
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
