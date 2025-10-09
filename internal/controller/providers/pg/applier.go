@@ -59,6 +59,11 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) ResetDefaults() error {
+	p.PerconaPGCluster.Spec = defaultSpec()
+	return nil
+}
+
 func (p *applier) Paused(paused bool) {
 	p.PerconaPGCluster.Spec.Pause = &paused
 }
@@ -136,6 +141,12 @@ func (p *applier) Engine() error {
 	if err := p.updatePGConfig(pg, database); err != nil {
 		return errors.Join(err, errors.New("could not update PG config"))
 	}
+
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	pg.Spec.InstanceSets = defaultSpec().InstanceSets
+
 	pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
 	if !database.Spec.Engine.Resources.CPU.IsZero() {
 		pg.Spec.InstanceSets[0].Resources.Limits[corev1.ResourceCPU] = database.Spec.Engine.Resources.CPU
@@ -179,6 +190,11 @@ func (p *applier) Proxy() error {
 	engine := p.DBEngine
 	pg := p.PerconaPGCluster
 	database := p.DB
+
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	pg.Spec.Proxy = defaultSpec().Proxy
 
 	pgbouncerAvailVersions, ok := engine.Status.AvailableVersions.Proxy["pgbouncer"]
 	if !ok {
@@ -236,6 +252,11 @@ func (p *applier) Proxy() error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	p.PerconaPGCluster.Spec.Backups = defaultSpec().Backups
+
 	spec, err := p.reconcilePGBackupsSpec()
 	if err != nil {
 		return err
@@ -245,8 +266,8 @@ func (p *applier) Backup() error {
 }
 
 func (p *applier) DataSource() error {
+	p.PerconaPGCluster.Spec.DataSource = nil
 	if p.DB.Spec.DataSource == nil {
-		p.PerconaPGCluster.Spec.DataSource = nil
 		return nil
 	}
 
@@ -271,7 +292,11 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaPGCluster.Spec.PMM = defaultSpec().PMM
+
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
@@ -293,15 +318,6 @@ func (p *applier) PodSchedulingPolicy() error {
 	// copy the affinity rules to the upstream cluster spec from policy.
 
 	pg := p.PerconaPGCluster
-	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaPGCluster before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	for i := range len(pg.Spec.InstanceSets) {
-		// all instances in sets have the same affinity configuration.
-		pg.Spec.InstanceSets[i].Affinity = nil
-	}
-	pg.Spec.Proxy.PGBouncer.Affinity = nil
-	// --------------------------------- //
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 	if pspName == "" {
 		// Covers case 1.
