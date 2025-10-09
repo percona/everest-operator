@@ -16,6 +16,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"net"
 
 	corev1 "k8s.io/api/core/v1"
@@ -90,6 +91,13 @@ func (t ExposeType) Normalize() ExposeType {
 		return ExposeTypeLoadBalancer
 	}
 	return t
+}
+
+func (t ExposeType) DeprecationWarning() string {
+	if t != t.Normalize() {
+		return fmt.Sprintf("expose type '%s' is deprecated, please use '%s' instead", t, t.Normalize())
+	}
+	return ""
 }
 
 type (

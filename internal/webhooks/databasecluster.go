@@ -62,9 +62,10 @@ type DatabaseClusterValidator struct {
 
 // ValidateCreate validates the creation of a DatabaseCluster.
 func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	var warns admission.Warnings
 	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
+		return warns, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
 	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
@@ -75,7 +76,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	// Validate the engine version
 	if err := v.validateEngineVersion(ctx, db); err != nil {
 		log.Error(err, "validateEngineVersion failed")
-		return nil, fmt.Errorf("engine version validation failed: %w", err)
+		return warns, fmt.Errorf("engine version validation failed: %w", err)
 	}
 
 	// If a user secret is specified by the user, ensure that it exists.
@@ -86,7 +87,7 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 			Name:      userSecretsName,
 			Namespace: db.GetNamespace(),
 		}, &secret); err != nil {
-			return nil, fmt.Errorf("failed to get user secrets %s: %w", userSecretsName, err)
+			return warns, fmt.Errorf("failed to get user secrets %s: %w", userSecretsName, err)
 		}
 	}
 
@@ -94,18 +95,22 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
 		if err := v.validateDataImport(ctx, db); err != nil {
 			log.Error(err, "validateDataImport failed (ValidateCreate)")
-			return nil, fmt.Errorf("data import validation failed: %w", err)
+			return warns, fmt.Errorf("data import validation failed: %w", err)
 		}
 	}
 
-	return nil, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
+	if warn := db.Spec.Proxy.Expose.Type.DeprecationWarning(); warn != "" {
+		warns = append(warns, warn)
+	}
+	return warns, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
 func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj runtime.Object) (admission.Warnings, error) {
+	var warns admission.Warnings
 	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
+		return warns, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
 	}
 
 	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
@@ -116,7 +121,10 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj ru
 	// Validate the engine version
 	if err := v.validateEngineVersion(ctx, db); err != nil {
 		log.Error(err, "validateEngineVersion failed (ValidateUpdate)")
-		return nil, fmt.Errorf("engine version validation failed: %w", err)
+		return warns, fmt.Errorf("engine version validation failed: %w", err)
+	}
+	if warn := db.Spec.Proxy.Expose.Type.DeprecationWarning(); warn != "" {
+		warns = append(warns, warn)
 	}
 
 	// TODO: move remaining validations from Everest API
@@ -125,7 +133,7 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj ru
 	// 3. Validate storage size change
 	// 3. Validate sharding constraints
 
-	return nil, nil
+	return warns, nil
 }
 
 // ValidateDelete validates the deletion of a DatabaseCluster.
