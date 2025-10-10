@@ -25,7 +25,7 @@ spec:
   engine:
     replicas: 3
     storage:
-      size: 1G
+      size: 1Gi
     type: psmdb
   proxy:
     expose:
@@ -51,7 +51,7 @@ spec:
         persistentVolumeClaim:
           resources:
             requests:
-              storage: 1G
+              storage: 1Gi
 status:
   replsets:
     rs0:

@@ -25,7 +25,7 @@ spec:
   engine:
     replicas: 3
     storage:
-      size: 1G
+      size: 1Gi
     type: pxc
   proxy:
     expose:

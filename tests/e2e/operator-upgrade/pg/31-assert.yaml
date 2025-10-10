@@ -15,7 +15,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 1G
+            storage: 1Gi
       name: instance1
       replicas: 2
   port: 5432
