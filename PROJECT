@@ -2,8 +2,8 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: percona.com
 cliVersion: 4.9.0
+domain: percona.com
 layout:
 - go.kubebuilder.io/v4
 multigroup: true
@@ -99,4 +99,16 @@ resources:
   kind: DataImportJob
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: percona.com
+  group: engine-features.everest
+  kind: SplitHorizonDNSConfig
+  path: github.com/percona/everest-operator/api/engine-features.everest/v1alpha1
+  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

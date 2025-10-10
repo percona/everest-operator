@@ -20,7 +20,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Run tests
+      - name: Build binary
         run: |
           make build
 

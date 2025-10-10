@@ -47,11 +47,13 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
+	webhookenginefeatureseverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/engine-features.everest/v1alpha1"
 	webhookeverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
 )
 
@@ -107,6 +109,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(enginefeatureseverestv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 
 	utilruntime.Must(pgv2.SchemeBuilder.AddToScheme(scheme))
@@ -362,6 +365,11 @@ func main() {
 
 		if err := webhookeverestv1alpha1.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
+			os.Exit(1)
+		}
+
+		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "SplitHorizonDNSConfig")
 			os.Exit(1)
 		}
 	}

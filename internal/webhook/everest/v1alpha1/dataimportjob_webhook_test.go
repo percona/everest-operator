@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest-operator/utils"
 )
 
 func TestIsBase64Encoded(t *testing.T) {
@@ -43,7 +44,7 @@ func TestIsBase64Encoded(t *testing.T) {
 		{"Zm9vYmFyIQ", false},  // invalid base64 (wrong padding)
 	}
 	for _, c := range cases {
-		assert.Equal(t, c.expected, isBase64Encoded(c.input), "input: %q", c.input)
+		assert.Equal(t, c.expected, utils.IsBase64Encoded(c.input), "input: %q", c.input)
 	}
 }
 

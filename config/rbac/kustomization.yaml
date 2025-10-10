@@ -37,3 +37,10 @@ resources:
 - podschedulingpolicy_editor_role.yaml
 - podschedulingpolicy_viewer_role.yaml
 
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the everest-operator itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- engine-features.everest_splithorizondnsconfig_admin_role.yaml
+- engine-features.everest_splithorizondnsconfig_editor_role.yaml
+- engine-features.everest_splithorizondnsconfig_viewer_role.yaml

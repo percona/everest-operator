@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest-operator/utils"
 )
 
 // SetupDataImportJobWebhookWithManager sets up the webhook for DataImportJob.
@@ -120,12 +120,12 @@ func mutateS3CredentialsSecret(
 	accessKeyID, secretAccessKey string,
 ) error {
 	switch {
-	case isBase64Encoded(accessKeyID) && isBase64Encoded(secretAccessKey):
+	case utils.IsBase64Encoded(accessKeyID) && utils.IsBase64Encoded(secretAccessKey):
 		secret.Data = map[string][]byte{
 			accessKeyIDSecretKey:     []byte(accessKeyID),
 			secretAccessKeySecretKey: []byte(secretAccessKey),
 		}
-	case !isBase64Encoded(accessKeyID) && !isBase64Encoded(secretAccessKey):
+	case !utils.IsBase64Encoded(accessKeyID) && !utils.IsBase64Encoded(secretAccessKey):
 		secret.StringData = map[string]string{
 			accessKeyIDSecretKey:     accessKeyID,
 			secretAccessKeySecretKey: secretAccessKey,
@@ -134,9 +134,4 @@ func mutateS3CredentialsSecret(
 		return errors.New("both accessKeyID and secretAccessKey must be either base64 encoded or not")
 	}
 	return nil
-}
-
-func isBase64Encoded(s string) bool {
-	_, err := base64.StdEncoding.DecodeString(s)
-	return len(s)%4 == 0 && len(s) > 0 && err == nil
 }
