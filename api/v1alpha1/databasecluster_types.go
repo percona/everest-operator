@@ -450,9 +450,12 @@ type DatabaseClusterStatus struct {
 	ActiveStorage string `json:"activeStorage,omitempty"`
 	// CRVersion is the observed version of the CR used with the underlying operator.
 	CRVersion string `json:"crVersion,omitempty"`
-	// RecommendedCRVersion is the recommended version of the CR to use.
-	// If set, the CR needs to be updated to this version before upgrading the operator.
-	// If unset, the CR is already at the recommended version.
+	// RecommendedCRVersion indicates the target version that the underlying CR should be updated to.
+	// When this field is set, it means the CR is running an outdated version and requires an update.
+	// The following restrictions apply until the CR is updated to the recommended version:
+	// - The operator cannot be upgraded
+	// - The database engine version (.spec.engine.version) cannot be modified
+	// This field is unset when the CR is already running at the latest recommended version.
 	RecommendedCRVersion *string `json:"recommendedCRVersion,omitempty"`
 	// Details provides full status of the upstream cluster as a plain text.
 	Details string `json:"details,omitempty"`
@@ -472,7 +475,8 @@ type DatabaseClusterStatus struct {
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.status"
 // +kubebuilder:printcolumn:name="Hostname",type="string",JSONPath=".status.hostname"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-
+// +kubebuilder:validation:XValidation:rule="!has(self.?status.recommendedCRVersion) || self.spec.engine.version == oldSelf.spec.engine.version",message="engine version may not be updated when a CRVersion update is pending"
+//
 // DatabaseCluster is the Schema for the databaseclusters API.
 type DatabaseCluster struct {
 	metav1.TypeMeta   `json:",inline"`
