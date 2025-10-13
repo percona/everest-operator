@@ -1057,7 +1057,7 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	c := p.C
 	database := p.DB
 	engine := p.DBEngine
-	oldBackups := p.PerconaPGCluster.Spec.Backups
+	oldBackups := p.currentPGSpec.Backups
 
 	pgbackrestVersion, ok := engine.Status.AvailableVersions.Backup[database.Spec.Engine.Version]
 	if !ok {
