@@ -30,7 +30,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: SplitHorizonDNSConfig is the Schema for the splithorizondnsconfigs
-          API
+          API.
         properties:
           apiVersion:
             description: |-

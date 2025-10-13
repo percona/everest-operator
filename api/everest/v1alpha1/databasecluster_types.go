@@ -358,6 +358,25 @@ type Sharding struct {
 	ConfigServer ConfigServer `json:"configServer"`
 }
 
+// PSMDBEngineFeatures represents additional features for the PSMDB engine.
+type PSMDBEngineFeatures struct {
+	// SplitHorizonDNSConfigName is the name of a SplitHorizonDNSConfig CR.
+	// The SplitHorizonDNSConfig must be created in the same namespace as the DatabaseCluster.
+	SplitHorizonDNSConfigName string `json:"splitHorizonDnsConfigName,omitempty"`
+
+	// NOTE: Features for PSMDB shall be added in the future, like:
+	// AdvancedSecurity *PSMDBAdvancedSecurity `json:"advancedSecurity,omitempty"`
+}
+
+// EngineFeatures represents configuration of additional features for the database engine.
+type EngineFeatures struct {
+	// PSMDB represents additional features for the PSMDB engine.
+	PSMDB *PSMDBEngineFeatures `json:"psmdb,omitempty"`
+	// NOTE: Features for PXC and PostgreSQL shall be added in the future, like:
+	// PXC *PXCEngineFeatures `json:"pxc,omitempty"`
+	// PostgreSQL *PostgreSQLEngineFeatures `json:"postgresql,omitempty"`
+}
+
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
@@ -383,6 +402,8 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 	// PodSchedulingPolicyName is the name of the PodSchedulingPolicy CR that defines rules for DB cluster pods allocation across the cluster.
 	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
+	// EngineFeatures represents configuration of additional features for the database engine.
+	EngineFeatures *EngineFeatures `json:"engineFeatures,omitempty"`
 }
 
 // IntoDBRestoreDataSource converts the DataSource into a DatabaseClusterRestoreDataSource.

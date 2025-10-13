@@ -1,3 +1,18 @@
+// // everest-operator
+// // Copyright (C) 2022 Percona LLC
+// //
+// // Licensed under the Apache License, Version 2.0 (the "License");
+// // you may not use this file except in compliance with the License.
+// // You may obtain a copy of the License at
+// //
+// // http://www.apache.org/licenses/LICENSE-2.0
+// //
+// // Unless required by applicable law or agreed to in writing, software
+// // distributed under the License is distributed on an "AS IS" BASIS,
+// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// // See the License for the specific language governing permissions and
+// // limitations under the License.
+
 // everest
 // Copyright (C) 2025 Percona LLC
 //
@@ -38,7 +53,7 @@ const (
 	shdcName             = "my-shdc"
 	shdcNamespace        = "default"
 	shdcBaseDomainSuffix = "example.com"
-	certSecretName       = "my-tls-secret"
+	certSecretName       = "my-tls-secret" //nolint:gosec
 	caCertFileBase64     = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURGRENDQWZ5Z0F3SUJBZ0lVUGJ1QWNmUTlqQldLZXI3dU9ka21hRnpqVlNZd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0lqRU9NQXdHQTFVRUNoTUZVRk5OUkVJeEVEQU9CZ05WQkFNVEIxSnZiM1FnUTBFd0hoY05NalV4TURBNQpNVEV3T1RBd1doY05NekF4TURBNE1URXdPVEF3V2pBaU1RNHdEQVlEVlFRS0V3VlFVMDFFUWpFUU1BNEdBMVVFCkF4TUhVbTl2ZENCRFFUQ0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0NnZ0VCQUxHa1pQMlMKR3JhRERzcmZZWGd2bmk2UkdRb0t0SFNBaFNhMjR6QjJRMWpxZzh0QW16TnZINENaN0QrN2tnNUdhb1RMUkpmeApSNTRyV1kzM2k4K2I2U0F1WTNsaWRLWTVuVnZRSmtBSDNHWk5ZbkJDYkVtWllWZEFNeUN4YmIyTjNmbWFsak1SCkxsVkpVNWtpdjlYQ1pPUVEyRDFWNXRsbURHclR5aXd5RUdOeThodjlwK0tRbXdiUU5vcmxDVWw5OEEzdEw3UHUKeWxVWFk4M0ZjeUZHNzU2VDZHQTBmQndTUHJOVzBvL1Iyejl6WHZjblVEYTF2a21qR2haT3R5WjNhT1RYdnEvMgpHdklzM2N4Q0t4Uy9kVyszTFR0WWtuaHAyUkZuWllZNUg0Uzh1bTBiUmNoQ0swZWl3SkpENzNNS1ZOMWRUVm5NCmVnT0o5Y2Qwc0NiL05aY0NBd0VBQWFOQ01FQXdEZ1lEVlIwUEFRSC9CQVFEQWdFR01BOEdBMVVkRXdFQi93UUYKTUFNQkFmOHdIUVlEVlIwT0JCWUVGSG5QMU11Q3ZsVmtYWHFCdkVad0t3ZXQxK2RwTUEwR0NTcUdTSWIzRFFFQgpDd1VBQTRJQkFRQmpQZ1FjVUVZOWtOekJQTWhTN2l4V0xMMDBnVFNtaTdqVlpJNEtRVzB3NkVKYVVyN0ppemVwClNPNW1ZekRyRWlQenZUbFlKS2V3UXdVUzVKZHQwVW5Ld2JQSmljaXp2UDNBT3gvT09LZzgwYUkyeFlYVWl2engKeCt6ZzI1ZThxaGxhdXpCOEUrdklHNFowd3FsS1A1dHhsRENmU3lrNkpFdUJzVHdCZm15d1dwWWRmYTRQTEw0TwpvT3FYYXcrQkpWZTFZeExHY1poQkNmSHVoM2E2c2FndU1LanNKS0pONjVnS0tOV0lkNm5Bb2pxRkNhSVczQ0xxCkU1dC9ZWldFaVIveFRoTGk0VTluUksrRUtxeDNVSlNjSlVkKzNlMCtibzgvYXYyTlJPdFNiSmRpNEJKSWN0T0MKOWgwZmZHaUlhT3ZNdHUrTGlJTHdCSnRxZisra1libDcKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo="
 	certFileBase64       = caCertFileBase64
 	keyFileBase64        = "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0NBUUVBc2FSay9aSWF0b01PeXQ5aGVDK2VMcEVaQ2dxMGRJQ0ZKcmJqTUhaRFdPcUR5MENiCk0yOGZnSm5zUDd1U0RrWnFoTXRFbC9GSG5pdFpqZmVMejV2cElDNWplV0owcGptZFc5QW1RQWZjWmsxaWNFSnMKU1psaFYwQXpJTEZ0dlkzZCtacVdNeEV1VlVsVG1TSy8xY0prNUJEWVBWWG0yV1lNYXRQS0xESVFZM0x5Ry8ybgo0cENiQnRBMml1VUpTWDN3RGUwdnMrN0tWUmRqemNWeklVYnZucFBvWURSOEhCSStzMWJTajlIYlAzTmU5eWRRCk5yVytTYU1hRms2M0puZG81TmUrci9ZYThpemR6RUlyRkw5MWI3Y3RPMWlTZUduWkVXZGxoamtmaEx5NmJSdEYKeUVJclI2TEFra1B2Y3dwVTNWMU5XY3g2QTRuMXgzU3dKdjgxbHdJREFRQUJBb0lCQUJNZXJ4eXR5T3REc0QxbgpZcU1nSTVzK2Z4NmFFckhjRXJqSDJZSE1waWkxVm5SemQrRHhnUnl0M3k3b1BrQlphdVh2eDVVVkMvdDdEZnRlClNBYm9tem5IL3hQckRzUWFFbXBMUFRxMHZlVDluTzZaUlBUU1ZKYjRCWDRXS3NvZ0JyZ2RYOStQa0syWnBBSlQKcWxNcHhsaUNkRXZSdnZRL2xzUTViSEFVL3JlU3FKSFZoKzUycG9YcDZIbnhPNENURWJ5NE15ZzdoYnJoaDFmYgpWL2hMN1o1K3hhR0NqZUxWUmNMWmZENVpKYXh4OStMMlVheFplN3lLZTVlZHhGZGxhYS9vQjJlMkFTR1lnYkRaCjEwY0JsL3g2REJkc1VYckkxcTRmVXNZM3hzZitGTHAwTDNHWUFTZUlLcFpYOXNZdUN5cmx2ZTJqUnZjNm9PR0oKaVY5S2pna0NnWUVBMkJiQ29qV2pWbkFKeUZORnhlSjZxdnM1bUU1SDJBUlFOeWUvdmMvTXpKcm90WDI0ZFlkbQpOZ0hKMVdIcnltbC8yRUt5SkxOcVNqclZHdjJHN2IyM25xTDRUOUliK2FxeUtZMnN0cW9Tbks3TTlsUFN0Z2IzCmRGSDZqajc1b2ZLQjJ3RnIrNitjNENUQXRjMnpxVHcvb3BaSnJRa0ZYem1mekNWU25LckE4azhDZ1lFQTBuUEYKK0VRRHpNWUpTUFRmZW9CTE9GcXRjMHR5MkI4OTRPTHJpckFXdmIvYXZMVG9IVE4xRDB6bHFuZ1ZqQ1JBdTJ3SwpmdkZialVyT1dzU0NPbDZCYWFLMGVFVUw2U0FVT09rQlh4SDh5dnZ2NWRXZk9Jc1U5ZEpaK28yT2RtK2hWNWJkCkZvaHIvejlvd1QwOVgwNFJYUE5TeE9QMXVYUFdoa1QvZG1zY0hqa0NnWUE0UFl4QXJaY3FheFNRdCtPa0FqTU4KQnovUlBTYUR1WE9yTjBRM1FiczYwV0tad2ZQZFd2VW1QMGJwcTRlejhjdGRYTmFDcU5PVUtFWEl0WTJGbU9nTwplTG9LQkZSVm9iQ25FZ0dPdFNzTTdvM1gycTh2d3hacWh0K2dZQkdXcmNoUVdNbGpBeXpnUlpDR2dOZ3V4c2lGCkozcGJkOHFYSXlkTStiWExvc0YvRHdLQmdFbWNPeE9TWHEzaVd0OE0zNW9PZzhEclhwM2tOd0JITlRLU3pJWk8KL3pWUmhPWGFkUkc1ck9rMElXVFY2ZHVCMXE1M3BOZ3YvYkRYQ0lTUkZXZnJKR0xaaVR4RUVsMXhYZ0ZsNXBmbApSOEdNQzZZZGFUcXkweHNFZjNwMnh1ekFNUFBkRGVuU3Y4dWcxemczL2w1MmhQWTVHYXRLZk9sb0RoSWEwaXdPClhPQnBBb0dBVEJBSmFRbHE3R1A0dHBwWVpFV0ozMzlva3gzNnpyYkprbERXcDVYTTBrRXBKb2R3dWFvcE5obzMKb0hiUnZISXhZK3IwWjVabUlNMFVQeC9UblBIMS9FeHNXZ3Z2c0V5TUgyTzN5NUJFaWFVY1dDVGZLRTR5UXNIYQowR09acEhHUzRMZ3JKSHZrZExrVzJtRXVnY25ETEUrT2FBa0VIQTZmOFBWOVVoRzh0bTA9Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg=="
@@ -99,7 +114,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsSecretNameEmpty,
+			wantErr: errTLSSecretNameEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.caCertFile value is missing",
@@ -118,7 +133,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCaCertEmpty,
+			wantErr: errTLSCaCertEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.caCertFile value is not base64-encoded",
@@ -137,7 +152,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCaCertWrongEncoding,
+			wantErr: errTLSCaCertWrongEncoding,
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is missing",
@@ -157,7 +172,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCertEmpty,
+			wantErr: errTLSCertEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is not base64-encoded",
@@ -177,7 +192,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCertWrongEncoding,
+			wantErr: errTLSCertWrongEncoding,
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is missing",
@@ -198,7 +213,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsKeyEmpty,
+			wantErr: errTLSKeyEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is not base64-encoded",
@@ -219,7 +234,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsKeyWrongEncoding,
+			wantErr: errTLSKeyWrongEncoding,
 		},
 		{
 			name: "secret with .spec.tls.secretName does not exist",
@@ -316,7 +331,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 	}
 }
 
-func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
+func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //nolint:maintidx
 	t.Parallel()
 
 	type testCase struct {
@@ -413,7 +428,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCaCertEmpty,
+			wantErr: errTLSCaCertEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.caCertFile value is not base64-encoded",
@@ -449,7 +464,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCaCertWrongEncoding,
+			wantErr: errTLSCaCertWrongEncoding,
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is missing",
@@ -486,7 +501,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCertEmpty,
+			wantErr: errTLSCertEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is not base64-encoded",
@@ -523,7 +538,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsCertWrongEncoding,
+			wantErr: errTLSCertWrongEncoding,
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is missing",
@@ -561,7 +576,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsKeyEmpty,
+			wantErr: errTLSKeyEmpty,
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is not base64-encoded",
@@ -599,7 +614,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTlsKeyWrongEncoding,
+			wantErr: errTLSKeyWrongEncoding,
 		},
 		// valid update of .spec.tls.certificate
 		{

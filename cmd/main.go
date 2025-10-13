@@ -50,6 +50,7 @@ import (
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
+	enginefeatureseverestcontroller "github.com/percona/everest-operator/internal/controller/engine-features.everest"
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
@@ -346,6 +347,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerConfig")
 		os.Exit(1)
 	}
+	// ------------------ Engine Features controllers ------------------
+	// SplitHorizonDNSConfig controller
+	if err := (&enginefeatureseverestcontroller.SplitHorizonDNSConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SplitHorizonDNSConfig")
+		os.Exit(1)
+	}
+	// ------------------ Engine Features controllers ------------------
 
 	// register webhooks
 	if !cfg.DisableWebhookServer {
@@ -368,10 +379,12 @@ func main() {
 			os.Exit(1)
 		}
 
+		// ------------------ Engine Features webhooks ------------------
 		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SplitHorizonDNSConfig")
 			os.Exit(1)
 		}
+		// ------------------ Engine Features webhooks ------------------
 	}
 	// +kubebuilder:scaffold:builder
 

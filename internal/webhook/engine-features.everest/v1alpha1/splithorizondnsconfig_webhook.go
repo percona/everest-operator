@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package v1alpha1 contains a set of WebHooks for the engine-features.everest.percona.com API group
 package v1alpha1
 
 import (
@@ -33,20 +34,20 @@ import (
 	"github.com/percona/everest-operator/utils"
 )
 
-// errors for SplitHorizonDNSConfig webhook validation
+// errors for SplitHorizonDNSConfig webhook validation.
 var (
-	// Base domain name suffix errors
+	// Base domain name suffix errors.
 	errInvalidBaseDomainNameSuffix = func(err error) error {
-		return fmt.Errorf(".spec.baseDomainNameSuffix is not a valid DNS subdomain: %v", err)
+		return fmt.Errorf(".spec.baseDomainNameSuffix is not a valid DNS subdomain: %w", err)
 	}
-	errTlsSecretNameEmpty     = errors.New(".spec.tls.secretName can not be empty")
-	errTlsCertificateEmpty    = errors.New(".spec.tls.certificate can not be empty")
-	errTlsCaCertEmpty         = errors.New(".spec.tls.certificate.caCertFile can not be empty")
-	errTlsCaCertWrongEncoding = errors.New(".spec.tls.certificate.caCertFile is not base64-encoded")
-	errTlsCertEmpty           = errors.New(".spec.tls.certificate.certFile can not be empty")
-	errTlsCertWrongEncoding   = errors.New(".spec.tls.certificate.certFile is not base64-encoded")
-	errTlsKeyEmpty            = errors.New(".spec.tls.certificate.keyFile can not be empty")
-	errTlsKeyWrongEncoding    = errors.New(".spec.tls.certificate.keyFile is not base64-encoded")
+	errTLSSecretNameEmpty     = errors.New(".spec.tls.secretName can not be empty")
+	errTLSCertificateEmpty    = errors.New(".spec.tls.certificate can not be empty")
+	errTLSCaCertEmpty         = errors.New(".spec.tls.certificate.caCertFile can not be empty")
+	errTLSCaCertWrongEncoding = errors.New(".spec.tls.certificate.caCertFile is not base64-encoded")
+	errTLSCertEmpty           = errors.New(".spec.tls.certificate.certFile can not be empty")
+	errTLSCertWrongEncoding   = errors.New(".spec.tls.certificate.certFile is not base64-encoded")
+	errTLSKeyEmpty            = errors.New(".spec.tls.certificate.keyFile can not be empty")
+	errTLSKeyWrongEncoding    = errors.New(".spec.tls.certificate.keyFile is not base64-encoded")
 	errDeleteInUse            = func(name string) error {
 		return fmt.Errorf("split-horizon dns config with name='%s' is used by some DB cluster and cannot be deleted", name)
 	}
@@ -54,7 +55,6 @@ var (
 	errSecretNameImmutable           = errors.New(".spec.tls.secretName field is immutable and cannot be changed")
 )
 
-// nolint:unused
 // SetupSplitHorizonDNSConfigWebhookWithManager registers the webhook for SplitHorizonDNSConfig in the manager.
 func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -67,6 +67,7 @@ func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll
 // +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // SplitHorizonDNSConfigCustomValidator struct is responsible for validating the SplitHorizonDNSConfig resource
@@ -104,7 +105,7 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateCreate(ctx context.Contex
 
 	secretName := shdc.Spec.TLS.SecretName
 	if secretName == "" {
-		return nil, errTlsSecretNameEmpty
+		return nil, errTLSSecretNameEmpty
 	}
 
 	if shdc.Spec.TLS.Certificate == nil {
@@ -196,25 +197,25 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateDelete(ctx context.Contex
 
 func validateCertificate(cert *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec) error {
 	if cert == nil {
-		return errTlsCertificateEmpty
+		return errTLSCertificateEmpty
 	}
 
 	if cert.CaCertFile == "" {
-		return errTlsCaCertEmpty
+		return errTLSCaCertEmpty
 	} else if !utils.IsBase64Encoded(cert.CaCertFile) {
-		return errTlsCaCertWrongEncoding
+		return errTLSCaCertWrongEncoding
 	}
 
 	if cert.CertFile == "" {
-		return errTlsCertEmpty
+		return errTLSCertEmpty
 	} else if !utils.IsBase64Encoded(cert.CertFile) {
-		return errTlsCertWrongEncoding
+		return errTLSCertWrongEncoding
 	}
 
 	if cert.KeyFile == "" {
-		return errTlsKeyEmpty
+		return errTLSKeyEmpty
 	} else if !utils.IsBase64Encoded(cert.KeyFile) {
-		return errTlsKeyWrongEncoding
+		return errTLSKeyWrongEncoding
 	}
 
 	return nil

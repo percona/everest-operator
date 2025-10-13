@@ -44,7 +44,7 @@ type SplitHorizonDNSConfigTLSSpec struct {
 	Certificate *SplitHorizonDNSConfigTLSCertificateSpec `json:"certificate,omitempty"`
 }
 
-// SplitHorizonDNSConfigSpec defines the desired state of SplitHorizonDNSConfig
+// SplitHorizonDNSConfigSpec defines the desired state of SplitHorizonDNSConfig.
 type SplitHorizonDNSConfigSpec struct {
 	// BaseDomainNameSuffix is the base domain name suffix for generating domain names for each Pod in ReplicaSet.
 	// It should be a valid domain name suffix.
@@ -70,15 +70,17 @@ type SplitHorizonDNSConfigStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=splitdns
+//nolint:lll
 // +kubebuilder:printcolumn:name="BaseDomainSuffix",type="string",JSONPath=".spec.baseDomainNameSuffix",description="base domain name suffix for generating domain names for each Pod in ReplicaSet"
 // +kubebuilder:printcolumn:name="InUse",type="string",JSONPath=".status.inUse",description="Indicates if the config is used by any DB cluster"
 
-// SplitHorizonDNSConfig is the Schema for the splithorizondnsconfigs API
+// SplitHorizonDNSConfig is the Schema for the splithorizondnsconfigs API.
 type SplitHorizonDNSConfig struct {
 	metav1.TypeMeta `json:",inline"`
 	// metadata is a standard object metadata
 	// +kubebuilder:validation:Optional
 	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+
 	// Spec defines the desired state of SplitHorizonDNSConfig
 	// +kubebuilder:validation:Required
 	Spec SplitHorizonDNSConfigSpec `json:"spec"`
@@ -89,11 +91,12 @@ type SplitHorizonDNSConfig struct {
 
 // +kubebuilder:object:root=true
 
-// SplitHorizonDNSConfigList contains a list of SplitHorizonDNSConfig
+// SplitHorizonDNSConfigList contains a list of SplitHorizonDNSConfig.
 type SplitHorizonDNSConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SplitHorizonDNSConfig `json:"items"`
+
+	Items []SplitHorizonDNSConfig `json:"items"`
 }
 
 func init() {

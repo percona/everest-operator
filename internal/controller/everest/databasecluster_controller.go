@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
@@ -55,6 +56,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/everest/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/everest/providers/pxc"
 	"github.com/percona/everest-operator/internal/predicates"
+	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/engine-features"
 )
 
 const (
@@ -66,6 +68,10 @@ const (
 	backupStorageNameDBBackupField  = ".spec.backupStorageName"
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 	loadBalancerConfigNameField     = ".spec.proxy.expose.loadBalancerConfigName"
+	// EngineFeatures fields.
+
+	// SplitHorizonDNSConfigNameField is used to find all DatabaseClusters that reference a specific SplitHorizonDNSConfig.
+	SplitHorizonDNSConfigNameField = ".spec.engineFeatures.psmdb.splitHorizonDnsConfigName"
 
 	defaultRequeueAfter = 5 * time.Second
 )
@@ -671,6 +677,28 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// EngineFeatures fields indexes
+	// Index the .spec.engineFeatures.psmdb.splitHorizonDNSConfigName field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, SplitHorizonDNSConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			db, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+
+			shdcName := common.GetSplitHorizonDNSConfigNameFromDB(db)
+			if shdcName != "" {
+				res = append(res, shdcName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -853,6 +881,36 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(predicate.GenerationChangedPredicate{},
 			predicates.GetLoadBalancerConfigPredicate()),
 		// defaultPredicate is not needed here since LoadBalancerConfig doesn't belong to any namespace.
+	)
+	controller.Watches(
+		&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			shdc, ok := obj.(*enginefeatureseverestv1alpha1.SplitHorizonDNSConfig)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				SplitHorizonDNSConfigNameField, shdc.GetNamespace(), shdc.GetName())
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+			for i, item := range attachedDatabaseClusters.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+			}
+
+			return requests
+		}),
+		builder.WithPredicates(enginefeaturespredicate.GetSplitHorizonDNSConfigPredicate(),
+			predicate.GenerationChangedPredicate{},
+			defaultPredicate),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the
