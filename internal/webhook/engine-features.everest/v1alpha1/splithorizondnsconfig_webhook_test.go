@@ -1,20 +1,5 @@
-// // everest-operator
-// // Copyright (C) 2022 Percona LLC
-// //
-// // Licensed under the Apache License, Version 2.0 (the "License");
-// // you may not use this file except in compliance with the License.
-// // You may obtain a copy of the License at
-// //
-// // http://www.apache.org/licenses/LICENSE-2.0
-// //
-// // Unless required by applicable law or agreed to in writing, software
-// // distributed under the License is distributed on an "AS IS" BASIS,
-// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// // See the License for the specific language governing permissions and
-// // limitations under the License.
-
-// everest
-// Copyright (C) 2025 Percona LLC
+// everest-operator
+// Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,14 +18,17 @@ package v1alpha1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -63,7 +51,7 @@ const (
 	keyFileNewBase64    = "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBejY4RC90aTFWN2lRM0Ryb1RMTkx1YVN5OWlxSXAvR00wSm1HbkNXVGNxL3BCNnJCCis3d2RrVWNZUUJ3MkJZNGFLTDdOZ3NtWTFkakRyZEFMYU1IYnpYaG1rckRkaUpjRVhPelRXZlBFY2E5Tm4vR2cKOXV6Vm1rV2FPZmpkWHFIU0g3TTVXQUc5REFXYnp6N3JoUzRXR21scHMxTXo1VFEvL1VoUzV1aW4rQWVnTVVadApCUlBwR2pYRkhMN25mRlZ3Rkt6M2ZjQXpsSk40aEd5ZFB0MzZDZWZpR0x0SzZiRFlpV0lmdHZmSUFsUHJwYm1XCmpYVnVQUWFocHNVMXB3WTBXYXp0ZStqek5ZOGNoZ1MvSnlJbWMxOUhjTDlpc0dqTTc2M0tJenR6UDlIV21BcFIKK2FFc014eWJQTklHQ0tFM1dxV1JsOTJhYjhoQmV0bHpHNFpRN3dJREFRQUJBb0lCQUY0V0VaOVFtY2JsekdxWgpIVWd5S2VvdVhRejhjL0J4azdPaytjQ2ZuVTdsdHBKTW41amx2aGRrdCszRFdnM21OSitrNFFHUlJ2WUtQNHZzCnBsNk5CSUR2UExqVCsyaTMwYmd2YWdoa1VPaVgzSGpMUkhyWkRHUFppR2NmQVZxdndMdXZ2QmpNb05KamNCVFIKa20xQlZhNGRkMDlRTUVCMERWRTNoS2NyVzMwWFZidnhMMXFrZ2dnQmdXNzBNN2d0UFJzWnlJRU5lUEtTU09mcgprc3V3bHJ2S1ZUQVFFcTdlUWJLaCt0Z0I1ZERneHhzZTcwWVFKd3BmbEc4ZGNhcXc2bmVVaXRXcmRDRDBpTjZJCnZtTnpHNmgyUTdiVFkwb0dSaHRVMk80ZzVxNEpSK1VRS0tXWFQvWmZnVTRQbWxRNTRUdHU0bGVrTmVSa3RURHYKK3A4UmJVRUNnWUVBK2JCRi9mb2RJQ2Zodzc2NGlUM01iSENUNEIxMGh3aWZuWXpVd3N0RDZJc0hESk95Z2FQawpIU3hQVU9Zb2s1UisxUHVQRGxRWDI1clErY29YbnA1ZTBjbjRUOE1pZkJXeHNPSnpxVnh4THVCLzVWS3pvcHRJCnR6MkUvMHRmeTFVaHE2ZWRQY1N2NVlEY1lCTW5IUlEvOFV2NFA3VlBlTjgrSjl0SzdMUHJVM0VDZ1lFQTFPN3UKQmJaeXQ4ei9QQU5hd2pvTEZNZUx1S2tBQ2J6UVdrakN0OGRMNU1zdGRqaWNpS1hsc3BRSkh1c011QUFxeTY5VwoyUmdKUU0xZVBqK2M2RTdFTlZ1NGh2Q0NGMWZOTWM3RXVieXM4SUhOQkJiR3ZFSmN4SzdYRVJLM1dUaHBQWDNlCk5TNWZYd2dRNFNYNEtlSU1BS0tyNC9ZeFBLK0JqTnREL3h3VytsOENnWUVBOS9kc2V6OHlQNlg3MndjRWd4K0IKYmN3YnYzM2hKTjJXanNPMjVFRXpqclRMYWwwZjhRbVBXTDJSZzVrZmdQai9RSXNYVmphRGZ3OXdMREhjWlNXSQpxelcyU1poVUhnRDVkOTVjMlR3NkYwRFRJeTZQd1pRUGtoTWhpdHdUSlg3Rk1wRUNZcjU3cFNQbE4vQ3RibjZXCnhnOFpXa080eWlTQ3VOaGF2MW9yQWJFQ2dZQjMzdUlFT1VldmpTb0tnT0R4QW5nR2hLZDFsejQ4UFIwV0ZtdjMKeGF4RjZ0TjNBRHV1K2FXcnVJYkI3eFRENk9RdXNsQ3ora0lMUnhITS9VYTV5TTNRTkFoWGZzSGRua0lYemcwVgplcy9vdlVuTENYOXJyL2hGaVIvdHJwbWxFb3E4WVVWY3J2UmxyVWJEV1BxeHFWMlVaZjlhWDlnc0Q2bGd3SGN4CkFJRTNCUUtCZ0QrRjlmeGhJRGhWYmc0b0NwMFI5WTExYjNrLy9jbDg5aDdTa2UwVUlSWEhDY1pxVEdiT0ozZzEKUjZIdUVpdEdHdURPSkgvbStRSjQvZTZ6TkM2alk1NElsOXQxVzF6ZXBrZlk3TTZDTTcxenpoanBlamR3SXhDbgo2RnJieURzM0lxT2tBSzE4WFBjMkJob0tram9aK2J2RTQxdk96MlE0V0dSVHQydjBINUYxCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg=="
 )
 
-func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
+func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) { //nolint:maintidx
 	t.Parallel()
 
 	type testCase struct {
@@ -74,8 +62,23 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 	}
 
 	testCases := []testCase{
+		// .spec.baseDomainNameSuffix
 		{
 			name: ".spec.baseDomainNameSuffix is missing",
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(baseDomainNameSuffixPath),
+				errRequiredField(secretNamePath),
+			}),
+		},
+		{
+			name: ".spec.baseDomainNameSuffix is empty",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      shdcName,
@@ -85,7 +88,10 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					BaseDomainNameSuffix: "",
 				},
 			},
-			wantErr: errInvalidBaseDomainNameSuffix(errors.New("'' is not a valid DNS subdomain: [a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')]")),
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(baseDomainNameSuffixPath),
+				errRequiredField(secretNamePath),
+			}),
 		},
 		{
 			name: ".spec.baseDomainNameSuffix is invalid",
@@ -98,10 +104,30 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					BaseDomainNameSuffix: "invalid_domain",
 				},
 			},
-			wantErr: errInvalidBaseDomainNameSuffix(errors.New("'invalid_domain' is not a valid DNS subdomain: [a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')]")),
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errInvalidBaseDomainNameSuffix("invalid_domain", []string{errors.New("a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')").Error()}),
+				errRequiredField(secretNamePath),
+			}),
 		},
+		// .spec.tls.secretName
 		{
 			name: ".spec.tls.secretName is missing",
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS:                  enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(secretNamePath),
+			}),
+		},
+		{
+			name: ".spec.tls.secretName is empty",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      shdcName,
@@ -114,8 +140,113 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSSecretNameEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(secretNamePath),
+			}),
 		},
+		// .spec.tls.certificate
+		{
+			name: ".spec.tls.certificate is missing, secret is absent",
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName: certSecretName,
+					},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				field.NotFound(secretNamePath, certSecretName),
+			}),
+		},
+		{
+			name: ".spec.tls.certificate is missing, secret has wrong type",
+			objs: []ctrlclient.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      certSecretName,
+						Namespace: shdcNamespace,
+					},
+					Type: corev1.SecretTypeOpaque,
+				},
+			},
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName: certSecretName,
+					},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				field.Invalid(secretNamePath, certSecretName, fmt.Sprintf("the secret must be of type '%s'", corev1.SecretTypeTLS)),
+				field.Required(secretNamePath, "ca.crt field is missed in the secret"),
+				field.Required(secretNamePath, "tls.crt field is missed in the secret"),
+				field.Required(secretNamePath, "tls.key field is missed in the secret"),
+			}),
+		},
+		{
+			name: ".spec.tls.certificate is missing, secret exists but lacks required keys",
+			objs: []ctrlclient.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      certSecretName,
+						Namespace: shdcNamespace,
+					},
+					Data: map[string][]byte{
+						"extraField1": []byte("extraValue1"),
+					},
+					Type: corev1.SecretTypeTLS,
+				},
+			},
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName: certSecretName,
+					},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				field.Required(secretNamePath, "ca.crt field is missed in the secret"),
+				field.Required(secretNamePath, "tls.crt field is missed in the secret"),
+				field.Required(secretNamePath, "tls.key field is missed in the secret"),
+			}),
+		},
+		{
+			name: ".spec.tls.certificate is provided but has empty fields",
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName:  certSecretName,
+						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{},
+					},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(caCertFilePath),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
+		},
+		// .spec.tls.certificate.caCertFile
 		{
 			name: ".spec.tls.certificate.caCertFile value is missing",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -133,7 +264,11 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSCaCertEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(caCertFilePath),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.caCertFile value is not base64-encoded",
@@ -152,8 +287,13 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSCaCertWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(caCertFilePath, "123435"),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
+		// .spec.tls.certificate.certFile
 		{
 			name: ".spec.tls.certificate.certFile value is missing",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -172,7 +312,10 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSCertEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is not base64-encoded",
@@ -192,8 +335,12 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSCertWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(certFilePath, "123456"),
+				errRequiredField(keyFilePath),
+			}),
 		},
+		// .spec.tls.certificate.keyFile
 		{
 			name: ".spec.tls.certificate.keyFile value is missing",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -213,7 +360,9 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSKeyEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is not base64-encoded",
@@ -234,53 +383,11 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errTLSKeyWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(keyFilePath, "123456"),
+			}),
 		},
-		{
-			name: "secret with .spec.tls.secretName does not exist",
-			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      shdcName,
-					Namespace: shdcNamespace,
-				},
-				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
-					BaseDomainNameSuffix: shdcBaseDomainSuffix,
-					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
-						SecretName: certSecretName,
-					},
-				},
-			},
-			wantErr: errors.New("failed to get secrets my-tls-secret: secrets \"my-tls-secret\" not found"),
-		},
-		{
-			name: "all fields are valid, secret with .spec.tls.secretName exists",
-			objs: []ctrlclient.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      certSecretName,
-						Namespace: shdcNamespace,
-					},
-					Data: map[string][]byte{
-						"tls.crt": []byte(certFileBase64),
-						"tls.key": []byte(keyFileBase64),
-						"ca.crt":  []byte(caCertFileBase64),
-					},
-				},
-			},
-			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      shdcName,
-					Namespace: shdcNamespace,
-				},
-				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
-					BaseDomainNameSuffix: shdcBaseDomainSuffix,
-					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
-						SecretName: certSecretName,
-					},
-				},
-			},
-			wantErr: nil,
-		},
+		// valid cases
 		{
 			name: "all fields are valid, .spec.tls.certificate is provided",
 			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -297,6 +404,36 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateCreate(t *testing.T) {
 							CertFile:   certFileBase64,
 							KeyFile:    keyFileBase64,
 						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "all fields are valid, secret with .spec.tls.secretName exists",
+			objs: []ctrlclient.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      certSecretName,
+						Namespace: shdcNamespace,
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte(certFileBase64),
+						"tls.key": []byte(keyFileBase64),
+						"ca.crt":  []byte(caCertFileBase64),
+					},
+					Type: corev1.SecretTypeTLS,
+				},
+			},
+			shdcToCreate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName: certSecretName,
 					},
 				},
 			},
@@ -343,6 +480,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 	}
 
 	testCases := []testCase{
+		// .spec.baseDomainNameSuffix immutability
 		{
 			name: ".spec.baseDomainNameSuffix update is not allowed",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -363,8 +501,12 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: "my-newcompany.com",
 				},
 			},
-			wantErr: errBaseDomainNameSuffixImmutable,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errImmutableField(baseDomainNameSuffixPath),
+				errRequiredField(certificatePath),
+			}),
 		},
+		// .spec.tls.secretName immutability
 		{
 			name: ".spec.tls.secretName update is not allowed",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -391,9 +533,46 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errSecretNameImmutable,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errImmutableField(secretNamePath),
+				errRequiredField(certificatePath),
+			}),
 		},
 		// invalid .spec.tls.certificate values
+		{
+			name: ".spec.tls.certificate value is missing",
+			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName: certSecretName,
+					},
+				},
+			},
+			newShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
+						SecretName:  certSecretName,
+						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{},
+					},
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(caCertFilePath),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
+		},
+		// invalid .spec.tls.certificate.caCertFile values
 		{
 			name: ".spec.tls.certificate.caCertFile value is missing",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -405,11 +584,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -428,7 +602,11 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSCaCertEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(caCertFilePath),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.caCertFile value is not base64-encoded",
@@ -441,11 +619,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -464,8 +637,13 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSCaCertWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(caCertFilePath, "123435"),
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
+		// invalid .spec.tls.certificate.certFile values
 		{
 			name: ".spec.tls.certificate.certFile value is missing",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -477,11 +655,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -501,7 +674,10 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSCertEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(certFilePath),
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.certFile value is not base64-encoded",
@@ -514,11 +690,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -538,8 +709,12 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSCertWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(certFilePath, "123456"),
+				errRequiredField(keyFilePath),
+			}),
 		},
+		// invalid .spec.tls.certificate.keyFile values
 		{
 			name: ".spec.tls.certificate.keyFile value is missing",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -551,11 +726,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -576,7 +746,9 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSKeyEmpty,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errRequiredField(keyFilePath),
+			}),
 		},
 		{
 			name: ".spec.tls.certificate.keyFile value is not base64-encoded",
@@ -589,11 +761,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -614,7 +781,9 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					},
 				},
 			},
-			wantErr: errTLSKeyWrongEncoding,
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errCertWrongEncodingField(keyFilePath, "123456"),
+			}),
 		},
 		// valid update of .spec.tls.certificate
 		{
@@ -628,11 +797,6 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
@@ -695,6 +859,7 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateDelete(t *testing.T) {
 	}
 
 	testCases := []testCase{
+		// SHDC used by some DB Clusters
 		{
 			name: "SplitHorizonDNSConfig is used by some DB Clusters",
 			shdcToDelete: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
@@ -709,16 +874,15 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateDelete(t *testing.T) {
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
 					TLS: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSSpec{
 						SecretName: certSecretName,
-						Certificate: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec{
-							CaCertFile: caCertFileBase64,
-							CertFile:   certFileBase64,
-							KeyFile:    keyFileBase64,
-						},
 					},
 				},
 			},
-			wantErr: errDeleteInUse(shdcName),
+			wantErr: apierrors.NewForbidden(
+				enginefeatureseverestv1alpha1.GroupVersion.WithResource("splithorizondnsconfig").GroupResource(),
+				shdcName,
+				errDeleteInUse),
 		},
+		// SHDC not used by any DB Cluster
 		{
 			name: "SplitHorizonDNSConfig is not used by any DB Cluster",
 			objs: []ctrlclient.Object{

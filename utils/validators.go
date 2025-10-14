@@ -71,11 +71,8 @@ func ValidateURL(urlStr string) bool {
 }
 
 // ValidateDNSName checks if the given string is a valid DNS name.
-func ValidateDNSName(dnsName string) error {
-	if errs := validation.IsDNS1123Subdomain(dnsName); len(errs) != 0 {
-		return fmt.Errorf("'%v' is not a valid DNS subdomain: %v", dnsName, errs)
-	}
-	return nil
+func ValidateDNSName(dnsName string) []string {
+	return validation.IsDNS1123Subdomain(dnsName)
 }
 
 // IsBase64Encoded checks if the given string is a valid base64 encoded string.
