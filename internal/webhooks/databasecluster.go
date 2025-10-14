@@ -112,9 +112,11 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 
 	var warns admission.Warnings
 	// Check if we have enough memory for PXC 8.4
-	if db.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
-		isPXCv84(db.Spec.Engine.Version) &&
-		!validatePXC84Memory(db.Spec.Engine.Resources.Memory) {
+	shouldValidateMemory := func() bool {
+		return db.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
+			isPXCv84(db.Spec.Engine.Version)
+	}
+	if shouldValidateMemory() && !validatePXC84Memory(db.Spec.Engine.Resources.Memory) {
 		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", db.Spec.Engine.Resources.Memory.String()))
 	}
 
@@ -144,16 +146,20 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, oldObj, n
 	}
 
 	// Validate engine version change
-	if err := validateEngineVersionChange(newDB.Spec.Engine.Type, oldDB.Spec.Engine.Version, newDB.Spec.Engine.Version); err != nil {
-		return nil, fmt.Errorf("invalid version change: %w", err)
+	if oldDB.Spec.Engine.Version != newDB.Spec.Engine.Version {
+		if err := validateEngineVersionChange(newDB.Spec.Engine.Type, oldDB.Spec.Engine.Version, newDB.Spec.Engine.Version); err != nil {
+			return nil, fmt.Errorf("invalid version change: %w", err)
+		}
 	}
 
 	var warns admission.Warnings
 	// Check if we have enough memory for PXC 8.4
-	if newDB.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
-		isPXCv84(newDB.Spec.Engine.Version) &&
-		newDB.Spec.Engine.Resources.Memory.Cmp(oldDB.Spec.Engine.Resources.Memory) != 0 &&
-		!validatePXC84Memory(newDB.Spec.Engine.Resources.Memory) {
+	shouldValidateMemory := func() bool {
+		return newDB.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
+			isPXCv84(newDB.Spec.Engine.Version) &&
+			newDB.Spec.Engine.Resources.Memory.Cmp(oldDB.Spec.Engine.Resources.Memory) != 0
+	}
+	if shouldValidateMemory() && !validatePXC84Memory(newDB.Spec.Engine.Resources.Memory) {
 		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", newDB.Spec.Engine.Resources.Memory.String()))
 	}
 
@@ -161,18 +167,22 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, oldObj, n
 	// 1. Validate replica count change
 	// 2. Validate storage size change
 	// 3. Validate sharding constraints
-
 	return warns, nil
 }
 
+func semverNormalize(version string) string {
+	if strings.HasPrefix(version, "v") {
+		return version
+	}
+	return "v" + version
+}
+
 func isPXCv84(version string) bool {
-	// MajorMinor adds a 'v' prefix, but that's okay for checking this condition
-	return semver.MajorMinor(version) == "v8.4"
+	return semver.MajorMinor(semverNormalize(version)) == "v8.4"
 }
 
 func isPXCv80(version string) bool {
-	// MajorMinor adds a 'v' prefix, but that's okay for checking this condition
-	return semver.MajorMinor(version) == "v8.0"
+	return semver.MajorMinor(semverNormalize(version)) == "v8.0"
 }
 
 func validatePXC84Memory(memory resource.Quantity) bool {
@@ -181,14 +191,10 @@ func validatePXC84Memory(memory resource.Quantity) bool {
 
 func validateEngineVersionChange(
 	engineType everestv1alpha1.EngineType,
-	oldVersion, newVersion string) error {
-	// Ensure a "v" prefix so that it is a valid semver.
-	if !strings.HasPrefix(newVersion, "v") {
-		newVersion = "v" + newVersion
-	}
-	if !strings.HasPrefix(oldVersion, "v") {
-		oldVersion = "v" + oldVersion
-	}
+	oldVersion, newVersion string,
+) error {
+	newVersion = semverNormalize(newVersion)
+	oldVersion = semverNormalize(oldVersion)
 
 	// Check semver validity.
 	if !semver.IsValid(newVersion) {
