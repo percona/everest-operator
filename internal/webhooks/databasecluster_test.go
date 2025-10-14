@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -365,4 +366,95 @@ func TestDatabaseClusterValidator(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestDatabaseClusterValidator_validatePXC84Memory(t *testing.T) {
+	t.Parallel()
+	assert.True(t, validatePXC84Memory(resource.MustParse("3G")))
+	assert.True(t, validatePXC84Memory(resource.MustParse("4G")))
+	assert.True(t, validatePXC84Memory(resource.MustParse("64G")))
+	assert.False(t, validatePXC84Memory(resource.MustParse("2G")))
+	assert.False(t, validatePXC84Memory(resource.MustParse("1G")))
+}
+
+func TestDatabaseClusterValidator_validateEngineVersionChange(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		engineType everestv1alpha1.EngineType
+		oldVersion string
+		newVersion string
+		wantError  error
+	}{
+		{
+			name:       "invalid semver format",
+			engineType: everestv1alpha1.DatabaseEnginePXC,
+			oldVersion: "8.0.32-24",
+			newVersion: "invalid",
+			wantError:  errInvalidVersion,
+		},
+		{
+			name:       "version downgrade attempt",
+			engineType: everestv1alpha1.DatabaseEnginePXC,
+			oldVersion: "8.0.32-24",
+			newVersion: "8.0.31-24",
+			wantError:  errDBEngineDowngrade,
+		},
+		{
+			name:       "PG major version upgrade not allowed",
+			engineType: everestv1alpha1.DatabaseEnginePostgresql,
+			oldVersion: "14.10.0",
+			newVersion: "15.0.0",
+			wantError:  errDBEngineMajorVersionUpgrade,
+		},
+		{
+			name:       "PSMDB major version upgrade allowed",
+			engineType: everestv1alpha1.DatabaseEnginePSMDB,
+			oldVersion: "6.0.5",
+			newVersion: "7.0.0",
+			wantError:  nil,
+		},
+		{
+			name:       "PXC 8.0 to 8.4 upgrade not allowed",
+			engineType: everestv1alpha1.DatabaseEnginePXC,
+			oldVersion: "8.0.32-24",
+			newVersion: "8.4.0-24",
+			wantError:  errDBEnginePXC80To84Upgrade,
+		},
+		{
+			name:       "non-sequential major version upgrade not allowed",
+			engineType: everestv1alpha1.DatabaseEnginePSMDB,
+			oldVersion: "5.0.0",
+			newVersion: "7.0.0",
+			wantError:  errDBEngineMajorUpgradeNotSeq,
+		},
+		{
+			name:       "valid patch version upgrade",
+			engineType: everestv1alpha1.DatabaseEnginePXC,
+			oldVersion: "8.0.32-24",
+			newVersion: "8.0.33-24",
+			wantError:  nil,
+		},
+		{
+			name:       "valid patch version upgrade",
+			engineType: everestv1alpha1.DatabaseEnginePXC,
+			oldVersion: "8.0.32-24",
+			newVersion: "8.0.32-25",
+			wantError:  nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateEngineVersionChange(tc.engineType, tc.oldVersion, tc.newVersion)
+			if tc.wantError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.Equal(t, tc.wantError, err)
+			}
+		})
+	}
 }

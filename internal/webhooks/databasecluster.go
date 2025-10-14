@@ -21,13 +21,17 @@ package webhooks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,6 +42,14 @@ import (
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/common"
+)
+
+var (
+	errInvalidVersion              = errors.New("invalid database engine version provided")
+	errDBEngineDowngrade           = errors.New("database engine version cannot be downgraded")
+	errDBEngineMajorVersionUpgrade = errors.New("database engine cannot be upgraded to a major version")
+	errDBEngineMajorUpgradeNotSeq  = errors.New("database engine major version upgrade is not supported for non-sequential versions")
+	errDBEnginePXC80To84Upgrade    = errors.New("cannot upgrade from 8.0 to 8.4")
 )
 
 // SetupDatabaseClusterWebhookWithManager sets up the webhook with the manager.
@@ -98,34 +110,116 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		}
 	}
 
-	return nil, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
+	var warns admission.Warnings
+	// Check if we have enough memory for PXC 8.4
+	if db.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
+		isPXCv84(db.Spec.Engine.Version) &&
+		!validatePXC84Memory(db.Spec.Engine.Resources.Memory) {
+		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", db.Spec.Engine.Resources.Memory.String()))
+	}
+
+	return warns, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
-func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj runtime.Object) (admission.Warnings, error) {
-	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	oldDB, ok := oldObj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
+		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", oldObj)
+	}
+	newDB, ok := newObj.(*everestv1alpha1.DatabaseCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", newObj)
 	}
 
 	log := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
-		"name", db.GetName(),
-		"namespace", db.GetNamespace(),
+		"name", newDB.GetName(),
+		"namespace", newDB.GetNamespace(),
 	)
 
 	// Validate the engine version
-	if err := v.validateEngineVersion(ctx, db); err != nil {
+	if err := v.validateEngineVersion(ctx, newDB); err != nil {
 		log.Error(err, "validateEngineVersion failed (ValidateUpdate)")
 		return nil, fmt.Errorf("engine version validation failed: %w", err)
 	}
 
+	// Validate engine version change
+	if err := validateEngineVersionChange(newDB.Spec.Engine.Type, oldDB.Spec.Engine.Version, newDB.Spec.Engine.Version); err != nil {
+		return nil, fmt.Errorf("invalid version change: %w", err)
+	}
+
+	var warns admission.Warnings
+	// Check if we have enough memory for PXC 8.4
+	if newDB.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
+		isPXCv84(newDB.Spec.Engine.Version) &&
+		newDB.Spec.Engine.Resources.Memory.Cmp(oldDB.Spec.Engine.Resources.Memory) != 0 &&
+		!validatePXC84Memory(newDB.Spec.Engine.Resources.Memory) {
+		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", newDB.Spec.Engine.Resources.Memory.String()))
+	}
+
 	// TODO: move remaining validations from Everest API
-	// 1. Validate engine version change (upgrade/downgrade)
-	// 2. Validate replica count change
-	// 3. Validate storage size change
+	// 1. Validate replica count change
+	// 2. Validate storage size change
 	// 3. Validate sharding constraints
 
-	return nil, nil
+	return warns, nil
+}
+
+func isPXCv84(version string) bool {
+	// MajorMinor adds a 'v' prefix, but that's okay for checking this condition
+	return semver.MajorMinor(version) == "v8.4"
+}
+
+func isPXCv80(version string) bool {
+	// MajorMinor adds a 'v' prefix, but that's okay for checking this condition
+	return semver.MajorMinor(version) == "v8.0"
+}
+
+func validatePXC84Memory(memory resource.Quantity) bool {
+	return memory.Cmp(resource.MustParse("3G")) >= 0
+}
+
+func validateEngineVersionChange(
+	engineType everestv1alpha1.EngineType,
+	oldVersion, newVersion string) error {
+	// Ensure a "v" prefix so that it is a valid semver.
+	if !strings.HasPrefix(newVersion, "v") {
+		newVersion = "v" + newVersion
+	}
+	if !strings.HasPrefix(oldVersion, "v") {
+		oldVersion = "v" + oldVersion
+	}
+
+	// Check semver validity.
+	if !semver.IsValid(newVersion) {
+		return errInvalidVersion
+	}
+
+	// We will not allow downgrades.
+	if semver.Compare(newVersion, oldVersion) < 0 {
+		return errDBEngineDowngrade
+	}
+	// We will not allow major upgrades for PXC and PG.
+	// - PXC: Major upgrades are not supported.
+	// - PG: Major upgrades are in technical preview. https://docs.percona.com/percona-operator-for-postgresql/2.0/update.html#major-version-upgrade
+	if engineType != everestv1alpha1.DatabaseEnginePSMDB && semver.Major(oldVersion) != semver.Major(newVersion) {
+		return errDBEngineMajorVersionUpgrade
+	}
+
+	// We will not allow upgrade of PXC from 8.0 to 8.4
+	if engineType == everestv1alpha1.DatabaseEnginePXC && isPXCv80(oldVersion) && isPXCv84(newVersion) {
+		return errDBEnginePXC80To84Upgrade
+	}
+
+	// It's fine to ignore the errors here because we have already validated the version.
+	newMajorInt, _ := strconv.Atoi(semver.Major(newVersion)[1:])
+	oldMajorInt, _ := strconv.Atoi(semver.Major(oldVersion)[1:])
+	// We will not allow major upgrades if the versions are not sequential.
+	if newMajorInt-oldMajorInt > 1 {
+		fmt.Println("errDBEngineMajorUpgradeNotSeq")
+		return errDBEngineMajorUpgradeNotSeq
+	}
+	return nil
 }
 
 // ValidateDelete validates the deletion of a DatabaseCluster.
