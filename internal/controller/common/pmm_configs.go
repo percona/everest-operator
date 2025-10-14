@@ -31,7 +31,7 @@ const (
 	Mebibyte = 1024 * Kibibyte
 
 	// DefaultPMMClientImage is the default image for PMM client.
-	DefaultPMMClientImage = "percona/pmm-client:2"
+	DefaultPMMClientImage = "percona/pmm-client:3"
 	// pmmClientRequestCPUSmall are the default CPU requests for PMM client in small clusters.
 	pmmClientRequestCPUSmall = 95
 	// pmmClientRequestCPUMedium are the default CPU requests for PMM client in medium clusters.
