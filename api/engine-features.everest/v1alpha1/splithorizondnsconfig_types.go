@@ -22,12 +22,24 @@ import (
 // SplitHorizonDNSConfigTLSCertificateSpec defines TLS certificate parameters.
 type SplitHorizonDNSConfigTLSCertificateSpec struct {
 	// CertFile is based64 encoded TLS certificate file content.
+	// It is provided as a write-only input field for convenience.
+	// When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+	// and empties this field.
+	// This field is not stored in the API.
 	// +kubebuilder:validation:Required
 	CertFile string `json:"certFile"`
 	// KeyFile is based64 encoded TLS key file content.
+	// It is provided as a write-only input field for convenience.
+	// When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+	// and empties this field.
+	// This field is not stored in the API.
 	// +kubebuilder:validation:Required
 	KeyFile string `json:"keyFile"`
 	// CaCertFile is based64 encoded CA certificate file content.
+	// It is provided as a write-only input field for convenience.
+	// When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`
+	// and empties this field.
+	// This field is not stored in the API.
 	// +kubebuilder:validation:Required
 	CaCertFile string `json:"caCertFile"`
 }

@@ -115,7 +115,6 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 			Name:      shdc.Spec.TLS.SecretName,
 			Namespace: shdc.GetNamespace(),
 		},
-		Type: corev1.SecretTypeTLS,
 	}
 
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
@@ -124,10 +123,15 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 			"tls.key": []byte(shdc.Spec.TLS.Certificate.KeyFile),
 			"ca.crt":  []byte(shdc.Spec.TLS.Certificate.CaCertFile),
 		}
+		secret.Type = corev1.SecretTypeTLS
 
-		if err := controllerutil.SetControllerReference(shdc, secret, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference for secret=%s/%s: %w",
-				secret.GetNamespace(), secret.GetName(), err)
+		if secret.GetUID() == "" {
+			// Set owner reference only when the secret is created.
+			// There may be a case when the secret already exists and is not owned by us.
+			if err := controllerutil.SetControllerReference(shdc, secret, r.Scheme); err != nil {
+				return fmt.Errorf("failed to set controller reference for secret=%s/%s: %w",
+					secret.GetNamespace(), secret.GetName(), err)
+			}
 		}
 		return nil
 	}); err != nil {
@@ -204,15 +208,18 @@ func (r *SplitHorizonDNSConfigReconciler) SetupWithManager(mgr ctrl.Manager) err
 					return []reconcile.Request{}
 				}
 
-				shdc := common.GetSplitHorizonDNSConfigNameFromDB(db)
-				if shdc == "" {
+				shdcName := common.GetSplitHorizonDNSConfigNameFromDB(db)
+				if shdcName == "" {
 					// No SplitHorizonDNSConfig specified, no need to enqueue
 					return []reconcile.Request{}
 				}
+
+				// Enqueue the referenced SplitHorizonDNSConfig for reconciliation
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
-							Name: shdc,
+							Name:      shdcName,
+							Namespace: db.GetNamespace(),
 						},
 					},
 				}
