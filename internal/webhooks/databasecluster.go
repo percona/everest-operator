@@ -112,15 +112,20 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 
 	var warns admission.Warnings
 	// Check if we have enough memory for PXC 8.4
-	shouldValidateMemory := func() bool {
-		return db.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
-			isPXCv84(db.Spec.Engine.Version)
-	}
-	if shouldValidateMemory() && !validatePXC84Memory(db.Spec.Engine.Resources.Memory) {
+	if !validatePXC84Memory(db) {
 		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", db.Spec.Engine.Resources.Memory.String()))
 	}
-
 	return warns, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
+}
+
+// minimum required memory for PXC 8.4
+var minMemoryForPXC84 = resource.MustParse("3G")
+
+func validatePXC84Memory(db *everestv1alpha1.DatabaseCluster) bool {
+	engineSpec := db.Spec.Engine
+	return engineSpec.Type != everestv1alpha1.DatabaseEnginePXC ||
+		!isPXCv84(engineSpec.Version) ||
+		engineSpec.Resources.Memory.Cmp(minMemoryForPXC84) >= 0
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
@@ -154,12 +159,7 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, oldObj, n
 
 	var warns admission.Warnings
 	// Check if we have enough memory for PXC 8.4
-	shouldValidateMemory := func() bool {
-		return newDB.Spec.Engine.Type == everestv1alpha1.DatabaseEnginePXC &&
-			isPXCv84(newDB.Spec.Engine.Version) &&
-			newDB.Spec.Engine.Resources.Memory.Cmp(oldDB.Spec.Engine.Resources.Memory) != 0
-	}
-	if shouldValidateMemory() && !validatePXC84Memory(newDB.Spec.Engine.Resources.Memory) {
+	if !validatePXC84Memory(newDB) {
 		warns = append(warns, fmt.Sprintf("insufficient memory '%s' for PXC 8.4, cluster may not start", newDB.Spec.Engine.Resources.Memory.String()))
 	}
 
@@ -183,10 +183,6 @@ func isPXCv84(version string) bool {
 
 func isPXCv80(version string) bool {
 	return semver.MajorMinor(semverNormalize(version)) == "v8.0"
-}
-
-func validatePXC84Memory(memory resource.Quantity) bool {
-	return memory.Cmp(resource.MustParse("3G")) >= 0
 }
 
 func validateEngineVersionChange(

@@ -370,11 +370,84 @@ func TestDatabaseClusterValidator(t *testing.T) {
 
 func TestDatabaseClusterValidator_validatePXC84Memory(t *testing.T) {
 	t.Parallel()
-	assert.True(t, validatePXC84Memory(resource.MustParse("3G")))
-	assert.True(t, validatePXC84Memory(resource.MustParse("4G")))
-	assert.True(t, validatePXC84Memory(resource.MustParse("64G")))
-	assert.False(t, validatePXC84Memory(resource.MustParse("2G")))
-	assert.False(t, validatePXC84Memory(resource.MustParse("1G")))
+	testCases := []struct {
+		engineType    everestv1alpha1.EngineType
+		engineVersion string
+		memory        resource.Quantity
+		isValid       bool
+	}{
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.4.5-5.1",
+			memory:        resource.MustParse("3G"),
+			isValid:       true,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.4.5-5.1",
+			memory:        resource.MustParse("4G"),
+			isValid:       true,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.4.5-5.1",
+			memory:        resource.MustParse("64G"),
+			isValid:       true,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.4.5-5.1",
+			memory:        resource.MustParse("1G"),
+			isValid:       false,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.4.5-5.1",
+			memory:        resource.MustParse("2G"),
+			isValid:       false,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.0.42-33.1",
+			memory:        resource.MustParse("2G"),
+			isValid:       true,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.0.42-33.1",
+			memory:        resource.MustParse("1G"),
+			isValid:       true,
+		},
+		{
+			engineType:    everestv1alpha1.DatabaseEnginePXC,
+			engineVersion: "8.0.42-33.1",
+			memory:        resource.MustParse("64G"),
+			isValid:       true,
+		},
+		{
+			engineType: everestv1alpha1.DatabaseEnginePSMDB,
+			isValid:    true,
+		},
+		{
+			engineType: everestv1alpha1.DatabaseEnginePostgresql,
+			isValid:    true,
+		},
+	}
+	for _, tc := range testCases {
+		db := &everestv1alpha1.DatabaseCluster{
+			Spec: everestv1alpha1.DatabaseClusterSpec{
+				Engine: everestv1alpha1.Engine{
+					Type:    tc.engineType,
+					Version: tc.engineVersion,
+					Resources: everestv1alpha1.Resources{
+						Memory: tc.memory,
+					},
+				},
+			},
+		}
+		result := validatePXC84Memory(db)
+		assert.Equal(t, tc.isValid, result)
+	}
 }
 
 func TestDatabaseClusterValidator_validateEngineVersionChange(t *testing.T) {
