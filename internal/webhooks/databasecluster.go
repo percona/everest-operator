@@ -218,7 +218,6 @@ func validateEngineVersionChange(
 	oldMajorInt, _ := strconv.Atoi(semver.Major(oldVersion)[1:])
 	// We will not allow major upgrades if the versions are not sequential.
 	if newMajorInt-oldMajorInt > 1 {
-		fmt.Println("errDBEngineMajorUpgradeNotSeq")
 		return errDBEngineMajorUpgradeNotSeq
 	}
 	return nil
