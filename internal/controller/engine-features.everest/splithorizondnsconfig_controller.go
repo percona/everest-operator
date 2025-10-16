@@ -193,7 +193,7 @@ func (r *SplitHorizonDNSConfigReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		Named("splithorizondnsconfig.engine-features").
+		Named("splithorizondnsconfig").
 		For(&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{},
 			builder.WithPredicates(enginefeaturespredicate.GetSplitHorizonDNSConfigPredicate(),
 				predicate.GenerationChangedPredicate{},

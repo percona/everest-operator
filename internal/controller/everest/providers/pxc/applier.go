@@ -259,6 +259,11 @@ func (p *applier) Engine() error {
 	return nil
 }
 
+func (p *applier) EngineFeatures() error {
+	// Nothing to do here for PXC
+	return nil
+}
+
 func (p *applier) Backup() error {
 	bkp, err := p.genPXCBackupSpec()
 	if err != nil {

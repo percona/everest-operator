@@ -139,6 +139,16 @@ func (p *applier) Engine() error {
 	return nil
 }
 
+func (p *applier) EngineFeatures() error {
+	if pointer.Get(p.DB.Spec.EngineFeatures).PSMDB == nil {
+		// Nothing to do.
+		return nil
+	}
+
+	efApplier := NewEngineFeaturesApplier(p.Provider)
+	return efApplier.ApplyFeatures(p.ctx)
+}
+
 func (p *applier) configureReplSets() error {
 	database := p.DB
 	psmdb := p.PerconaServerMongoDB

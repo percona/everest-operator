@@ -129,6 +129,7 @@ type Applier interface {
 	Paused(paused bool)
 	AllowUnsafeConfig()
 	Engine() error
+	EngineFeatures() error
 	Proxy() error
 	DataSource() error
 	Monitoring() error

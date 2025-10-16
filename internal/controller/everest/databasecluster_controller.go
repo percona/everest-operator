@@ -222,6 +222,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		if err := applier.Engine(); err != nil {
 			return err
 		}
+		if err := applier.EngineFeatures(); err != nil {
+			return err
+		}
 		if err := applier.Proxy(); err != nil {
 			return err
 		}
