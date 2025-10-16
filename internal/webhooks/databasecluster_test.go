@@ -519,7 +519,6 @@ func TestDatabaseClusterValidator_validateEngineVersionChange(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			err := validateEngineVersionChange(tc.engineType, tc.oldVersion, tc.newVersion)
