@@ -24,7 +24,7 @@ import (
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 )
 
 var errShardingNotSupported = errors.New("sharding is not supported for SplitHorizon DNS feature")

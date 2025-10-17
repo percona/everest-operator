@@ -47,7 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
@@ -56,7 +56,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/everest/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/everest/providers/pxc"
 	"github.com/percona/everest-operator/internal/predicates"
-	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/engine-features"
+	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/enginefeatures"
 )
 
 const (
@@ -345,7 +345,7 @@ func (r *DatabaseClusterReconciler) ensureDataImportJob(
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

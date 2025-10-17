@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package enginefeatures contains a set of predicates for the engine-features.everest.percona.com API group
+// Package enginefeatures contains a set of predicates for the enginefeatures.everest.percona.com API group
 // that can be used by controllers.
 package enginefeatures
 

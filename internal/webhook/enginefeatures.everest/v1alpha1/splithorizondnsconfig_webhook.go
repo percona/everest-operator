@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1alpha1 contains a set of WebHooks for the engine-features.everest.percona.com API group
+// Package v1alpha1 contains a set of WebHooks for the enginefeatures.everest.percona.com API group
 package v1alpha1
 
 import (
@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/utils"
 )
@@ -50,12 +50,12 @@ var (
 
 	// .spec.tls.certificate.
 	certificatePath = field.NewPath("spec", "tls", "certificate")
-	// .spec.tls.certificate.caCertFile.
-	caCertFilePath = certificatePath.Child("caCertFile")
-	// .spec.tls.certificate.certFile.
-	certFilePath = certificatePath.Child("certFile")
-	// .spec.tls.certificate.keyFile.
-	keyFilePath = certificatePath.Child("keyFile")
+	// .spec.tls.certificate.ca.crt.
+	caCertFilePath = certificatePath.Child("ca.crt")
+	// .spec.tls.certificate.tls.crt.
+	certFilePath = certificatePath.Child("tls.crt")
+	// .spec.tls.certificate.tls.key.
+	keyFilePath = certificatePath.Child("tls.key")
 
 	// Required field error generator.
 	errRequiredField = func(fieldPath *field.Path) *field.Error {
@@ -92,7 +92,7 @@ func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 //nolint:lll
-// +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.engine-features.everest.percona.com,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com,admissionReviewVersions=v1
 
 // SplitHorizonDNSConfigCustomValidator struct is responsible for validating the SplitHorizonDNSConfig resource
 // when it is created, updated, or deleted.
@@ -185,10 +185,14 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateUpdate(ctx context.Contex
 		allErrs = append(allErrs, errImmutableField(secretNamePath))
 	}
 
-	// Only .spec.tls.certificate can be updated.
-	// If it is provided, its fields must be non-empty and properly encoded (base64).
-	if errs := validateCertificate(newShdc.Spec.TLS.Certificate); errs != nil {
-		allErrs = append(allErrs, errs...)
+	if newShdc.Spec.TLS.Certificate == nil {
+		allErrs = append(allErrs, errRequiredField(certificatePath))
+	} else {
+		// Only .spec.tls.certificate can be updated.
+		// If it is provided, its fields must be non-empty and properly encoded (base64).
+		if errs := validateCertificate(newShdc.Spec.TLS.Certificate); errs != nil {
+			allErrs = append(allErrs, errs...)
+		}
 	}
 
 	if len(allErrs) == 0 {
@@ -229,33 +233,25 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateDelete(ctx context.Contex
 func validateCertificate(cert *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if cert == nil {
-		// allErrs = append(allErrs, errRequiredField(certificatePath))
-		// return allErrs
 		return nil
 	}
 
-	if cert.CaCertFile == "" {
-		// return errTLSCaCertEmpty
+	if cert.CACert == "" {
 		allErrs = append(allErrs, errRequiredField(caCertFilePath))
-	} else if !utils.IsBase64Encoded(cert.CaCertFile) {
-		allErrs = append(allErrs, errCertWrongEncodingField(caCertFilePath, cert.CaCertFile))
-		// return errTLSCaCertWrongEncoding
+	} else if !utils.IsBase64Encoded(cert.CACert) {
+		allErrs = append(allErrs, errCertWrongEncodingField(caCertFilePath, cert.CACert))
 	}
 
-	if cert.CertFile == "" {
-		// return errTLSCertEmpty
+	if cert.TLSCert == "" {
 		allErrs = append(allErrs, errRequiredField(certFilePath))
-	} else if !utils.IsBase64Encoded(cert.CertFile) {
-		allErrs = append(allErrs, errCertWrongEncodingField(certFilePath, cert.CertFile))
-		// return errTLSCertWrongEncoding
+	} else if !utils.IsBase64Encoded(cert.TLSCert) {
+		allErrs = append(allErrs, errCertWrongEncodingField(certFilePath, cert.TLSCert))
 	}
 
-	if cert.KeyFile == "" {
-		// return errTLSKeyEmpty
+	if cert.TLSKey == "" {
 		allErrs = append(allErrs, errRequiredField(keyFilePath))
-	} else if !utils.IsBase64Encoded(cert.KeyFile) {
-		// return errTLSKeyWrongEncoding
-		allErrs = append(allErrs, errCertWrongEncodingField(keyFilePath, cert.KeyFile))
+	} else if !utils.IsBase64Encoded(cert.TLSKey) {
+		allErrs = append(allErrs, errCertWrongEncodingField(keyFilePath, cert.TLSKey))
 	}
 
 	if len(allErrs) == 0 {

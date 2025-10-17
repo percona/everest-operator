@@ -58,10 +58,10 @@ webhooks:
       namespace: system
       path: /validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig
   failurePolicy: Fail
-  name: vsplithorizondnsconfig-v1alpha1.engine-features.everest.percona.com
+  name: vsplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com
   rules:
   - apiGroups:
-    - engine-features.everest.percona.com
+    - enginefeatures.everest.percona.com
     apiVersions:
     - v1alpha1
     operations:

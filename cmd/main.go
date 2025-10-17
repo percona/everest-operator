@@ -47,14 +47,14 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
-	enginefeatureseverestcontroller "github.com/percona/everest-operator/internal/controller/engine-features.everest"
+	enginefeatureseverestcontroller "github.com/percona/everest-operator/internal/controller/enginefeatures.everest"
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
-	webhookenginefeatureseverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/engine-features.everest/v1alpha1"
+	webhookenginefeatureseverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/enginefeatures.everest/v1alpha1"
 	webhookeverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
 )
 

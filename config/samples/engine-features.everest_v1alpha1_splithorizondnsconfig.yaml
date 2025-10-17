@@ -1,4 +1,4 @@
-apiVersion: engine-features.everest.percona.com/v1alpha1
+apiVersion: enginefeatures.everest.percona.com/v1alpha1
 kind: SplitHorizonDNSConfig
 metadata:
   labels:

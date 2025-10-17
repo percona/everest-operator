@@ -1,7 +1,7 @@
 # This rule is not used by the project everest-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to engine-features.everest.percona.com resources.
+# Grants read-only access to enginefeatures.everest.percona.com resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -14,7 +14,7 @@ metadata:
   name: engine-features.everest-splithorizondnsconfig-viewer-role
 rules:
 - apiGroups:
-  - engine-features.everest.percona.com
+  - enginefeatures.everest.percona.com
   resources:
   - splithorizondnsconfigs
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - engine-features.everest.percona.com
+  - enginefeatures.everest.percona.com
   resources:
   - splithorizondnsconfigs/status
   verbs:

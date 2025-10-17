@@ -31,7 +31,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/controller/everest/providers"
 )

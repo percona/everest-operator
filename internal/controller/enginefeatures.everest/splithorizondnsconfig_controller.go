@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package enginefeatureseverest contains a set of controller for the engine-features.everest.percona.com API group
+// Package enginefeatureseverest contains a set of controller for the enginefeatures.everest.percona.com API group
 package enginefeatureseverest
 
 import (
@@ -34,11 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/engine-features.everest/v1alpha1"
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	everestcontrollers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
-	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/engine-features"
+	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/enginefeatures"
 )
 
 // SplitHorizonDNSConfigReconciler reconciles a SplitHorizonDNSConfig object.
@@ -48,9 +48,9 @@ type SplitHorizonDNSConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -119,9 +119,9 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
 		secret.Data = map[string][]byte{
-			"tls.crt": []byte(shdc.Spec.TLS.Certificate.CaCertFile),
-			"tls.key": []byte(shdc.Spec.TLS.Certificate.KeyFile),
-			"ca.crt":  []byte(shdc.Spec.TLS.Certificate.CaCertFile),
+			"tls.crt": []byte(shdc.Spec.TLS.Certificate.TLSCert),
+			"tls.key": []byte(shdc.Spec.TLS.Certificate.TLSKey),
+			"ca.crt":  []byte(shdc.Spec.TLS.Certificate.CACert),
 		}
 		secret.Type = corev1.SecretTypeTLS
 

@@ -61,7 +61,7 @@ type SplitHorizonDNSConfigSpec struct {
 	// BaseDomainNameSuffix is the base domain name suffix for generating domain names for each Pod in ReplicaSet.
 	// It should be a valid domain name suffix.
 	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`
-	// +kubebuilder:validation:XValidation:rule="!format.qualifiedName().validate(self).hasValue(),message="must be a valid domain name"
+	// +kubebuilder:validation:XValidation:rule="!format.qualifiedName().validate(self).hasValue()",message="must be a valid domain name"
 
 	// +kubebuilder:validation:MinLength=3
 	// +kubebuilder:example="example.com"

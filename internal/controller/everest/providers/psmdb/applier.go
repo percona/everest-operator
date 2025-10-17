@@ -353,6 +353,7 @@ func (p *applier) Backup() error {
 	p.PerconaServerMongoDB.Spec.Backup = spec
 	return nil
 }
+
 func (p *applier) DataSource() error {
 	database := p.DB
 	if database.Spec.DataSource == nil {
