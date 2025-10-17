@@ -104,9 +104,9 @@ resources:
     namespaced: true
   controller: true
   domain: percona.com
-  group: engine-features.everest
+  group: enginefeatures.everest
   kind: SplitHorizonDNSConfig
-  path: github.com/percona/everest-operator/api/engine-features.everest/v1alpha1
+  path: github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
