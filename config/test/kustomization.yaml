@@ -54,6 +54,7 @@ replacements:
     - webhooks.[name=vdatabasecluster-v1alpha1.everest.percona.com].clientConfig.caBundle
     - webhooks.[name=vmonitoringconfig-v1alpha1.everest.percona.com].clientConfig.caBundle
     - webhooks.[name=vloadbalancerconfig-v1alpha1.everest.percona.com].clientConfig.caBundle
+    - webhooks.[name=vsplithorizondnsconfig-v1alpha1.engine-features.everest.percona.com].clientConfig.caBundle
     options:
       create: true
   - select:

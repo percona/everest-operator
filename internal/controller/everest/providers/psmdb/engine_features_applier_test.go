@@ -130,7 +130,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 			wantErr:   errShardingNotSupported,
 		},
 		// Valid cases
-		// 1 replicaset member
+		// 3 replicaset member
 		{
 			name: "SplitHorizonDNSConfig is present",
 			objs: []ctrlclient.Object{
@@ -191,7 +191,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 				},
 			},
 		},
-		// 3 replicaset members
+		// 1 replicaset members
 		{
 			name: "SplitHorizonDNSConfig is present",
 			objs: []ctrlclient.Object{

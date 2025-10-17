@@ -52,6 +52,7 @@ jobs:
         make_target:
           - test-integration-core
           - test-integration-features
+          - test-integration-engine-features
           - test-integration-operator-upgrade
     uses: ./.github/workflows/ci-integration-tests.yaml
     secrets: inherit

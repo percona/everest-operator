@@ -92,7 +92,7 @@ func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 //nolint:lll
-// +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=engine-features.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.engine-features.everest.percona.com,admissionReviewVersions=v1
 
 // SplitHorizonDNSConfigCustomValidator struct is responsible for validating the SplitHorizonDNSConfig resource
 // when it is created, updated, or deleted.
@@ -229,8 +229,9 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateDelete(ctx context.Contex
 func validateCertificate(cert *enginefeatureseverestv1alpha1.SplitHorizonDNSConfigTLSCertificateSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if cert == nil {
-		allErrs = append(allErrs, errRequiredField(certificatePath))
-		return allErrs
+		// allErrs = append(allErrs, errRequiredField(certificatePath))
+		// return allErrs
+		return nil
 	}
 
 	if cert.CaCertFile == "" {
