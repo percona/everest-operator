@@ -296,9 +296,10 @@ func main() {
 		os.Exit(1)
 	}
 	backupReconciler := &controllers.DatabaseClusterBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  mgr.GetCache(),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Scheme:    mgr.GetScheme(),
+		Cache:     mgr.GetCache(),
 	}
 	if err := backupReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DatabaseClusterBackup")

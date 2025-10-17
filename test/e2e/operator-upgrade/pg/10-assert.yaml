@@ -3,6 +3,7 @@ kind: TestAssert
 timeout: 400
 commands:
   - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=$PREVIOUS_PG_OPERATOR_VERSION pg/test-pg-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=$PREVIOUS_PG_DB_ENGINE_VERSION db/test-pg-cluster -n $NAMESPACE
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -12,7 +13,7 @@ spec:
   engine:
     replicas: 2
     storage:
-      size: 1G
+      size: 1Gi
     type: postgresql
   proxy:
     expose:
@@ -35,7 +36,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 1G
+            storage: 1Gi
       name: instance1
       replicas: 2
   port: 5432
@@ -60,7 +61,7 @@ spec:
             - ReadWriteOnce
             resources:
               requests:
-                storage: 1G
+                storage: 1Gi
 status:
   pgbouncer:
     ready: 2

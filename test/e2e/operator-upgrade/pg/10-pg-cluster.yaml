@@ -10,7 +10,7 @@ spec:
     type: postgresql
     replicas: 2
     storage:
-      size: 1G
+      size: 1Gi
   proxy:
     type: pgbouncer
     replicas: 2

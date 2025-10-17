@@ -51,6 +51,11 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) ResetDefaults() error {
+	p.PerconaServerMongoDB.Spec = defaultSpec()
+	return nil
+}
+
 func (p *applier) Metadata() error {
 	if p.PerconaServerMongoDB.GetDeletionTimestamp().IsZero() {
 		for _, f := range []string{
@@ -99,10 +104,17 @@ func (p *applier) Engine() error {
 	database := p.DB
 	engine := p.DBEngine
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	psmdb.Spec.Replsets = defaultSpec().Replsets
+
 	// Update CRVersion, if specified.
-	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
-	if desiredCR != "" {
-		psmdb.Spec.CRVersion = desiredCR
+	currentCRVersion := p.currentPSMDBSpec.CRVersion
+	specifiedCRVersion := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	psmdb.Spec.CRVersion = currentCRVersion
+	if specifiedCRVersion != "" {
+		psmdb.Spec.CRVersion = specifiedCRVersion
 	}
 
 	if database.Spec.Engine.Version == "" {
@@ -234,6 +246,11 @@ func (p *applier) Proxy() error {
 	psmdb := p.PerconaServerMongoDB
 	database := p.DB
 
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	psmdb.Spec.Sharding.Mongos = defaultSpec().Sharding.Mongos
+
 	// if sharding is disabled, expose the default replset directly as usual according to db proxy settings
 	if database.Spec.Sharding == nil || !database.Spec.Sharding.Enabled {
 		psmdb.Spec.Sharding.Enabled = false
@@ -324,6 +341,11 @@ func (p *applier) exposeDefaultReplSet(expose *psmdbv1.ExposeTogglable) error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	p.PerconaServerMongoDB.Spec.Backup = defaultSpec().Backup
+
 	spec, err := p.genPSMDBBackupSpec()
 	if err != nil {
 		return err
@@ -331,7 +353,6 @@ func (p *applier) Backup() error {
 	p.PerconaServerMongoDB.Spec.Backup = spec
 	return nil
 }
-
 func (p *applier) DataSource() error {
 	database := p.DB
 	if database.Spec.DataSource == nil {
@@ -350,7 +371,11 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaServerMongoDB.Spec.PMM = defaultSpec().PMM
+
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
 			return err
@@ -372,20 +397,6 @@ func (p *applier) PodSchedulingPolicy() error {
 	// copy the affinity rules to the upstream cluster spec from policy.
 
 	psmdb := p.PerconaServerMongoDB
-	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaServerMongoDB before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	for i := range len(psmdb.Spec.Replsets) {
-		psmdb.Spec.Replsets[i].MultiAZ.Affinity = nil
-	}
-
-	if psmdb.Spec.Sharding.Enabled {
-		// Config Server
-		psmdb.Spec.Sharding.ConfigsvrReplSet.MultiAZ.Affinity = nil
-		// Proxy
-		psmdb.Spec.Sharding.Mongos.MultiAZ.Affinity = nil
-	}
-	// --------------------------------- //
 	pspName := p.DB.Spec.PodSchedulingPolicyName
 
 	if pspName == "" {

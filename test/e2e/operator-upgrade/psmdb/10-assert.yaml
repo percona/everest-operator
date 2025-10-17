@@ -3,6 +3,7 @@ kind: TestAssert
 timeout: 400
 commands:
   - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PREVIOUS_PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n $NAMESPACE
+  - command: kubectl wait --for=jsonpath='{.spec.engine.version}'=${PREVIOUS_PSMDB_DB_ENGINE_VERSION} db/test-psmdb-cluster -n $NAMESPACE
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
@@ -12,7 +13,7 @@ spec:
   engine:
     replicas: 3
     storage:
-      size: 1G
+      size: 1Gi
     type: psmdb
   proxy:
     expose:
@@ -38,7 +39,7 @@ spec:
         persistentVolumeClaim:
           resources:
             requests:
-              storage: 1G
+              storage: 1Gi
 status:
   replsets:
     rs0:

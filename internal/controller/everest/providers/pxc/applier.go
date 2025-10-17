@@ -55,6 +55,11 @@ type applier struct {
 	ctx context.Context //nolint:containedctx
 }
 
+func (p *applier) ResetDefaults() error {
+	p.PerconaXtraDBCluster.Spec = defaultSpec()
+	return nil
+}
+
 func (p *applier) Metadata() error {
 	if p.PerconaXtraDBCluster.GetDeletionTimestamp().IsZero() {
 		for _, f := range []string{
@@ -178,10 +183,17 @@ func (p *applier) Engine() error {
 
 	pxc := p.PerconaXtraDBCluster
 
-	// Update CRVersion, if specified.
-	desiredCR := pointer.Get(p.DB.Spec.Engine.CRVersion)
-	if desiredCR != "" {
-		pxc.Spec.CRVersion = desiredCR
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	pxc.Spec.PXC = defaultSpec().PXC
+
+	// Set the CRVersion specified on the DB, otherwise preserve the current one.
+	currentCRVersion := p.currentPerconaXtraDBClusterSpec.CRVersion
+	specifiedCRVersion := pointer.Get(p.DB.Spec.Engine.CRVersion)
+	pxc.Spec.CRVersion = currentCRVersion
+	if specifiedCRVersion != "" {
+		pxc.Spec.CRVersion = specifiedCRVersion
 	}
 
 	pxc.Spec.SecretsName = p.DB.Spec.Engine.UserSecretsName
@@ -265,11 +277,16 @@ func (p *applier) EngineFeatures() error {
 }
 
 func (p *applier) Backup() error {
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
+	p.PerconaXtraDBCluster.Spec.Backup = defaultSpec().Backup
+
 	bkp, err := p.genPXCBackupSpec()
 	if err != nil {
 		return err
 	}
-	p.Spec.Backup = bkp
+	p.PerconaXtraDBCluster.Spec.Backup = bkp
 	return nil
 }
 
@@ -278,10 +295,18 @@ func (p *applier) Proxy() error {
 	// Apply proxy config.
 	switch proxySpec.Type {
 	case everestv1alpha1.ProxyTypeHAProxy:
+		// Even though we call ResetDefault() as the first step in the mutation process,
+		// we still reset the spec here to protect against the defaults being unintentionally changed
+		// from a previous mutation.
+		p.PerconaXtraDBCluster.Spec.HAProxy = defaultSpec().HAProxy
 		if err := p.applyHAProxyCfg(); err != nil {
 			return err
 		}
 	case everestv1alpha1.ProxyTypeProxySQL:
+		// Even though we call ResetDefault() as the first step in the mutation process,
+		// we still reset the spec here to protect against the defaults being unintentionally changed
+		// from a previous mutation.
+		p.PerconaXtraDBCluster.Spec.ProxySQL = defaultSpec().ProxySQL
 		if err := p.applyProxySQLCfg(); err != nil {
 			return err
 		}
@@ -308,6 +333,9 @@ func (p *applier) Monitoring() error {
 	if err != nil {
 		return err
 	}
+	// Even though we call ResetDefault() as the first step in the mutation process,
+	// we still reset the spec here to protect against the defaults being unintentionally changed
+	// from a previous mutation.
 	p.PerconaXtraDBCluster.Spec.PMM = defaultSpec().PMM
 	if monitoring.Spec.Type == everestv1alpha1.PMMMonitoringType {
 		if err := p.applyPMMCfg(monitoring); err != nil {
@@ -331,9 +359,6 @@ func (p *applier) PodSchedulingPolicy() error {
 
 	pxc := p.PerconaXtraDBCluster
 	// --------------------------------- //
-	// Special workaround, need to reset all affinity params in p.PerconaXtraDBCluster before moving further.
-	// TODO: Remove it once https://perconadev.atlassian.net/browse/EVEREST-2023 is addressed
-	pxc.Spec.PXC.PodSpec.Affinity = nil
 	if pxc.Spec.HAProxy != nil {
 		pxc.Spec.HAProxy.PodSpec.Affinity = nil
 	}
