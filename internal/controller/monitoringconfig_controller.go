@@ -105,7 +105,7 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if vErr != nil {
 			logger.Error(err, "Failed to get PMM server version "+vErr.Error())
 		}
-		mc.Status.PMMServerVersion = *v
+		mc.Status.PMMServerVersion = v
 
 		if err = r.Client.Status().Update(ctx, mc); err != nil {
 			rr = ctrl.Result{}

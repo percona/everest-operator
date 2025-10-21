@@ -109,12 +109,12 @@ func (v *PMMConfig) CreatePMMApiKey(
 	}
 }
 
-func (m *MonitoringConfig) GetPMMServerVersion(ctx context.Context, credentialsSecret *corev1.Secret) (*PMMServerVersion, error) {
+func (m *MonitoringConfig) GetPMMServerVersion(ctx context.Context, credentialsSecret *corev1.Secret) (PMMServerVersion, error) {
 	if key := m.Spec.PMM.getPMMKey(credentialsSecret); key != "" {
 		skipVerifyTLS := !pointer.Get(m.Spec.VerifyTLS)
 		return m.Spec.PMM.getPMMVersion(ctx, bearerAuth{token: key}, skipVerifyTLS)
 	}
-	return &PMMServerVersion{}, nil
+	return "", nil
 }
 
 // getPMMKey finds the PMM key in the given secret
@@ -135,16 +135,15 @@ func (v *PMMConfig) getPMMKey(secret *corev1.Secret) string {
 }
 
 // getPMMVersion makes an API request to the PMM server to figure out the current version
-func (v *PMMConfig) getPMMVersion(ctx context.Context, auth iAuth, skipTLSVerify bool) (*PMMServerVersion, error) {
+func (v *PMMConfig) getPMMVersion(ctx context.Context, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
 	resp, err := doJSONRequest[struct {
 		Version string `json:"version"`
 	}](ctx, http.MethodGet, fmt.Sprintf("%s/v1/version", v.URL), auth, "", skipTLSVerify)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	version, err := goversion.NewVersion(resp.Version)
 
-	return &PMMServerVersion{Version: *version}, nil
+	return PMMServerVersion(resp.Version), nil
 }
 
 // +kubebuilder:object:root=true
@@ -175,34 +174,15 @@ func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
 }
 
-// PMMServerVersion is a wrapper struct representing PMM server version.
-// Disable autogeneration to allow the version field which is not a Kubernetes API type
-// +k8s:deepcopy-gen=false
-type PMMServerVersion struct {
-	goversion.Version `json:"version,omitempty"`
-}
-
-// DeepCopyInto implemented manually to allow the version field which is not a Kubernetes API type
-func (v *PMMServerVersion) DeepCopyInto(out *PMMServerVersion) {
-	if v == nil || out == nil {
-		return
-	}
-	*out = *v
-}
-
-// DeepCopy implemented manually to allow the version field which is not a Kubernetes API type
-func (v *PMMServerVersion) DeepCopy() *PMMServerVersion {
-	if v == nil {
-		return nil
-	}
-	out := new(PMMServerVersion)
-	v.DeepCopyInto(out)
-	return out
-}
+type PMMServerVersion string
 
 // UsesLegacyAuth returns true if the instance uses legacy auth (PMM2) otherwise it returns false
 func (v *PMMServerVersion) UsesLegacyAuth() bool {
-	segments := v.Segments()
+	ver, err := goversion.NewVersion(string(*v))
+	if err != nil {
+		return false
+	}
+	segments := ver.Segments()
 	return len(segments) > 0 && segments[0] == 2
 }
 
