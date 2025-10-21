@@ -394,7 +394,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 
 	if err := common.CreateOrUpdateSecretData(ctx, c, database, pg.Spec.PMM.Secret,
 		map[string][]byte{
-			"PMM_SERVER_TOKEN": []byte(apiKey),
+			monitoring.Status.PMMServerVersion.PMMSecretKeyName(p.DB.Spec.Engine.Type): []byte(apiKey),
 		},
 		true,
 	); err != nil {

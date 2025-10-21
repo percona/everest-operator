@@ -16,6 +16,8 @@
 package v1alpha1
 
 import (
+	goversion "github.com/hashicorp/go-version"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,6 +32,17 @@ const (
 	// MonitoringConfigCredentialsSecretAPIKeyKey is the credentials secret's key that contains the API key.
 	MonitoringConfigCredentialsSecretAPIKeyKey = "apiKey"
 )
+
+var pmmServerKeys = map[EngineType]pmmKeyPair{
+	DatabaseEnginePSMDB:      {"PMM_SERVER_API_KEY", "PMM_SERVER_TOKEN"},
+	DatabaseEnginePostgresql: {"PMM_SERVER_KEY", "PMM_SERVER_TOKEN"},
+	DatabaseEnginePXC:        {"pmmserverkey", "pmmservertoken"},
+}
+
+type pmmKeyPair struct {
+	Legacy string
+	New    string
+}
 
 // MonitoringConfigSpec defines the desired state of MonitoringConfig.
 type MonitoringConfigSpec struct {
@@ -64,6 +77,25 @@ type MonitoringConfigStatus struct {
 	InUse bool `json:"inUse,omitempty"`
 	// LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
+	// PMMServerVersion shows PMM server version
+	PMMServerVersion PMMServerVersion `json:"pmmServerVersion,omitempty"`
+}
+
+// GetPMMKey finds the PMM key in the given secret
+func (v *PMMConfig) GetPMMKey(secret *corev1.Secret) string {
+	if secret == nil || len(secret.Data) == 0 {
+		return ""
+	}
+	// check for all engines, first the legacy keys, then the new case
+	for _, pair := range pmmServerKeys {
+		if val, ok := secret.Data[pair.Legacy]; ok {
+			return string(val)
+		}
+		if val, ok := secret.Data[pair.New]; ok {
+			return string(val)
+		}
+	}
+	return ""
 }
 
 // +kubebuilder:object:root=true
@@ -92,4 +124,47 @@ type MonitoringConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&MonitoringConfig{}, &MonitoringConfigList{})
+}
+
+// PMMServerVersion is a wrapper struct representing PMM server version.
+// Disable autogeneration to allow the version field which is not a Kubernetes API type
+// +k8s:deepcopy-gen=false
+type PMMServerVersion struct {
+	goversion.Version `json:"version,omitempty"`
+}
+
+// DeepCopyInto implemented manually to allow the version field which is not a Kubernetes API type
+func (v *PMMServerVersion) DeepCopyInto(out *PMMServerVersion) {
+	if v == nil || out == nil {
+		return
+	}
+	*out = *v
+}
+
+// DeepCopy implemented manually to allow the version field which is not a Kubernetes API type
+func (v *PMMServerVersion) DeepCopy() *PMMServerVersion {
+	if v == nil {
+		return nil
+	}
+	out := new(PMMServerVersion)
+	v.DeepCopyInto(out)
+	return out
+}
+
+// UsesLegacyAuth returns true if the instance uses legacy auth (PMM2) otherwise it returns false
+func (v *PMMServerVersion) UsesLegacyAuth() bool {
+	segments := v.Segments()
+	return len(segments) > 0 && segments[0] == 2
+}
+
+// PMMSecretKeyName returns the key name that should be used in the PMM secret
+// depending on engine and auth type
+func (v *PMMServerVersion) PMMSecretKeyName(engineType EngineType) string {
+	if pair, ok := pmmServerKeys[engineType]; ok {
+		if v.UsesLegacyAuth() {
+			return pair.Legacy
+		}
+		return pair.New
+	}
+	return ""
 }

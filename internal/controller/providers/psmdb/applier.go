@@ -343,6 +343,7 @@ func (p *applier) Backup() error {
 	p.PerconaServerMongoDB.Spec.Backup = spec
 	return nil
 }
+
 func (p *applier) DataSource() error {
 	database := p.DB
 	if database.Spec.DataSource == nil {
@@ -485,7 +486,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 	setControllerRef := false
 	if err := common.CreateOrUpdateSecretData(ctx, c, database, psmdb.Spec.Secrets.Users,
 		map[string][]byte{
-			"PMM_SERVER_API_KEY": []byte(apiKey),
+			monitoring.Status.PMMServerVersion.PMMSecretKeyName(p.DB.Spec.Engine.Type): []byte(apiKey),
 		},
 		setControllerRef,
 	); err != nil {
