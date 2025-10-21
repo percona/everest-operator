@@ -458,7 +458,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 
 	psmdb.Spec.PMM = psmdbv1.PMMSpec{
 		Enabled: true,
-		Image:   common.DefaultPMMClientImage,
+		Image:   monitoring.Status.PMMServerVersion.DefaultPMMClientImage(),
 		Resources: getPMMResources(common.IsNewDatabaseCluster(p.DB.Status.Status),
 			&p.DB.Spec, &p.currentPSMDBSpec),
 	}

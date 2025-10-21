@@ -374,7 +374,7 @@ func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) erro
 		Resources: getPMMResources(common.IsNewDatabaseCluster(p.DB.Status.Status),
 			&p.DB.Spec, &p.currentPGSpec),
 		Secret:          fmt.Sprintf("%s%s-pmm", consts.EverestSecretsPrefix, database.GetName()),
-		Image:           common.DefaultPMMClientImage,
+		Image:           monitoring.Status.PMMServerVersion.DefaultPMMClientImage(),
 		ImagePullPolicy: p.getPMMImagePullPolicy(),
 	}
 

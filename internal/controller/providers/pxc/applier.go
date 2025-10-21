@@ -691,7 +691,7 @@ func (p *applier) applyProxySQLCfg() error {
 func (p *applier) applyPMMCfg(monitoring *everestv1alpha1.MonitoringConfig) error {
 	pxc := p.PerconaXtraDBCluster
 
-	pmmImage := common.DefaultPMMClientImage
+	pmmImage := monitoring.Status.PMMServerVersion.DefaultPMMClientImage()
 	if monitoring.Spec.PMM.Image != "" {
 		pmmImage = monitoring.Spec.PMM.Image
 	}

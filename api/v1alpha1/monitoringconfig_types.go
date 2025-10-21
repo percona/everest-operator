@@ -36,6 +36,11 @@ const (
 	MonitoringConfigCredentialsSecretUsernameKey = "username"
 	// MonitoringConfigCredentialsSecretAPIKeyKey is the credentials secret's key that contains the API key.
 	MonitoringConfigCredentialsSecretAPIKeyKey = "apiKey"
+
+	// PMM2ClientImage is the image for PMM2 client.
+	PMM2ClientImage = "percona/pmm-client:2"
+	// PMM3ClientImage is the image for PMM2 client.
+	PMM3ClientImage = "percona/pmm-client:3"
 )
 
 var pmmServerKeys = map[EngineType]pmmKeyPair{
@@ -184,6 +189,13 @@ func (v *PMMServerVersion) UsesLegacyAuth() bool {
 	}
 	segments := ver.Segments()
 	return len(segments) > 0 && segments[0] == 2
+}
+
+func (v *PMMServerVersion) DefaultPMMClientImage() string {
+	if v.UsesLegacyAuth() {
+		return PMM2ClientImage
+	}
+	return PMM3ClientImage
 }
 
 // PMMSecretKeyName returns the key name that should be used in the PMM secret
