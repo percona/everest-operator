@@ -1,0 +1,47 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 30
+collectors:
+  - command: kubectl get splitdns/shdc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: enginefeatures.everest.percona.com/v1alpha1
+    kind: SplitHorizonDNSConfig
+    name: shdc-psmdb
+    ref: shdc
+assertAll:
+  - celExpr: "!has(shdc.metadata.finalizers)"
+    message: "shdc has unexpected finalizers"
+  - celExpr: "!has(shdc.spec.tls.certificate)"
+    message: "shdc has unexpected .spec.tls.certificate"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  replicas: 0
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseEngine
+metadata:
+  name: percona-server-mongodb-operator
+spec:
+  type: psmdb
+status:
+  status: installed
+---
+apiVersion: enginefeatures.everest.percona.com/v1alpha1
+kind: SplitHorizonDNSConfig
+metadata:
+  name: shdc-psmdb
+spec:
+  baseDomainNameSuffix: mycompany.com
+  tls:
+    secretName: shdc-secret-1
+status:
+  inUse: false

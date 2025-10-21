@@ -62,6 +62,7 @@ endif
 
 OS=$(shell go env GOHOSTOS)
 ARCH=$(shell go env GOHOSTARCH)
+CWD=$(shell pwd)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -94,7 +95,7 @@ help: ## Display this help.
 init: cleanup-localbin  ## Install development tools
 	$(MAKE) kustomize
 	$(MAKE) controller-gen
-	$(MAKE) envtest
+	$(MAKE) setup-envtest
 	$(MAKE) operator-sdk
 	$(MAKE) opm
 	$(MAKE) kubebuilder
@@ -149,8 +150,14 @@ prepare-pr: manifests generate static-check format build ## Prepare the code for
 ##@ Testing
 
 .PHONY: test
-test: $(LOCALBIN) manifests generate format envtest ## Run unit tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+#test: $(LOCALBIN) manifests generate format setup-envtest ## Run unit tests.
+
+KUBECONFIG := $(CWD)/test/kubeconfig
+test: $(LOCALBIN) manifests generate format ## Run unit tests. Call `make k3d-cluster-up` beforehand to create a K8S cluster for tests that require it.
+	#KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+	#KUBECONFIG=$(KUBECONFIG) go test ./... -coverprofile cover.out
+	#go test ./... -coverprofile cover.out
+	go test ./...
 
 .PHONY: test-integration-core
 test-integration-core: docker-build k3d-upload-image ## Run integration/core tests against K8S cluster
@@ -159,6 +166,11 @@ test-integration-core: docker-build k3d-upload-image ## Run integration/core tes
 .PHONY: test-integration-features
 test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-features.yaml
+
+.PHONY: test-integration-engine-features
+#test-integration-engine-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
+test-integration-engine-features: docker-build ## Run feature tests against K8S cluster
+	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-engine-features.yaml
 
 .PHONY: test-integration-operator-upgrade
 test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
@@ -311,7 +323,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN := $(shell pwd)/bin
+LOCALBIN := $(CWD)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
@@ -323,7 +335,7 @@ OPERATOR_SDK_VERSION ?= v1.40.0
 # Set the OPM version to use.
 OPM_VERSION ?= v1.56.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.29
+ENVTEST_K8S_VERSION = 1.30
 # Kubebuilder version to download.
 KUBEBUILDER_VERSION = v4.9.0
 
@@ -344,9 +356,9 @@ ifeq (,$(wildcard $(CONTROLLER_GEN)))
 	mv $(LOCALBIN)/controller-gen $(CONTROLLER_GEN)
 endif
 
-.PHONY: envtest
+.PHONY: setup-envtest
 ENVTEST = $(LOCALBIN)/setup-envtest
-envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
+setup-envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 ifeq (,$(wildcard $(ENVTEST)))
 	GOBIN=$(LOCALBIN) GOOS=$(OS) GOARCH=$(ARCH) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 endif

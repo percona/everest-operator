@@ -56,7 +56,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig
+      path: /validate-enginefeatures-everest-percona-com-v1alpha1-splithorizondnsconfig
   failurePolicy: Fail
   name: vsplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com
   rules:

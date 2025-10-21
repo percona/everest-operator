@@ -79,7 +79,7 @@ var (
 	groupKind                         = enginefeatureseverestv1alpha1.GroupVersion.WithKind(consts.SplitHorizonDNSConfigKind).GroupKind()
 )
 
-// SetupSplitHorizonDNSConfigWebhookWithManager registers the webhook for SplitHorizonDNSConfig in the manager.
+// SetupSplitHorizonDNSConfigWebhookWithManager registers the validation webhook for SplitHorizonDNSConfig in the manager.
 func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{}).
@@ -92,7 +92,7 @@ func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 //nolint:lll
-// +kubebuilder:webhook:path=/validate-engine-features-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-enginefeatures-everest-percona-com-v1alpha1-splithorizondnsconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=create;update;delete,versions=v1alpha1,name=vsplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com,admissionReviewVersions=v1
 
 // SplitHorizonDNSConfigCustomValidator struct is responsible for validating the SplitHorizonDNSConfig resource
 // when it is created, updated, or deleted.
