@@ -101,16 +101,11 @@ func (r *MonitoringConfigReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		mc.Status.InUse = len(dbList.Items) > 0
 		mc.Status.LastObservedGeneration = mc.GetGeneration()
-		// Use the key from secrets to make an API request and keep the up-to-date PMM server version in status
-		if key := mc.Spec.PMM.GetPMMKey(credentialsSecret); key != "" {
-			skipVerifyTLS := !pointer.Get(mc.Spec.VerifyTLS)
-			v, vErr := GetPMMVersion(ctx, mc.Spec.PMM.URL, BearerAuth{Token: key}, skipVerifyTLS)
-			if vErr != nil {
-				logger.Error(err, "failed to get PMM version: "+vErr.Error())
-			} else {
-				mc.Status.PMMServerVersion = *v
-			}
+		v, vErr := mc.GetPMMServerVersion(ctx, credentialsSecret)
+		if vErr != nil {
+			logger.Error(err, "Failed to get PMM server version "+vErr.Error())
 		}
+		mc.Status.PMMServerVersion = *v
 
 		if err = r.Client.Status().Update(ctx, mc); err != nil {
 			rr = ctrl.Result{}

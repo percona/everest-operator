@@ -16,6 +16,11 @@
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/AlekSi/pointer"
 	goversion "github.com/hashicorp/go-version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,8 +86,39 @@ type MonitoringConfigStatus struct {
 	PMMServerVersion PMMServerVersion `json:"pmmServerVersion,omitempty"`
 }
 
-// GetPMMKey finds the PMM key in the given secret
-func (v *PMMConfig) GetPMMKey(secret *corev1.Secret) string {
+// CreatePMMApiKey creates a new API key in PMM by using the provided username and password.
+func (v *PMMConfig) CreatePMMApiKey(
+	ctx context.Context,
+	apiKeyName, user, password string,
+	skipTLSVerify bool,
+) (string, error) {
+	auth := basicAuth{
+		user:     user,
+		password: password,
+	}
+	version, err := v.getPMMVersion(ctx, auth, skipTLSVerify)
+	if err != nil {
+		return "", err
+	}
+
+	// PMM2 and PMM3 use different API to create tokens
+	if version.UsesLegacyAuth() {
+		return createKey(ctx, v.URL, apiKeyName, auth, skipTLSVerify)
+	} else {
+		return createServiceAccountAndToken(ctx, v.URL, apiKeyName, auth, skipTLSVerify)
+	}
+}
+
+func (m *MonitoringConfig) GetPMMServerVersion(ctx context.Context, credentialsSecret *corev1.Secret) (*PMMServerVersion, error) {
+	if key := m.Spec.PMM.getPMMKey(credentialsSecret); key != "" {
+		skipVerifyTLS := !pointer.Get(m.Spec.VerifyTLS)
+		return m.Spec.PMM.getPMMVersion(ctx, bearerAuth{token: key}, skipVerifyTLS)
+	}
+	return &PMMServerVersion{}, nil
+}
+
+// getPMMKey finds the PMM key in the given secret
+func (v *PMMConfig) getPMMKey(secret *corev1.Secret) string {
 	if secret == nil || len(secret.Data) == 0 {
 		return ""
 	}
@@ -96,6 +132,19 @@ func (v *PMMConfig) GetPMMKey(secret *corev1.Secret) string {
 		}
 	}
 	return ""
+}
+
+// getPMMVersion makes an API request to the PMM server to figure out the current version
+func (v *PMMConfig) getPMMVersion(ctx context.Context, auth iAuth, skipTLSVerify bool) (*PMMServerVersion, error) {
+	resp, err := doJSONRequest[struct {
+		Version string `json:"version"`
+	}](ctx, http.MethodGet, fmt.Sprintf("%s/v1/version", v.URL), auth, "", skipTLSVerify)
+	if err != nil {
+		return nil, err
+	}
+	version, err := goversion.NewVersion(resp.Version)
+
+	return &PMMServerVersion{Version: *version}, nil
 }
 
 // +kubebuilder:object:root=true
@@ -167,4 +216,28 @@ func (v *PMMServerVersion) PMMSecretKeyName(engineType EngineType) string {
 		return pair.New
 	}
 	return ""
+}
+
+// iAuth an interface to apply auth to a request.
+type iAuth interface {
+	apply(req *http.Request)
+}
+
+// basicAuth represents basic auth with User/Password
+type basicAuth struct {
+	user     string
+	password string
+}
+
+func (a basicAuth) apply(req *http.Request) {
+	req.SetBasicAuth(a.user, a.password)
+}
+
+// bearerAuth represents bearer auth with a token
+type bearerAuth struct {
+	token string
+}
+
+func (a bearerAuth) apply(req *http.Request) {
+	req.Header.Set("Authorization", "Bearer "+a.token)
 }
