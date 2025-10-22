@@ -161,7 +161,7 @@ func dbbackupStateFromPSMDB(bkp *psmdbv1.PerconaServerMongoDBBackup) BackupState
 	switch bkp.Status.State {
 	case psmdbv1.BackupStateReady:
 		return BackupSucceeded
-	case psmdbv1.BackupStateError, psmdbv1.BackupStateRejected:
+	case psmdbv1.BackupStateError:
 		return BackupFailed
 	case psmdbv1.BackupStateRunning:
 		return BackupRunning
