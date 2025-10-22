@@ -34,6 +34,7 @@ import (
 	pgv2 "github.com/percona/percona-postgresql-operator/pkg/apis/pgv2.percona.com/v2"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,8 +82,9 @@ var ErrBackupStorageUndefined = errors.New("backup storage is not defined in the
 // DatabaseClusterBackupReconciler reconciles a DatabaseClusterBackup object.
 type DatabaseClusterBackupReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cache.Cache
+	APIReader client.Reader
+	Scheme    *runtime.Scheme
+	Cache     cache.Cache
 
 	controller *controllerWatcherRegistry
 }
@@ -879,6 +881,9 @@ func (r *DatabaseClusterBackupReconciler) reconcilePG(
 		if controllerutil.RemoveFinalizer(backup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 			return true, r.Update(ctx, backup)
 		}
+		if err := r.tryFinalizePGBackupJob(ctx, backup); err != nil {
+			return false, fmt.Errorf("failed to finalize backup job: %w", err)
+		}
 		backup.Status.State = everestv1alpha1.BackupDeleting
 		return true, r.Status().Update(ctx, backup)
 	}
@@ -978,6 +983,42 @@ func (r *DatabaseClusterBackupReconciler) handleStorageProtectionFinalizer(
 	// Finalizer is gone from upstream object, remove from DatabaseClusterBackup.
 	if controllerutil.RemoveFinalizer(dbcBackup, everestv1alpha1.DBBackupStorageProtectionFinalizer) {
 		return r.Update(ctx, dbcBackup)
+	}
+	return nil
+}
+
+const (
+	crunchyClusterLabel       = "postgres-operator.crunchydata.com/cluster"
+	crunchyBackupAnnotation   = "postgres-operator.crunchydata.com/pgbackrest-backup"
+	perconaPGJobKeepFinalizer = "internal.percona.com/keep-job"
+)
+
+// K8SPG-703 introduces a finalizer on the job that prevents it from being deleted when the backup is running.
+// This finalizer is intended to prevent backup jobs from being deleted while the backup is running in order
+// to prevent a race condition when the Job has a `ttlSecondsAfterFinished` set.
+// But since we do not set `ttlSecondsAfterFinished` for backup jobs, we can remove the finalizer to unblock deletion
+// of running backups.
+// See: https://perconadev.atlassian.net/browse/K8SPG-703
+func (r *DatabaseClusterBackupReconciler) tryFinalizePGBackupJob(
+	ctx context.Context,
+	dbb *everestv1alpha1.DatabaseClusterBackup,
+) error {
+	jobList := &batchv1.JobList{}
+
+	// List backup jobs for the specified cluster.
+	// Use APIReader to avoid starting an informer/cache for jobs.
+	if err := r.APIReader.List(ctx, jobList, client.InNamespace(dbb.GetNamespace()), client.MatchingLabels{
+		crunchyClusterLabel: dbb.Spec.DBClusterName,
+	}); err != nil {
+		return err
+	}
+
+	// Find the job for the specified backup.
+	for _, job := range jobList.Items {
+		if job.GetAnnotations()[crunchyBackupAnnotation] == dbb.GetName() &&
+			controllerutil.RemoveFinalizer(&job, perconaPGJobKeepFinalizer) {
+			return r.Client.Update(ctx, &job)
+		}
 	}
 	return nil
 }
