@@ -42,6 +42,9 @@ assertAll:
 
   - celExpr: "!has(psmdb.spec.replsets[0].splitHorizons)"
     message: "psmdb.spec.replsets[0].splitHorizons is not empty"
+
+  - celExpr: "!has(psmdb.spec.secrets.ssl)"
+    message: "psmdb.spec.secrets.ssl is not empty"
 ---
 apiVersion: enginefeatures.everest.percona.com/v1alpha1
 kind: SplitHorizonDNSConfig

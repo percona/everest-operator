@@ -87,5 +87,12 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 		}
 	}
 	psmdb.Spec.Replsets[0].Horizons = horSpec
+
+	// set reference to secret with certificate for external domain
+	if psmdb.Spec.Secrets == nil {
+		psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{}
+	}
+	psmdb.Spec.Secrets.SSL = shdc.Spec.TLS.SecretName
+
 	return nil
 }

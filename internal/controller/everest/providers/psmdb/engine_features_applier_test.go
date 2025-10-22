@@ -188,6 +188,9 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 							},
 						},
 					},
+					Secrets: &psmdbv1.SecretsSpec{
+						SSL: certSecretName,
+					},
 				},
 			},
 		},
@@ -242,6 +245,9 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 								},
 							},
 						},
+					},
+					Secrets: &psmdbv1.SecretsSpec{
+						SSL: certSecretName,
 					},
 				},
 			},
