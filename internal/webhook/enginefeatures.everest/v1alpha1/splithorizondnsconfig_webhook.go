@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
-	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/utils"
 )
 
@@ -45,8 +44,6 @@ var (
 	errInvalidBaseDomainNameSuffix = func(bdns string, errs []string) *field.Error {
 		return field.Invalid(baseDomainNameSuffixPath, bdns, strings.Join(errs, ", "))
 	}
-	// .spec.tls.secretName errors.
-	secretNamePath = field.NewPath("spec", "tls", "secretName")
 
 	// .spec.tls.certificate.
 	certificatePath = field.NewPath("spec", "tls", "certificate")
@@ -57,10 +54,6 @@ var (
 	// .spec.tls.certificate.tls.key.
 	keyFilePath = certificatePath.Child("tls.key")
 
-	// Required field error generator.
-	errRequiredField = func(fieldPath *field.Path) *field.Error {
-		return field.Required(fieldPath, "can not be empty")
-	}
 	// Base64 encoding error generator.
 	errCertWrongEncodingField = func(fieldPath *field.Path, fieldValue string) *field.Error {
 		return field.Invalid(fieldPath, fieldValue, "is not base64-encoded")
@@ -74,10 +67,7 @@ var (
 	errDeleteInUse = errors.New("is used by some DB cluster and cannot be deleted")
 )
 
-var (
-	_         webhook.CustomValidator = &SplitHorizonDNSConfigCustomValidator{}
-	groupKind                         = enginefeatureseverestv1alpha1.GroupVersion.WithKind(consts.SplitHorizonDNSConfigKind).GroupKind()
-)
+var _ webhook.CustomValidator = &SplitHorizonDNSConfigCustomValidator{}
 
 // SetupSplitHorizonDNSConfigWebhookWithManager registers the validation webhook for SplitHorizonDNSConfig in the manager.
 func SetupSplitHorizonDNSConfigWebhookWithManager(mgr ctrl.Manager) error {
@@ -131,19 +121,10 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateCreate(ctx context.Contex
 		return nil, apierrors.NewInvalid(groupKind, shdc.GetName(), allErrs)
 	}
 
-	if shdc.Spec.TLS.Certificate == nil {
-		// .spec.tls.certificate is not provided, so .spec.tls.secretName must be used instead.
-		// Check that provided secret exists and valid.
-		if errs := validateSecret(ctx, v.Client, shdc.GetNamespace(), secretName); errs != nil {
-			allErrs = append(allErrs, errs...)
-		}
-	} else {
-		// Both Certificate and SecretName are provided.
-		// Certificate fields must be non-empty.
-		// Secret is not checked, as Certificate is provided.
-		if errs := validateCertificate(shdc.Spec.TLS.Certificate); errs != nil {
-			allErrs = append(allErrs, errs...)
-		}
+	// Check that provided secret exists and valid.
+	// NOTE: secret can be created by user beforehand or by SplitHorizonDNSConfigDefaulter.
+	if errs := validateSecret(ctx, v.Client, shdc.GetNamespace(), secretName); errs != nil {
+		allErrs = append(allErrs, errs...)
 	}
 
 	if len(allErrs) == 0 {
@@ -185,10 +166,8 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateUpdate(ctx context.Contex
 		allErrs = append(allErrs, errImmutableField(secretNamePath))
 	}
 
-	if newShdc.Spec.TLS.Certificate == nil {
-		allErrs = append(allErrs, errRequiredField(certificatePath))
-	} else {
-		// Only .spec.tls.certificate can be updated.
+	if newShdc.Spec.TLS.Certificate != nil {
+		// Only .spec.tls.certificate can be updated now.
 		// If it is provided, its fields must be non-empty and properly encoded (base64).
 		if errs := validateCertificate(newShdc.Spec.TLS.Certificate); errs != nil {
 			allErrs = append(allErrs, errs...)

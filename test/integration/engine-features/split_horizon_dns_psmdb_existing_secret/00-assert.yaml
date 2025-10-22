@@ -1,8 +1,9 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
-timeout: 30
+timeout: 10
 collectors:
   - command: kubectl get splitdns/shdc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/shdc-secret-exists -n ${NAMESPACE} -o yaml
   - command: kubectl get deploy/everest-controller-manager -n everest-system -o yaml
   - type: pod
     namespace: everest-system
@@ -13,9 +14,14 @@ resourceRefs:
     kind: SplitHorizonDNSConfig
     name: shdc-psmdb
     ref: shdc
+  - apiVersion: v1
+    kind: Secret
+    name: shdc-secret-exists
+    ref: sec
 assertAll:
   - celExpr: "!has(shdc.metadata.finalizers)"
     message: "shdc has unexpected finalizers"
+
   - celExpr: "!has(shdc.spec.tls.certificate)"
     message: "shdc has unexpected .spec.tls.certificate"
 ---
@@ -42,6 +48,16 @@ metadata:
 spec:
   baseDomainNameSuffix: mycompany.com
   tls:
-    secretName: shdc-secret-1
+    secretName: shdc-secret-exists
 status:
   inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shdc-secret-exists
+type: kubernetes.io/tls
+data:
+  tls.crt: ZEd4elEyVnlkQW89
+  tls.key: ZEd4elMyVjVDZz09
+  ca.crt: ZEd4elEwRkRaWEowQ2c9PQ==

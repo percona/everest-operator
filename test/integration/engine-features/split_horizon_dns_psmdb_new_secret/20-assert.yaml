@@ -3,6 +3,7 @@ kind: TestAssert
 timeout: 10
 collectors:
   - command: kubectl get splitdns/shdc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/shdc-secret-1 -n ${NAMESPACE} -o yaml
   - command: kubectl get db/psmdb-shdc -n ${NAMESPACE} -o yaml
   - command: kubectl get psmdb/psmdb-shdc -n ${NAMESPACE} -o yaml
   - type: pod
@@ -14,6 +15,10 @@ resourceRefs:
     kind: SplitHorizonDNSConfig
     name: shdc-psmdb
     ref: shdc
+  - apiVersion: v1
+    kind: Secret
+    name: shdc-secret-1
+    ref: sec
   - apiVersion: everest.percona.com/v1alpha1
     kind: DatabaseCluster
     name: psmdb-shdc
@@ -25,6 +30,9 @@ resourceRefs:
 assertAll:
   - celExpr: "has(shdc.metadata.finalizers)"
     message: "shdc doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/cleanup-secrets' in shdc.metadata.finalizers"
+    message: "'everest.percona.com/cleanup-secrets' is absent in shdc.metadata.finalizers"
 
   - celExpr: "'everest.percona.com/in-use-protection' in shdc.metadata.finalizers"
     message: "'everest.percona.com/in-use-protection' is absent in shdc.metadata.finalizers"
@@ -53,6 +61,16 @@ spec:
     secretName: shdc-secret-1
 status:
   inUse: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shdc-secret-1
+type: kubernetes.io/tls
+data:
+  tls.crt: ZEd4elEyVnlkQW89
+  tls.key: ZEd4elMyVjVDZz09
+  ca.crt: ZEd4elEwRkRaWEowQ2c9PQ==
 ---
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster

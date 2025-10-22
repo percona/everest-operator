@@ -357,7 +357,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SplitHorizonDNSConfig")
 		os.Exit(1)
 	}
-	// ------------------ Engine Features controllers ------------------
+	// ------------------ End of Engine Features controllers ------------------
 
 	// register webhooks
 	if !cfg.DisableWebhookServer {
@@ -382,10 +382,14 @@ func main() {
 
 		// ------------------ Engine Features webhooks ------------------
 		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "SplitHorizonDNSConfig")
+			setupLog.Error(err, "unable to create validation webhook", "webhook", "SplitHorizonDNSConfig")
 			os.Exit(1)
 		}
-		// ------------------ Engine Features webhooks ------------------
+		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigMutationWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create defaulter webhook", "webhook", "SplitHorizonDNSConfig")
+			os.Exit(1)
+		}
+		// ------------------ End of Engine Features webhooks ------------------
 	}
 	// +kubebuilder:scaffold:builder
 

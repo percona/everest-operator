@@ -168,8 +168,7 @@ test-integration-features: docker-build k3d-upload-image ## Run feature tests ag
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-features.yaml
 
 .PHONY: test-integration-engine-features
-#test-integration-engine-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
-test-integration-engine-features: docker-build ## Run feature tests against K8S cluster
+test-integration-engine-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-engine-features.yaml
 
 .PHONY: test-integration-operator-upgrade

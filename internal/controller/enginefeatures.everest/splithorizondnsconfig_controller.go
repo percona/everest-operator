@@ -19,7 +19,9 @@ package enginefeatureseverest
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +38,7 @@ import (
 
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	everestcontrollers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/enginefeatures"
@@ -73,6 +76,21 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if !shdc.GetDeletionTimestamp().IsZero() {
+		ok, err := r.handleFinalizers(ctx, shdc)
+		if err != nil {
+			logger.Error(err, "Failed to handle finalizers")
+			return ctrl.Result{}, err
+		}
+
+		result := ctrl.Result{}
+		if !ok {
+			result.RequeueAfter = 5 * time.Second //nolint:mnd
+		}
+
+		return result, nil
+	}
+
 	dbList, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
 		everestcontrollers.SplitHorizonDNSConfigNameField,
 		shdc.GetNamespace(),
@@ -100,49 +118,6 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 
 	if err = common.EnsureInUseFinalizer(ctx, r.Client, len(dbList.Items) > 0, shdc); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for split-horizon dns config='%s/%s'", shdc.GetNamespace(), shdc.GetName())
-		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
-	}
-
-	if shdc.Spec.TLS.Certificate == nil {
-		// Nothing to do.
-		return ctrl.Result{}, nil
-	}
-
-	// Move TLS certificate from the spec to a secret if needed.
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shdc.Spec.TLS.SecretName,
-			Namespace: shdc.GetNamespace(),
-		},
-	}
-
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = map[string][]byte{
-			"tls.crt": []byte(shdc.Spec.TLS.Certificate.TLSCert),
-			"tls.key": []byte(shdc.Spec.TLS.Certificate.TLSKey),
-			"ca.crt":  []byte(shdc.Spec.TLS.Certificate.CACert),
-		}
-		secret.Type = corev1.SecretTypeTLS
-
-		if secret.GetUID() == "" {
-			// Set owner reference only when the secret is created.
-			// There may be a case when the secret already exists and is not owned by us.
-			if err := controllerutil.SetControllerReference(shdc, secret, r.Scheme); err != nil {
-				return fmt.Errorf("failed to set controller reference for secret=%s/%s: %w",
-					secret.GetNamespace(), secret.GetName(), err)
-			}
-		}
-		return nil
-	}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Reset Certificate in the spec to avoid storing sensitive data in the CR.
-	shdc.Spec.TLS.Certificate = nil
-	if err = r.Update(ctx, shdc); err != nil {
-		msg := fmt.Sprintf("failed to reset certificate in the spec for split-horizon dns config='%s/%s'",
-			shdc.GetNamespace(), shdc.GetName())
 		logger.Error(err, msg)
 		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
 	}
@@ -229,4 +204,41 @@ func (r *SplitHorizonDNSConfigReconciler) SetupWithManager(mgr ctrl.Manager) err
 				common.DefaultNamespaceFilter),
 		).
 		Complete(r)
+}
+
+func (r *SplitHorizonDNSConfigReconciler) handleFinalizers(
+	ctx context.Context,
+	shdc *enginefeatureseverestv1alpha1.SplitHorizonDNSConfig,
+) (bool, error) {
+	if controllerutil.ContainsFinalizer(shdc, consts.EngineFeaturesSplitHorizonDNSConfigSecretCleanupFinalizer) {
+		return r.deleteResourcesInOrder(ctx, shdc)
+	}
+
+	return true, nil
+}
+
+func (r *SplitHorizonDNSConfigReconciler) deleteResourcesInOrder(
+	ctx context.Context,
+	shdc *enginefeatureseverestv1alpha1.SplitHorizonDNSConfig,
+) (bool, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shdc.Spec.TLS.SecretName,
+			Namespace: shdc.GetNamespace(),
+		},
+	}
+
+	if err := r.Delete(ctx, secret, &client.DeleteOptions{
+		PropagationPolicy: pointer.To(metav1.DeletePropagationForeground),
+	}); client.IgnoreNotFound(err) != nil {
+		return false, fmt.Errorf("failed to delete secret %s: %w", shdc.Spec.TLS.SecretName, err)
+	}
+
+	if controllerutil.RemoveFinalizer(shdc, consts.EngineFeaturesSplitHorizonDNSConfigSecretCleanupFinalizer) {
+		if err := r.Update(ctx, shdc); err != nil {
+			return false, fmt.Errorf("failed to remove secret cleanup finalizer: %w", err)
+		}
+	}
+
+	return true, nil
 }

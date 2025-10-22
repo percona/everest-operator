@@ -1,0 +1,75 @@
+apiVersion: kuttl.dev/v1
+kind: TestAssert
+timeout: 10
+collectors:
+  - command: kubectl get splitdns/shdc-psmdb -n ${NAMESPACE} -o yaml
+  - command: kubectl get secret/shdc-secret-1 -n ${NAMESPACE} -o yaml
+  - command: kubectl get db/psmdb-shdc -n ${NAMESPACE} -o yaml
+  - command: kubectl get psmdb/psmdb-shdc -n ${NAMESPACE} -o yaml
+  - type: pod
+    namespace: everest-system
+    selector: control-plane=controller-manager
+    tail: 100
+resourceRefs:
+  - apiVersion: enginefeatures.everest.percona.com/v1alpha1
+    kind: SplitHorizonDNSConfig
+    name: shdc-psmdb
+    ref: shdc
+  - apiVersion: v1
+    kind: Secret
+    name: shdc-secret-1
+    ref: sec
+  - apiVersion: everest.percona.com/v1alpha1
+    kind: DatabaseCluster
+    name: psmdb-shdc
+    ref: db
+  - apiVersion: psmdb.percona.com/v1
+    kind: PerconaServerMongoDB
+    name: psmdb-shdc
+    ref: psmdb
+assertAll:
+  - celExpr: "has(shdc.metadata.finalizers)"
+    message: "shdc doesn't have finalizers"
+
+  - celExpr: "'everest.percona.com/cleanup-secrets' in shdc.metadata.finalizers"
+    message: "'everest.percona.com/cleanup-secrets' is absent in shdc.metadata.finalizers"
+
+  - celExpr: "!shdc.metadata.finalizers.exists(k, k == 'everest.percona.com/in-use-protection')"
+    message: "'everest.percona.com/in-use-protection' presents in shdc.metadata.finalizers"
+
+  - celExpr: "!has(shdc.spec.tls.certificate)"
+    message: "shdc has unexpected .spec.tls.certificate"
+
+  - celExpr: "!has(psmdb.spec.replsets[0].splitHorizons)"
+    message: "psmdb.spec.replsets[0].splitHorizons is not empty"
+---
+apiVersion: enginefeatures.everest.percona.com/v1alpha1
+kind: SplitHorizonDNSConfig
+metadata:
+  name: shdc-psmdb
+spec:
+  baseDomainNameSuffix: mycompany.com
+  tls:
+    secretName: shdc-secret-1
+status:
+  inUse: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shdc-secret-1
+type: kubernetes.io/tls
+data:
+  tls.crt: ZEd4elEyVnlkQW89
+  tls.key: ZEd4elMyVjVDZz09
+  ca.crt: ZEd4elEwRkRaWEowQ2c9PQ==
+---
+apiVersion: everest.percona.com/v1alpha1
+kind: DatabaseCluster
+metadata:
+  name: psmdb-shdc
+---
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: psmdb-shdc

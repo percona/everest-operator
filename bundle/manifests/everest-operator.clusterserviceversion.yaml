@@ -90,7 +90,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-10-21T17:03:52Z"
+    createdAt: "2025-10-22T12:21:24Z"
     operators.operatorframework.io/builder: operator-sdk-v1.40.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: everest-operator.v0.0.0
@@ -633,6 +633,26 @@ spec:
     targetPort: 9443
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-everest-percona-com-v1alpha1-dataimportjob
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: everest-operator-controller-manager
+    failurePolicy: Fail
+    generateName: msplithorizondnsconfig-v1alpha1.enginefeatures.everest.percona.com
+    rules:
+    - apiGroups:
+      - enginefeatures.everest.percona.com
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - splithorizondnsconfigs
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-enginefeatures-everest-percona-com-v1alpha1-splithorizondnsconfig
   - admissionReviewVersions:
     - v1
     containerPort: 443
