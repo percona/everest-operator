@@ -33,9 +33,9 @@ kind: PerconaXtraDBCluster
 metadata:
   name: test-pxc-cluster
   finalizers:
-    - delete-pxc-pods-in-order
-    - delete-pxc-pvc
-    - delete-ssl
+    - percona.com/delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pvc
+    - percona.com/delete-ssl
 spec:
   haproxy:
     imagePullPolicy: IfNotPresent
