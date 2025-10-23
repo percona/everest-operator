@@ -40,6 +40,8 @@ func TestIsBase64Encoded(t *testing.T) {
 		{"notbase64", false},
 		{"Zm9vYmFyIQ==", true}, // "foobar!" in base64
 		{"Zm9vYmFyIQ", false},  // invalid base64 (wrong padding)
+		{"minio123", false},
+		{"minioadmin", false},
 	}
 	for _, c := range cases {
 		assert.Equal(t, c.expected, isBase64Encoded(c.input), "input: %q", c.input)

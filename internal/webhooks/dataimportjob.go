@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,6 +140,22 @@ func mutateS3CredentialsSecret(
 }
 
 func isBase64Encoded(s string) bool {
-	_, err := base64.StdEncoding.DecodeString(s)
-	return len(s)%4 == 0 && len(s) > 0 && err == nil
+	if len(s)%4 != 0 || len(s) == 0 {
+		return false // base64 encoded string must be a multiple of 4
+	}
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return false
+	}
+	// check if the decoded string contains valid and printable characters
+	if slices.ContainsFunc(decoded, func(b byte) bool {
+		return !isPrintableASCII(b)
+	}) {
+		return false
+	}
+	return true
+}
+
+func isPrintableASCII(b byte) bool {
+	return b >= 32 && b <= 127
 }
