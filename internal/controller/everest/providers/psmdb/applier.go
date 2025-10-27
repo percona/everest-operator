@@ -138,6 +138,8 @@ func (p *applier) Engine() error {
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,
 		EncryptionKey: database.Name + encryptionKeySuffix,
+		SSLInternal:   fmt.Sprintf("%s-ssl-internal", psmdb.GetName()),
+		// SSL:           fmt.Sprintf("%s-ssl", psmdb.GetName()),
 	}
 
 	psmdb.Spec.VolumeExpansionEnabled = true

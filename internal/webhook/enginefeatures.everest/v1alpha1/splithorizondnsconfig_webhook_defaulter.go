@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -125,11 +126,16 @@ func (d *SplitHorizonDNSConfigDefaulter) Default(ctx context.Context, obj runtim
 
 	var op controllerutil.OperationResult
 	var err error
+	// errors are checked during validateCertificate func call
+	tlsCertDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.TLSCert)
+	tlsKeyDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.TLSKey)
+	caCertDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.CACert)
+
 	if op, err = controllerutil.CreateOrUpdate(ctx, d.Client, secret, func() error {
 		secret.StringData = map[string]string{
-			"tls.crt": shdc.Spec.TLS.Certificate.TLSCert,
-			"tls.key": shdc.Spec.TLS.Certificate.TLSKey,
-			"ca.crt":  shdc.Spec.TLS.Certificate.CACert,
+			"tls.crt": string(tlsCertDec),
+			"tls.key": string(tlsKeyDec),
+			"ca.crt":  string(caCertDec),
 		}
 		secret.Type = corev1.SecretTypeTLS
 		return nil

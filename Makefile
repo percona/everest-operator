@@ -168,7 +168,7 @@ test-integration-features: docker-build k3d-upload-image ## Run feature tests ag
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-features.yaml
 
 .PHONY: test-integration-engine-features
-test-integration-engine-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
+test-integration-engine-features: docker-build k3d-upload-image ## Run engine-features tests against K8S cluster
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-engine-features.yaml
 
 .PHONY: test-integration-operator-upgrade
@@ -202,6 +202,10 @@ test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-impo
 .PHONY: test-e2e-data-importer-pxc
 test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
 	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml --test pxc
+
+.PHONY: test-e2e-engine-features
+test-e2e-engine-features: docker-build k3d-upload-image ## Run e2e/engine-features tests
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-engine-features.yaml
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing.
