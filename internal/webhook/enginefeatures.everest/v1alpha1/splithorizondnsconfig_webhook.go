@@ -62,6 +62,10 @@ var (
 	errImmutableField = func(fieldPath *field.Path) *field.Error {
 		return field.Forbidden(fieldPath, "is immutable and cannot be changed")
 	}
+	// Required field error generator.
+	errRequiredField = func(fieldPath *field.Path) *field.Error {
+		return field.Required(fieldPath, "can not be empty")
+	}
 
 	// Deletion errors.
 	errDeleteInUse = errors.New("is used by some DB cluster and cannot be deleted")

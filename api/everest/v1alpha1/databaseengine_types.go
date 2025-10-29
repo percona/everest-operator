@@ -196,6 +196,22 @@ type DatabaseEngineList struct {
 	Items           []DatabaseEngine `json:"items"`
 }
 
+// Has checks if the list contains the specified db engine.
+func (del *DatabaseEngineList) Has(dbEngineName EngineType) bool {
+	return slices.ContainsFunc(del.Items, func(e DatabaseEngine) bool {
+		return e.Spec.Type == dbEngineName
+	})
+}
+
+// EngineTypes returns the names of all database engines in the list.
+func (del *DatabaseEngineList) EngineTypes() []EngineType {
+	names := make([]EngineType, 0, len(del.Items))
+	for _, e := range del.Items {
+		names = append(names, e.Spec.Type)
+	}
+	return names
+}
+
 // Versions struct represents available versions of database engine components.
 type Versions struct {
 	Engine ComponentsMap               `json:"engine,omitempty"`

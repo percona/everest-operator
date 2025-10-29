@@ -41,10 +41,6 @@ import (
 var (
 	// .spec.tls.secretName errors.
 	secretNamePath = field.NewPath("spec", "tls", "secretName")
-	// Required field error generator.
-	errRequiredField = func(fieldPath *field.Path) *field.Error {
-		return field.Required(fieldPath, "can not be empty")
-	}
 )
 
 var (

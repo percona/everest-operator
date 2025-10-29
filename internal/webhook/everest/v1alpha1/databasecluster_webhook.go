@@ -25,18 +25,64 @@ import (
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 )
+
+var (
+	// .spec.
+	specPath = field.NewPath("spec")
+
+	// .spec.engine.
+	enginePath          = specPath.Child("engine")
+	engineTypePath      = enginePath.Child("type")
+	engineVersionPath   = enginePath.Child("version")
+	userSecretsNamePath = enginePath.Child("userSecretsName")
+
+	// .spec.engine.DataSource.
+	dataSourcePath = specPath.Child("dataSource")
+	dataImportPath = dataSourcePath.Child("dataImport")
+
+	// .spec.proxy.
+	proxyPath          = specPath.Child("proxy")
+	proxyExposePath    = proxyPath.Child("expose")
+	proxyExposeLbcPath = proxyExposePath.Child("loadBalancerConfigName")
+
+	// .spec.engineFeatures.
+	engineFeaturesPath = specPath.Child("engineFeatures")
+
+	// .spec.engineFeatures.psmdb.
+	psmdbEngineFeaturesPath    = engineFeaturesPath.Child("psmdb")
+	psmdbShdcEngineFeaturePath = psmdbEngineFeaturesPath.Child("splitHorizonDnsConfigName")
+
+	// Immutable field error generator.
+	errImmutableField = func(fieldPath *field.Path) *field.Error {
+		return field.Forbidden(fieldPath, "is immutable and cannot be changed")
+	}
+	// Required field error generator.
+	errRequiredField = func(fieldPath *field.Path) *field.Error {
+		return field.Required(fieldPath, "can not be empty")
+	}
+
+	// Invalid field value error generator.
+	errInvalidField = func(fieldPath *field.Path, fieldValue, errMsg string) *field.Error {
+		return field.Invalid(fieldPath, fieldValue, errMsg)
+	}
+)
+
+var dbClusterGroupKind = everestv1alpha1.GroupVersion.WithKind(consts.DatabaseClusterKind).GroupKind()
 
 // SetupDatabaseClusterWebhookWithManager sets up the webhook with the manager.
 func SetupDatabaseClusterWebhookWithManager(mgr manager.Manager) error {
@@ -60,6 +106,8 @@ type DatabaseClusterValidator struct {
 
 // ValidateCreate validates the creation of a DatabaseCluster.
 func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	var allErrs field.ErrorList
+
 	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
 		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
@@ -70,10 +118,11 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 		"namespace", db.GetNamespace(),
 	)
 
+	logger.Info("Validation for DatabaseCluster upon creation")
+
 	// Validate the engine version
-	if err := v.validateEngineVersion(ctx, db); err != nil {
-		logger.Error(err, "validateEngineVersion failed")
-		return nil, fmt.Errorf("engine version validation failed: %w", err)
+	if errs := v.validateEngineVersion(ctx, db); errs != nil {
+		allErrs = append(allErrs, errs...)
 	}
 
 	// If a user secret is specified by the user, ensure that it exists.
@@ -84,37 +133,62 @@ func (v *DatabaseClusterValidator) ValidateCreate(ctx context.Context, obj runti
 			Name:      userSecretsName,
 			Namespace: db.GetNamespace(),
 		}, &secret); err != nil {
-			return nil, fmt.Errorf("failed to get user secrets %s: %w", userSecretsName, err)
+			allErrs = append(allErrs, errInvalidField(userSecretsNamePath, userSecretsName, err.Error()))
 		}
 	}
 
 	// If a data import source is specified, validate it.
 	if di := pointer.Get(db.Spec.DataSource).DataImport; di != nil {
-		if err := v.validateDataImport(ctx, db); err != nil {
-			logger.Error(err, "validateDataImport failed (ValidateCreate)")
-			return nil, fmt.Errorf("data import validation failed: %w", err)
+		if errs := v.validateDataImport(ctx, db); errs != nil {
+			allErrs = append(allErrs, errs...)
 		}
 	}
 
-	return nil, v.ValidateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName)
+	if errs := v.validateLoadBalancerConfig(ctx, db.Spec.Proxy.Expose.LoadBalancerConfigName); errs != nil {
+		allErrs = append(allErrs, errs...)
+	}
+
+	if errs := v.validateEngineFeaturesOnCreate(ctx, db); errs != nil {
+		allErrs = append(allErrs, errs...)
+	}
+
+	if len(allErrs) == 0 {
+		return nil, nil
+	}
+
+	return nil, apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), allErrs)
 }
 
 // ValidateUpdate validates the update of a DatabaseCluster.
-func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj runtime.Object) (admission.Warnings, error) {
-	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
+func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	var allErrs field.ErrorList
+	oldDb, ok := oldObj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected a DatabaseCluster, got %T", obj)
+		return nil, fmt.Errorf("expected a DatabaseCluster for oldDb, got %T", oldObj)
+	}
+
+	newDb, ok := newObj.(*everestv1alpha1.DatabaseCluster)
+	if !ok {
+		return nil, fmt.Errorf("expected a DatabaseCluster for newDb, got %T", newObj)
 	}
 
 	logger := log.FromContext(ctx).WithName("DatabaseClusterValidator").WithValues(
-		"name", db.GetName(),
-		"namespace", db.GetNamespace(),
+		"name", newDb.GetName(),
+		"namespace", newDb.GetNamespace(),
 	)
 
+	logger.Info("Validation for DatabaseCluster upon update")
+
+	// Validate the engine type immutability
+	if oldDb.Spec.Engine.Type != newDb.Spec.Engine.Type {
+		return nil, apierrors.NewInvalid(dbClusterGroupKind, oldDb.GetName(), field.ErrorList{
+			errImmutableField(engineTypePath),
+		})
+	}
+
 	// Validate the engine version
-	if err := v.validateEngineVersion(ctx, db); err != nil {
-		logger.Error(err, "validateEngineVersion failed (ValidateUpdate)")
-		return nil, fmt.Errorf("engine version validation failed: %w", err)
+	if errs := v.validateEngineVersion(ctx, newDb); errs != nil {
+		allErrs = append(allErrs, errs...)
 	}
 
 	// TODO: move remaining validations from Everest API
@@ -123,7 +197,15 @@ func (v *DatabaseClusterValidator) ValidateUpdate(ctx context.Context, _, obj ru
 	// 3. Validate storage size change
 	// 3. Validate sharding constraints
 
-	return nil, nil
+	if errs := v.validateEngineFeaturesOnUpdate(ctx, oldDb, newDb); errs != nil {
+		allErrs = append(allErrs, errs...)
+	}
+
+	if len(allErrs) == 0 {
+		return nil, nil
+	}
+
+	return nil, apierrors.NewInvalid(dbClusterGroupKind, oldDb.GetName(), allErrs)
 }
 
 // ValidateDelete validates the deletion of a DatabaseCluster.
@@ -134,7 +216,9 @@ func (v *DatabaseClusterValidator) ValidateDelete(_ context.Context, _ runtime.O
 func (v *DatabaseClusterValidator) validateDataImport(
 	ctx context.Context,
 	db *everestv1alpha1.DatabaseCluster,
-) error {
+) field.ErrorList {
+	var allErrs field.ErrorList
+
 	dataImport := pointer.Get(db.Spec.DataSource).DataImport
 	if dataImport == nil {
 		return nil
@@ -144,36 +228,48 @@ func (v *DatabaseClusterValidator) validateDataImport(
 	if err := v.Client.Get(ctx, types.NamespacedName{
 		Name: dataImport.DataImporterName,
 	}, dataimporter); err != nil {
-		return fmt.Errorf("failed to get DataImporter: %w", err)
+		return append(allErrs, errInvalidField(dataImportPath, dataImport.DataImporterName, err.Error()))
 	}
 
 	// Validate that the DataImporter supports the specified engine.
 	engineType := db.Spec.Engine.Type
 	if !dataimporter.Spec.SupportedEngines.Has(engineType) {
-		return fmt.Errorf("data importer %s does not support engine %s", dataImport.DataImporterName, engineType)
+		return append(allErrs, errInvalidField(dataImportPath, dataImport.DataImporterName,
+			fmt.Sprintf("data importer %s does not support engine type %s", dataImport.DataImporterName, engineType)))
 	}
 
 	if requiredFields := dataimporter.Spec.DatabaseClusterConstraints.RequiredFields; len(requiredFields) > 0 {
-		if err := validateDataImportRequiredFields(requiredFields, db); err != nil {
-			return fmt.Errorf("data import validation failed: %w", err)
+		if errs := validateDataImportRequiredFields(requiredFields, db); errs != nil {
+			return append(allErrs, errs...)
 		}
 	}
 
 	// Validate the params against the schema of the DataImporter
-	return dataimporter.Spec.Config.Validate(dataImport.Config)
+	if err := dataimporter.Spec.Config.Validate(dataImport.Config); err != nil {
+		return append(allErrs, errInvalidField(dataImportPath, dataImport.DataImporterName, err.Error()))
+	}
+
+	return nil
 }
 
-func validateDataImportRequiredFields(requiredFields []string, db *everestv1alpha1.DatabaseCluster) error {
-	for _, field := range requiredFields {
-		exists, err := checkJSONKeyExists(field, db)
+func validateDataImportRequiredFields(requiredFields []string, db *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	for _, rField := range requiredFields {
+		exists, err := checkJSONKeyExists(rField, db)
 		if err != nil {
-			return fmt.Errorf("error checking key %s: %w", field, err)
+			allErrs = append(allErrs, errRequiredField(field.NewPath(rField)))
 		}
 		if !exists {
-			return fmt.Errorf("required field %s is missing in databasecluster", field)
+			allErrs = append(allErrs, errRequiredField(field.NewPath(rField)))
 		}
 	}
-	return nil
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return allErrs
 }
 
 // checkJSONKeyExists returns true if the specified key exists in the JSON object.
@@ -210,38 +306,200 @@ func checkJSONKeyExists(keyExpr string, obj any) (bool, error) {
 	return true, nil
 }
 
-func (v *DatabaseClusterValidator) validateEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
+func (v *DatabaseClusterValidator) validateEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
 	// Get the DatabaseEngine
-	engine, err := common.GetDatabaseEngineForType(ctx, v.Client, db.Spec.Engine.Type, db.GetNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to get engine: %w", err)
+	if engine, err := common.GetDatabaseEngineForType(ctx, v.Client, db.Spec.Engine.Type, db.GetNamespace()); err != nil {
+		allErrs = append(allErrs, errInvalidField(engineTypePath, string(db.Spec.Engine.Type), err.Error()))
+	} else {
+		// Check if the engine version is available
+		if _, ok := engine.Status.AvailableVersions.Engine[db.Spec.Engine.Version]; !ok {
+			allErrs = append(allErrs,
+				field.NotSupported(engineVersionPath, db.Spec.Engine.Version, engine.Status.AvailableVersions.Engine.GetAllowedVersionsSorted()))
+		}
 	}
-	// Check if the engine version is available
-	_, ok := engine.Status.AvailableVersions.Engine[db.Spec.Engine.Version]
-	if !ok {
-		return fmt.Errorf("engine version %s not available", db.Spec.Engine.Version)
+
+	if len(allErrs) == 0 {
+		return nil
 	}
-	return nil
+
+	return allErrs
 }
 
-// ValidateLoadBalancerConfig validates if the LoadBalancerConfig with the given name exists.
-func (v *DatabaseClusterValidator) ValidateLoadBalancerConfig(ctx context.Context, lbcName string) error {
+func (v *DatabaseClusterValidator) validateLoadBalancerConfig(ctx context.Context, lbcName string) field.ErrorList {
+	var allErrs field.ErrorList
+
 	if lbcName == "" {
 		return nil
 	}
 
 	lbc := everestv1alpha1.LoadBalancerConfig{}
-
 	err := v.Client.Get(ctx, client.ObjectKey{
 		Name: lbcName,
 	}, &lbc)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("load balancer config %s not found: %w", lbcName, err)
-		}
-
-		return fmt.Errorf("failed to get load balancer config %s: %w", lbcName, err)
+		return append(allErrs, errInvalidField(proxyExposeLbcPath, lbcName, err.Error()))
 	}
 
 	return nil
+}
+
+func (v *DatabaseClusterValidator) validateEngineFeaturesOnCreate(ctx context.Context, dbObj *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	switch dbObj.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
+		// validate PXC engine features
+		if errs := v.validatePxcEngineFeaturesOnCreate(ctx, dbObj); errs != nil {
+			return append(allErrs, errs...)
+		}
+	case everestv1alpha1.DatabaseEnginePostgresql:
+		// validate Postgresql engine features
+		if errs := v.validatePostgresqlEngineFeaturesOnCreate(ctx, dbObj); errs != nil {
+			return append(allErrs, errs...)
+		}
+	case everestv1alpha1.DatabaseEnginePSMDB:
+		// validate PSMDB engine features
+		if errs := v.validatePsmdbEngineFeaturesOnCreate(ctx, dbObj); errs != nil {
+			return append(allErrs, errs...)
+		}
+	default:
+		// TODO: add validator calls for the rest of DB Engines.
+		return nil
+	}
+
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validatePxcEngineFeaturesOnCreate(_ context.Context, dbObj *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// We do not support engine features for PXC yet.
+	// Check that DB spec doesn't contain engine features related to the other db engines.
+	if pointer.Get(dbObj.Spec.EngineFeatures).PSMDB != nil {
+		return append(allErrs, errInvalidField(psmdbShdcEngineFeaturePath, "",
+			fmt.Sprintf("PSMDB engine features are not applicable to engine type=%s", everestv1alpha1.DatabaseEnginePXC)))
+	}
+
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validatePostgresqlEngineFeaturesOnCreate(_ context.Context, dbObj *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// We do not support engine features for PXC yet.
+	// Check that DB spec doesn't contain engine features related to the other db engines.
+	if pointer.Get(dbObj.Spec.EngineFeatures).PSMDB != nil {
+		return append(allErrs, errInvalidField(psmdbShdcEngineFeaturePath, "",
+			fmt.Sprintf("PSMDB engine features are not applicable to engine type=%s", everestv1alpha1.DatabaseEnginePostgresql)))
+	}
+
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validatePsmdbEngineFeaturesOnCreate(ctx context.Context, dbObj *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	psmdbEF := pointer.Get(pointer.Get(dbObj.Spec.EngineFeatures).PSMDB)
+
+	// SplitHorizonDNSConfig
+	if psmdbEF.SplitHorizonDNSConfigName != "" {
+		shdc := enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{}
+		err := v.Client.Get(ctx, client.ObjectKey{
+			Name:      psmdbEF.SplitHorizonDNSConfigName,
+			Namespace: dbObj.GetNamespace(),
+		}, &shdc)
+		if err != nil {
+			return append(allErrs, errInvalidField(psmdbShdcEngineFeaturePath, psmdbEF.SplitHorizonDNSConfigName, err.Error()))
+		}
+	}
+
+	// TODO: validate the rest of PSMDB engine features.
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validateEngineFeaturesOnUpdate(ctx context.Context, oldDb, newDb *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if oldDb.Spec.EngineFeatures == nil && newDb.Spec.EngineFeatures == nil {
+		// Engine features haven't been used before and are not requested in update request.
+		// Nothing to do.
+		return nil
+	}
+
+	switch oldDb.Spec.Engine.Type {
+	case everestv1alpha1.DatabaseEnginePXC:
+		// validate PXC engine features
+		if errs := v.validatePxcEngineFeaturesOnUpdate(ctx, oldDb, newDb); errs != nil {
+			return append(allErrs, errs...)
+		}
+	case everestv1alpha1.DatabaseEnginePostgresql:
+		// validate Postgresql engine features
+		if errs := v.validatePostgresqlEngineFeaturesOnUpdate(ctx, oldDb, newDb); errs != nil {
+			return append(allErrs, errs...)
+		}
+	case everestv1alpha1.DatabaseEnginePSMDB:
+		// validate PSMDB engine features
+		if errs := v.validatePsmdbEngineFeaturesOnUpdate(ctx, oldDb, newDb); errs != nil {
+			allErrs = append(allErrs, errs...)
+		}
+	default:
+		// TODO: add validators for the rest of DB Engines later.
+		return nil
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return allErrs
+}
+
+func (v *DatabaseClusterValidator) validatePxcEngineFeaturesOnUpdate(_ context.Context, _, newDb *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// We do not support engine features for PXC yet.
+	// Check that DB spec doesn't contain engine features related to the other db engines.
+	if pointer.Get(newDb.Spec.EngineFeatures).PSMDB != nil {
+		return append(allErrs, errInvalidField(psmdbShdcEngineFeaturePath, "",
+			fmt.Sprintf("PSMDB engine features are not applicable to engine type=%s", everestv1alpha1.DatabaseEnginePXC)))
+	}
+
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validatePostgresqlEngineFeaturesOnUpdate(_ context.Context, _, newDb *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// We do not support engine features for PXC yet.
+	// Check that DB spec doesn't contain engine features related to the other db engines.
+	if pointer.Get(newDb.Spec.EngineFeatures).PSMDB != nil {
+		return append(allErrs, errInvalidField(psmdbShdcEngineFeaturePath, "",
+			fmt.Sprintf("PSMDB engine features are not applicable to engine type=%s", everestv1alpha1.DatabaseEnginePostgresql)))
+	}
+
+	return nil
+}
+
+func (v *DatabaseClusterValidator) validatePsmdbEngineFeaturesOnUpdate(_ context.Context, oldDb, newDb *everestv1alpha1.DatabaseCluster) field.ErrorList {
+	var allErrs field.ErrorList
+
+	oldPsmdbEF := pointer.Get(pointer.Get(oldDb.Spec.EngineFeatures).PSMDB)
+	newPsmdbEF := pointer.Get(pointer.Get(newDb.Spec.EngineFeatures).PSMDB)
+
+	// SplitHorizonDNSConfig feature
+	if oldPsmdbEF.SplitHorizonDNSConfigName != newPsmdbEF.SplitHorizonDNSConfigName {
+		// NOTE: for the time being we do not allow to disable/enable/change SplitHorizonDNSConfig for already existing clusters.
+		// This feature can be enabled during cluster creation only.
+		allErrs = append(allErrs, errImmutableField(psmdbShdcEngineFeaturePath))
+	}
+
+	// TODO: validate the rest of PSMDB engine features later.
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return allErrs
 }

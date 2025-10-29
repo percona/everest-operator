@@ -21,7 +21,9 @@ import (
 	"fmt"
 
 	"github.com/AlekSi/pointer"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -41,6 +43,8 @@ type DatabaseClusterDefaulter struct {
 
 // Default implements a mutating webhook for DatabaseCluster resources.
 func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	var allErrs field.ErrorList
+
 	db, ok := obj.(*everestv1alpha1.DatabaseCluster)
 	if !ok {
 		return fmt.Errorf("expected a DatabaseCluster object but got %T", obj)
@@ -50,11 +54,20 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 		"name", db.GetName(),
 		"namespace", db.GetNamespace(),
 	)
-	importTpl := pointer.Get(db.Spec.DataSource).DataImport
-	err := handleS3CredentialsSecret(ctx, d.Client, db.GetNamespace(), importTpl)
-	if err != nil {
-		logger.Error(err, "handleS3CredentialsSecret failed")
+
+	logger.Info("Mutating DatabaseCluster")
+
+	// validate some fields
+	// validate .spec.engine.type is supported
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := d.Client.List(ctx, dbEngines); err != nil {
 		return err
+	}
+
+	if !dbEngines.Has(db.Spec.Engine.Type) {
+		return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), field.ErrorList{
+			field.NotSupported(engineTypePath, db.Spec.Engine.Type, dbEngines.EngineTypes()),
+		})
 	}
 
 	// Set the default engine version if not specified
@@ -64,7 +77,19 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 			return err
 		}
 	}
-	return nil
+
+	importTpl := pointer.Get(db.Spec.DataSource).DataImport
+	err := handleS3CredentialsSecret(ctx, d.Client, db.GetNamespace(), importTpl)
+	if err != nil {
+		logger.Error(err, "handleS3CredentialsSecret failed")
+		return err
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), allErrs)
 }
 
 func (d *DatabaseClusterDefaulter) setDefaultEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
