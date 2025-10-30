@@ -405,6 +405,11 @@ func (v *DatabaseClusterValidator) validatePsmdbEngineFeaturesOnCreate(ctx conte
 
 	// SplitHorizonDNSConfig
 	if psmdbEF.SplitHorizonDNSConfigName != "" {
+		// For the time being SplitHorizonDNSConfig is not supported in sharded clusters.
+		if pointer.Get(dbObj.Spec.Sharding).Enabled {
+			return append(allErrs, field.Forbidden(psmdbShdcEngineFeaturePath, "SplitHorizonDNSConfig and Sharding configuration is not supported"))
+		}
+
 		shdc := enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{}
 		err := v.Client.Get(ctx, client.ObjectKey{
 			Name:      psmdbEF.SplitHorizonDNSConfigName,

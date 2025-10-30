@@ -540,7 +540,6 @@ func TestDatabaseClusterValidator_ValidateCreate(t *testing.T) { //nolint:mainti
 				}
 				db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePSMDB
 			},
-			// wantError: "required field .spec.engine.userSecretsName is missing",
 			wantError: apierrors.NewInvalid(dbClusterGroupKind, dbName, field.ErrorList{
 				errInvalidField(psmdbShdcEngineFeaturePath, "shdc-test", apierrors.NewNotFound(apiSchema.GroupResource{
 					Group:    enginefeatureseverestv1alpha1.GroupVersion.Group,
@@ -548,6 +547,24 @@ func TestDatabaseClusterValidator_ValidateCreate(t *testing.T) { //nolint:mainti
 				},
 					"shdc-test",
 				).Error()),
+			}),
+		},
+		{
+			name:    "SplitHorizonDNSConfig is not supported in Sharded cluster",
+			objects: nil,
+			modify: func(db *everestv1alpha1.DatabaseCluster) {
+				db.Spec.EngineFeatures = &everestv1alpha1.EngineFeatures{
+					PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
+						SplitHorizonDNSConfigName: "shdc-test",
+					},
+				}
+				db.Spec.Engine.Type = everestv1alpha1.DatabaseEnginePSMDB
+				db.Spec.Sharding = &everestv1alpha1.Sharding{
+					Enabled: true,
+				}
+			},
+			wantError: apierrors.NewInvalid(dbClusterGroupKind, dbName, field.ErrorList{
+				field.Forbidden(psmdbShdcEngineFeaturePath, "SplitHorizonDNSConfig and Sharding configuration is not supported"),
 			}),
 		},
 		{
