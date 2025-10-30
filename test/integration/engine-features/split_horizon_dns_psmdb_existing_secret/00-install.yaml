@@ -12,7 +12,7 @@ kind: Secret
 metadata:
   name: shdc-secret-exists
 type: kubernetes.io/tls
-stringData:
+data:
   tls.crt: dGxzQ2VydAo=
   tls.key: dGxzS2V5Cg==
   ca.crt: dGxzQ0FDZXJ0Cg==

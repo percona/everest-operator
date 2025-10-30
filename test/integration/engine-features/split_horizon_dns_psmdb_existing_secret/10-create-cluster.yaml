@@ -15,6 +15,9 @@ spec:
       class: local-path
       size: 1Gi
     type: psmdb
+  engineFeatures:
+    psmdb:
+      splitHorizonDnsConfigName: shdc-psmdb
   proxy:
     expose:
       type: internal

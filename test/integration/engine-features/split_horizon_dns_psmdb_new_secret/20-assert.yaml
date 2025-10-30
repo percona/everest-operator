@@ -10,6 +10,8 @@ collectors:
     namespace: everest-system
     selector: control-plane=controller-manager
     tail: 100
+commands:
+  - command: kubectl wait --for=delete db/psmdb-shdc -n ${NAMESPACE}
 resourceRefs:
   - apiVersion: enginefeatures.everest.percona.com/v1alpha1
     kind: SplitHorizonDNSConfig
@@ -19,14 +21,6 @@ resourceRefs:
     kind: Secret
     name: shdc-secret-1
     ref: sec
-  - apiVersion: everest.percona.com/v1alpha1
-    kind: DatabaseCluster
-    name: psmdb-shdc
-    ref: db
-  - apiVersion: psmdb.percona.com/v1
-    kind: PerconaServerMongoDB
-    name: psmdb-shdc
-    ref: psmdb
 assertAll:
   - celExpr: "has(shdc.metadata.finalizers)"
     message: "shdc doesn't have finalizers"
@@ -34,22 +28,11 @@ assertAll:
   - celExpr: "'everest.percona.com/cleanup-secrets' in shdc.metadata.finalizers"
     message: "'everest.percona.com/cleanup-secrets' is absent in shdc.metadata.finalizers"
 
-  - celExpr: "'everest.percona.com/in-use-protection' in shdc.metadata.finalizers"
-    message: "'everest.percona.com/in-use-protection' is absent in shdc.metadata.finalizers"
+  - celExpr: "!shdc.metadata.finalizers.exists(k, k == 'everest.percona.com/in-use-protection')"
+    message: "'everest.percona.com/in-use-protection' presents in shdc.metadata.finalizers"
 
   - celExpr: "!has(shdc.spec.tls.certificate)"
     message: "shdc has unexpected .spec.tls.certificate"
-
-  - celExpr: "has(psmdb.spec.replsets[0].splitHorizons)"
-    message: "psmdb.spec.replsets[0].splitHorizons is empty"
-
-  - celExpr: "psmdb.spec.replsets[0].splitHorizons.exists(k, k == 'psmdb-shdc-rs0-0')"
-    message: "psmdb.spec.replsets[0].splitHorizons.psmdb-shdc-rs0-0 is empty"
-
-  - celExpr: "psmdb.spec.replsets[0].splitHorizons['psmdb-shdc-rs0-0'].exists(k, k == 'external')"
-    message: "psmdb.spec.replsets[0].splitHorizons.psmdb-shdc-rs0-0.external is empty"
-commands:
-  - command: kubectl wait --for=jsonpath='{.spec.replsets[0].splitHorizons.psmdb-shdc-rs0-0.external}'=rs0-0-psmdb-shdc-${NAMESPACE}.mycompany.com psmdb/psmdb-shdc -n ${NAMESPACE}
 ---
 apiVersion: enginefeatures.everest.percona.com/v1alpha1
 kind: SplitHorizonDNSConfig
@@ -60,7 +43,7 @@ spec:
   tls:
     secretName: shdc-secret-1
 status:
-  inUse: true
+  inUse: false
 ---
 apiVersion: v1
 kind: Secret
@@ -68,23 +51,6 @@ metadata:
   name: shdc-secret-1
 type: kubernetes.io/tls
 data:
-  tls.crt: ZEd4elEyVnlkQW89
-  tls.key: ZEd4elMyVjVDZz09
-  ca.crt: ZEd4elEwRkRaWEowQ2c9PQ==
----
-apiVersion: everest.percona.com/v1alpha1
-kind: DatabaseCluster
-metadata:
-  name: psmdb-shdc
-spec:
-  engineFeatures:
-    psmdb:
-      splitHorizonDnsConfigName: shdc-psmdb
----
-apiVersion: psmdb.percona.com/v1
-kind: PerconaServerMongoDB
-metadata:
-  name: psmdb-shdc
-spec:
-  secrets:
-    ssl: shdc-secret-1
+  tls.crt: dGxzQ2VydAo=
+  tls.key: dGxzS2V5Cg==
+  ca.crt: dGxzQ0FDZXJ0Cg==
