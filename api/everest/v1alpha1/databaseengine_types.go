@@ -196,11 +196,14 @@ type DatabaseEngineList struct {
 	Items           []DatabaseEngine `json:"items"`
 }
 
-// Has checks if the list contains the specified db engine.
-func (del *DatabaseEngineList) Has(dbEngineName EngineType) bool {
-	return slices.ContainsFunc(del.Items, func(e DatabaseEngine) bool {
-		return e.Spec.Type == dbEngineName
-	})
+// Get checks if the list contains the specified db engine and returns it.
+func (del *DatabaseEngineList) Get(dbEngineName EngineType) (DatabaseEngine, bool) {
+	for _, dbe := range del.Items {
+		if dbe.Spec.Type == dbEngineName {
+			return dbe, true
+		}
+	}
+	return DatabaseEngine{}, false
 }
 
 // EngineTypes returns the names of all database engines in the list.

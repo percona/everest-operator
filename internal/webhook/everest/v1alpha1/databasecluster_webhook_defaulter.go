@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	"github.com/percona/everest-operator/internal/controller/everest/common"
 )
 
 // +kubebuilder:webhook:path=/mutate-everest-percona-com-v1alpha1-databasecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusters,verbs=create;update,versions=v1alpha1,name=mdatabasecluster-v1alpha1.everest.percona.com,admissionReviewVersions=v1
@@ -64,7 +63,9 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 		return err
 	}
 
-	if !dbEngines.Has(db.Spec.Engine.Type) {
+	var dbEngine everestv1alpha1.DatabaseEngine
+	var found bool
+	if dbEngine, found = dbEngines.Get(db.Spec.Engine.Type); !found {
 		return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), field.ErrorList{
 			field.NotSupported(engineTypePath, db.Spec.Engine.Type, dbEngines.EngineTypes()),
 		})
@@ -72,10 +73,7 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 
 	// Set the default engine version if not specified
 	if db.Spec.Engine.Version == "" {
-		if err := d.setDefaultEngineVersion(ctx, db); err != nil {
-			logger.Error(err, "setDefaultEngineVersion failed")
-			return err
-		}
+		db.Spec.Engine.Version = dbEngine.Status.AvailableVersions.Engine.BestVersion()
 	}
 
 	importTpl := pointer.Get(db.Spec.DataSource).DataImport
@@ -92,11 +90,3 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 	return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), allErrs)
 }
 
-func (d *DatabaseClusterDefaulter) setDefaultEngineVersion(ctx context.Context, db *everestv1alpha1.DatabaseCluster) error {
-	engine, err := common.GetDatabaseEngineForType(ctx, d.Client, db.Spec.Engine.Type, db.GetNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to get engine: %w", err)
-	}
-	db.Spec.Engine.Version = engine.Status.AvailableVersions.Engine.BestVersion()
-	return nil
-}
