@@ -17,7 +17,7 @@ require (
 	github.com/operator-framework/api v0.33.0
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20250925114718-2f499a6a31c8
 	github.com/percona/percona-postgresql-operator v0.0.0-20250717192602-2b721be58505
-	github.com/percona/percona-server-mongodb-operator v1.21.0
+	github.com/percona/percona-server-mongodb-operator v1.21.1
 	github.com/percona/percona-xtradb-cluster-operator v1.17.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.1
