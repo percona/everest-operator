@@ -177,13 +177,13 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 						{
 							Horizons: psmdbv1.HorizonsSpec{
 								"test-db-rs0-0": {
-									"external": "test-db-rs0-0.test-db-rs0.default.mycompany.com",
+									"external": "test-db-rs0-0-default.mycompany.com",
 								},
 								"test-db-rs0-1": {
-									"external": "test-db-rs0-1.test-db-rs0.default.mycompany.com",
+									"external": "test-db-rs0-1-default.mycompany.com",
 								},
 								"test-db-rs0-2": {
-									"external": "test-db-rs0-2.test-db-rs0.default.mycompany.com",
+									"external": "test-db-rs0-2-default.mycompany.com",
 								},
 							},
 						},
@@ -241,7 +241,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 						{
 							Horizons: psmdbv1.HorizonsSpec{
 								"test-db-rs0-0": {
-									"external": "test-db-rs0-0.test-db-rs0.default.mycompany.com",
+									"external": "test-db-rs0-0-default.mycompany.com",
 								},
 							},
 						},

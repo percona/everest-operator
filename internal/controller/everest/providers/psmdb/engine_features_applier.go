@@ -79,10 +79,9 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	horSpec := psmdbv1.HorizonsSpec{}
 	for i := range int(database.Spec.Engine.Replicas) {
 		horSpec[fmt.Sprintf("%s-rs0-%d", database.GetName(), i)] = map[string]string{
-			"external": fmt.Sprintf("%s-rs0-%d.%s-rs0.%s.%s",
+			"external": fmt.Sprintf("%s-rs0-%d-%s.%s",
 				database.GetName(),
 				i,
-				database.GetName(),
 				database.GetNamespace(),
 				shdc.Spec.BaseDomainNameSuffix),
 		}
