@@ -64,3 +64,81 @@ func TestGetNextUpgradeVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestBestBackupVersion_PXC(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		availableBackupVersions ComponentsMap
+		engineVersion           string
+		want                    string
+	}{
+		{
+			availableBackupVersions: ComponentsMap{
+				"8.0.5": {
+					Status: DBEngineComponentRecommended,
+				},
+				"2.4.29": {
+					Status: DBEngineComponentRecommended,
+				},
+			},
+			engineVersion: "8.0.31-23.2",
+			want:          "8.0.5",
+		},
+		{
+			availableBackupVersions: ComponentsMap{
+				"8.0.5": {
+					Status: DBEngineComponentRecommended,
+				},
+				"2.4.29": {
+					Status: DBEngineComponentRecommended,
+				},
+			},
+			engineVersion: "8.0.35-27.1",
+			want:          "8.0.5",
+		},
+		{
+			availableBackupVersions: ComponentsMap{
+				"8.0.5": {
+					Status: DBEngineComponentRecommended,
+				},
+				"2.4.29": {
+					Status: DBEngineComponentRecommended,
+				},
+			},
+			engineVersion: "8.0.41-32.1",
+			want:          "8.0.5",
+		},
+		{
+			availableBackupVersions: ComponentsMap{
+				"8.0.5": {
+					Status: DBEngineComponentRecommended,
+				},
+				"2.4.29": {
+					Status: DBEngineComponentRecommended,
+				},
+				"8.4.0": {
+					Status: DBEngineComponentAvailable,
+				},
+			},
+			engineVersion: "8.4.5-5.1",
+			want:          "8.4.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		dbEngine := &DatabaseEngine{
+			Spec: DatabaseEngineSpec{
+				Type: DatabaseEnginePXC,
+			},
+			Status: DatabaseEngineStatus{
+				AvailableVersions: Versions{
+					Backup: tc.availableBackupVersions,
+				},
+			},
+		}
+		got := dbEngine.BestBackupVersion(tc.engineVersion)
+		if got != tc.want {
+			t.Errorf("got %s, want %s", got, tc.want)
+		}
+	}
+}

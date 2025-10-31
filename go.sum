@@ -376,8 +376,8 @@ github.com/go-openapi/validate v0.25.0 h1:JD9eGX81hDTjoY3WOzh6WqxVBVl7xjsLnvDo1G
 github.com/go-openapi/validate v0.25.0/go.mod h1:SUY7vKrN5FiwK6LyvSwKjDfLNirSfWwHNgxd2l29Mmw=
 github.com/go-quicktest/qt v1.101.0 h1:O1K29Txy5P2OK0dGo59b7b0LR6wKfIhttaAhHUyn7eI=
 github.com/go-quicktest/qt v1.101.0/go.mod h1:14Bz/f7NwaXPtdYEgzsx46kqSxVwTbzVZsDC26tQJow=
-github.com/go-sql-driver/mysql v1.9.1 h1:FrjNGn/BsJQjVRuSa8CBrM5BWA9BWoXXat3KrtSb/iI=
-github.com/go-sql-driver/mysql v1.9.1/go.mod h1:qn46aNg1333BRMNU69Lq93t8du/dwxI64Gl8i5p1WMU=
+github.com/go-sql-driver/mysql v1.9.3 h1:U/N249h2WzJ3Ukj8SowVFjdtZKfu9vlLZxjPXV1aweo=
+github.com/go-sql-driver/mysql v1.9.3/go.mod h1:qn46aNg1333BRMNU69Lq93t8du/dwxI64Gl8i5p1WMU=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig/v3 v3.0.0 h1:sUs3vkvUymDpBKi3qH1YSqBQk9+9D/8M2mN1vB6EwHI=
@@ -771,8 +771,8 @@ github.com/percona/percona-postgresql-operator v0.0.0-20250717192602-2b721be5850
 github.com/percona/percona-postgresql-operator v0.0.0-20250717192602-2b721be58505/go.mod h1:Y1xdnR0pzk06fnJbnsFC9QrkdCJULAzc9B+nOmdtPGk=
 github.com/percona/percona-server-mongodb-operator v1.21.1 h1:ven97PFWl28Ot0pgFQ82x0nyjuuueFrQRbGI+cFb7E4=
 github.com/percona/percona-server-mongodb-operator v1.21.1/go.mod h1:SOrR+TGJGSmF3lX/z4FwgUAzjTnqg22y5NoIKWXNXgw=
-github.com/percona/percona-xtradb-cluster-operator v1.17.0 h1:TJSWG/C78jthN48NMW5ys5LOPU59lhTzVxtozUNkgqY=
-github.com/percona/percona-xtradb-cluster-operator v1.17.0/go.mod h1:6uwWKdJiivkYaknuklbD8GVvJjZSTdpFtEUiVv+3TjM=
+github.com/percona/percona-xtradb-cluster-operator v1.18.0 h1:qUfxoYsegxIr3g8vrH8es2Leiqu8NnVMbBzxaAv1Q2o=
+github.com/percona/percona-xtradb-cluster-operator v1.18.0/go.mod h1:5+FzPqMdzJ7lU/DiD6E/ENmWrY4ENgV6EPVIabqBxzI=
 github.com/perimeterx/marshmallow v1.1.5 h1:a2LALqQ1BlHM8PZblsDdidgv1mWi1DgC2UmX50IvK2s=
 github.com/perimeterx/marshmallow v1.1.5/go.mod h1:dsXbUu8CRzfYP5a87xpp0xq9S3u0Vchtcl8we9tYaXw=
 github.com/pierrec/lz4 v2.6.1+incompatible h1:9UY3+iC23yxF0UfGaYrGplQ+79Rg+h/q9FV9ix19jjM=
