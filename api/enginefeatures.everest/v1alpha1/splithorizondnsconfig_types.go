@@ -27,7 +27,7 @@ type SplitHorizonDNSConfigTLSCertificateSpec struct {
 	// and empties this field.
 	// This field is not stored in the API.
 	// +kubebuilder:validation:Required
-	CAKey string `json:"tls.key"`
+	CAKey string `json:"ca.key"`
 	// CACert is based64 encoded ca.pem file content.
 	// It is provided as a write-only input field for convenience.
 	// When this field is set, a webhook writes this value in the Secret specified by `.spec.tls.secretName`

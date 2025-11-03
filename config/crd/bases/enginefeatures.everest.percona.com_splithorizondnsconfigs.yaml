@@ -76,7 +76,7 @@ spec:
                           and empties this field.
                           This field is not stored in the API.
                         type: string
-                      tls.key:
+                      ca.key:
                         description: |-
                           CA Private Key is based64 encoded ca-key.pem file content.
                           It is provided as a write-only input field for convenience.
@@ -86,7 +86,7 @@ spec:
                         type: string
                     required:
                     - ca.crt
-                    - tls.key
+                    - ca.key
                     type: object
                   secretName:
                     description: SecretName is the name of the secret containing the
