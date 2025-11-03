@@ -49,10 +49,8 @@ var (
 	certificatePath = field.NewPath("spec", "tls", "certificate")
 	// .spec.tls.certificate.ca.crt.
 	caCertFilePath = certificatePath.Child("ca.crt")
-	// .spec.tls.certificate.tls.crt.
-	certFilePath = certificatePath.Child("tls.crt")
-	// .spec.tls.certificate.tls.key.
-	keyFilePath = certificatePath.Child("tls.key")
+	// .spec.tls.certificate.ca.key.
+	caKeyFilePath = certificatePath.Child("ca.key")
 
 	// Base64 encoding error generator.
 	errCertWrongEncodingField = func(fieldPath *field.Path, fieldValue string) *field.Error {
@@ -225,16 +223,10 @@ func validateCertificate(cert *enginefeatureseverestv1alpha1.SplitHorizonDNSConf
 		allErrs = append(allErrs, errCertWrongEncodingField(caCertFilePath, cert.CACert))
 	}
 
-	if cert.TLSCert == "" {
-		allErrs = append(allErrs, errRequiredField(certFilePath))
-	} else if !utils.IsBase64Encoded(cert.TLSCert) {
-		allErrs = append(allErrs, errCertWrongEncodingField(certFilePath, cert.TLSCert))
-	}
-
-	if cert.TLSKey == "" {
-		allErrs = append(allErrs, errRequiredField(keyFilePath))
-	} else if !utils.IsBase64Encoded(cert.TLSKey) {
-		allErrs = append(allErrs, errCertWrongEncodingField(keyFilePath, cert.TLSKey))
+	if cert.CAKey == "" {
+		allErrs = append(allErrs, errRequiredField(caKeyFilePath))
+	} else if !utils.IsBase64Encoded(cert.CAKey) {
+		allErrs = append(allErrs, errCertWrongEncodingField(caKeyFilePath, cert.CAKey))
 	}
 
 	if len(allErrs) == 0 {
@@ -260,17 +252,14 @@ func validateSecret(ctx context.Context, c client.Client, namespace, name string
 		return allErrs
 	}
 	// Secret found. Check that it contains required fields.
-	if secret.Type != corev1.SecretTypeTLS {
-		allErrs = append(allErrs, field.Invalid(secretNamePath, name, fmt.Sprintf("the secret must be of type '%s'", corev1.SecretTypeTLS)))
+	if secret.Type != corev1.SecretTypeOpaque {
+		allErrs = append(allErrs, field.Invalid(secretNamePath, name, fmt.Sprintf("the secret must be of type '%s'", corev1.SecretTypeOpaque)))
 	}
 	if _, ok := secret.Data["ca.crt"]; !ok {
 		allErrs = append(allErrs, field.Required(secretNamePath, "ca.crt field is missed in the secret"))
 	}
-	if _, ok := secret.Data["tls.crt"]; !ok {
-		allErrs = append(allErrs, field.Required(secretNamePath, "tls.crt field is missed in the secret"))
-	}
-	if _, ok := secret.Data["tls.key"]; !ok {
-		allErrs = append(allErrs, field.Required(secretNamePath, "tls.key field is missed in the secret"))
+	if _, ok := secret.Data["ca.key"]; !ok {
+		allErrs = append(allErrs, field.Required(secretNamePath, "ca.key field is missed in the secret"))
 	}
 
 	if len(allErrs) == 0 {

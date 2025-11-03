@@ -89,4 +89,3 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 
 	return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), allErrs)
 }
-

@@ -123,17 +123,15 @@ func (d *SplitHorizonDNSConfigDefaulter) Default(ctx context.Context, obj runtim
 	var op controllerutil.OperationResult
 	var err error
 	// errors are checked during validateCertificate func call
-	tlsCertDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.TLSCert)
-	tlsKeyDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.TLSKey)
+	tlsKeyDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.CAKey)
 	caCertDec, _ := base64.StdEncoding.DecodeString(shdc.Spec.TLS.Certificate.CACert)
 
 	if op, err = controllerutil.CreateOrUpdate(ctx, d.Client, secret, func() error {
 		secret.StringData = map[string]string{
-			"tls.crt": string(tlsCertDec),
-			"tls.key": string(tlsKeyDec),
-			"ca.crt":  string(caCertDec),
+			"ca.key": string(tlsKeyDec),
+			"ca.crt": string(caCertDec),
 		}
-		secret.Type = corev1.SecretTypeTLS
+		secret.Type = corev1.SecretTypeOpaque
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to create or update TLS certificate secret: %w", err)
