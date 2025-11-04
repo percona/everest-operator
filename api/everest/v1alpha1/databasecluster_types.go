@@ -21,6 +21,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 )
 
 // Prefefined database engine sizes based on memory.
@@ -371,6 +373,15 @@ type PSMDBEngineFeatures struct {
 	// AdvancedSecurity *PSMDBAdvancedSecurity `json:"advancedSecurity,omitempty"`
 }
 
+// PSMDBEngineFeaturesStatus represents additional features statuses for the PSMDB engine.
+type PSMDBEngineFeaturesStatus struct {
+	// SplitHorizon status of SplitHorizon feature.
+	SplitHorizon *enginefeatureseverestv1alpha1.SplitHorizonStatus `json:"splitHorizon,omitempty"`
+
+	// NOTE: Features for PSMDB shall be added in the future, like:
+	// AdvancedSecurity *PSMDBAdvancedSecurityStatus `json:"advancedSecurity,omitempty"`
+}
+
 // EngineFeatures represents configuration of additional features for the database engine.
 type EngineFeatures struct {
 	// PSMDB represents additional features for the PSMDB engine.
@@ -378,6 +389,15 @@ type EngineFeatures struct {
 	// NOTE: Features for PXC and PostgreSQL shall be added in the future, like:
 	// PXC *PXCEngineFeatures `json:"pxc,omitempty"`
 	// PostgreSQL *PostgreSQLEngineFeatures `json:"postgresql,omitempty"`
+}
+
+// EngineFeaturesStatus represents additional features statuses for the database engine.
+type EngineFeaturesStatus struct {
+	// PSMDB represents additional features statuses for the PSMDB engine.
+	PSMDB *PSMDBEngineFeaturesStatus `json:"psmdb,omitempty"`
+	// NOTE: Features statuses for PXC and PostgreSQL shall be added in the future, like:
+	// PXC *PXCEngineFeaturesStatus `json:"pxc,omitempty"`
+	// PostgreSQL *PostgreSQLEngineFeaturesStatus `json:"postgresql,omitempty"`
 }
 
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
@@ -487,7 +507,8 @@ type DatabaseClusterStatus struct {
 	// +optional
 	DataImportJobName *string `json:"dataImportJobName,omitempty"`
 	// Conditions contains the observed conditions of the DatabaseCluster.
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions     []metav1.Condition    `json:"conditions,omitempty"`
+	EngineFeatures *EngineFeaturesStatus `json:"engineFeatures,omitempty"`
 }
 
 // +kubebuilder:object:root=true

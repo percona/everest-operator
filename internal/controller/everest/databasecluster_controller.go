@@ -142,6 +142,8 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	db *everestv1alpha1.DatabaseCluster,
 	p dbProvider,
 ) (rr ctrl.Result, rerr error) {
+	logger := log.FromContext(ctx)
+
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
 		// If this DB has a data import associated with it, delete the credentials secret.
@@ -161,47 +163,22 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 
 	// Update the status of the DatabaseCluster object after the reconciliation.
 	defer func() {
-		status, err := p.Status(ctx)
-		if err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(rerr, fmt.Errorf("failed to get status: %w", err))
-		}
-		db.Status = status
-		db.Status.ObservedGeneration = db.GetGeneration()
-
-		// if data import is set, we need to observe the state of the data import job.
-		if pointer.Get(db.Spec.DataSource).DataImport != nil {
-			if err := r.observeDataImportState(ctx, db); err != nil {
-				rr = ctrl.Result{}
-				rerr = errors.Join(rerr, fmt.Errorf("failed to observe data import state: %w", err))
-			}
-		}
-
-		if err := r.Client.Status().Update(ctx, db); err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(rerr, fmt.Errorf("failed to update status: %w", err))
-		}
-		// DB is not ready, check again soon.
-		if status.Status != everestv1alpha1.AppStateReady {
-			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
-		}
+		rr, rerr = r.reconcileDBStatus(ctx, db, p)
 	}()
-
-	log := log.FromContext(ctx)
 
 	// Run pre-reconcile hook.
 	hr, err := p.RunPreReconcileHook(ctx)
 	if err != nil {
-		log.Error(err, "RunPreReconcileHook failed")
+		logger.Error(err, "RunPreReconcileHook failed")
 		return ctrl.Result{}, err
 	}
 	switch {
 	case hr.Requeue:
-		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
+		logger.Info("RunPreReconcileHook requeued", "message", hr.Message)
 		return ctrl.Result{Requeue: true}, nil
 	case hr.RequeueAfter > 0:
 
-		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
+		logger.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
@@ -265,6 +242,41 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 			return ctrl.Result{}, err
 		}
 	}
+	return ctrl.Result{}, nil
+}
+
+func (r *DatabaseClusterReconciler) reconcileDBStatus( //nolint:funcorder
+	ctx context.Context,
+	db *everestv1alpha1.DatabaseCluster,
+	p dbProvider,
+) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	status, err := p.Status(ctx)
+	if err != nil {
+		logger.Error(err, "failed to get status")
+		return ctrl.Result{}, err
+	}
+	db.Status = status
+	db.Status.ObservedGeneration = db.GetGeneration()
+
+	// if data import is set, we need to observe the state of the data import job.
+	if pointer.Get(db.Spec.DataSource).DataImport != nil {
+		if err := r.observeDataImportState(ctx, db); err != nil {
+			logger.Error(err, "failed to observe data import state")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.Client.Status().Update(ctx, db); err != nil {
+		logger.Error(err, "failed to update status")
+		return ctrl.Result{}, err
+	}
+	// DB is not ready, check again soon.
+	if status.Status != everestv1alpha1.AppStateReady {
+		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -374,6 +386,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		"cluster", database.GetName(),
 		"namespace", database.GetNamespace(),
 	)
+	ctx = log.IntoContext(ctx, logger)
 
 	// If the reconcile is paused, we return immediately.
 	if val, ok := database.GetAnnotations()[consts.PauseReconcileAnnotation]; ok &&

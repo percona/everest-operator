@@ -63,7 +63,25 @@ type SplitHorizonDNSConfigSpec struct {
 	TLS SplitHorizonDNSConfigTLSSpec `json:"tls"`
 }
 
-// SplitHorizonDNSConfigStatus defines the observed state of SplitHorizonDNSConfig.
+// SplitHorizonDomain defines SplitHorizon domain status (domain -> IPs mapping).
+type SplitHorizonDomain struct {
+	// Domain is the SplitHorizon domain name.
+	Domain string `json:"domain,omitempty"`
+	// PrivateIP is the private IP address for the domain.
+	PrivateIP string `json:"privateIP,omitempty"`
+	// PublicIP is the public IP address for the domain.
+	PublicIP string `json:"publicIP,omitempty"`
+}
+
+// SplitHorizonStatus holds SplitHorizon engine feature status.
+type SplitHorizonStatus struct {
+	// ConnectionURL is the connection URL using SplitHorizon domains.
+	Host string `json:"host,omitempty"`
+	// SplitHorizon status of SplitHorizon feature.
+	Domains []SplitHorizonDomain `json:"domains,omitempty"`
+}
+
+// SplitHorizonDNSConfigStatus defines the observed state of SplitHorizonDNSConfig resource.
 type SplitHorizonDNSConfigStatus struct {
 	// InUse is a flag that indicates if the config is used by any DB cluster.
 	// +kubebuilder:default=false

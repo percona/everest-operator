@@ -27,16 +27,23 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 var (
@@ -56,6 +63,8 @@ func NewEngineFeaturesApplier(p *Provider) *EngineFeaturesApplier {
 	}
 }
 
+// ----------------- Features Appliers ----------------------
+
 // ApplyFeatures applies the engine features to the PerconaServerMongoDB spec.
 func (a *EngineFeaturesApplier) ApplyFeatures(ctx context.Context) error {
 	if pointer.Get(a.DB.Spec.EngineFeatures).PSMDB == nil {
@@ -71,7 +80,7 @@ func (a *EngineFeaturesApplier) ApplyFeatures(ctx context.Context) error {
 }
 
 // applySplitHorizonDNSConfig applies the SplitHorizon DNS configuration to the PerconaServerMongoDB spec.
-func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) error {
+func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) error { //nolint:funcorder
 	database := a.DB
 	psmdb := a.PerconaServerMongoDB
 	shdcName := database.Spec.EngineFeatures.PSMDB.SplitHorizonDNSConfigName
@@ -172,6 +181,93 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	return nil
 }
 
+// ----------------- Features Statuses ----------------------
+
+// GetEngineFeaturesStatuses retrieves the statuses of the enabled engine features.
+func (a *EngineFeaturesApplier) GetEngineFeaturesStatuses(ctx context.Context) *everestv1alpha1.PSMDBEngineFeaturesStatus {
+	logger := log.FromContext(ctx)
+	if pointer.Get(a.DB.Spec.EngineFeatures).PSMDB == nil {
+		// Nothing to do
+		return nil
+	}
+
+	psmdbEFStatuses := &everestv1alpha1.PSMDBEngineFeaturesStatus{}
+
+	if shStatus, err := a.getSplitHorizonStatus(ctx); err != nil {
+		logger.Error(err, "failed to get SplitHorizon PSMDB engine feature status")
+	} else {
+		psmdbEFStatuses.SplitHorizon = shStatus
+	}
+
+	// TODO: add other PSMDB engine features statuses here
+	return psmdbEFStatuses
+}
+
+func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*enginefeatureseverestv1alpha1.SplitHorizonStatus, error) {
+	shdcName := pointer.Get(pointer.Get(a.DB.Spec.EngineFeatures).PSMDB).SplitHorizonDNSConfigName
+	if shdcName == "" {
+		// SplitHorizon DNS feature is not enabled
+		return &enginefeatureseverestv1alpha1.SplitHorizonStatus{}, nil
+	}
+
+	shStatus := &enginefeatureseverestv1alpha1.SplitHorizonStatus{}
+	shStatus.Domains = make([]enginefeatureseverestv1alpha1.SplitHorizonDomain, 0, len(a.PerconaServerMongoDB.Spec.Replsets[0].Horizons))
+	connHosts := make([]string, 0, len(a.PerconaServerMongoDB.Spec.Replsets[0].Horizons))
+
+	// Get generated external domains from PSMDB spec
+	for podName, horData := range a.PerconaServerMongoDB.Spec.Replsets[0].Horizons {
+		svc := &corev1.Service{}
+		if err := a.C.Get(ctx, types.NamespacedName{Namespace: a.DB.GetNamespace(), Name: podName}, svc); err != nil {
+			if err = client.IgnoreNotFound(err); err != nil {
+				return nil, fmt.Errorf("get service %s for SplitHorizon status: %w", podName, err)
+			}
+			// service not created yet
+			continue
+		}
+
+		domain := horData["external"]
+		privateIP := svc.Spec.ClusterIP
+		publicIP := ""
+		connHosts = append(connHosts, net.JoinHostPort(domain, strconv.Itoa(int(svc.Spec.Ports[0].Port))))
+		if len(svc.Status.LoadBalancer.Ingress) > 0 { //nolint:nestif
+			// may be empty for load-balancer ingress points that are DNS based (typically AWS)
+			publicIP = svc.Status.LoadBalancer.Ingress[0].IP
+			publicHostname := svc.Status.LoadBalancer.Ingress[0].Hostname
+			if publicIP == "" && publicHostname != "" {
+				// try to resolve DNS name to IP
+				if publicIPAddrs, err := net.LookupIP(publicHostname); err != nil {
+					// Binding IP to domain takes some time, so just log a warning here
+					logger.Warnf(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
+				} else {
+					for _, ip := range publicIPAddrs {
+						if ip.To4() != nil {
+							publicIP = ip.String()
+							break
+						}
+					}
+				}
+			}
+		}
+
+		shStatus.Domains = append(shStatus.Domains, enginefeatureseverestv1alpha1.SplitHorizonDomain{
+			Domain:    domain,
+			PrivateIP: privateIP,
+			PublicIP:  publicIP,
+		})
+	}
+
+	slices.SortFunc(shStatus.Domains, func(a, b enginefeatureseverestv1alpha1.SplitHorizonDomain) int {
+		return strings.Compare(a.Domain, b.Domain)
+	})
+
+	slices.SortFunc(connHosts, strings.Compare)
+
+	shStatus.Host = strings.Join(connHosts, ",")
+
+	return shStatus, nil
+}
+
+// ----------------- Helpers -----------------
 // issueSplitHorizonCertificate generates server TLS certificate signed by the provided CA certificate and private key,
 // with SANs for the provided hosts.
 // It returns the generated server TLS certificate, private key in PEM format and error.

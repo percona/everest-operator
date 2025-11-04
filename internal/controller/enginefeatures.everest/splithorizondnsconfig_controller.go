@@ -73,7 +73,12 @@ func (r *SplitHorizonDNSConfigReconciler) Reconcile(ctx context.Context, req ctr
 
 	shdc := &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{}
 	if err := r.Get(ctx, req.NamespacedName, shdc); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		// NotFound cannot be fixed by requeuing so ignore it.
+		if err = client.IgnoreNotFound(err); err != nil {
+			logger.Error(err, "unable to fetch SplitHorizonDNSConfig")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
 	}
 
 	if !shdc.GetDeletionTimestamp().IsZero() {

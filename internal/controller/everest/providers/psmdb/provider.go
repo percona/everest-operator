@@ -186,6 +186,14 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		return status, err
 	}
 	status.RecommendedCRVersion = recCRVer
+
+	// Set PSMDB engine features statuses (if any).
+	if efStatuses := NewEngineFeaturesApplier(p).GetEngineFeaturesStatuses(ctx); efStatuses != nil {
+		status.EngineFeatures = &everestv1alpha1.EngineFeaturesStatus{
+			PSMDB: efStatuses,
+		}
+	}
+
 	return status, nil
 }
 
