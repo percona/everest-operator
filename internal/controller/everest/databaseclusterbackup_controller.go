@@ -70,7 +70,7 @@ const (
 
 	pxcGapsReasonString = "BinlogGapDetected"
 
-	deletePXCBackupFinalizer   = "delete-s3-backup"
+	deletePXCBackupFinalizer   = "percona.com/delete-backup"
 	deletePSMDBBackupFinalizer = "percona.com/delete-backup"
 )
 
@@ -631,6 +631,15 @@ func (r *DatabaseClusterBackupReconciler) reconcilePXC(
 			return nil
 		})
 		if err != nil {
+			return false, err
+		}
+	}
+
+	// replace legacy finalizer.
+	if controllerutil.RemoveFinalizer(pxcCR, "delete-s3-backup") &&
+		pxcCR.GetDeletionTimestamp().IsZero() {
+		controllerutil.AddFinalizer(pxcCR, deletePXCBackupFinalizer)
+		if err := r.Update(ctx, pxcCR); err != nil {
 			return false, err
 		}
 	}

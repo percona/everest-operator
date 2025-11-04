@@ -313,10 +313,7 @@ func (d *DatabaseEngine) BestBackupVersion(engineVersion string) string {
 			return ""
 		}
 
-		v8, err := goversion.NewVersion("8.0.0")
-		if err != nil {
-			return ""
-		}
+		v8 := goversion.Must(goversion.NewVersion("8.0.0"))
 
 		engineIsV8 := engineGoVersion.GreaterThanOrEqual(v8)
 		allowedVersions := d.Status.AvailableVersions.Backup.GetAllowedVersionsSorted()
@@ -329,6 +326,11 @@ func (d *DatabaseEngine) BestBackupVersion(engineVersion string) string {
 				continue
 			}
 			if engineIsV8 && v.LessThan(v8) {
+				continue
+			}
+
+			// ensure that the minor versions match
+			if engineGoVersion.Segments()[1] != v.Segments()[1] {
 				continue
 			}
 			return version
