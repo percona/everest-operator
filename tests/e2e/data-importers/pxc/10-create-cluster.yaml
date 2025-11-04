@@ -2,20 +2,6 @@ apiVersion: kuttl.dev/v1
 kind: TestStep
 timeout: 10
 ---
-# NOTE: do not change the Secrets, we need the exact credentials for the restore.
-apiVersion: v1
-data:
-  monitor: KF1iWU5ifUgzdW11d0NqQA==
-  operator: QWo+ZVhiaz9PTDJVeUVZag==
-  proxyadmin: U3lHTjV2TDdsan1Bej1PeEBh
-  replication: PyMkUnc2YlNMQT5LSEQyY1o=
-  root: U0woVWE8a1cwNFteKSh4enI=
-  xtrabackup: TnVNMEk+LGFseVRBNFM4YX0=
-kind: Secret
-metadata:
-  name: everest-secrets-test-pxc-cluster
-type: Opaque
----
 apiVersion: everest.percona.com/v1alpha1
 kind: DatabaseCluster
 metadata:
@@ -25,7 +11,7 @@ spec:
     dataImport:
       dataImporterName: everest-percona-pxc-operator
       source:
-        path: "/pxc"
+        path: "/pxc/test-pxc-2025-09-30-11:18:45-full"
         s3:
           bucket: everest-operator
           region: us-east-1
@@ -37,7 +23,6 @@ spec:
           secretAccessKey: minioadmin
   engine:
     type: pxc
-    userSecretsName: everest-secrets-test-pxc-cluster
     replicas: 3
     storage:
       size: 1Gi
