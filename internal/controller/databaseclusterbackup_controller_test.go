@@ -44,7 +44,7 @@ func Test_isCRVersionGreaterOrEqual(t *testing.T) {
 			currentVersion:   "1.20.0",
 			desiredVersion:   "1.20.0",
 			err:              nil,
-			isGreaterOrEqual: false,
+			isGreaterOrEqual: true,
 		},
 		{
 			name:             "version greater patch",
@@ -79,12 +79,12 @@ func Test_isCRVersionGreaterOrEqual(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			res, err := isCRVersionGreaterOrEqual(tc.currentVersion, tc.desiredVersion)
-			if tc.err == nil {
-				require.NoError(t, err)
+			if tc.err != nil {
+				require.Error(t, err)
+				require.Equal(t, err.Error(), tc.err.Error())
 				return
 			}
-			require.Error(t, err)
-			require.Equal(t, err.Error(), tc.err.Error())
+			require.NoError(t, err)
 			require.Equal(t, tc.isGreaterOrEqual, res)
 		})
 	}

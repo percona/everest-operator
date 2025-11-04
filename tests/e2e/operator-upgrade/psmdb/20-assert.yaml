@@ -1,7 +1,7 @@
 apiVersion: kuttl.dev/v1
 kind: TestAssert
 # We use a very short timeout here because we already actively waited in this TestStep to ensure that the DB wasn't restarted so these manifest must be applied by now.
-timeout: 2000
+timeout: 2
 commands:
   - command: kubectl wait --for=jsonpath='{.spec.crVersion}'=${PREVIOUS_PSMDB_OPERATOR_VERSION} psmdb/test-psmdb-cluster -n $NAMESPACE
   - command: kubectl wait --for=jsonpath='{.status.recommendedCRVersion}'=${PSMDB_OPERATOR_VERSION} db/test-psmdb-cluster -n $NAMESPACE

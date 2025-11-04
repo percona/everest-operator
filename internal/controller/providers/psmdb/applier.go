@@ -837,7 +837,7 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 			return emptySpec, err
 		}
 		psmdbBackupSpec.Storages = storages
-		return psmdbBackupSpec, err
+		return psmdbBackupSpec, nil
 	}
 
 	tasks, err := p.getBackupTasks(storages)
