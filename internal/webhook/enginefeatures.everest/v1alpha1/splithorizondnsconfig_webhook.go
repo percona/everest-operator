@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,8 +40,11 @@ import (
 
 // errors for SplitHorizonDNSConfig webhook validation.
 var (
+	// .spec.
+	specPath = field.NewPath("spec")
+
 	// .spec.baseDomainNameSuffix errors.
-	baseDomainNameSuffixPath       = field.NewPath("spec", "baseDomainNameSuffix")
+	baseDomainNameSuffixPath       = specPath.Child("baseDomainNameSuffix")
 	errInvalidBaseDomainNameSuffix = func(bdns string, errs []string) *field.Error {
 		return field.Invalid(baseDomainNameSuffixPath, bdns, strings.Join(errs, ", "))
 	}
@@ -159,13 +163,18 @@ func (v *SplitHorizonDNSConfigCustomValidator) ValidateUpdate(ctx context.Contex
 		return nil, nil
 	}
 
-	// TODO: PSMDB supports such update. Need to handle it later.
-	if newShdc.Spec.BaseDomainNameSuffix != oldShdc.Spec.BaseDomainNameSuffix {
-		allErrs = append(allErrs, errImmutableField(baseDomainNameSuffixPath))
+	if utils.IsEverestObjectInUse(oldShdc) {
+		// TODO: PSMDB supports domain and certificates update. Need to handle it later.
+		// Changing domain suffix leads to server TLS certificate regeneration -> certs update on fly for cluster.
+		// But we can't update TLS certs on fly for existing cluster due to https://perconadev.atlassian.net/browse/K8SPSMDB-1509.
+		if !equality.Semantic.DeepEqual(newShdc.Spec, oldShdc.Spec) {
+			allErrs = append(allErrs, errImmutableField(specPath))
+			return nil, apierrors.NewInvalid(groupKind, oldShdc.GetName(), allErrs)
+		}
 	}
 
-	if newShdc.Spec.TLS.SecretName != oldShdc.Spec.TLS.SecretName {
-		allErrs = append(allErrs, errImmutableField(secretNamePath))
+	if errs := utils.ValidateDNSName(newShdc.Spec.BaseDomainNameSuffix); errs != nil {
+		allErrs = append(allErrs, errInvalidBaseDomainNameSuffix(newShdc.Spec.BaseDomainNameSuffix, errs))
 	}
 
 	if newShdc.Spec.TLS.Certificate != nil {

@@ -275,13 +275,15 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 	}
 
 	testCases := []testCase{
-		// .spec.baseDomainNameSuffix immutability
+		// .spec can't be updated for in-used SHDC
+		// .spec immutability
 		{
 			name: ".spec.baseDomainNameSuffix update is not allowed",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      shdcName,
-					Namespace: shdcNamespace,
+					Name:       shdcName,
+					Namespace:  shdcNamespace,
+					Finalizers: []string{everestv1alpha1.InUseResourceFinalizer},
 				},
 				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
@@ -297,16 +299,16 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
-				errImmutableField(baseDomainNameSuffixPath),
+				errImmutableField(specPath),
 			}),
 		},
-		// .spec.tls.secretName immutability
 		{
 			name: ".spec.tls.secretName update is not allowed",
 			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      shdcName,
-					Namespace: shdcNamespace,
+					Name:       shdcName,
+					Namespace:  shdcNamespace,
+					Finalizers: []string{everestv1alpha1.InUseResourceFinalizer},
 				},
 				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
 					BaseDomainNameSuffix: shdcBaseDomainSuffix,
@@ -328,7 +330,34 @@ func TestSplitHorizonDNSConfigCustomValidator_ValidateUpdate(t *testing.T) { //n
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
-				errImmutableField(secretNamePath),
+				errImmutableField(specPath),
+			}),
+		},
+
+		// .spec can be updated for non-used SHDC
+		// invalid .spec.baseDomainSuffix values
+		{
+			name: "invalid .spec.baseDomainNameSuffix",
+			oldShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: shdcBaseDomainSuffix,
+				},
+			},
+			newShdc: &enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shdcName,
+					Namespace: shdcNamespace,
+				},
+				Spec: enginefeatureseverestv1alpha1.SplitHorizonDNSConfigSpec{
+					BaseDomainNameSuffix: "invalid_domain",
+				},
+			},
+			wantErr: apierrors.NewInvalid(groupKind, shdcName, field.ErrorList{
+				errInvalidBaseDomainNameSuffix("invalid_domain", []string{"a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')"}),
 			}),
 		},
 		// invalid .spec.tls.certificate values
