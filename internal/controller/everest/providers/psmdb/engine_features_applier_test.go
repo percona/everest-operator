@@ -16,12 +16,22 @@
 package psmdb
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,13 +57,29 @@ const (
 func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 	t.Parallel()
 
+	caCert, caKey, err := generateCA()
+	require.NoError(t, err)
+
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      certSecretName,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"ca.crt": []byte(caCert),
+			"ca.key": []byte(caKey),
+		},
+	}
+
 	type testCase struct {
-		name      string
-		objs      []ctrlclient.Object
-		db        *everestv1alpha1.DatabaseCluster
-		psmdb     *psmdbv1.PerconaServerMongoDB
-		wantErr   error
-		wantPsmdb *psmdbv1.PerconaServerMongoDB
+		name        string
+		objs        []ctrlclient.Object
+		db          *everestv1alpha1.DatabaseCluster
+		psmdb       *psmdbv1.PerconaServerMongoDB
+		wantErr     error
+		wantPsmdb   *psmdbv1.PerconaServerMongoDB
+		checkSecret bool
 	}
 
 	tests := []testCase{
@@ -61,19 +87,28 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 		{
 			name: "SplitHorizonDNSConfig is missing",
 			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      dbName,
+				},
 				Spec: everestv1alpha1.DatabaseClusterSpec{
 					EngineFeatures: &everestv1alpha1.EngineFeatures{
 						PSMDB: &everestv1alpha1.PSMDBEngineFeatures{},
 					},
 				},
 			},
-			psmdb:     &psmdbv1.PerconaServerMongoDB{},
-			wantPsmdb: &psmdbv1.PerconaServerMongoDB{},
-			wantErr:   nil,
+			psmdb:       &psmdbv1.PerconaServerMongoDB{},
+			wantPsmdb:   &psmdbv1.PerconaServerMongoDB{},
+			wantErr:     nil,
+			checkSecret: false,
 		},
 		{
 			name: "SplitHorizonDNSConfig is empty",
 			db: &everestv1alpha1.DatabaseCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      dbName,
+				},
 				Spec: everestv1alpha1.DatabaseClusterSpec{
 					EngineFeatures: &everestv1alpha1.EngineFeatures{
 						PSMDB: &everestv1alpha1.PSMDBEngineFeatures{
@@ -82,9 +117,10 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					},
 				},
 			},
-			psmdb:     &psmdbv1.PerconaServerMongoDB{},
-			wantPsmdb: &psmdbv1.PerconaServerMongoDB{},
-			wantErr:   nil,
+			psmdb:       &psmdbv1.PerconaServerMongoDB{},
+			wantPsmdb:   &psmdbv1.PerconaServerMongoDB{},
+			wantErr:     nil,
+			checkSecret: false,
 		},
 		{
 			name: "SplitHorizonDNSConfig is absent",
@@ -125,15 +161,17 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					},
 				},
 			},
-			psmdb:     &psmdbv1.PerconaServerMongoDB{},
-			wantPsmdb: &psmdbv1.PerconaServerMongoDB{},
-			wantErr:   errShardingNotSupported,
+			psmdb:       &psmdbv1.PerconaServerMongoDB{},
+			wantPsmdb:   &psmdbv1.PerconaServerMongoDB{},
+			wantErr:     errShardingNotSupported,
+			checkSecret: false,
 		},
 		// Valid cases
 		// 3 replicaset member
 		{
 			name: "SplitHorizonDNSConfig is present",
 			objs: []ctrlclient.Object{
+				caSecret,
 				&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      shdcName,
@@ -176,28 +214,30 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					Replsets: []*psmdbv1.ReplsetSpec{
 						{
 							Horizons: psmdbv1.HorizonsSpec{
-								"test-db-rs0-0": {
-									"external": "test-db-rs0-0-default.mycompany.com",
+								fmt.Sprintf("%s-rs0-0", dbName): {
+									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
-								"test-db-rs0-1": {
-									"external": "test-db-rs0-1-default.mycompany.com",
+								fmt.Sprintf("%s-rs0-1", dbName): {
+									"external": fmt.Sprintf("%s-rs0-1-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
-								"test-db-rs0-2": {
-									"external": "test-db-rs0-2-default.mycompany.com",
+								fmt.Sprintf("%s-rs0-2", dbName): {
+									"external": fmt.Sprintf("%s-rs0-2-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: certSecretName,
+						SSL: fmt.Sprintf("%s-sh-cert", dbName),
 					},
 				},
 			},
+			checkSecret: true,
 		},
 		// 1 replicaset members
 		{
 			name: "SplitHorizonDNSConfig is present",
 			objs: []ctrlclient.Object{
+				caSecret,
 				&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      shdcName,
@@ -240,17 +280,18 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					Replsets: []*psmdbv1.ReplsetSpec{
 						{
 							Horizons: psmdbv1.HorizonsSpec{
-								"test-db-rs0-0": {
-									"external": "test-db-rs0-0-default.mycompany.com",
+								fmt.Sprintf("%s-rs0-0", dbName): {
+									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: certSecretName,
+						SSL: fmt.Sprintf("%s-sh-cert", dbName),
 					},
 				},
 			},
+			checkSecret: true,
 		},
 	}
 
@@ -260,6 +301,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 
 			scheme := runtime.NewScheme()
 			utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+			utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
 			utilruntime.Must(enginefeatureseverestv1alpha1.AddToScheme(scheme))
 
 			mockClient := fakeclient.NewClientBuilder().
@@ -281,9 +323,60 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 			if tc.wantErr == nil {
 				require.NoError(t, err)
 				assert.Equal(t, tc.wantPsmdb, tc.psmdb)
+				if tc.checkSecret {
+					genSecret := &corev1.Secret{}
+					err = mockClient.Get(context.Background(), ctrlclient.ObjectKey{
+						Namespace: namespace,
+						Name:      fmt.Sprintf("%s-sh-cert", tc.db.GetName()),
+					}, genSecret)
+					require.NoError(t, err)
+					assert.Equal(t, fmt.Sprintf("%s-sh-cert", dbName), genSecret.GetName())
+					assert.Equal(t, dbName, genSecret.OwnerReferences[0].Name)
+					assert.Equal(t, []byte(caCert), genSecret.Data["ca.crt"])
+					assert.Equal(t, corev1.SecretTypeTLS, genSecret.Type)
+				}
 				return
 			}
 			assert.Equal(t, tc.wantErr.Error(), err.Error())
 		})
 	}
+}
+
+func generateCA() (string, string, error) {
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(2019),
+		Subject: pkix.Name{
+			Organization: []string{"PSMDB"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return "", "", err
+	}
+
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return "", "", err
+	}
+
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	})
+
+	caPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(caPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
+	})
+
+	return caPEM.String(), caPrivKeyPEM.String(), nil
 }
