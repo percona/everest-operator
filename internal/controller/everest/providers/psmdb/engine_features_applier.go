@@ -109,7 +109,7 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	psmdb.Spec.Replsets[0].Horizons = horSpec
 
 	needCreateSecret := false // do not generate server certificate on each reconciliation loop
-	psmdbSplitHorizonSecretName := fmt.Sprintf("%s-sh-cert", database.GetName())
+	psmdbSplitHorizonSecretName := database.GetName() + "-sh-cert"
 
 	psmdbSplitHorizonSecret := &corev1.Secret{}
 	if err := a.C.Get(ctx, types.NamespacedName{Namespace: database.GetNamespace(), Name: psmdbSplitHorizonSecretName}, psmdbSplitHorizonSecret); err != nil {
@@ -125,16 +125,19 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 		psmdbSplitHorizonDomains := []string{
 			// Internal SANs
 			"localhost",
-			fmt.Sprintf("%s-rs0", database.GetName()),
+			database.GetName() + "-rs0",
 			fmt.Sprintf("*.%s-rs0", database.GetName()),
 			fmt.Sprintf("%s-rs0.%s", database.GetName(), database.GetNamespace()),
 			fmt.Sprintf("*.%s-rs0.%s", database.GetName(), database.GetNamespace()),
 			fmt.Sprintf("%s-rs0.%s.svc.cluster.local", database.GetName(), database.GetNamespace()),
 			fmt.Sprintf("*.%s-rs0.%s.svc.cluster.local", database.GetName(), database.GetNamespace()),
 			// External SANs
-			fmt.Sprintf("*.%s", shdc.Spec.BaseDomainNameSuffix),
+			"*." + shdc.Spec.BaseDomainNameSuffix,
 		}
-		psmdbSplitHorizonServerCertBytes, psmdbSplitHorizonServerPrivKeyBytes, err := issueSplitHorizonCertificate(shdcCaSecret.Data["ca.crt"], shdcCaSecret.Data["ca.key"], psmdbSplitHorizonDomains)
+		psmdbSplitHorizonServerCertBytes, psmdbSplitHorizonServerPrivKeyBytes, err := issueSplitHorizonCertificate(
+			shdcCaSecret.Data["ca.crt"],
+			shdcCaSecret.Data["ca.key"],
+			psmdbSplitHorizonDomains)
 		if err != nil {
 			return fmt.Errorf("issue split-horizon server TLS certificate: %w", err)
 		}
@@ -181,8 +184,11 @@ func issueSplitHorizonCertificate(caCert, caPrivKey []byte, hosts []string) (str
 
 	caPrivKeyDecoded, _ := pem.Decode(caPrivKey)
 	caKey, err := x509.ParsePKCS1PrivateKey(caPrivKeyDecoded.Bytes)
+	if err != nil {
+		return "", "", fmt.Errorf("parse CA private key: %w", err)
+	}
 
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128) //nolint:mnd
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
 		return "", "", fmt.Errorf("generate serial number for client: %w", err)
@@ -195,7 +201,7 @@ func issueSplitHorizonCertificate(caCert, caPrivKey []byte, hosts []string) (str
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              validityNotAfter,
-		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}, //nolint:mnd
 		DNSNames:              hosts,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -203,7 +209,7 @@ func issueSplitHorizonCertificate(caCert, caPrivKey []byte, hosts []string) (str
 		IsCA:                  false,
 	}
 	// Create server certificate private key
-	certPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	certPrivKey, err := rsa.GenerateKey(rand.Reader, 2048) //nolint:mnd
 	if err != nil {
 		return "", "", fmt.Errorf("generate client key: %w", err)
 	}

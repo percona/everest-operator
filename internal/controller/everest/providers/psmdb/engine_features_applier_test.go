@@ -54,7 +54,7 @@ const (
 	certSecretName       = "shdc-secret"
 )
 
-func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
+func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nolint:maintidx
 	t.Parallel()
 
 	caCert, caKey, err := generateCA()
@@ -214,20 +214,20 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					Replsets: []*psmdbv1.ReplsetSpec{
 						{
 							Horizons: psmdbv1.HorizonsSpec{
-								fmt.Sprintf("%s-rs0-0", dbName): {
+								dbName + "-rs0-0": {
 									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
-								fmt.Sprintf("%s-rs0-1", dbName): {
+								dbName + "-rs0-1": {
 									"external": fmt.Sprintf("%s-rs0-1-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
-								fmt.Sprintf("%s-rs0-2", dbName): {
+								dbName + "-rs0-2": {
 									"external": fmt.Sprintf("%s-rs0-2-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: fmt.Sprintf("%s-sh-cert", dbName),
+						SSL: dbName + "-sh-cert",
 					},
 				},
 			},
@@ -280,14 +280,14 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					Replsets: []*psmdbv1.ReplsetSpec{
 						{
 							Horizons: psmdbv1.HorizonsSpec{
-								fmt.Sprintf("%s-rs0-0", dbName): {
+								dbName + "-rs0-0": {
 									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: fmt.Sprintf("%s-sh-cert", dbName),
+						SSL: dbName + "-sh-cert",
 					},
 				},
 			},
@@ -327,10 +327,10 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) {
 					genSecret := &corev1.Secret{}
 					err = mockClient.Get(context.Background(), ctrlclient.ObjectKey{
 						Namespace: namespace,
-						Name:      fmt.Sprintf("%s-sh-cert", tc.db.GetName()),
+						Name:      tc.db.GetName() + "-sh-cert",
 					}, genSecret)
 					require.NoError(t, err)
-					assert.Equal(t, fmt.Sprintf("%s-sh-cert", dbName), genSecret.GetName())
+					assert.Equal(t, dbName+"-sh-cert", genSecret.GetName())
 					assert.Equal(t, dbName, genSecret.OwnerReferences[0].Name)
 					assert.Equal(t, []byte(caCert), genSecret.Data["ca.crt"])
 					assert.Equal(t, corev1.SecretTypeTLS, genSecret.Type)
@@ -367,13 +367,13 @@ func generateCA() (string, string, error) {
 	}
 
 	caPEM := new(bytes.Buffer)
-	pem.Encode(caPEM, &pem.Block{
+	_ = pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: caBytes,
 	})
 
 	caPrivKeyPEM := new(bytes.Buffer)
-	pem.Encode(caPrivKeyPEM, &pem.Block{
+	_ = pem.Encode(caPrivKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
 	})
