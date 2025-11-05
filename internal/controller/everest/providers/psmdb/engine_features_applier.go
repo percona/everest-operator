@@ -33,7 +33,6 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
-	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -220,6 +219,7 @@ func (a *EngineFeaturesApplier) GetEngineFeaturesStatuses(ctx context.Context) (
 }
 
 func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*enginefeatureseverestv1alpha1.SplitHorizonStatus, bool, error) {
+	logger := log.FromContext(ctx)
 	shdcName := pointer.Get(pointer.Get(a.DB.Spec.EngineFeatures).PSMDB).SplitHorizonDNSConfigName
 	if shdcName == "" {
 		// SplitHorizon DNS feature is not enabled
@@ -255,7 +255,7 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 				// try to resolve DNS name to IP
 				if publicIPAddrs, err := net.LookupIP(publicHostname); err != nil {
 					// Binding IP to domain takes some time, so just log a warning here
-					logger.Infof(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
+					logger.Info(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
 					publicIP = publicIPPendingValue
 					statusReady = false
 				} else {
