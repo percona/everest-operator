@@ -46,6 +46,11 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
+const (
+	splitHorizonExternalKey = "external"
+	publicIPPendingValue    = "pending"
+)
+
 var (
 	errShardingNotSupported = errors.New("sharding is not supported for SplitHorizon DNS feature")
 	validityNotAfter        = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -108,7 +113,7 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	horSpec := psmdbv1.HorizonsSpec{}
 	for i := range int(database.Spec.Engine.Replicas) {
 		horSpec[fmt.Sprintf("%s-rs0-%d", database.GetName(), i)] = map[string]string{
-			"external": fmt.Sprintf("%s-rs0-%d-%s.%s",
+			splitHorizonExternalKey: fmt.Sprintf("%s-rs0-%d-%s.%s",
 				database.GetName(),
 				i,
 				database.GetNamespace(),
@@ -184,48 +189,61 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 // ----------------- Features Statuses ----------------------
 
 // GetEngineFeaturesStatuses retrieves the statuses of the enabled engine features.
-func (a *EngineFeaturesApplier) GetEngineFeaturesStatuses(ctx context.Context) *everestv1alpha1.PSMDBEngineFeaturesStatus {
+func (a *EngineFeaturesApplier) GetEngineFeaturesStatuses(ctx context.Context) (*everestv1alpha1.PSMDBEngineFeaturesStatus, bool) {
 	logger := log.FromContext(ctx)
 	if pointer.Get(a.DB.Spec.EngineFeatures).PSMDB == nil {
 		// Nothing to do
-		return nil
+		return nil, true
 	}
 
+	// Flag indicating whether all features statuses are ready.
+	// If at least one feature status is not ready, the overall status is not ready.
+	// This is used to determine whether we need to trigger reconciliation loop again in order to
+	// obtain the EngineFeatures status.
+	statusReady := true
 	psmdbEFStatuses := &everestv1alpha1.PSMDBEngineFeaturesStatus{}
 
-	if shStatus, err := a.getSplitHorizonStatus(ctx); err != nil {
+	if shStatus, ready, err := a.getSplitHorizonStatus(ctx); err != nil {
 		logger.Error(err, "failed to get SplitHorizon PSMDB engine feature status")
+		statusReady = false
 	} else {
 		psmdbEFStatuses.SplitHorizon = shStatus
+		// Update overall statusReady flag.
+		// It may appear that there is no error, but the status is not ready yet (e.g. waiting for services to be created).
+		if !ready {
+			statusReady = false
+		}
 	}
 
 	// TODO: add other PSMDB engine features statuses here
-	return psmdbEFStatuses
+	return psmdbEFStatuses, statusReady
 }
 
-func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*enginefeatureseverestv1alpha1.SplitHorizonStatus, error) {
+func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*enginefeatureseverestv1alpha1.SplitHorizonStatus, bool, error) {
 	shdcName := pointer.Get(pointer.Get(a.DB.Spec.EngineFeatures).PSMDB).SplitHorizonDNSConfigName
 	if shdcName == "" {
 		// SplitHorizon DNS feature is not enabled
-		return &enginefeatureseverestv1alpha1.SplitHorizonStatus{}, nil
+		return &enginefeatureseverestv1alpha1.SplitHorizonStatus{}, true, nil
 	}
 
 	shStatus := &enginefeatureseverestv1alpha1.SplitHorizonStatus{}
 	shStatus.Domains = make([]enginefeatureseverestv1alpha1.SplitHorizonDomain, 0, len(a.PerconaServerMongoDB.Spec.Replsets[0].Horizons))
 	connHosts := make([]string, 0, len(a.PerconaServerMongoDB.Spec.Replsets[0].Horizons))
+	statusReady := true
 
 	// Get generated external domains from PSMDB spec
 	for podName, horData := range a.PerconaServerMongoDB.Spec.Replsets[0].Horizons {
 		svc := &corev1.Service{}
 		if err := a.C.Get(ctx, types.NamespacedName{Namespace: a.DB.GetNamespace(), Name: podName}, svc); err != nil {
 			if err = client.IgnoreNotFound(err); err != nil {
-				return nil, fmt.Errorf("get service %s for SplitHorizon status: %w", podName, err)
+				return nil, false, fmt.Errorf("get service %s for SplitHorizon status: %w", podName, err)
 			}
 			// service not created yet
+			statusReady = false
 			continue
 		}
 
-		domain := horData["external"]
+		domain := horData[splitHorizonExternalKey]
 		privateIP := svc.Spec.ClusterIP
 		publicIP := ""
 		connHosts = append(connHosts, net.JoinHostPort(domain, strconv.Itoa(int(svc.Spec.Ports[0].Port))))
@@ -237,7 +255,9 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 				// try to resolve DNS name to IP
 				if publicIPAddrs, err := net.LookupIP(publicHostname); err != nil {
 					// Binding IP to domain takes some time, so just log a warning here
-					logger.Warnf(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
+					logger.Infof(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
+					publicIP = publicIPPendingValue
+					statusReady = false
 				} else {
 					for _, ip := range publicIPAddrs {
 						if ip.To4() != nil {
@@ -264,7 +284,7 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 
 	shStatus.Host = strings.Join(connHosts, ",")
 
-	return shStatus, nil
+	return shStatus, statusReady, nil
 }
 
 // ----------------- Helpers -----------------

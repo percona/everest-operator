@@ -95,7 +95,11 @@ type dbProvider interface {
 	metav1.Object
 	reconcileHooks
 	Apply(ctx context.Context) everestv1alpha1.Applier
-	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error)
+	// Status returns the current status of the database cluster.
+	// The second return value indicates whether the database's status is ready.
+	// It may appear that there is no error, but the status is not ready yet (e.g. waiting for services to be created).
+	// Some engine features may require additional time to get status (e.g. obtaining service public IP from cloud provider).
+	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, bool, error)
 	Cleanup(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (bool, error)
 	DBObject() client.Object
 }
@@ -252,7 +256,7 @@ func (r *DatabaseClusterReconciler) reconcileDBStatus( //nolint:funcorder
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	status, err := p.Status(ctx)
+	status, statusReady, err := p.Status(ctx)
 	if err != nil {
 		logger.Error(err, "failed to get status")
 		return ctrl.Result{}, err
@@ -273,7 +277,7 @@ func (r *DatabaseClusterReconciler) reconcileDBStatus( //nolint:funcorder
 		return ctrl.Result{}, err
 	}
 	// DB is not ready, check again soon.
-	if status.Status != everestv1alpha1.AppStateReady {
+	if status.Status != everestv1alpha1.AppStateReady || !statusReady {
 		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
 	}
 

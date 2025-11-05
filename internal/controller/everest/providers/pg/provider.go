@@ -129,7 +129,7 @@ func (p *Provider) isDatabaseUpgrading(ctx context.Context) (bool, error) {
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
 
 // Status builds the DatabaseCluster Status based on the current state of the PerconaPGCluster.
-func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
+func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, bool, error) {
 	c := p.C
 	pg := p.PerconaPGCluster
 
@@ -145,13 +145,13 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	// If a restore is running for this database, set the database status to restoring
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, c, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-		return status, err
+		return status, false, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
 
 	if ok, err := isPVCResizing(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-		return status, err
+		return status, false, err
 	} else if ok {
 		status.Status = everestv1alpha1.AppStateResizingVolumes
 	}
@@ -162,7 +162,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		prevStatus.Status == everestv1alpha1.AppStateResizingVolumes {
 		meta.RemoveStatusCondition(&status.Conditions, everestv1alpha1.ConditionTypeVolumeResizeFailed)
 		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-			return status, err
+			return status, false, err
 		} else if failed {
 			// XXX: If a PVC resize failed, the DB operator will revert the
 			// spec to the previous one and unset the annotation we use to
@@ -184,18 +184,18 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 	}
 
 	if upgrading, err := p.isDatabaseUpgrading(ctx); err != nil {
-		return status, err
+		return status, false, err
 	} else if upgrading {
 		status.Status = everestv1alpha1.AppStateUpgrading
 	}
 
 	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, consts.PGDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return status, err
+		return status, false, err
 	}
 	status.RecommendedCRVersion = recCRVer
 
-	return status, nil
+	return status, true, nil
 }
 
 func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
