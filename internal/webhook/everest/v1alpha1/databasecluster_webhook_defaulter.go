@@ -24,7 +24,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -38,7 +37,7 @@ import (
 // DatabaseClusterDefaulter is a webhook that sets default values for DatabaseCluster resources.
 type DatabaseClusterDefaulter struct {
 	// Client is the Kubernetes client used to interact with the cluster.
-	Client client.Client
+	Client ctrlclient.Client
 }
 
 // Default implements a mutating webhook for DatabaseCluster resources.
