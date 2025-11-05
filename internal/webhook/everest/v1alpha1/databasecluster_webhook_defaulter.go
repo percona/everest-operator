@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -59,7 +60,7 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 	// validate some fields
 	// validate .spec.engine.type is supported
 	dbEngines := &everestv1alpha1.DatabaseEngineList{}
-	if err := d.Client.List(ctx, dbEngines); err != nil {
+	if err := d.Client.List(ctx, dbEngines, ctrlclient.InNamespace(db.GetNamespace())); err != nil {
 		return err
 	}
 

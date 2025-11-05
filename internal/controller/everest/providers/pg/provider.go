@@ -200,8 +200,13 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 func isPVCResizing(ctx context.Context, c client.Client, name, namespace string) (bool, error) {
 	pg := &crunchyv1beta1.PostgresCluster{}
-	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg); err != nil {
-		return false, fmt.Errorf("failed to get PostgreSQL cluster: %w", err)
+	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, pg); client.IgnoreNotFound(err) != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return false, fmt.Errorf("failed to get PostgreSQL cluster: %w", err)
+		} else {
+			// If the PG cluster is not found, we assume it's not resizing.
+			return false, nil
+		}
 	}
 
 	isResizing := meta.IsStatusConditionTrue(pg.Status.Conditions, crunchyv1beta1.PersistentVolumeResizing)
