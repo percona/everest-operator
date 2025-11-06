@@ -3,6 +3,12 @@ name: Static checks
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
   code-formatting:
     name: Code formatting
@@ -18,7 +24,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
       - name: Check files are formatted and no source code changes
         run: |

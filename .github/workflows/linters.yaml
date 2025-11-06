@@ -4,6 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
   license-check:
     timeout-minutes: 10
@@ -21,7 +26,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
       - name: License check
         run: |
@@ -49,7 +54,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: false
+          cache: true
 
       - name: Run golangci-lint
         run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix --issues-exit-code=0 | go tool reviewdog -f=golangci-lint -reporter=github-pr-review

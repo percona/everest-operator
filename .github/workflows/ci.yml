@@ -5,9 +5,9 @@ on:
     types: [opened, synchronize, reopened]
 
 env:
-  GONOPROXY: 'github.com/percona-platform,github.com/percona,github.com/Percona-Lab'
-  GONOSUMDB: 'github.com/percona-platform,github.com/percona,github.com/Percona-Lab'
-  GOPRIVATE: 'github.com/percona-platform,github.com/percona,github.com/Percona-Lab'
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
 
 jobs:
   golang-build:
