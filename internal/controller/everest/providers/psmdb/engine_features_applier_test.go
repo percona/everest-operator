@@ -215,13 +215,13 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nol
 						{
 							Horizons: psmdbv1.HorizonsSpec{
 								dbName + "-rs0-0": {
-									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
+									splitHorizonExternalKey: fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 								dbName + "-rs0-1": {
-									"external": fmt.Sprintf("%s-rs0-1-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
+									splitHorizonExternalKey: fmt.Sprintf("%s-rs0-1-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 								dbName + "-rs0-2": {
-									"external": fmt.Sprintf("%s-rs0-2-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
+									splitHorizonExternalKey: fmt.Sprintf("%s-rs0-2-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},
@@ -281,7 +281,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nol
 						{
 							Horizons: psmdbv1.HorizonsSpec{
 								dbName + "-rs0-0": {
-									"external": fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
+									splitHorizonExternalKey: fmt.Sprintf("%s-rs0-0-%s.%s", dbName, namespace, shdcBaseDomainSuffix),
 								},
 							},
 						},

@@ -219,7 +219,6 @@ func (a *EngineFeaturesApplier) GetEngineFeaturesStatuses(ctx context.Context) (
 }
 
 func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*enginefeatureseverestv1alpha1.SplitHorizonStatus, bool, error) {
-	logger := log.FromContext(ctx)
 	shdcName := pointer.Get(pointer.Get(a.DB.Spec.EngineFeatures).PSMDB).SplitHorizonDNSConfigName
 	if shdcName == "" {
 		// SplitHorizon DNS feature is not enabled
@@ -244,36 +243,19 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 		}
 
 		domain := horData[splitHorizonExternalKey]
-		privateIP := svc.Spec.ClusterIP
-		publicIP := ""
 		connHosts = append(connHosts, net.JoinHostPort(domain, strconv.Itoa(int(svc.Spec.Ports[0].Port))))
-		if len(svc.Status.LoadBalancer.Ingress) > 0 { //nolint:nestif
-			// may be empty for load-balancer ingress points that are DNS based (typically AWS)
-			publicIP = svc.Status.LoadBalancer.Ingress[0].IP
-			publicHostname := svc.Status.LoadBalancer.Ingress[0].Hostname
-			if publicIP == "" && publicHostname != "" {
-				// try to resolve DNS name to IP
-				if publicIPAddrs, err := net.LookupIP(publicHostname); err != nil {
-					// Binding IP to domain takes some time, so just log a warning here
-					logger.Info(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
-					publicIP = publicIPPendingValue
-					statusReady = false
-				} else {
-					for _, ip := range publicIPAddrs {
-						if ip.To4() != nil {
-							publicIP = ip.String()
-							break
-						}
-					}
-				}
-			}
+		shDomain := enginefeatureseverestv1alpha1.SplitHorizonDomain{
+			Domain:    domain,
+			PrivateIP: svc.Spec.ClusterIP,
 		}
 
-		shStatus.Domains = append(shStatus.Domains, enginefeatureseverestv1alpha1.SplitHorizonDomain{
-			Domain:    domain,
-			PrivateIP: privateIP,
-			PublicIP:  publicIP,
-		})
+		if a.DB.Spec.Proxy.Expose.Type == everestv1alpha1.ExposeTypeExternal {
+			ready := false
+			if shDomain.PublicIP, ready = getServicePublicIP(ctx, svc); !ready {
+				statusReady = false
+			}
+		}
+		shStatus.Domains = append(shStatus.Domains, shDomain)
 	}
 
 	slices.SortFunc(shStatus.Domains, func(a, b enginefeatureseverestv1alpha1.SplitHorizonDomain) int {
@@ -285,6 +267,48 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 	shStatus.Host = strings.Join(connHosts, ",")
 
 	return shStatus, statusReady, nil
+}
+
+// getServicePublicIP retrieves the public IP address of the given service.
+// It returns the public IP address and a boolean indicating whether the status is ready.
+func getServicePublicIP(ctx context.Context, svc *corev1.Service) (string, bool) {
+	logger := log.FromContext(ctx)
+
+	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return "", false
+	}
+
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		return publicIPPendingValue, false
+	}
+
+	if svc.Status.LoadBalancer.Ingress[0].IP != "" {
+		return svc.Status.LoadBalancer.Ingress[0].IP, true
+	}
+
+	// publicIP may be empty for load-balancer ingress points that are DNS based.
+	// In such case Hostname shall be set (typically AWS)
+	publicHostname := svc.Status.LoadBalancer.Ingress[0].Hostname
+	if publicHostname == "" {
+		return publicIPPendingValue, false
+	}
+
+	// try to resolve DNS name to IP
+	var publicIPAddrs []net.IP
+	var err error
+	if publicIPAddrs, err = net.LookupIP(publicHostname); err != nil {
+		// Binding IP to domain takes some time, so just log a warning here.
+		logger.Info(fmt.Sprintf("resolve LoadBalancer ingress hostname %s to IP: %v", publicHostname, err))
+		return publicIPPendingValue, false
+	}
+
+	for _, ip := range publicIPAddrs {
+		if ipStr := ip.String(); ipStr != "<nil>" {
+			return ipStr, true
+		}
+	}
+
+	return publicIPPendingValue, false
 }
 
 // ----------------- Helpers -----------------
