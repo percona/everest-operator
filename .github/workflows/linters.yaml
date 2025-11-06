@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: License check
         run: |
@@ -49,7 +49,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Run golangci-lint
         run: go tool golangci-lint run --config=./.golangci.yml --new-from-rev=$(git merge-base main HEAD) --fix --issues-exit-code=0 | go tool reviewdog -f=golangci-lint -reporter=github-pr-review

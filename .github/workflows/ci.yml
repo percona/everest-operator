@@ -18,11 +18,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
-
-      - name: Clean Go mod cache
-        run: |
-          go clean -modcache
+          cache: false
 
       - name: Build binary
         run: |
@@ -42,7 +38,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Run tests
         run: |
@@ -76,7 +72,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Check default main state - generated files
         run: |
@@ -103,7 +99,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Build bundle image
         run: |
@@ -124,7 +120,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-          cache: true
+          cache: false
 
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
