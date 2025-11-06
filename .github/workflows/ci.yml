@@ -20,6 +20,10 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: Clean Go mod cache
+        run: |
+          go clean -modcache
+
       - name: Build binary
         run: |
           make build
