@@ -4,6 +4,10 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG FLAGS
 
+ENV GONOPROXY='github.com/percona'
+ENV GONOSUMDB='github.com/percona'
+ENV GOPRIVATE='github.com/percona'
+
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
