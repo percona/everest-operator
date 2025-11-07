@@ -227,7 +227,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nol
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: dbName + "-sh-cert",
+						SSL: getSplitHorizonDnsConfigSecretName(dbName),
 					},
 				},
 			},
@@ -287,7 +287,7 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nol
 						},
 					},
 					Secrets: &psmdbv1.SecretsSpec{
-						SSL: dbName + "-sh-cert",
+						SSL: getSplitHorizonDnsConfigSecretName(dbName),
 					},
 				},
 			},
@@ -327,10 +327,10 @@ func Test_engineFeaturesApplier_applySplitHorizonDNSConfig(t *testing.T) { //nol
 					genSecret := &corev1.Secret{}
 					err = mockClient.Get(context.Background(), ctrlclient.ObjectKey{
 						Namespace: namespace,
-						Name:      tc.db.GetName() + "-sh-cert",
+						Name:      getSplitHorizonDnsConfigSecretName(tc.db.GetName()),
 					}, genSecret)
 					require.NoError(t, err)
-					assert.Equal(t, dbName+"-sh-cert", genSecret.GetName())
+					assert.Equal(t, getSplitHorizonDnsConfigSecretName(dbName), genSecret.GetName())
 					assert.Equal(t, dbName, genSecret.OwnerReferences[0].Name)
 					assert.Equal(t, []byte(caCert), genSecret.Data["ca.crt"])
 					assert.Equal(t, corev1.SecretTypeTLS, genSecret.Type)

@@ -122,7 +122,7 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	psmdb.Spec.Replsets[0].Horizons = horSpec
 
 	needCreateSecret := false // do not generate server certificate on each reconciliation loop
-	psmdbSplitHorizonSecretName := database.GetName() + "-sh-cert"
+	psmdbSplitHorizonSecretName := getSplitHorizonDnsConfigSecretName(database.GetName())
 
 	psmdbSplitHorizonSecret := &corev1.Secret{}
 	if err := a.C.Get(ctx, types.NamespacedName{Namespace: database.GetNamespace(), Name: psmdbSplitHorizonSecretName}, psmdbSplitHorizonSecret); err != nil {
@@ -183,6 +183,10 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	psmdb.Spec.Secrets.SSL = psmdbSplitHorizonSecret.GetName()
 
 	return nil
+}
+
+func getSplitHorizonDnsConfigSecretName(dbName string) string {
+	return dbName + "-sh-cert"
 }
 
 // ----------------- Features Statuses ----------------------
