@@ -692,6 +692,9 @@ spec:
                     - postgresql
                     - psmdb
                     type: string
+                    x-kubernetes-validations:
+                    - message: .spec.engine.type cannot be changed
+                      rule: self == oldSelf
                   userSecretsName:
                     description: UserSecretsName is the name of the secret containing
                       the user secrets
@@ -719,7 +722,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This is an alpha field and requires enabling the
+                          This field depends on the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
@@ -2479,8 +2482,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -3404,8 +3407,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -4334,8 +4337,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -5259,8 +5262,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -6184,8 +6187,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -7114,8 +7117,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -8039,8 +8042,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -9208,7 +9211,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: docker.io/perconalab/everest-operator:0.0.0
+        image: docker.io/perconalab/everest-operator:1.10000.0-rc20251111094638
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9250,7 +9253,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: docker.io/perconalab/everest-operator:0.0.0
+        image: docker.io/perconalab/everest-operator:1.10000.0-rc20251111094638
         imagePullPolicy: IfNotPresent
         name: crs-migration
       securityContext:
