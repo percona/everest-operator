@@ -249,7 +249,7 @@ cluster-cleanup:
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	docker build --build-arg FLAGS="$(FLAGS)" -t ${IMG} .
+	docker build --no-cache --build-arg FLAGS="$(FLAGS)" -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
