@@ -320,6 +320,9 @@ spec:
                     - postgresql
                     - psmdb
                     type: string
+                    x-kubernetes-validations:
+                    - message: .spec.engine.type cannot be changed
+                      rule: self == oldSelf
                   userSecretsName:
                     description: UserSecretsName is the name of the secret containing
                       the user secrets
@@ -347,7 +350,7 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-                          This is an alpha field and requires enabling the
+                          This field depends on the
                           DynamicResourceAllocation feature gate.
 
                           This field is immutable. It can only be set for containers.
