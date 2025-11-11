@@ -11,13 +11,14 @@ COPY go.sum go.sum
 
 RUN go clean -modcache
 RUN rm go.sum
-RUN go mod tidy
 
 # Copy the go source
 COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/ internal/
 COPY utils/ utils/
+
+RUN go mod tidy
 
 # Build operator
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
