@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+env:
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
 
   build:
@@ -39,7 +44,6 @@ jobs:
           tags: |
             type=raw,value=0.0.0,enable=${{ contains(github.ref_name, 'main') }}
 
-
       - name: Docker bundle meta
         id: bundle_meta
         uses: docker/metadata-action@v5
@@ -48,7 +52,6 @@ jobs:
             perconalab/everest-operator-bundle
           tags: |
             type=raw,value=0.0.0,enable=${{ contains(github.ref_name, 'main') }}
-
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
