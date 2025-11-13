@@ -32,15 +32,13 @@ type pmmErrorMessage struct {
 
 func createKey(ctx context.Context, hostname, apiKeyName string, auth iAuth, skipTLSVerify bool) (string, error) {
 	body := nameAndRoleMap(apiKeyName)
-	resp, err := doJSONRequest[map[string]interface{}](ctx, http.MethodPost, fmt.Sprintf("%s/graph/api/auth/keys", hostname), auth, body, skipTLSVerify)
+	resp, err := doJSONRequest[struct {
+		Key string `json:"key"`
+	}](ctx, http.MethodPost, fmt.Sprintf("%s/graph/api/auth/keys", hostname), auth, body, skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
-	key, ok := resp["key"].(string)
-	if !ok {
-		return "", errors.New("cannot unmarshal key in createAdminToken")
-	}
-	return key, nil
+	return resp.Key, nil
 }
 
 func createServiceAccountAndToken(ctx context.Context, hostname, apiKeyName string, auth iAuth, skipTLSVerify bool) (string, error) {

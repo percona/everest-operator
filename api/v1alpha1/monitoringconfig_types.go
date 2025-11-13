@@ -39,7 +39,7 @@ const (
 
 	// PMM2ClientImage is the image for PMM2 client.
 	PMM2ClientImage = "percona/pmm-client:2"
-	// PMM3ClientImage is the image for PMM2 client.
+	// PMM3ClientImage is the image for PMM3 client.
 	PMM3ClientImage = "percona/pmm-client:3"
 )
 
