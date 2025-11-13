@@ -92,7 +92,7 @@ type MonitoringConfigStatus struct {
 }
 
 // CreatePMMApiKey creates a new API key in PMM by using the provided username and password.
-func (v *PMMConfig) CreatePMMApiKey(
+func (c *PMMConfig) CreatePMMApiKey(
 	ctx context.Context,
 	apiKeyName, user, password string,
 	skipTLSVerify bool,
@@ -101,16 +101,16 @@ func (v *PMMConfig) CreatePMMApiKey(
 		user:     user,
 		password: password,
 	}
-	version, err := v.getPMMVersion(ctx, auth, skipTLSVerify)
+	version, err := c.getPMMVersion(ctx, auth, skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
 
 	// PMM2 and PMM3 use different API to create tokens
 	if version.UsesLegacyAuth() {
-		return createKey(ctx, v.URL, apiKeyName, auth, skipTLSVerify)
+		return createKey(ctx, c.URL, apiKeyName, auth, skipTLSVerify)
 	} else {
-		return createServiceAccountAndToken(ctx, v.URL, apiKeyName, auth, skipTLSVerify)
+		return createServiceAccountAndToken(ctx, c.URL, apiKeyName, auth, skipTLSVerify)
 	}
 }
 
@@ -123,7 +123,7 @@ func (m *MonitoringConfig) GetPMMServerVersion(ctx context.Context, credentialsS
 }
 
 // getPMMKey finds the PMM key in the given secret
-func (v *PMMConfig) getPMMKey(secret *corev1.Secret) string {
+func (c *PMMConfig) getPMMKey(secret *corev1.Secret) string {
 	if secret == nil || len(secret.Data) == 0 {
 		return ""
 	}
@@ -140,10 +140,10 @@ func (v *PMMConfig) getPMMKey(secret *corev1.Secret) string {
 }
 
 // getPMMVersion makes an API request to the PMM server to figure out the current version
-func (v *PMMConfig) getPMMVersion(ctx context.Context, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
+func (c *PMMConfig) getPMMVersion(ctx context.Context, auth iAuth, skipTLSVerify bool) (PMMServerVersion, error) {
 	resp, err := doJSONRequest[struct {
 		Version string `json:"version"`
-	}](ctx, http.MethodGet, fmt.Sprintf("%s/v1/version", v.URL), auth, "", skipTLSVerify)
+	}](ctx, http.MethodGet, fmt.Sprintf("%s/v1/version", c.URL), auth, "", skipTLSVerify)
 	if err != nil {
 		return "", err
 	}
