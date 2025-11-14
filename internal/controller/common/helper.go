@@ -28,7 +28,7 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
-	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/v2/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	psmdbv1 "github.com/percona/percona-server-mongodb-operator/pkg/apis/psmdb/v1"
 	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
