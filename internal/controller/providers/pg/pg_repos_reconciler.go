@@ -66,7 +66,6 @@ func newPGReposReconciler(oldRepos []crunchyv1beta1.PGBackRestRepo, backupSchedu
 	)
 
 	pgBackRestGlobal := make(map[string]string, maxPGBackrestOptionsNumber*maxStorages)
-	pgBackRestGlobal["repo1-retention-full"] = "1"
 
 	return &pgReposReconciler{
 		pgBackRestGlobal:              pgBackRestGlobal,
