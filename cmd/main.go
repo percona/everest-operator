@@ -52,7 +52,7 @@ import (
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
-	everestWebHooks "github.com/percona/everest-operator/internal/webhooks/everest/v1alpha1"
+	everestWebHooks "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
 )
 
 var (
