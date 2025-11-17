@@ -6,6 +6,6 @@ parallel: 1
 timeout: 180
 skipDelete: true
 testDirs:
-- tests/e2e/db-upgrade
+- test/e2e/db-upgrade
 manifestDirs:
-- tests/manifests
+- test/manifests

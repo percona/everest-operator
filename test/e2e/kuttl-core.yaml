@@ -6,6 +6,6 @@ parallel: 1
 timeout: 180
 skipDelete: true
 testDirs:
-- tests/e2e/core
+- test/e2e/core
 manifestDirs:
-- tests/manifests
+- test/manifests
