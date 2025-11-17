@@ -12,7 +12,7 @@ require (
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.3
 	github.com/hashicorp/go-version v1.7.0
-	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/operator-framework/api v0.33.0
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20241212160532-0157f87a7eee
