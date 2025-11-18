@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// NOTE: we do not use this file, but it is required for proper work of kubebuilder.
+// DO NOT DELETE IT!
 package v1alpha1
 
 import (
