@@ -63,6 +63,7 @@ replacements:
     fieldPaths:
     - webhooks.[name=mdatabasecluster-v1alpha1.everest.percona.com].clientConfig.caBundle
     - webhooks.[name=mdataimportjobs-v1akpha1.everest.percona.com].clientConfig.caBundle
+    - webhooks.[name=mdatabaseclusterrestore-v1alpha1.everest.percona.com].clientConfig.caBundle
     options:
       create: true
 

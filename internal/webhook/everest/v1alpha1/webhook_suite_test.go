@@ -27,7 +27,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/percona/everest-operator/utils"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/percona/everest-operator/utils"
 )
 
 var (
@@ -204,12 +204,6 @@ func validatePitrRestoreSpec(dataSource everestv1alpha1.DatabaseClusterRestoreDa
 	var allErrs field.ErrorList
 	if dataSource.PITR == nil {
 		return nil
-	}
-
-	// use 'date' as default
-	// TODO: Move to Defaulter
-	if dataSource.PITR.Type == "" {
-		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
 	}
 
 	switch dataSource.PITR.Type {

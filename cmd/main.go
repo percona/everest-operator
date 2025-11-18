@@ -366,7 +366,11 @@ func main() {
 			os.Exit(1)
 		}
 		if err := everestWebHooks.SetupDatabaseClusterRestoreWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseClusterRestore")
+			setupLog.Error(err, "unable to create validation webhook", "webhook", "DatabaseClusterRestore")
+			os.Exit(1)
+		}
+		if err := everestWebHooks.SetupDatabaseClusterRestoreMutationWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create mutation webhook", "webhook", "DatabaseClusterRestore")
 			os.Exit(1)
 		}
 	}
