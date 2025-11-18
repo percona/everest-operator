@@ -4,7 +4,7 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: percona.com
 layout:
-  - go.kubebuilder.io/v4
+- go.kubebuilder.io/v4
 multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
@@ -21,6 +21,10 @@ resources:
   kind: DatabaseCluster
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -39,6 +43,9 @@ resources:
   kind: DatabaseClusterRestore
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -66,6 +73,9 @@ resources:
   kind: MonitoringConfig
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
   controller: true
@@ -82,6 +92,9 @@ resources:
   kind: LoadBalancerConfig
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
   domain: percona.com
@@ -98,4 +111,7 @@ resources:
   kind: DataImportJob
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

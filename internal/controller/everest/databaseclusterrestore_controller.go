@@ -100,11 +100,6 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 		return reconcile.Result{}, err
 	}
 
-	if (cr.Spec.DataSource.DBClusterBackupName == "" && cr.Spec.DataSource.BackupSource == nil) ||
-		(cr.Spec.DataSource.DBClusterBackupName != "" && cr.Spec.DataSource.BackupSource != nil) {
-		return reconcile.Result{}, errors.New("specify either dbClusterBackupName or backupSource")
-	}
-
 	dbCRNamespacedName := types.NamespacedName{
 		Name:      cr.Spec.DBClusterName,
 		Namespace: cr.Namespace,
@@ -376,10 +371,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePSMDB(
 		}
 
 		if restore.Spec.DataSource.PITR != nil {
-			if err := validatePitrRestoreSpec(restore.Spec.DataSource); err != nil {
-				return err
-			}
-
 			psmdbCR.Spec.PITR = &psmdbv1.PITRestoreSpec{
 				Type: psmdbv1.PITRestoreType(restore.Spec.DataSource.PITR.Type),
 				Date: &psmdbv1.PITRestoreDate{Time: restore.Spec.DataSource.PITR.Date.Time},
@@ -627,10 +618,6 @@ func (r *DatabaseClusterRestoreReconciler) genPXCPitrRestoreSpec(
 		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
 	}
 
-	if err := validatePitrRestoreSpec(dataSource); err != nil {
-		return nil, err
-	}
-
 	// First get the source backup object.
 	// Note: This assumes that we will always restore to same namespace, even to a new cluster.
 	sourceBackup := &everestv1alpha1.DatabaseClusterBackup{}
@@ -685,9 +672,6 @@ func getPGRestoreOptions(dataSource everestv1alpha1.DatabaseClusterRestoreDataSo
 	}
 
 	if dataSource.PITR != nil {
-		if err := validatePitrRestoreSpec(dataSource); err != nil {
-			return nil, err
-		}
 		dateString := fmt.Sprintf(`"%s"`, dataSource.PITR.Date.Format(everestv1alpha1.DateFormatSpace))
 		options = append(options, "--type="+pgBackupTypeDate)
 		options = append(options, "--target="+dateString)
@@ -696,31 +680,6 @@ func getPGRestoreOptions(dataSource everestv1alpha1.DatabaseClusterRestoreDataSo
 	}
 
 	return options, nil
-}
-
-func validatePitrRestoreSpec(dataSource everestv1alpha1.DatabaseClusterRestoreDataSource) error {
-	if dataSource.PITR == nil {
-		return nil
-	}
-
-	// use 'date' as default
-	if dataSource.PITR.Type == "" {
-		dataSource.PITR.Type = everestv1alpha1.PITRTypeDate
-	}
-
-	switch dataSource.PITR.Type {
-	case everestv1alpha1.PITRTypeDate:
-		if dataSource.PITR.Date == nil {
-			return errPitrEmptyDate
-		}
-	case everestv1alpha1.PITRTypeLatest:
-		//nolint:godox
-		// TODO: figure out why "latest" doesn't work currently for Everest
-		return errPitrTypeLatest
-	default:
-		return errPitrTypeIsNotSupported
-	}
-	return nil
 }
 
 // ReconcileWatchers reconciles the watchers for the DatabaseClusterRestore controller.

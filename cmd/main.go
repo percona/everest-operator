@@ -365,6 +365,10 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
 			os.Exit(1)
 		}
+		if err := everestWebHooks.SetupDatabaseClusterRestoreWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseClusterRestore")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
