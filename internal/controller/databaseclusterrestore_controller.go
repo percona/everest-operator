@@ -491,14 +491,12 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 			Namespace: restore.Namespace,
 		},
 	}
-	if err := controllerutil.SetControllerReference(restore, pgCR, r.Client.Scheme()); err != nil {
-		return err
-	}
+
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, pgCR, func() error {
 		pgCR.Spec.PGCluster = restore.Spec.DBClusterName
 		pgCR.Spec.RepoName = repoName
 		pgCR.Spec.Options, err = getPGRestoreOptions(restore.Spec.DataSource, backupBaseName)
-		return err
+		return controllerutil.SetControllerReference(restore, pgCR, r.Client.Scheme())
 	})
 	if err != nil {
 		return err
