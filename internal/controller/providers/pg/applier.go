@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	"github.com/Masterminds/semver/v3"
 	"github.com/go-ini/ini"
 	pgv2 "github.com/percona/percona-postgresql-operator/v2/pkg/apis/pgv2.percona.com/v2"
 	crunchyv1beta1 "github.com/percona/percona-postgresql-operator/v2/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -1123,7 +1124,9 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 		backupList.Items,
 		backupStorages,
 		backupStoragesSecrets,
+		database.Spec.Engine.Storage,
 		database,
+		checkPVCRequired(oldBackups.PGBackRest.Repos, engine.Status.OperatorVersion),
 	)
 	if err != nil {
 		return pgv2.Backups{}, err
@@ -1160,6 +1163,21 @@ func (p *applier) reconcilePGBackupsSpec() (pgv2.Backups, error) {
 	newBackups.PGBackRest.Repos = pgBackrestRepos
 	newBackups.PGBackRest.Global = pgBackrestGlobal
 	return newBackups, nil
+}
+
+// Keep the PVC storage only if it was defined before or if PG less than 2.7.0 is used
+func checkPVCRequired(repos []crunchyv1beta1.PGBackRestRepo, v string) bool {
+	for _, repo := range repos {
+		if repo.Volume != nil {
+			return true
+		}
+	}
+
+	if version, err := semver.NewVersion(v); err == nil {
+		return version.LessThan(semver.MustParse("2.8.0"))
+	}
+
+	return false
 }
 
 // createPGBackrestSecret creates or updates the PG Backrest secret.
@@ -1205,14 +1223,16 @@ func reconcilePGBackRestRepos(
 	backups []everestv1alpha1.DatabaseClusterBackup,
 	backupStorages map[string]everestv1alpha1.BackupStorage,
 	backupStoragesSecrets map[string]*corev1.Secret,
+	engineStorage everestv1alpha1.Storage,
 	db *everestv1alpha1.DatabaseCluster,
+	pvcRequired bool,
 ) (
 	[]crunchyv1beta1.PGBackRestRepo,
 	map[string]string,
 	[]byte,
 	error,
 ) {
-	reposReconciler, err := newPGReposReconciler(oldRepos, backupSchedules)
+	reposReconciler, err := newPGReposReconciler(oldRepos, backupSchedules, pvcRequired)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{},
 			errors.Join(err, errors.New("failed to initialize PGBackrest repos reconciler"))
@@ -1241,7 +1261,7 @@ func reconcilePGBackRestRepos(
 			errors.Join(err, errors.New("failed to add new backup schedules"))
 	}
 
-	newRepos, err := reposReconciler.sortRepos()
+	newRepos, err := reposReconciler.addDefaultRepo(engineStorage, pvcRequired)
 	if err != nil {
 		return []crunchyv1beta1.PGBackRestRepo{}, map[string]string{}, []byte{}, err
 	}
