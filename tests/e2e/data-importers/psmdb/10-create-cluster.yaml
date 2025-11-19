@@ -29,7 +29,7 @@ spec:
     dataImport:
       dataImporterName: everest-percona-psmdb-operator
       source:
-        path: "/psmdb/2025-11-11T10/58/12Z"
+        path: "/psmdb/2025-11-03T09:34:50Z"
         s3:
           bucket: everest-operator
           region: us-east-1
