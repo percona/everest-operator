@@ -5,6 +5,10 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 env:
   TOOLS_PATH: "/opt/tools/bin"
+  GONOPROXY: 'github.com/percona'
+  GONOSUMDB: 'github.com/percona'
+  GOPRIVATE: 'github.com/percona'
+
 jobs:
   # Only the following E2E tests require EKS:
   # - test/e2e
