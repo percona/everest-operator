@@ -8,6 +8,7 @@ metadata:
   name: test-psmdb-cluster
 spec:
   engine:
+    crVersion: 1.21.0
     type: psmdb
     replicas: 1
     storage:
