@@ -11,7 +11,7 @@ metadata:
 spec:
   engine:
     type: psmdb
-    version: 6.0.19-16
+    version: 7.0.15-9
     config: |
      operationProfiling:
         mode: slowOp
@@ -38,7 +38,7 @@ metadata:
     - percona.com/delete-psmdb-pods-in-order
     - percona.com/delete-psmdb-pvc
 spec:
-  image: percona/percona-server-mongodb:6.0.19-16-multi
+  image: percona/percona-server-mongodb:7.0.15-9-multi
   multiCluster:
     enabled: false
   replsets:
@@ -63,7 +63,7 @@ spec:
   sharding:
     enabled: false
 status:
-  mongoVersion: 6.0.19-16
+  mongoVersion: 7.0.15-9
   replsets:
     rs0:
       initialized: true

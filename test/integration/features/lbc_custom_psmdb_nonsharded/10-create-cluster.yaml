@@ -15,7 +15,7 @@ spec:
       class: local-path
       size: 25Gi
     type: psmdb
-    version: 7.0.15-9
+    version: 8.0.12-4
   proxy:
     expose:
       type: external
