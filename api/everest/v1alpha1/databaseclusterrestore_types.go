@@ -77,6 +77,11 @@ type DatabaseClusterRestoreStatus struct {
 	State       RestoreState `json:"state,omitempty"`
 	CompletedAt *metav1.Time `json:"completed,omitempty"`
 	Message     string       `json:"message,omitempty"`
+	// InUse is a flag that indicates if this restore resource is being used to restore DB cluster from backup.
+	// +kubebuilder:default=false
+	InUse bool `json:"inUse,omitempty"`
+	// LastObservedGeneration is the most recent generation observed for this DatabaseClusterRestore.
+	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
 }
 
 // PITR represents a specification to configure point in time recovery for a database backup/restore.
