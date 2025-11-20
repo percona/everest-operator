@@ -20,24 +20,12 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
-
-// SetupDatabaseClusterRestoreMutationWebhookWithManager registers the webhook for DatabaseClusterRestore in the manager.
-func SetupDatabaseClusterRestoreMutationWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&everestv1alpha1.DatabaseClusterRestore{}).
-		WithDefaulter(&DatabaseClusterRestoreCustomDefaulter{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).
-		Complete()
-}
 
 //nolint:lll
 // +kubebuilder:webhook:path=/mutate-everest-percona-com-v1alpha1-databaseclusterrestore,mutating=true,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusterrestores,verbs=create;update,versions=v1alpha1,name=mdatabaseclusterrestore-v1alpha1.everest.percona.com,admissionReviewVersions=v1

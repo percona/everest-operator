@@ -1,3 +1,18 @@
+// // everest-operator
+// // Copyright (C) 2022 Percona LLC
+// //
+// // Licensed under the Apache License, Version 2.0 (the "License");
+// // you may not use this file except in compliance with the License.
+// // You may obtain a copy of the License at
+// //
+// // http://www.apache.org/licenses/LICENSE-2.0
+// //
+// // Unless required by applicable law or agreed to in writing, software
+// // distributed under the License is distributed on an "AS IS" BASIS,
+// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// // See the License for the specific language governing permissions and
+// // limitations under the License.
+
 // everest
 // Copyright (C) 2025 Percona LLC
 //
@@ -74,7 +89,7 @@ type DatabaseClusterRestoreReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) {
+func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rr ctrl.Result, rerr error) { //nolint:nonamedreturns
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling", "request", req)
 	defer func() {
@@ -115,7 +130,8 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 
 	// Update the status and finalizers of the DatabaseClusterRestore object after the reconciliation.
 	defer func() {
-		rr, rerr = r.reconcileStatus(ctx, req)
+		rr = ctrl.Result{}
+		rerr = r.reconcileStatus(ctx, req)
 	}()
 
 	if len(dbcr.Labels) == 0 {
@@ -176,7 +192,73 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// SetupWithManager sets up the controller with the Manager.
+func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := r.initIndexers(context.Background(), mgr); err != nil {
+		return err
+	}
+
+	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
+		Named("DatabaseClusterRestore").
+		For(&everestv1alpha1.DatabaseClusterRestore{}).
+		Watches(
+			&corev1.Namespace{},
+			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterRestoreList{}),
+		).
+		WithEventFilter(common.DefaultNamespaceFilter)
+
+	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
+	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
+	ctrl, err := ctrlBuilder.Build(r)
+	if err != nil {
+		return err
+	}
+	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterRestore")
+	r.controller = newControllerWatcherRegistry(log, ctrl)
+	return nil
+}
+
+// ReconcileWatchers reconciles the watchers for the DatabaseClusterRestore controller.
+func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context) error {
+	dbEngines := &everestv1alpha1.DatabaseEngineList{}
+	if err := r.List(ctx, dbEngines); err != nil {
+		return err
+	}
+
+	log := log.FromContext(ctx)
+	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
+		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, dbEngine := range dbEngines.Items {
+		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
+			continue
+		}
+		switch t := dbEngine.Spec.Type; t {
+		case everestv1alpha1.DatabaseEnginePXC:
+			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}, nil); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePostgresql:
+			if err := addWatcher(t, &pgv2.PerconaPGRestore{}, r.tryCreatePG); err != nil {
+				return err
+			}
+		case everestv1alpha1.DatabaseEnginePSMDB:
+			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}, nil); err != nil {
+				return err
+			}
+		default:
+			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
+			continue
+		}
+	}
+	return nil
+}
+
+func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, req ctrl.Request) error {
 	// fetch again to get the latest version with possible changes
 	logger := log.FromContext(ctx)
 	var err error
@@ -185,12 +267,12 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 		msg := fmt.Sprintf("failed to fetch DatabaseClusterRestore='%s'",
 			req.NamespacedName)
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+		return fmt.Errorf("%s: %w", msg, err)
 	}
 
 	// Nothing to process on delete events
 	if !dbcr.GetDeletionTimestamp().IsZero() {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	dbcNamespacedName := types.NamespacedName{
@@ -206,10 +288,10 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 			msg := fmt.Sprintf("failed to fetch DatabaseCluster='%s'",
 				dbcNamespacedName)
 			logger.Error(err, msg)
-			return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+			return fmt.Errorf("%s: %w", msg, err)
 		}
 		// Nothing to do if the parent DatabaseCluster is already deleted.
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	upstreamRestoreName := types.NamespacedName{Name: dbcr.GetName(), Namespace: dbcr.GetNamespace()}
@@ -221,7 +303,7 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 			msg := fmt.Sprintf("failed to fetch PerconaXtraDBClusterRestore='%s' to update status",
 				upstreamRestoreName)
 			logger.Error(err, msg)
-			return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+			return fmt.Errorf("%s: %w", msg, err)
 		}
 		dbcr.Status.State = everestv1alpha1.GetDBRestoreState(pxcCR)
 		dbcr.Status.CompletedAt = pxcCR.Status.CompletedAt
@@ -233,7 +315,7 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 			msg := fmt.Sprintf("failed to fetch PerconaServerMongoDBRestore='%s' to update status",
 				upstreamRestoreName)
 			logger.Error(err, msg)
-			return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+			return fmt.Errorf("%s: %w", msg, err)
 		}
 		dbcr.Status.State = everestv1alpha1.GetDBRestoreState(psmdbCR)
 		dbcr.Status.CompletedAt = psmdbCR.Status.CompletedAt
@@ -245,7 +327,7 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 			msg := fmt.Sprintf("failed to fetch PerconaPGRestore='%s' to update status",
 				upstreamRestoreName)
 			logger.Error(err, msg)
-			return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+			return fmt.Errorf("%s: %w", msg, err)
 		}
 		dbcr.Status.State = everestv1alpha1.GetDBRestoreState(pgCR)
 		dbcr.Status.CompletedAt = pgCR.Status.CompletedAt
@@ -257,16 +339,16 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 		msg := fmt.Sprintf("failed to update status for DatabaseClusterRestore='%s'",
 			req.NamespacedName)
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+		return fmt.Errorf("%s: %w", msg, err)
 	}
 
 	if err = common.EnsureInUseFinalizer(ctx, r.Client, dbcr.Status.InUse, dbcr); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for DatabaseClusterRestore='%s'",
 			req.NamespacedName)
 		logger.Error(err, msg)
-		return ctrl.Result{}, fmt.Errorf("%s: %w", msg, err)
+		return fmt.Errorf("%s: %w", msg, err)
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *DatabaseClusterRestoreReconciler) ensureOwnerReference(
@@ -581,32 +663,6 @@ func (r *DatabaseClusterRestoreReconciler) restorePG(ctx context.Context, restor
 	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *DatabaseClusterRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := r.initIndexers(context.Background(), mgr); err != nil {
-		return err
-	}
-
-	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
-		Named("DatabaseClusterRestore").
-		For(&everestv1alpha1.DatabaseClusterRestore{}).
-		Watches(
-			&corev1.Namespace{},
-			common.EnqueueObjectsInNamespace(r.Client, &everestv1alpha1.DatabaseClusterRestoreList{}),
-		).
-		WithEventFilter(common.DefaultNamespaceFilter)
-
-	// Normally we would call `Complete()`, however, with `Build()`, we get a handle to the underlying controller,
-	// so that we can dynamically add watchers from the DatabaseEngine reconciler.
-	ctrl, err := ctrlBuilder.Build(r)
-	if err != nil {
-		return err
-	}
-	log := mgr.GetLogger().WithName("DynamicWatcher").WithValues("controller", "DatabaseClusterRestore")
-	r.controller = newControllerWatcherRegistry(log, ctrl)
-	return nil
-}
-
 func (r *DatabaseClusterRestoreReconciler) initIndexers(ctx context.Context, mgr ctrl.Manager) error {
 	err := mgr.GetFieldIndexer().IndexField(
 		ctx, &everestv1alpha1.DatabaseClusterRestore{}, dbClusterRestoreDBClusterNameField,
@@ -719,46 +775,6 @@ func getPGRestoreOptions(dataSource everestv1alpha1.DatabaseClusterRestoreDataSo
 	}
 
 	return options, nil
-}
-
-// ReconcileWatchers reconciles the watchers for the DatabaseClusterRestore controller.
-func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context) error {
-	dbEngines := &everestv1alpha1.DatabaseEngineList{}
-	if err := r.List(ctx, dbEngines); err != nil {
-		return err
-	}
-
-	log := log.FromContext(ctx)
-	addWatcher := func(dbEngineType everestv1alpha1.EngineType, obj client.Object, f func(context.Context, client.Object) error) error {
-		if err := r.controller.addWatchers(string(dbEngineType), source.Kind(r.Cache, obj, r.watchHandler(f))); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	for _, dbEngine := range dbEngines.Items {
-		if dbEngine.Status.State != everestv1alpha1.DBEngineStateInstalled {
-			continue
-		}
-		switch t := dbEngine.Spec.Type; t {
-		case everestv1alpha1.DatabaseEnginePXC:
-			if err := addWatcher(t, &pxcv1.PerconaXtraDBClusterRestore{}, nil); err != nil {
-				return err
-			}
-		case everestv1alpha1.DatabaseEnginePostgresql:
-			if err := addWatcher(t, &pgv2.PerconaPGRestore{}, r.tryCreatePG); err != nil {
-				return err
-			}
-		case everestv1alpha1.DatabaseEnginePSMDB:
-			if err := addWatcher(t, &psmdbv1.PerconaServerMongoDBRestore{}, nil); err != nil {
-				return err
-			}
-		default:
-			log.Info("Unknown database engine type", "type", dbEngine.Spec.Type)
-			continue
-		}
-	}
-	return nil
 }
 
 func (r *DatabaseClusterRestoreReconciler) watchHandler(creationFunc func(ctx context.Context, obj client.Object) error) handler.Funcs { //nolint:dupl

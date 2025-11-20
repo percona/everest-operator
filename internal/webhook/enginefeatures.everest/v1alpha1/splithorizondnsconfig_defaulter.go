@@ -26,11 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
@@ -47,17 +45,6 @@ var (
 	groupKind                         = enginefeatureseverestv1alpha1.GroupVersion.WithKind(consts.SplitHorizonDNSConfigKind).GroupKind()
 	_         webhook.CustomDefaulter = &SplitHorizonDNSConfigDefaulter{}
 )
-
-// SetupSplitHorizonDNSConfigMutationWebhookWithManager registers the mutation webhook for SplitHorizonDNSConfig in the manager.
-func SetupSplitHorizonDNSConfigMutationWebhookWithManager(mgr manager.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{}).
-		WithDefaulter(&SplitHorizonDNSConfigDefaulter{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).
-		Complete()
-}
 
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.

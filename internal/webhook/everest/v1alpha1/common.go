@@ -28,47 +28,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package everest contains a set of controllers for everest
-package everest
+package v1alpha1
 
 import (
-	"sync"
+	"errors"
 
-	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// controllerWatcherRegistry is a wrapper around controller.Controller that provides a way to
-// store and keep track of the sources that have been added to the controller.
-type controllerWatcherRegistry struct {
-	controller.Controller
-	store sync.Map
-	log   logr.Logger
-}
+var (
+	// .spec.
+	specPath = field.NewPath("spec")
 
-func newControllerWatcherRegistry(log logr.Logger, c controller.Controller) *controllerWatcherRegistry {
-	return &controllerWatcherRegistry{
-		Controller: c,
-		log:        log,
+	// Immutable field error generator.
+	errImmutableField = func(fieldPath *field.Path) *field.Error {
+		return field.Forbidden(fieldPath, "is immutable and cannot be changed")
 	}
-}
+	// Required field error generator.
+	errRequiredField = func(fieldPath *field.Path) *field.Error {
+		return field.Required(fieldPath, "can not be empty")
+	}
 
-// addWatchers adds the provided sources to the controller's watch and stores the name of the sources in a map to avoid adding them again.
-func (c *controllerWatcherRegistry) addWatchers(
-	name string,
-	sources ...source.Source,
-) error {
-	_, ok := c.store.Load(name)
-	if ok {
-		return nil // watcher group already exists with this name, so skip.
+	// Invalid field value error generator.
+	errInvalidField = func(fieldPath *field.Path, fieldValue, errMsg string) *field.Error {
+		return field.Invalid(fieldPath, fieldValue, errMsg)
 	}
-	for _, src := range sources {
-		if err := c.Controller.Watch(src); err != nil {
-			return err
-		}
-	}
-	c.log.Info("Added watchers", "name", name)
-	c.store.Store(name, struct{}{})
-	return nil
-}
+
+	// Deletion errors.
+	errDeleteInUse = errors.New("is used by some DB cluster and cannot be deleted")
+)

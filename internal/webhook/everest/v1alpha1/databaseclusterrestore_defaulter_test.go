@@ -19,7 +19,6 @@ import (
 	"context"
 	"testing"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 func TestDatabaseClusterRestoreCustomDefaulter_Default(t *testing.T) {
@@ -37,7 +38,7 @@ func TestDatabaseClusterRestoreCustomDefaulter_Default(t *testing.T) {
 		name         string
 		objs         []ctrlclient.Object
 		dbcrToCreate *everestv1alpha1.DatabaseClusterRestore
-		wantDbcr *everestv1alpha1.DatabaseClusterRestore
+		wantDbcr     *everestv1alpha1.DatabaseClusterRestore
 		wantErr      error
 	}
 
@@ -54,7 +55,7 @@ func TestDatabaseClusterRestoreCustomDefaulter_Default(t *testing.T) {
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						PITR: &everestv1alpha1.PITR{
 							Date: &everestv1alpha1.RestoreDate{
-								metav1.Time{},
+								Time: metav1.Time{},
 							},
 						},
 					},
@@ -70,7 +71,7 @@ func TestDatabaseClusterRestoreCustomDefaulter_Default(t *testing.T) {
 						PITR: &everestv1alpha1.PITR{
 							Type: everestv1alpha1.PITRTypeDate,
 							Date: &everestv1alpha1.RestoreDate{
-								metav1.Time{},
+								Time: metav1.Time{},
 							},
 						},
 					},

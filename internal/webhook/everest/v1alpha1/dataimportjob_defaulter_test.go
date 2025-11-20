@@ -1,3 +1,18 @@
+// // everest-operator
+// // Copyright (C) 2022 Percona LLC
+// //
+// // Licensed under the Apache License, Version 2.0 (the "License");
+// // you may not use this file except in compliance with the License.
+// // You may obtain a copy of the License at
+// //
+// // http://www.apache.org/licenses/LICENSE-2.0
+// //
+// // Unless required by applicable law or agreed to in writing, software
+// // distributed under the License is distributed on an "AS IS" BASIS,
+// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// // See the License for the specific language governing permissions and
+// // limitations under the License.
+
 // everest
 // Copyright (C) 2025 Percona LLC
 //
@@ -12,10 +27,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-<<<<<<<< HEAD:internal/webhook/everest/v1alpha1/dataimportjob_defaulter_test.go
-========
 
->>>>>>>> main:internal/webhook/everest/v1alpha1/dataimportjob_webhook_test.go
 package v1alpha1
 
 import (
@@ -30,10 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-<<<<<<<< HEAD:internal/webhook/everest/v1alpha1/dataimportjob_defaulter_test.go
-========
 	"github.com/percona/everest-operator/utils"
->>>>>>>> main:internal/webhook/everest/v1alpha1/dataimportjob_webhook_test.go
 )
 
 func TestIsBase64Encoded(t *testing.T) {

@@ -13,11 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-<<<<<<<< HEAD:internal/webhook/everest/v1alpha1/databasecluster_defaulter.go
 // Package v1alpha1 ...
 //
-========
->>>>>>>> main:internal/webhook/everest/v1alpha1/databasecluster_webhook_defaulter.go
 //nolint:lll
 package v1alpha1
 
@@ -33,10 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-<<<<<<<< HEAD:internal/webhook/everest/v1alpha1/databasecluster_defaulter.go
-	"github.com/percona/everest-operator/internal/controller/everest/common"
-========
->>>>>>>> main:internal/webhook/everest/v1alpha1/databasecluster_webhook_defaulter.go
 )
 
 // +kubebuilder:webhook:path=/mutate-everest-percona-com-v1alpha1-databasecluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusters,verbs=create;update,versions=v1alpha1,name=mdatabasecluster-v1alpha1.everest.percona.com,admissionReviewVersions=v1
@@ -76,7 +69,7 @@ func (d *DatabaseClusterDefaulter) Default(ctx context.Context, obj runtime.Obje
 	var found bool
 	if dbEngine, found = dbEngines.Get(db.Spec.Engine.Type); !found {
 		return apierrors.NewInvalid(dbClusterGroupKind, db.GetName(), field.ErrorList{
-			field.NotSupported(engineTypePath, db.Spec.Engine.Type, dbEngines.EngineTypes()),
+			field.NotSupported(dbcEngineTypePath, db.Spec.Engine.Type, dbEngines.EngineTypes()),
 		})
 	}
 

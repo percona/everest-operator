@@ -17,6 +17,7 @@
 // DO NOT DELETE IT!
 package v1alpha1
 
+//nolint:revive
 import (
 	"context"
 	"crypto/tls"
@@ -54,6 +55,7 @@ var (
 )
 
 func TestAPIs(t *testing.T) {
+	t.Parallel()
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Webhook Suite")
@@ -62,7 +64,8 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	var err error
 	err = everestv1alpha1.AddToScheme(scheme.Scheme)
@@ -123,7 +126,7 @@ var _ = BeforeSuite(func() {
 	dialer := &net.Dialer{Timeout: time.Second}
 	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
 	Eventually(func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec
 		if err != nil {
 			return err
 		}

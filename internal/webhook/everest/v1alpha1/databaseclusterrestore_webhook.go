@@ -17,7 +17,6 @@ package v1alpha1
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -36,36 +35,23 @@ import (
 )
 
 var (
-	// .spec.
-	specPath = field.NewPath("spec")
 	// .spec.dbClusterName.
-	dbClusterNamePath = specPath.Child("dbClusterName")
+	dbcrDbClusterNamePath = specPath.Child("dbClusterName")
 
 	// .spec.dataSource.
-	dataSourcePath = specPath.Child("dataSource")
+	dbcrDataSourcePath = specPath.Child("dataSource")
 	// .spec.dataSource.dbClusterBackupName.
-	dbClusterBackupNamePath = dataSourcePath.Child("dbClusterBackupName")
+	dbcrDbClusterBackupNamePath = dbcrDataSourcePath.Child("dbClusterBackupName")
 	// .spec.dataSource.backupSource.
-	backupSourcePath = dataSourcePath.Child("backupSource")
+	dbcrBackupSourcePath = dbcrDataSourcePath.Child("backupSource")
 	// .spec.dataSource.backupSource.path.
-	backupSourcePathPath = backupSourcePath.Child("path")
-	// .spec.dataSource.backupSource.backupStorageName.
-	backupSourceStorageNamePath = backupSourcePath.Child("backupStorageName")
+	dbcrBackupSourcePathPath = dbcrBackupSourcePath.Child("path")
+	// .spec.dataSource.backupSource.dbcrBackupStorageName.
+	dbcrBackupSourceStorageNamePath = dbcrBackupSourcePath.Child("dbcrBackupStorageName")
 	// .spec.dataSource.pitr.type.
-	dataSourcePitrTypePath = dataSourcePath.Child("type")
+	dbcrDataSourcePitrTypePath = dbcrDataSourcePath.Child("type")
 	// .spec.dataSource.pitr.date.
-	dataSourcePitrDatePath = dataSourcePath.Child("date")
-
-	// Required field error generator.
-	errRequiredField = func(fieldPath *field.Path) *field.Error {
-		return field.Required(fieldPath, "can not be empty")
-	}
-	// Immutable field error generator.
-	errImmutableField = func(fieldPath *field.Path) *field.Error {
-		return field.Forbidden(fieldPath, "is immutable and cannot be changed")
-	}
-	// Deletion errors.
-	errDeleteInUse = errors.New("is used by some DB cluster and cannot be deleted")
+	dbcrDataSourcePitrDatePath = dbcrDataSourcePath.Child("date")
 )
 
 // SetupDatabaseClusterRestoreWebhookWithManager registers the webhook for DatabaseClusterRestore in the manager.
@@ -75,11 +61,16 @@ func SetupDatabaseClusterRestoreWebhookWithManager(mgr ctrl.Manager) error {
 		WithValidator(&DatabaseClusterRestoreCustomValidator{
 			Client: mgr.GetClient(),
 		}).
+		WithDefaulter(&DatabaseClusterRestoreCustomDefaulter{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).
 		Complete()
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
+//nolint:lll
 // +kubebuilder:webhook:path=/validate-everest-percona-com-v1alpha1-databaseclusterrestore,mutating=false,failurePolicy=fail,sideEffects=None,groups=everest.percona.com,resources=databaseclusterrestores,verbs=create;update;delete,versions=v1alpha1,name=vdatabaseclusterrestore-v1alpha1.everest.percona.com,admissionReviewVersions=v1
 
 // DatabaseClusterRestoreCustomValidator struct is responsible for validating the DatabaseClusterRestore resource
@@ -92,7 +83,7 @@ type DatabaseClusterRestoreCustomValidator struct {
 }
 
 var (
-	_         webhook.CustomValidator = &DatabaseClusterRestoreCustomValidator{} //nolint:gci
+	_         webhook.CustomValidator = &DatabaseClusterRestoreCustomValidator{}
 	groupKind                         = everestv1alpha1.GroupVersion.WithKind("DatabaseClusterRestore").GroupKind()
 )
 
@@ -111,7 +102,7 @@ func (v *DatabaseClusterRestoreCustomValidator) ValidateCreate(ctx context.Conte
 	logger.Info("Validation for DatabaseClusterRestore upon creation", "name", dbcr.GetName())
 
 	if dbcr.Spec.DBClusterName == "" {
-		allErrs = append(allErrs, errRequiredField(dbClusterNamePath))
+		allErrs = append(allErrs, errRequiredField(dbcrDbClusterNamePath))
 	} else {
 		// check if the referenced DatabaseCluster exists
 		db := &everestv1alpha1.DatabaseCluster{}
@@ -119,19 +110,19 @@ func (v *DatabaseClusterRestoreCustomValidator) ValidateCreate(ctx context.Conte
 			Name:      dbcr.Spec.DBClusterName,
 			Namespace: dbcr.Namespace,
 		}, db); apierrors.IsNotFound(err) {
-			allErrs = append(allErrs, field.NotFound(dbClusterNamePath,
+			allErrs = append(allErrs, field.NotFound(dbcrDbClusterNamePath,
 				fmt.Sprintf("DatabaseCluster %s not found in namespace %s", dbcr.Spec.DBClusterName, dbcr.Namespace)))
 		}
 	}
 
 	if dbcr.Spec.DataSource.DBClusterBackupName == "" && dbcr.Spec.DataSource.BackupSource == nil {
-		allErrs = append(allErrs, field.Invalid(dataSourcePath, "",
-			fmt.Sprintf("%s or %s must be specified", dbClusterBackupNamePath, backupSourcePath)))
+		allErrs = append(allErrs, field.Invalid(dbcrDataSourcePath, "",
+			fmt.Sprintf("%s or %s must be specified", dbcrDbClusterBackupNamePath, dbcrBackupSourcePath)))
 	}
 
 	if dbcr.Spec.DataSource.DBClusterBackupName != "" && dbcr.Spec.DataSource.BackupSource != nil {
-		allErrs = append(allErrs, field.Invalid(dataSourcePath, "",
-			fmt.Sprintf("either %s or %s must be specified, but not both", dbClusterBackupNamePath, backupSourcePath)))
+		allErrs = append(allErrs, field.Invalid(dbcrDataSourcePath, "",
+			fmt.Sprintf("either %s or %s must be specified, but not both", dbcrDbClusterBackupNamePath, dbcrBackupSourcePath)))
 	}
 
 	if dbcr.Spec.DataSource.DBClusterBackupName != "" {
@@ -141,7 +132,7 @@ func (v *DatabaseClusterRestoreCustomValidator) ValidateCreate(ctx context.Conte
 			Name:      dbcr.Spec.DataSource.DBClusterBackupName,
 			Namespace: dbcr.Namespace,
 		}, dbb); apierrors.IsNotFound(err) {
-			allErrs = append(allErrs, field.NotFound(dbClusterBackupNamePath,
+			allErrs = append(allErrs, field.NotFound(dbcrDbClusterBackupNamePath,
 				fmt.Sprintf("DatabaseClusterBackup %s not found in namespace %s", dbcr.Spec.DataSource.DBClusterBackupName, dbcr.Namespace)))
 		}
 	}
@@ -233,11 +224,11 @@ func (v *DatabaseClusterRestoreCustomValidator) validateBackupSourceSpec(ctx con
 
 	// if .spec.dataSource.backupSource is not empty, check if all params are set
 	if backupSource.Path == "" {
-		allErrs = append(allErrs, errRequiredField(backupSourcePathPath))
+		allErrs = append(allErrs, errRequiredField(dbcrBackupSourcePathPath))
 	}
 
 	if backupSource.BackupStorageName == "" {
-		allErrs = append(allErrs, errRequiredField(backupSourceStorageNamePath))
+		allErrs = append(allErrs, errRequiredField(dbcrBackupSourceStorageNamePath))
 	} else {
 		// check if the referenced BackupStorage exists
 		bs := &everestv1alpha1.BackupStorage{}
@@ -245,7 +236,7 @@ func (v *DatabaseClusterRestoreCustomValidator) validateBackupSourceSpec(ctx con
 			Name:      backupSource.BackupStorageName,
 			Namespace: dbcr.Namespace,
 		}, bs); apierrors.IsNotFound(err) {
-			allErrs = append(allErrs, field.NotFound(backupSourceStorageNamePath,
+			allErrs = append(allErrs, field.NotFound(dbcrBackupSourceStorageNamePath,
 				fmt.Sprintf("BackupStorage %s not found in namespace %s", backupSource.BackupStorageName, dbcr.Namespace)))
 		}
 	}
@@ -266,11 +257,11 @@ func (v *DatabaseClusterRestoreCustomValidator) validatePitrRestoreSpec(dataSour
 	switch dataSource.PITR.Type {
 	case everestv1alpha1.PITRTypeDate:
 		if dataSource.PITR.Date == nil {
-			allErrs = append(allErrs, errRequiredField(dataSourcePitrDatePath))
+			allErrs = append(allErrs, errRequiredField(dbcrDataSourcePitrDatePath))
 		}
 	default:
 		// TODO: figure out why PITRTypeLatest doesn't work currently for Everest
-		allErrs = append(allErrs, field.NotSupported(dataSourcePitrTypePath, dataSource.PITR.Type, []everestv1alpha1.PITRType{everestv1alpha1.PITRTypeDate}))
+		allErrs = append(allErrs, field.NotSupported(dbcrDataSourcePitrTypePath, dataSource.PITR.Type, []everestv1alpha1.PITRType{everestv1alpha1.PITRTypeDate}))
 	}
 
 	if len(allErrs) == 0 {

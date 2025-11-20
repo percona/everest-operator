@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,14 +30,16 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 )
 
 const (
-	dbcrName      = "my-dbcr"
-	dbcrNamespace = "default"
-	dbName        = "my-database-cluster"
-	backupName    = "my-backup"
-	backupStorageName = "my-backup-storage"
+	dbcrName              = "my-dbcr"
+	dbcrNamespace         = "default"
+	dbcrDbName            = "my-database-cluster"
+	dbcrBackupName        = "my-backup"
+	dbcrBackupStorageName = "my-backup-storage"
 )
 
 func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //nolint:maintidx
@@ -63,9 +64,9 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				errRequiredField(dbClusterNamePath),
-				field.Invalid(dataSourcePath, "",
-					fmt.Sprintf("%s or %s must be specified", dbClusterBackupNamePath, backupSourcePath)),
+				errRequiredField(dbcrDbClusterNamePath),
+				field.Invalid(dbcDataSourcePath, "",
+					fmt.Sprintf("%s or %s must be specified", dbcrDbClusterBackupNamePath, dbcrBackupSourcePath)),
 			}),
 		},
 		// .spec.dbClusterName is absent
@@ -77,14 +78,14 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				field.NotFound(dbClusterNamePath,
-					fmt.Sprintf("DatabaseCluster %s not found in namespace %s", dbName, dbcrNamespace)),
-				field.Invalid(dataSourcePath, "",
-					fmt.Sprintf("%s or %s must be specified", dbClusterBackupNamePath, backupSourcePath)),
+				field.NotFound(dbcrDbClusterNamePath,
+					fmt.Sprintf("DatabaseCluster %s not found in namespace %s", dbcrDbName, dbcrNamespace)),
+				field.Invalid(dbcDataSourcePath, "",
+					fmt.Sprintf("%s or %s must be specified", dbcrDbClusterBackupNamePath, dbcrBackupSourcePath)),
 			}),
 		},
 		// .spec.dataSource.dbClusterBackupName and .spec.dataSource.backupSource are both specified
@@ -93,19 +94,19 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.DatabaseClusterBackup{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupName,
+						Name:      dbcrBackupName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -116,9 +117,9 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
-						DBClusterBackupName: backupName,
+						DBClusterBackupName: dbcrBackupName,
 						BackupSource: &everestv1alpha1.BackupSource{
 							Path:              "path/to/backup",
 							BackupStorageName: "my-backup-storage",
@@ -127,8 +128,8 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				field.Invalid(dataSourcePath, "",
-					fmt.Sprintf("either %s or %s must be specified, but not both", dbClusterBackupNamePath, backupSourcePath)),
+				field.Invalid(dbcDataSourcePath, "",
+					fmt.Sprintf("either %s or %s must be specified, but not both", dbcrDbClusterBackupNamePath, dbcrBackupSourcePath)),
 			}),
 		},
 		// .spec.dataSource.pitr without date
@@ -137,13 +138,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -154,7 +155,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
 							Path:              "path/to/backup",
@@ -167,7 +168,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				errRequiredField(dataSourcePitrDatePath),
+				errRequiredField(dbcrDataSourcePitrDatePath),
 			}),
 		},
 		// .spec.dataSource.pitr with wrong type
@@ -176,13 +177,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -193,7 +194,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
 							Path:              "path/to/backup",
@@ -206,7 +207,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				field.NotSupported(dataSourcePitrTypePath, everestv1alpha1.PITRTypeLatest, []everestv1alpha1.PITRType{everestv1alpha1.PITRTypeDate}),
+				field.NotSupported(dbcrDataSourcePitrTypePath, everestv1alpha1.PITRTypeLatest, []everestv1alpha1.PITRType{everestv1alpha1.PITRTypeDate}),
 			}),
 		},
 		// .spec.dataSource.backupSource is empty
@@ -215,7 +216,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -226,24 +227,24 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{},
 					},
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				errRequiredField(backupSourcePathPath),
-				errRequiredField(backupSourceStorageNamePath),
+				errRequiredField(dbcrBackupSourcePathPath),
+				errRequiredField(dbcrBackupSourceStorageNamePath),
 			}),
 		},
-		// .spec.dataSource.backupSource.backupStorageName is empty
+		// .spec.dataSource.backupSource.dbcrBackupStorageName is empty
 		{
-			name: ".spec.dataSource.backupSource.backupStorageName is absent",
+			name: ".spec.dataSource.backupSource.dbcrBackupStorageName is absent",
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -254,7 +255,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
 							Path: "path/to/backup",
@@ -263,16 +264,16 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				errRequiredField(backupSourceStorageNamePath),
+				errRequiredField(dbcrBackupSourceStorageNamePath),
 			}),
 		},
-		// .spec.dataSource.backupSource.backupStorageName is absent
+		// .spec.dataSource.backupSource.dbcrBackupStorageName is absent
 		{
-			name: ".spec.dataSource.backupSource.backupStorageName is absent",
+			name: ".spec.dataSource.backupSource.dbcrBackupStorageName is absent",
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -283,33 +284,33 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
-							Path: "path/to/backup",
-							BackupStorageName: backupStorageName,
+							Path:              "path/to/backup",
+							BackupStorageName: dbcrBackupStorageName,
 						},
 					},
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				field.NotFound(backupSourceStorageNamePath,
-					fmt.Sprintf("BackupStorage %s not found in namespace %s", backupStorageName, dbcrNamespace)),
+				field.NotFound(dbcrBackupSourceStorageNamePath,
+					fmt.Sprintf("BackupStorage %s not found in namespace %s", dbcrBackupStorageName, dbcrNamespace)),
 			}),
 		},
 		// .spec.dataSource.backupSource.path is empty
 		{
-			name: ".spec.dataSource.backupSource.backupStorageName is absent",
+			name: ".spec.dataSource.backupSource.dbcrBackupStorageName is absent",
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -320,16 +321,16 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
-							BackupStorageName: backupStorageName,
+							BackupStorageName: dbcrBackupStorageName,
 						},
 					},
 				},
 			},
 			wantErr: apierrors.NewInvalid(groupKind, dbcrName, field.ErrorList{
-				errRequiredField(backupSourcePathPath),
+				errRequiredField(dbcrBackupSourcePathPath),
 			}),
 		},
 		// Valid DBCR with backupSource and without pitr
@@ -338,13 +339,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -355,11 +356,11 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
-							Path: "path/to/backup",
-							BackupStorageName: backupStorageName,
+							Path:              "path/to/backup",
+							BackupStorageName: dbcrBackupStorageName,
 						},
 					},
 				},
@@ -372,13 +373,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.BackupStorage{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupStorageName,
+						Name:      dbcrBackupStorageName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -389,11 +390,11 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
 						BackupSource: &everestv1alpha1.BackupSource{
-							Path: "path/to/backup",
-							BackupStorageName: backupStorageName,
+							Path:              "path/to/backup",
+							BackupStorageName: dbcrBackupStorageName,
 						},
 						PITR: &everestv1alpha1.PITR{
 							Type: everestv1alpha1.PITRTypeDate,
@@ -412,13 +413,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.DatabaseClusterBackup{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupName,
+						Name:      dbcrBackupName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -429,9 +430,9 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
-						DBClusterBackupName: backupName,
+						DBClusterBackupName: dbcrBackupName,
 					},
 				},
 			},
@@ -443,13 +444,13 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 			objs: []ctrlclient.Object{
 				&everestv1alpha1.DatabaseCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      dbName,
+						Name:      dbcrDbName,
 						Namespace: dbcrNamespace,
 					},
 				},
 				&everestv1alpha1.DatabaseClusterBackup{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      backupName,
+						Name:      dbcrBackupName,
 						Namespace: dbcrNamespace,
 					},
 				},
@@ -460,9 +461,9 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateCreate(t *testing.T) { //
 					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
-						DBClusterBackupName: backupName,
+						DBClusterBackupName: dbcrBackupName,
 						PITR: &everestv1alpha1.PITR{
 							Type: everestv1alpha1.PITRTypeDate,
 							Date: &everestv1alpha1.RestoreDate{
@@ -523,16 +524,16 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateUpdate(t *testing.T) {
 					DeletionTimestamp: &metav1.Time{},
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 			newDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 		},
@@ -540,22 +541,22 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateUpdate(t *testing.T) {
 			name: "update .spec",
 			oldDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 			newDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 					DataSource: everestv1alpha1.DatabaseClusterRestoreDataSource{
-						DBClusterBackupName: backupName,
+						DBClusterBackupName: dbcrBackupName,
 					},
 				},
 			},
@@ -567,21 +568,21 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateUpdate(t *testing.T) {
 			name: "update .metadata",
 			oldDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 			newDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
-					Labels:            map[string]string{"new-label": "new-value"},
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
+					Labels:    map[string]string{"new-label": "new-value"},
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 		},
@@ -589,20 +590,20 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateUpdate(t *testing.T) {
 			name: "update status",
 			oldDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 			},
 			newDbcr: &everestv1alpha1.DatabaseClusterRestore{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              dbcrName,
-					Namespace:         dbcrNamespace,
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
 				},
 				Spec: everestv1alpha1.DatabaseClusterRestoreSpec{
-					DBClusterName: dbName,
+					DBClusterName: dbcrDbName,
 				},
 				Status: everestv1alpha1.DatabaseClusterRestoreStatus{
 					State: everestv1alpha1.RestoreStarting,
@@ -648,9 +649,7 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateDelete(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		{
-
-		},
+		// {},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
