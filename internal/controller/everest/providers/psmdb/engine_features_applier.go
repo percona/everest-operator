@@ -122,7 +122,7 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	psmdb.Spec.Replsets[0].Horizons = horSpec
 
 	needCreateSecret := false // do not generate server certificate on each reconciliation loop
-	psmdbSplitHorizonSecretName := getSplitHorizonDnsConfigSecretName(database.GetName())
+	psmdbSplitHorizonSecretName := getSplitHorizonDNSConfigSecretName(database.GetName())
 
 	psmdbSplitHorizonSecret := &corev1.Secret{}
 	if err := a.C.Get(ctx, types.NamespacedName{Namespace: database.GetNamespace(), Name: psmdbSplitHorizonSecretName}, psmdbSplitHorizonSecret); err != nil {
@@ -185,7 +185,7 @@ func (a *EngineFeaturesApplier) applySplitHorizonDNSConfig(ctx context.Context) 
 	return nil
 }
 
-func getSplitHorizonDnsConfigSecretName(dbName string) string {
+func getSplitHorizonDNSConfigSecretName(dbName string) string {
 	return dbName + "-sh-cert"
 }
 
@@ -254,7 +254,7 @@ func (a *EngineFeaturesApplier) getSplitHorizonStatus(ctx context.Context) (*eng
 		}
 
 		if a.DB.Spec.Proxy.Expose.Type == everestv1alpha1.ExposeTypeExternal {
-			ready := false
+			var ready bool
 			if shDomain.PublicIP, ready = getServicePublicIP(ctx, svc); !ready {
 				statusReady = false
 			}
