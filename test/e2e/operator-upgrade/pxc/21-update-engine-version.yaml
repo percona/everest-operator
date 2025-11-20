@@ -9,4 +9,3 @@ commands:
       if ! echo "$out" | grep -q "$expected"; then
         exit 1
       fi
-

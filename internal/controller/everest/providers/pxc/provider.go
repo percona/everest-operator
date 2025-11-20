@@ -163,7 +163,7 @@ func (p *Provider) ensureDefaults(ctx context.Context) error {
 }
 
 // Status builds the DatabaseCluster Status based on the current state of the Percona XtraDB Cluster.
-func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error) {
+func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, bool, error) {
 	status := p.DB.Status
 	prevStatus := status
 	pxc := p.PerconaXtraDBCluster
@@ -179,7 +179,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	// If a restore is running for this database, set the database status to restoring.
 	if restoring, err := common.IsDatabaseClusterRestoreRunning(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-		return status, err
+		return status, false, err
 	} else if restoring {
 		status.Status = everestv1alpha1.AppStateRestoring
 	}
@@ -196,7 +196,7 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 		prevStatus.Status == everestv1alpha1.AppStateResizingVolumes {
 		meta.RemoveStatusCondition(&status.Conditions, everestv1alpha1.ConditionTypeVolumeResizeFailed)
 		if failed, condMessage, err := common.VerifyPVCResizeFailure(ctx, p.C, p.DB.GetName(), p.DB.GetNamespace()); err != nil {
-			return status, err
+			return status, false, err
 		} else if failed {
 			// XXX: If a PVC resize failed, the DB operator will revert the
 			// spec to the previous one and unset the annotation we use to
@@ -225,11 +225,11 @@ func (p *Provider) Status(ctx context.Context) (everestv1alpha1.DatabaseClusterS
 
 	recCRVer, err := common.GetRecommendedCRVersion(ctx, p.C, consts.PXCDeploymentName, p.DB)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return status, err
+		return status, false, err
 	}
 	status.RecommendedCRVersion = recCRVer
 
-	return status, nil
+	return status, true, nil
 }
 
 // when a PXC restore is in progress, we will retry reconciliation

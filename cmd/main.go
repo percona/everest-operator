@@ -47,12 +47,15 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
+	enginefeatureseverestcontroller "github.com/percona/everest-operator/internal/controller/enginefeatures.everest"
 	controllers "github.com/percona/everest-operator/internal/controller/everest"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
 	"github.com/percona/everest-operator/internal/predicates"
-	everestWebHooks "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
+	webhookenginefeatureseverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/enginefeatures.everest/v1alpha1"
+	webhookeverestv1alpha1 "github.com/percona/everest-operator/internal/webhook/everest/v1alpha1"
 )
 
 var (
@@ -107,6 +110,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(everestv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(enginefeatureseverestv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 
 	utilruntime.Must(pgv2.SchemeBuilder.AddToScheme(scheme))
@@ -344,35 +348,56 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerConfig")
 		os.Exit(1)
 	}
+	// ------------------ Engine Features controllers ------------------
+	// SplitHorizonDNSConfig controller
+	if err := (&enginefeatureseverestcontroller.SplitHorizonDNSConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SplitHorizonDNSConfig")
+		os.Exit(1)
+	}
+	// ------------------ End of Engine Features controllers ------------------
 
 	// register webhooks
 	if !cfg.DisableWebhookServer {
-		if err := everestWebHooks.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDatabaseClusterWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DatabaseCluster")
 			os.Exit(1)
 		}
-		if err := everestWebHooks.SetupDataImportJobWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDataImportJobWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DataImportJob")
 			os.Exit(1)
 		}
 
-		if err := everestWebHooks.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "MonitoringConfig")
 			os.Exit(1)
 		}
 
-		if err := everestWebHooks.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupLoadBalancerConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LoadBalancerConfig")
 			os.Exit(1)
 		}
-		if err := everestWebHooks.SetupDatabaseClusterRestoreWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDatabaseClusterRestoreWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create validation webhook", "webhook", "DatabaseClusterRestore")
 			os.Exit(1)
 		}
-		if err := everestWebHooks.SetupDatabaseClusterRestoreMutationWebhookWithManager(mgr); err != nil {
+		if err := webhookeverestv1alpha1.SetupDatabaseClusterRestoreMutationWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create mutation webhook", "webhook", "DatabaseClusterRestore")
 			os.Exit(1)
 		}
+
+		// ------------------ Engine Features webhooks ------------------
+		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create validation webhook", "webhook", "SplitHorizonDNSConfig")
+			os.Exit(1)
+		}
+		if err := webhookenginefeatureseverestv1alpha1.SetupSplitHorizonDNSConfigMutationWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create defaulter webhook", "webhook", "SplitHorizonDNSConfig")
+			os.Exit(1)
+		}
+		// ------------------ End of Engine Features webhooks ------------------
 	}
 	// +kubebuilder:scaffold:builder
 

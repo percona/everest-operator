@@ -280,6 +280,11 @@ func (p *applier) Engine() error {
 	return nil
 }
 
+func (p *applier) EngineFeatures() error {
+	// Nothing to do here for PXC
+	return nil
+}
+
 func (p *applier) Backup() error {
 	// Even though we call ResetDefault() as the first step in the mutation process,
 	// we still reset the spec here to protect against the defaults being unintentionally changed

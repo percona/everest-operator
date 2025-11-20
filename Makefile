@@ -62,6 +62,7 @@ endif
 
 OS=$(shell go env GOHOSTOS)
 ARCH=$(shell go env GOHOSTARCH)
+CWD=$(shell pwd)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -96,6 +97,7 @@ init: cleanup-localbin  ## Install development tools
 	$(MAKE) controller-gen
 	$(MAKE) operator-sdk
 	$(MAKE) opm
+	$(MAKE) kubebuilder
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -158,6 +160,10 @@ test-integration-core: docker-build k3d-upload-image ## Run integration/core tes
 test-integration-features: docker-build k3d-upload-image ## Run feature tests against K8S cluster
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-features.yaml
 
+.PHONY: test-integration-engine-features
+test-integration-engine-features: docker-build k3d-upload-image ## Run engine-features tests against K8S cluster
+	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-engine-features.yaml
+
 .PHONY: test-integration-operator-upgrade
 test-integration-operator-upgrade: docker-build k3d-upload-image ## Run operator upgrade tests against K8S cluster
 	. ./test/vars.sh && kubectl kuttl test --config ./test/integration/kuttl-operator-upgrade.yaml
@@ -189,6 +195,10 @@ test-e2e-data-importer-psmdb: docker-build k3d-upload-image ## Run e2e/data-impo
 .PHONY: test-e2e-data-importer-pxc
 test-e2e-data-importer-pxc: docker-build k3d-upload-image ## Run e2e/data-importer PXC test
 	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-data-importer.yaml --test pxc
+
+.PHONY: test-e2e-engine-features
+test-e2e-engine-features: docker-build k3d-upload-image ## Run e2e/engine-features tests
+	. ./test/vars.sh && kubectl kuttl test --config ./test/e2e/kuttl-engine-features.yaml
 
 .PHONY: k3d-cluster-up
 k3d-cluster-up: ## Create a K8S cluster for testing.
@@ -309,7 +319,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN := $(shell pwd)/bin
+LOCALBIN := $(CWD)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
@@ -320,6 +330,10 @@ CONTROLLER_TOOLS_VERSION ?= v0.18.0
 OPERATOR_SDK_VERSION ?= v1.40.0
 # Set the OPM version to use.
 OPM_VERSION ?= v1.56.0
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.30
+# Kubebuilder version to download.
+KUBEBUILDER_VERSION = v4.9.0
 
 .PHONY: kustomize
 KUSTOMIZE_INSTALL_SCRIPT = "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
@@ -359,6 +373,18 @@ ifeq (,$(wildcard $(OPM)))
 	set -e ;\
 	curl -sSLo $(OPM) $(OPM_DL_URL)/$(OS)-$(ARCH)-opm ;\
 	chmod +x $(OPM) ;\
+	}
+endif
+
+.PHONY: kubebuilder
+KUBEBUILDER_DL_URL = https://github.com/kubernetes-sigs/kubebuilder/releases/download/$(KUBEBUILDER_VERSION)
+KUBEBUILDER = $(LOCALBIN)/kubebuilder-$(KUBEBUILDER_VERSION)
+kubebuilder: $(LOCALBIN) ## Download kubebuilder locally if necessary.
+ifeq (,$(wildcard $(KUBEBUILDER)))
+	@{ \
+	set -e ;\
+	curl -sSLo $(KUBEBUILDER) $(KUBEBUILDER_DL_URL)/kubebuilder_$(OS)_$(ARCH) ;\
+	chmod +x $(KUBEBUILDER) ;\
 	}
 endif
 

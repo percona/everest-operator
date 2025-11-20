@@ -138,6 +138,7 @@ func (p *applier) Engine() error {
 	psmdb.Spec.Secrets = &psmdbv1.SecretsSpec{
 		Users:         database.Spec.Engine.UserSecretsName,
 		EncryptionKey: database.Name + encryptionKeySuffix,
+		SSLInternal:   psmdb.GetName() + "-ssl-internal",
 	}
 
 	psmdb.Spec.VolumeExpansionEnabled = true
@@ -149,6 +150,16 @@ func (p *applier) Engine() error {
 	psmdb.Spec.UpgradeOptions = defaultSpec().UpgradeOptions
 
 	return nil
+}
+
+func (p *applier) EngineFeatures() error {
+	if pointer.Get(p.DB.Spec.EngineFeatures).PSMDB == nil {
+		// Nothing to do.
+		return nil
+	}
+
+	efApplier := NewEngineFeaturesApplier(p.Provider)
+	return efApplier.ApplyFeatures(p.ctx)
 }
 
 func (p *applier) configureReplSets() error {
@@ -832,8 +843,9 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 	// If there are no schedules, just return the storages used in
 	// DatabaseClusterBackup objects
 	if len(database.Spec.Backup.Schedules) == 0 {
-		if len(storages) > 1 {
-			return emptySpec, common.ErrPSMDBOneStorageRestriction
+		storages, err = withMarkedAsMain(storages)
+		if err != nil {
+			return emptySpec, err
 		}
 		psmdbBackupSpec.Storages = storages
 		return psmdbBackupSpec, nil
@@ -853,14 +865,28 @@ func (p *applier) genPSMDBBackupSpec() (psmdbv1.BackupSpec, error) {
 		}
 	}
 
-	if len(storages) > 1 {
-		return emptySpec, common.ErrPSMDBOneStorageRestriction
+	storages, err = withMarkedAsMain(storages)
+	if err != nil {
+		return emptySpec, err
 	}
 
 	psmdbBackupSpec.Storages = storages
 	psmdbBackupSpec.Tasks = tasks
 
 	return psmdbBackupSpec, nil
+}
+
+func withMarkedAsMain(storages map[string]psmdbv1.BackupStorageSpec) (map[string]psmdbv1.BackupStorageSpec, error) {
+	if len(storages) > 1 {
+		return nil, common.ErrPSMDBOneStorageRestriction
+	}
+	for key, storage := range storages {
+		// mark the first and the single one as Main
+		storage.Main = true
+		storages[key] = storage
+		return storages, nil
+	}
+	return storages, nil
 }
 
 func (p *applier) getCurrentReplSet(name string) *psmdbv1.ReplsetSpec {

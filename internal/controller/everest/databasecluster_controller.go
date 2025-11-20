@@ -1,5 +1,5 @@
-// everest
-// Copyright (C) 2025 Percona LLC
+// everest-operator
+// Copyright (C) 2022 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package everest contains a set of controllers for everest
-package everest
+// Package controllers contains a set of controllers for everest
+package controllers
 
 import (
 	"context"
@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/percona/everest-operator/internal/consts"
 	"github.com/percona/everest-operator/internal/controller/everest/common"
@@ -55,6 +56,7 @@ import (
 	"github.com/percona/everest-operator/internal/controller/everest/providers/psmdb"
 	"github.com/percona/everest-operator/internal/controller/everest/providers/pxc"
 	"github.com/percona/everest-operator/internal/predicates"
+	enginefeaturespredicate "github.com/percona/everest-operator/internal/predicates/enginefeatures"
 )
 
 const (
@@ -65,6 +67,10 @@ const (
 	credentialsSecretNameField      = ".spec.credentialsSecretName" //nolint:gosec
 	podSchedulingPolicyNameField    = ".spec.podSchedulingPolicyName"
 	loadBalancerConfigNameField     = ".spec.proxy.expose.loadBalancerConfigName"
+	// EngineFeatures fields.
+
+	// SplitHorizonDNSConfigNameField is used to find all DatabaseClusters that reference a specific SplitHorizonDNSConfig.
+	SplitHorizonDNSConfigNameField = ".spec.engineFeatures.psmdb.splitHorizonDnsConfigName"
 
 	defaultRequeueAfter = 5 * time.Second
 )
@@ -89,7 +95,11 @@ type dbProvider interface {
 	metav1.Object
 	reconcileHooks
 	Apply(ctx context.Context) everestv1alpha1.Applier
-	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, error)
+	// Status returns the current status of the database cluster.
+	// The second return value indicates whether the database's status is ready.
+	// It may appear that there is no error, but the status is not ready yet (e.g. waiting for services to be created).
+	// Some engine features may require additional time to get status (e.g. obtaining service public IP from cloud provider).
+	Status(ctx context.Context) (everestv1alpha1.DatabaseClusterStatus, bool, error)
 	Cleanup(ctx context.Context, db *everestv1alpha1.DatabaseCluster) (bool, error)
 	DBObject() client.Object
 }
@@ -136,6 +146,8 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 	db *everestv1alpha1.DatabaseCluster,
 	p dbProvider,
 ) (rr ctrl.Result, rerr error) {
+	logger := log.FromContext(ctx)
+
 	// Handle any necessary cleanup.
 	if !db.GetDeletionTimestamp().IsZero() {
 		// If this DB has a data import associated with it, delete the credentials secret.
@@ -155,47 +167,22 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 
 	// Update the status of the DatabaseCluster object after the reconciliation.
 	defer func() {
-		status, err := p.Status(ctx)
-		if err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(rerr, fmt.Errorf("failed to get status: %w", err))
-		}
-		db.Status = status
-		db.Status.ObservedGeneration = db.GetGeneration()
-
-		// if data import is set, we need to observe the state of the data import job.
-		if pointer.Get(db.Spec.DataSource).DataImport != nil {
-			if err := r.observeDataImportState(ctx, db); err != nil {
-				rr = ctrl.Result{}
-				rerr = errors.Join(rerr, fmt.Errorf("failed to observe data import state: %w", err))
-			}
-		}
-
-		if err := r.Client.Status().Update(ctx, db); err != nil {
-			rr = ctrl.Result{}
-			rerr = errors.Join(rerr, fmt.Errorf("failed to update status: %w", err))
-		}
-		// DB is not ready, check again soon.
-		if status.Status != everestv1alpha1.AppStateReady {
-			rr = ctrl.Result{RequeueAfter: defaultRequeueAfter}
-		}
+		rr, rerr = r.reconcileDBStatus(ctx, db, p)
 	}()
-
-	log := log.FromContext(ctx)
 
 	// Run pre-reconcile hook.
 	hr, err := p.RunPreReconcileHook(ctx)
 	if err != nil {
-		log.Error(err, "RunPreReconcileHook failed")
+		logger.Error(err, "RunPreReconcileHook failed")
 		return ctrl.Result{}, err
 	}
 	switch {
 	case hr.Requeue:
-		log.Info("RunPreReconcileHook requeued", "message", hr.Message)
+		logger.Info("RunPreReconcileHook requeued", "message", hr.Message)
 		return ctrl.Result{Requeue: true}, nil
 	case hr.RequeueAfter > 0:
 
-		log.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
+		logger.Info("RunPreReconcileHook requeued after", "message", hr.Message, "requeueAfter", hr.RequeueAfter)
 		return ctrl.Result{RequeueAfter: hr.RequeueAfter}, nil
 	}
 
@@ -216,6 +203,9 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 		}
 		if err := applier.Engine(); err != nil {
 			return fmt.Errorf("failed to apply engine: %w", err)
+		}
+		if err := applier.EngineFeatures(); err != nil {
+			return err
 		}
 		if err := applier.Proxy(); err != nil {
 			return fmt.Errorf("failed to apply proxy: %w", err)
@@ -256,6 +246,41 @@ func (r *DatabaseClusterReconciler) reconcileDB(
 			return ctrl.Result{}, err
 		}
 	}
+	return ctrl.Result{}, nil
+}
+
+func (r *DatabaseClusterReconciler) reconcileDBStatus( //nolint:funcorder
+	ctx context.Context,
+	db *everestv1alpha1.DatabaseCluster,
+	p dbProvider,
+) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	status, statusReady, err := p.Status(ctx)
+	if err != nil {
+		logger.Error(err, "failed to get status")
+		return ctrl.Result{}, err
+	}
+	db.Status = status
+	db.Status.ObservedGeneration = db.GetGeneration()
+
+	// if data import is set, we need to observe the state of the data import job.
+	if pointer.Get(db.Spec.DataSource).DataImport != nil {
+		if err := r.observeDataImportState(ctx, db); err != nil {
+			logger.Error(err, "failed to observe data import state")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.Client.Status().Update(ctx, db); err != nil {
+		logger.Error(err, "failed to update status")
+		return ctrl.Result{}, err
+	}
+	// DB is not ready, check again soon.
+	if status.Status != everestv1alpha1.AppStateReady || !statusReady {
+		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -331,11 +356,12 @@ func (r *DatabaseClusterReconciler) ensureDataImportJob(
 // +kubebuilder:rbac:groups=psmdb.percona.com,resources=perconaservermongodbs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pgv2.percona.com,resources=perconapgclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=pods;services,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=monitoringconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=backupstorages,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=everest.percona.com,resources=podschedulingpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=everest.percona.com,resources=dataimportjobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=enginefeatures.everest.percona.com,resources=splithorizondnsconfigs,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -364,6 +390,7 @@ func (r *DatabaseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		"cluster", database.GetName(),
 		"namespace", database.GetNamespace(),
 	)
+	ctx = log.IntoContext(ctx, logger)
 
 	// If the reconcile is paused, we return immediately.
 	if val, ok := database.GetAnnotations()[consts.PauseReconcileAnnotation]; ok &&
@@ -671,6 +698,28 @@ func (r *DatabaseClusterReconciler) initIndexers(ctx context.Context, mgr ctrl.M
 		return err
 	}
 
+	// EngineFeatures fields indexes
+	// Index the .spec.engineFeatures.psmdb.splitHorizonDNSConfigName field in DatabaseCluster.
+	err = mgr.GetFieldIndexer().IndexField(
+		ctx, &everestv1alpha1.DatabaseCluster{}, SplitHorizonDNSConfigNameField,
+		func(o client.Object) []string {
+			var res []string
+			db, ok := o.(*everestv1alpha1.DatabaseCluster)
+			if !ok {
+				return res
+			}
+
+			shdcName := common.GetSplitHorizonDNSConfigNameFromDB(db)
+			if shdcName != "" {
+				res = append(res, shdcName)
+			}
+			return res
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -853,6 +902,36 @@ func (r *DatabaseClusterReconciler) initWatchers(controller *builder.Builder, de
 		builder.WithPredicates(predicate.GenerationChangedPredicate{},
 			predicates.GetLoadBalancerConfigPredicate()),
 		// defaultPredicate is not needed here since LoadBalancerConfig doesn't belong to any namespace.
+	)
+	controller.Watches(
+		&enginefeatureseverestv1alpha1.SplitHorizonDNSConfig{},
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			shdc, ok := obj.(*enginefeatureseverestv1alpha1.SplitHorizonDNSConfig)
+			if !ok {
+				return []reconcile.Request{}
+			}
+
+			attachedDatabaseClusters, err := common.DatabaseClustersThatReferenceObject(ctx, r.Client,
+				SplitHorizonDNSConfigNameField, shdc.GetNamespace(), shdc.GetName())
+			if err != nil {
+				return []reconcile.Request{}
+			}
+
+			requests := make([]reconcile.Request, len(attachedDatabaseClusters.Items))
+			for i, item := range attachedDatabaseClusters.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				}
+			}
+
+			return requests
+		}),
+		builder.WithPredicates(enginefeaturespredicate.GetSplitHorizonDNSConfigPredicate(),
+			predicate.GenerationChangedPredicate{},
+			defaultPredicate),
 	)
 
 	// In PG reconciliation we create a backup credentials secret because the

@@ -21,6 +21,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	enginefeatureseverestv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 )
 
 // Prefefined database engine sizes based on memory.
@@ -129,6 +131,7 @@ type Applier interface {
 	Paused(paused bool)
 	AllowUnsafeConfig()
 	Engine() error
+	EngineFeatures() error
 	Proxy() error
 	DataSource() error
 	Monitoring() error
@@ -360,6 +363,43 @@ type Sharding struct {
 	ConfigServer ConfigServer `json:"configServer"`
 }
 
+// PSMDBEngineFeatures represents additional features for the PSMDB engine.
+type PSMDBEngineFeatures struct {
+	// SplitHorizonDNSConfigName is the name of a SplitHorizonDNSConfig CR.
+	// The SplitHorizonDNSConfig must be created in the same namespace as the DatabaseCluster.
+	SplitHorizonDNSConfigName string `json:"splitHorizonDnsConfigName,omitempty"`
+
+	// NOTE: Features for PSMDB shall be added in the future, like:
+	// AdvancedSecurity *PSMDBAdvancedSecurity `json:"advancedSecurity,omitempty"`
+}
+
+// PSMDBEngineFeaturesStatus represents additional features statuses for the PSMDB engine.
+type PSMDBEngineFeaturesStatus struct {
+	// SplitHorizon status of SplitHorizon feature.
+	SplitHorizon *enginefeatureseverestv1alpha1.SplitHorizonStatus `json:"splitHorizon,omitempty"`
+
+	// NOTE: Features for PSMDB shall be added in the future, like:
+	// AdvancedSecurity *PSMDBAdvancedSecurityStatus `json:"advancedSecurity,omitempty"`
+}
+
+// EngineFeatures represents configuration of additional features for the database engine.
+type EngineFeatures struct {
+	// PSMDB represents additional features for the PSMDB engine.
+	PSMDB *PSMDBEngineFeatures `json:"psmdb,omitempty"`
+	// NOTE: Features for PXC and PostgreSQL shall be added in the future, like:
+	// PXC *PXCEngineFeatures `json:"pxc,omitempty"`
+	// PostgreSQL *PostgreSQLEngineFeatures `json:"postgresql,omitempty"`
+}
+
+// EngineFeaturesStatus represents additional features statuses for the database engine.
+type EngineFeaturesStatus struct {
+	// PSMDB represents additional features statuses for the PSMDB engine.
+	PSMDB *PSMDBEngineFeaturesStatus `json:"psmdb,omitempty"`
+	// NOTE: Features statuses for PXC and PostgreSQL shall be added in the future, like:
+	// PXC *PXCEngineFeaturesStatus `json:"pxc,omitempty"`
+	// PostgreSQL *PostgreSQLEngineFeaturesStatus `json:"postgresql,omitempty"`
+}
+
 // DatabaseClusterSpec defines the desired state of DatabaseCluster.
 type DatabaseClusterSpec struct {
 	// Paused is a flag to stop the cluster
@@ -385,6 +425,8 @@ type DatabaseClusterSpec struct {
 	Sharding *Sharding `json:"sharding,omitempty"`
 	// PodSchedulingPolicyName is the name of the PodSchedulingPolicy CR that defines rules for DB cluster pods allocation across the cluster.
 	PodSchedulingPolicyName string `json:"podSchedulingPolicyName,omitempty"`
+	// EngineFeatures represents configuration of additional features for the database engine.
+	EngineFeatures *EngineFeatures `json:"engineFeatures,omitempty"`
 }
 
 // IntoDBRestoreDataSource converts the DataSource into a DatabaseClusterRestoreDataSource.
@@ -465,7 +507,8 @@ type DatabaseClusterStatus struct {
 	// +optional
 	DataImportJobName *string `json:"dataImportJobName,omitempty"`
 	// Conditions contains the observed conditions of the DatabaseCluster.
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions     []metav1.Condition    `json:"conditions,omitempty"`
+	EngineFeatures *EngineFeaturesStatus `json:"engineFeatures,omitempty"`
 }
 
 // +kubebuilder:object:root=true

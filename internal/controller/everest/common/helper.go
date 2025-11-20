@@ -1069,3 +1069,8 @@ func MergeResources(highPriorityResources, lowPriorityResources corev1.ResourceR
 
 	return mergedResources
 }
+
+// GetSplitHorizonDNSConfigNameFromDB returns the SplitHorizonDNSConfigName from the given DatabaseCluster.
+func GetSplitHorizonDNSConfigNameFromDB(db *everestv1alpha1.DatabaseCluster) string {
+	return pointer.Get(pointer.Get(db.Spec.EngineFeatures).PSMDB).SplitHorizonDNSConfigName
+}

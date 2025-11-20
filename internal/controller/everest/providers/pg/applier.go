@@ -186,6 +186,11 @@ func (p *applier) Engine() error {
 	return nil
 }
 
+func (p *applier) EngineFeatures() error {
+	// Nothing to do here for PG
+	return nil
+}
+
 func (p *applier) Proxy() error {
 	engine := p.DBEngine
 	pg := p.PerconaPGCluster

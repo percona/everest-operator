@@ -74,6 +74,30 @@ resources:
   kind: MonitoringConfig
   path: github.com/percona/everest-operator/api/everest/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: percona.com
+  group: everest
+  kind: PodSchedulingPolicy
+  path: github.com/percona/everest-operator/api/everest/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: percona.com
+  group: everest
+  kind: LoadBalancerConfig
+  path: github.com/percona/everest-operator/api/everest/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+  domain: percona.com
+  group: everest
+  kind: DataImporter
+  path: github.com/percona/everest-operator/api/everest/v1alpha1
+  path: github.com/percona/everest-operator/api/everest/v1alpha1
+  version: v1alpha1
   webhooks:
     validation: true
     webhookVersion: v1
@@ -111,6 +135,24 @@ resources:
   group: everest
   kind: DataImportJob
   path: github.com/percona/everest-operator/api/everest/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: percona.com
+  group: everest
+  kind: DataImportJob
+  path: github.com/percona/everest-operator/api/everest/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: percona.com
+  group: enginefeatures.everest
+  kind: SplitHorizonDNSConfig
+  path: github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
