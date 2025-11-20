@@ -649,7 +649,41 @@ func TestDatabaseClusterRestoreCustomValidator_ValidateDelete(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		// {},
+		// already marked for deletion
+		{
+			name: "already marked to delete",
+			dbcrToDelete: &everestv1alpha1.DatabaseClusterRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              dbcrName,
+					Namespace:         dbcrNamespace,
+					DeletionTimestamp: &metav1.Time{},
+				},
+			},
+		},
+		// used by DatabaseCluster
+		{
+			name: "used by DatabaseCluster",
+			dbcrToDelete: &everestv1alpha1.DatabaseClusterRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       dbcrName,
+					Namespace:  dbcrNamespace,
+					Finalizers: []string{everestv1alpha1.InUseResourceFinalizer},
+				},
+			},
+			wantErr: apierrors.NewForbidden(everestv1alpha1.GroupVersion.WithResource("databaseclusterrestore").GroupResource(),
+				dbcrName,
+				errDeleteInUse),
+		},
+		// not used by any DatabaseCluster
+		{
+			name: "not used by any DatabaseCluster",
+			dbcrToDelete: &everestv1alpha1.DatabaseClusterRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      dbcrName,
+					Namespace: dbcrNamespace,
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
