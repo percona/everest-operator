@@ -116,7 +116,7 @@ func (r *DatabaseClusterRestoreReconciler) Reconcile(ctx context.Context, req ct
 	// Update the status and finalizers of the DatabaseClusterRestore object after the reconciliation.
 	defer func() {
 		rr = ctrl.Result{}
-		rerr = r.reconcileStatus(ctx, req)
+		rerr = r.reconcileStatus(ctx, dbcr)
 	}()
 
 	if len(dbcr.Labels) == 0 {
@@ -243,17 +243,10 @@ func (r *DatabaseClusterRestoreReconciler) ReconcileWatchers(ctx context.Context
 	return nil
 }
 
-func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, req ctrl.Request) error {
+func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, dbcr *everestv1alpha1.DatabaseClusterRestore) error {
 	// fetch again to get the latest version with possible changes
 	logger := log.FromContext(ctx)
 	var err error
-	dbcr := &everestv1alpha1.DatabaseClusterRestore{}
-	if err = r.Get(ctx, req.NamespacedName, dbcr); err != nil {
-		msg := fmt.Sprintf("failed to fetch DatabaseClusterRestore='%s'",
-			req.NamespacedName)
-		logger.Error(err, msg)
-		return fmt.Errorf("%s: %w", msg, err)
-	}
 
 	// Nothing to process on delete events
 	if !dbcr.GetDeletionTimestamp().IsZero() {
@@ -322,14 +315,20 @@ func (r *DatabaseClusterRestoreReconciler) reconcileStatus(ctx context.Context, 
 	dbcr.Status.LastObservedGeneration = dbcr.GetGeneration()
 	if err = r.Status().Update(ctx, dbcr); err != nil {
 		msg := fmt.Sprintf("failed to update status for DatabaseClusterRestore='%s'",
-			req.NamespacedName)
+			types.NamespacedName{
+				Name:      dbcr.GetName(),
+				Namespace: dbcr.GetNamespace(),
+			})
 		logger.Error(err, msg)
 		return fmt.Errorf("%s: %w", msg, err)
 	}
 
 	if err = common.EnsureInUseFinalizer(ctx, r.Client, dbcr.Status.InUse, dbcr); err != nil {
 		msg := fmt.Sprintf("failed to update finalizers for DatabaseClusterRestore='%s'",
-			req.NamespacedName)
+			types.NamespacedName{
+				Name:      dbcr.GetName(),
+				Namespace: dbcr.GetNamespace(),
+			})
 		logger.Error(err, msg)
 		return fmt.Errorf("%s: %w", msg, err)
 	}
