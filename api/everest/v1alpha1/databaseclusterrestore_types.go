@@ -56,19 +56,27 @@ const (
 
 // DatabaseClusterRestoreSpec defines the desired state of DatabaseClusterRestore.
 type DatabaseClusterRestoreSpec struct {
-	// DBClusterName defines the cluster name to restore.
+	// DBClusterName defines the target database cluster name that needs to be restored from backup.
+	// +kubebuilder:validation:Required
 	DBClusterName string `json:"dbClusterName"`
 	// DataSource defines a data source for restoration.
+	// +kubebuilder:validation:Required
 	DataSource DatabaseClusterRestoreDataSource `json:"dataSource"`
 }
 
 // DatabaseClusterRestoreDataSource defines a data source for restoration.
 type DatabaseClusterRestoreDataSource struct {
-	// DBClusterBackupName is the name of the DB cluster backup to restore from
+	// DBClusterBackupName is the name of the DB cluster backup to restore from.
+	// Shall be set either this field or BackupSource.
+	// +kubebuilder:validation:Optional
 	DBClusterBackupName string `json:"dbClusterBackupName,omitempty"`
-	// BackupSource is the backup source to restore from
+	// BackupSource is the backup source to restore from.
+	// Shall be set either this field or DBClusterBackupName.
+	// +kubebuilder:validation:Optional
 	BackupSource *BackupSource `json:"backupSource,omitempty"`
-	// PITR is the point-in-time recovery configuration
+	// PITR is the point-in-time recovery configuration.
+	// May be set in addition to DBClusterBackupName or BackupSource to perform PITR restore.
+	// +kubebuilder:validation:Optional
 	PITR *PITR `json:"pitr,omitempty"`
 }
 

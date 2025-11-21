@@ -41,10 +41,6 @@ const (
 	AppStateInit AppState = "initializing"
 	// AppStatePaused is a paused state.
 	AppStatePaused AppState = "paused"
-	// AppStatePausing is a pausing state.
-	AppStatePausing AppState = "pausing"
-	// AppStateStopping is a stopping state.
-	AppStateStopping AppState = "stopping"
 	// AppStateReady is a ready state.
 	AppStateReady AppState = "ready"
 	// AppStateError is an error state.
@@ -121,6 +117,18 @@ func (s AppState) WithCreatingState() AppState {
 		return AppStateCreating
 	}
 	return s
+}
+
+// CanRestoreFromBackup returns true if the cluster can be restored from a backup in the given state.
+func (s AppState) CanRestoreFromBackup() bool {
+	switch s.WithCreatingState() {
+	case AppStateCreating, AppStatePaused,
+		AppStateRestoring, AppStateDeleting, AppStateUpgrading,
+		AppStateResizingVolumes, AppStateImporting:
+		return false
+	default:
+		return true
+	}
 }
 
 // Applier provides methods for specifying how to apply a DatabaseCluster CR
@@ -278,9 +286,11 @@ type Proxy struct {
 // BackupSource represents settings of a source where to get a backup to run restoration.
 type BackupSource struct {
 	// Path is the path to the backup file/directory.
+	// +kubebuilder:validation:Required
 	Path string `json:"path"`
-	// BackupStorageName is the name of the BackupStorage used for backups.
+	// BackupStorageName is the name of the BackupStorage used for storing backups.
 	// The BackupStorage must be created in the same namespace as the DatabaseCluster.
+	// +kubebuilder:validation:Required
 	BackupStorageName string `json:"backupStorageName"`
 }
 
