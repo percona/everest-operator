@@ -97,10 +97,12 @@ spec:
           memory: 2G
   patroni:
     dynamicConfiguration:
+      failsafe_mode: true
       postgresql:
         parameters:
           track_commit_timestamp: "on"
-    leaderLeaseDurationSeconds: 30
+      retry_timeout: 120
+    leaderLeaseDurationSeconds: 300
     port: 8008
     syncPeriodSeconds: 10
   pause: false

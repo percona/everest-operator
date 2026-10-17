@@ -149,6 +149,7 @@ func (p *applier) Engine() error {
 	pg.Spec.InstanceSets = defaultSpec().InstanceSets
 
 	pg.Spec.InstanceSets[0].Replicas = &database.Spec.Engine.Replicas
+	applySingleInstancePatroniDCSTolerance(pg, database.Spec.Engine.Replicas)
 	common.ApplyResourceRequirements(&pg.Spec.InstanceSets[0].Resources, database.Spec.Engine.Resources.ToResourceRequirements())
 
 	var currentInstSet *pgv2.PGInstanceSetSpec
@@ -575,6 +576,55 @@ func (p *applier) updatePGConfig(
 	dcPG["parameters"] = cfg
 
 	return nil
+}
+
+const (
+	// singleInstancePatroniTTL is the Patroni leader lock TTL (ttl) used for
+	// single-instance clusters. The upstream default is 30s.
+	singleInstancePatroniTTL int32 = 300
+	// singleInstancePatroniRetryTimeout is the Patroni retry_timeout used for
+	// single-instance clusters. The upstream default is 10s. Patroni silently
+	// lowers retry_timeout unless loop_wait + 2*retry_timeout <= ttl, which
+	// holds for the default loop_wait of 10s: 10 + 2*120 = 250 <= 300.
+	// It is an int64 because DynamicConfiguration is deep-copied with
+	// runtime.DeepCopyJSON, which panics on int, and because integers read
+	// back from the API server are int64: any other type would make every
+	// reconcile see a difference and update the object.
+	singleInstancePatroniRetryTimeout int64 = 120
+)
+
+// applySingleInstancePatroniDCSTolerance keeps a single-instance cluster
+// writable while the Kubernetes API (Patroni's DCS) is unreachable.
+//
+// With the defaults, Patroni demotes the primary to read-only once it cannot
+// renew the leader lock for retry_timeout (10s), so a short API server outage
+// makes the database read-only. That demotion only exists to prevent split
+// brain, and with a single instance there is no other member that could be
+// promoted, so there is nothing to protect against:
+//   - failsafe_mode lets the primary keep running while the DCS is down as
+//     long as every member from the failsafe topology confirms it; Patroni
+//     treats a single-node topology as confirmed.
+//   - a longer retry_timeout/ttl covers the window before failsafe applies
+//     and the case where the failsafe topology was never written to the DCS.
+//     The longer ttl would only delay a failover, and there is no replica to
+//     fail over to.
+//
+// Clusters with more than one instance keep the Patroni defaults.
+func applySingleInstancePatroniDCSTolerance(pg *pgv2.PerconaPGCluster, replicas int32) {
+	if replicas != 1 {
+		return
+	}
+
+	if pg.Spec.Patroni == nil {
+		pg.Spec.Patroni = &crunchyv1beta1.PatroniSpec{}
+	}
+	pg.Spec.Patroni.LeaderLeaseDurationSeconds = pointer.ToInt32(singleInstancePatroniTTL)
+
+	if pg.Spec.Patroni.DynamicConfiguration == nil {
+		pg.Spec.Patroni.DynamicConfiguration = make(crunchyv1beta1.SchemalessObject)
+	}
+	pg.Spec.Patroni.DynamicConfiguration["failsafe_mode"] = true
+	pg.Spec.Patroni.DynamicConfiguration["retry_timeout"] = singleInstancePatroniRetryTimeout
 }
 
 // getBackupInfo returns the backup base name, backup storage name, and destination of the backup.
