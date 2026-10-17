@@ -499,13 +499,53 @@ type PSMDBEngineFeaturesStatus struct {
 	// AdvancedSecurity *PSMDBAdvancedSecurityStatus `json:"advancedSecurity,omitempty"`
 }
 
+// PostgreSQLExtension configures a PostgreSQL extension managed by the operator.
+// Extension settings (for example pg_stat_statements.max) are regular
+// PostgreSQL parameters and are set through .spec.engine.config.
+type PostgreSQLExtension struct {
+	// Enabled installs the extension in every database and loads its library
+	// when required. False removes it. Unset keeps the operator default.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// PostgreSQLExtensions configures the PostgreSQL extensions the operator manages.
+// +kubebuilder:validation:XValidation:rule="!(has(self.pgStatMonitor) && has(self.pgStatMonitor.enabled) && self.pgStatMonitor.enabled && has(self.pgStatStatements) && has(self.pgStatStatements.enabled) && self.pgStatStatements.enabled)",message="pgStatMonitor and pgStatStatements cannot both be enabled"
+type PostgreSQLExtensions struct {
+	// PGVector is the pgvector extension (vector data type and similarity search).
+	// +optional
+	PGVector *PostgreSQLExtension `json:"pgvector,omitempty"`
+	// PGStatStatements is the pg_stat_statements extension (query statistics).
+	// It cannot be enabled together with PGStatMonitor.
+	// +optional
+	PGStatStatements *PostgreSQLExtension `json:"pgStatStatements,omitempty"`
+	// PGStatMonitor is the pg_stat_monitor extension (query statistics).
+	// It cannot be enabled together with PGStatStatements.
+	// +optional
+	PGStatMonitor *PostgreSQLExtension `json:"pgStatMonitor,omitempty"`
+	// PGAudit is the pgAudit extension (audit logging).
+	// +optional
+	PGAudit *PostgreSQLExtension `json:"pgAudit,omitempty"`
+	// PGRepack is the pg_repack extension (online table reorganization).
+	// +optional
+	PGRepack *PostgreSQLExtension `json:"pgRepack,omitempty"`
+}
+
+// PostgreSQLEngineFeatures represents additional features for the PostgreSQL engine.
+type PostgreSQLEngineFeatures struct {
+	// Extensions configures the PostgreSQL extensions the operator manages.
+	// +optional
+	Extensions *PostgreSQLExtensions `json:"extensions,omitempty"`
+}
+
 // EngineFeatures represents configuration of additional features for the database engine.
 type EngineFeatures struct {
 	// PSMDB represents additional features for the PSMDB engine.
 	PSMDB *PSMDBEngineFeatures `json:"psmdb,omitempty"`
-	// NOTE: Features for PXC and PostgreSQL shall be added in the future, like:
+	// PostgreSQL represents additional features for the PostgreSQL engine.
+	PostgreSQL *PostgreSQLEngineFeatures `json:"postgresql,omitempty"`
+	// NOTE: Features for PXC shall be added in the future, like:
 	// PXC *PXCEngineFeatures `json:"pxc,omitempty"`
-	// PostgreSQL *PostgreSQLEngineFeatures `json:"postgresql,omitempty"`
 }
 
 // EngineFeaturesStatus represents additional features statuses for the database engine.
