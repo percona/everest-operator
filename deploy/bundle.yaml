@@ -788,6 +788,73 @@ spec:
                 description: EngineFeatures represents configuration of additional
                   features for the database engine.
                 properties:
+                  postgresql:
+                    description: PostgreSQL represents additional features for the
+                      PostgreSQL engine.
+                    properties:
+                      extensions:
+                        description: Extensions configures the PostgreSQL extensions
+                          the operator manages.
+                        properties:
+                          pgAudit:
+                            description: PGAudit is the pgAudit extension (audit logging).
+                            properties:
+                              enabled:
+                                description: |-
+                                  Enabled installs the extension in every database and loads its library
+                                  when required. False removes it. Unset keeps the operator default.
+                                type: boolean
+                            type: object
+                          pgRepack:
+                            description: PGRepack is the pg_repack extension (online
+                              table reorganization).
+                            properties:
+                              enabled:
+                                description: |-
+                                  Enabled installs the extension in every database and loads its library
+                                  when required. False removes it. Unset keeps the operator default.
+                                type: boolean
+                            type: object
+                          pgStatMonitor:
+                            description: |-
+                              PGStatMonitor is the pg_stat_monitor extension (query statistics).
+                              It cannot be enabled together with PGStatStatements.
+                            properties:
+                              enabled:
+                                description: |-
+                                  Enabled installs the extension in every database and loads its library
+                                  when required. False removes it. Unset keeps the operator default.
+                                type: boolean
+                            type: object
+                          pgStatStatements:
+                            description: |-
+                              PGStatStatements is the pg_stat_statements extension (query statistics).
+                              It cannot be enabled together with PGStatMonitor.
+                            properties:
+                              enabled:
+                                description: |-
+                                  Enabled installs the extension in every database and loads its library
+                                  when required. False removes it. Unset keeps the operator default.
+                                type: boolean
+                            type: object
+                          pgvector:
+                            description: PGVector is the pgvector extension (vector
+                              data type and similarity search).
+                            properties:
+                              enabled:
+                                description: |-
+                                  Enabled installs the extension in every database and loads its library
+                                  when required. False removes it. Unset keeps the operator default.
+                                type: boolean
+                            type: object
+                        type: object
+                        x-kubernetes-validations:
+                        - message: pgStatMonitor and pgStatStatements cannot both
+                            be enabled
+                          rule: '!(has(self.pgStatMonitor) && has(self.pgStatMonitor.enabled)
+                            && self.pgStatMonitor.enabled && has(self.pgStatStatements)
+                            && has(self.pgStatStatements.enabled) && self.pgStatStatements.enabled)'
+                    type: object
                   psmdb:
                     description: PSMDB represents additional features for the PSMDB
                       engine.

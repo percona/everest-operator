@@ -13,3 +13,8 @@ spec:
   proxy:
     replicas: 3
     type: pgbouncer
+  engineFeatures:
+    postgresql:
+      extensions:
+        pgvector:
+          enabled: true

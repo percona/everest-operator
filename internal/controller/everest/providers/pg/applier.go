@@ -183,8 +183,39 @@ func (p *applier) Engine() error {
 }
 
 func (p *applier) EngineFeatures() error {
-	// Nothing to do here for PG
+	pgFeatures := pointer.Get(p.DB.Spec.EngineFeatures).PostgreSQL
+	if pgFeatures == nil {
+		return nil
+	}
+	applyExtensions(&p.PerconaPGCluster.Spec.Extensions, pgFeatures.Extensions)
 	return nil
+}
+
+// applyExtensions sets the operator-managed extensions declared in the
+// DatabaseCluster. Extensions that are not declared stay unset, so the
+// operator applies its defaults.
+//
+// The deprecated extensions.builtin fields are used because they are
+// understood by every supported PG operator version; the per-extension
+// fields (extensions.<name>.enabled) only exist from PG operator 3.1.0, and
+// unknown fields would be pruned by older CRDs on every update.
+func applyExtensions(spec *pgv2.ExtensionsSpec, extensions *everestv1alpha1.PostgreSQLExtensions) {
+	if extensions == nil {
+		return
+	}
+	enabled := func(ext *everestv1alpha1.PostgreSQLExtension) *bool {
+		if ext == nil || ext.Enabled == nil {
+			return nil
+		}
+		return pointer.ToBool(*ext.Enabled)
+	}
+	spec.BuiltIn = pgv2.BuiltInExtensionsSpec{
+		PGVector:         enabled(extensions.PGVector),
+		PGStatStatements: enabled(extensions.PGStatStatements),
+		PGStatMonitor:    enabled(extensions.PGStatMonitor),
+		PGAudit:          enabled(extensions.PGAudit),
+		PGRepack:         enabled(extensions.PGRepack),
+	}
 }
 
 func (p *applier) Proxy() error {

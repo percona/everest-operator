@@ -75,7 +75,8 @@ spec:
     pgbackrest:
       repos: []
   extensions:
-    builtin: {}
+    builtin:
+      pgvector: true
     storage: {}
     imagePullPolicy: IfNotPresent
   imagePullPolicy: IfNotPresent
